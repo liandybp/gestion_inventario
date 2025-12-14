@@ -39,12 +39,13 @@ class InventoryRepository:
             )
         )
 
-    def stock_list(self, query: str = "") -> list[tuple[str, str, float, float]]:
+    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float]]:
         q = query.strip()
         stmt = (
             select(
                 Product.sku,
                 Product.name,
+                Product.unit_of_measure,
                 func.coalesce(func.sum(InventoryLot.qty_remaining), 0).label("qty"),
                 Product.min_stock,
             )
@@ -59,17 +60,19 @@ class InventoryRepository:
             stmt.group_by(Product.id).order_by(Product.name)
         ).all()
         return [
-            (sku, name, float(qty or 0), float(min_stock or 0))
-            for sku, name, qty, min_stock in rows
+            (sku, name, uom or "", float(qty or 0), float(min_stock or 0))
+            for sku, name, uom, qty, min_stock in rows
         ]
 
     def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
         q = query.strip()
         stmt = (
             select(
+                InventoryMovement.id,
                 InventoryMovement.movement_date,
                 Product.sku,
                 Product.name,
+                Product.unit_of_measure,
                 InventoryMovement.quantity,
                 InventoryMovement.unit_cost,
                 InventoryLot.lot_code,
@@ -90,9 +93,11 @@ class InventoryRepository:
         q = query.strip()
         stmt = (
             select(
+                InventoryMovement.id,
                 InventoryMovement.movement_date,
                 Product.sku,
                 Product.name,
+                Product.unit_of_measure,
                 func.abs(InventoryMovement.quantity),
                 InventoryMovement.unit_price,
             )

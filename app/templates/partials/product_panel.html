@@ -4,9 +4,11 @@
   <form hx-post="/ui/product" hx-target="#product-panel" hx-swap="outerHTML">
     <div class="row"><label>SKU</label><input name="sku" placeholder="(auto si lo dejas vacío)" /></div>
     <div class="row"><label>Nombre</label><input name="name" required /></div>
+    <div class="row"><label>Unidad</label><input name="unit_of_measure" placeholder="(ej: u, kg, m, caja)" /></div>
     <div class="row"><label>Categoría</label><input name="category" placeholder="(opcional)" /></div>
     <div class="row"><label>Stock mínimo</label><input name="min_stock" type="number" step="0.0001" min="0" value="0" /></div>
-    <div class="row"><label>Precio venta por defecto</label><input name="default_sale_price" type="number" step="0.0001" min="0" /></div>
+    <div class="row"><label>Costo compra por defecto</label><input name="default_purchase_cost" type="number" step="0.0001" min="0" required /></div>
+    <div class="row"><label>Precio venta por defecto</label><input name="default_sale_price" type="number" step="0.0001" min="0" required /></div>
     <button type="submit">Crear producto</button>
   </form>
 

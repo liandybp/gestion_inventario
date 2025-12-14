@@ -4,20 +4,29 @@
       <th>Fecha</th>
       <th>SKU</th>
       <th>Nombre</th>
+      <th>Unidad</th>
       <th>Cant.</th>
       <th>Costo</th>
       <th>Lote</th>
+      <th>Acciones</th>
     </tr>
   </thead>
   <tbody>
-    {% for d, sku, name, qty, unit_cost, lot_code in purchases %}
+    {% for id, d, sku, name, uom, qty, unit_cost, lot_code in purchases %}
       <tr>
-        <td>{{ d }}</td>
+        <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
         <td>{{ sku }}</td>
         <td>{{ name }}</td>
+        <td>{{ uom or '' }}</td>
         <td>{{ '%.4f'|format(qty) }}</td>
         <td>{{ '%.4f'|format(unit_cost or 0) }}</td>
         <td>{{ lot_code or '' }}</td>
+        <td>
+          <button type="button"
+                  hx-get="/ui/movement/purchase/{{ id }}/edit"
+                  hx-target="#purchase-edit"
+                  hx-swap="innerHTML">Editar</button>
+        </td>
       </tr>
     {% endfor %}
   </tbody>

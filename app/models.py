@@ -19,6 +19,10 @@ class Product(Base):
     min_stock: Mapped[float] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=False, default=0, server_default="0"
     )
+    unit_of_measure: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    default_purchase_cost: Mapped[Optional[float]] = mapped_column(
+        Numeric(14, 4, asdecimal=False), nullable=True
+    )
     default_sale_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )

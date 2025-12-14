@@ -1,0 +1,23 @@
+<div>
+  <h2>Inicio</h2>
+  <p class="muted">Resumen general (lo iremos ampliando paso a paso).</p>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+    <div class="card">
+      <div class="muted">Productos</div>
+      <div style="font-size:22px;font-weight:700;">{{ totals.products }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">Stock total</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.4f'|format(totals.stock_total) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">Por reponer</div>
+      <div style="font-size:22px;font-weight:700;">{{ totals.to_restock }}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;" id="restock"
+       hx-get="/ui/restock-table" hx-trigger="load, every 5s" hx-swap="innerHTML">
+  </div>
+</div>

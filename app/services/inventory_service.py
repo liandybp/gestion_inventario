@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, InventoryMovement, MovementAllocation, Product
@@ -68,13 +69,220 @@ class InventoryService:
         if remaining > 0:
             raise HTTPException(status_code=409, detail="Insufficient stock")
 
+    def _rebuild_product_fifo(self, product: Product, lot_code_overrides: Optional[dict[int, str]] = None) -> None:
+        overrides = lot_code_overrides or {}
+
+        existing_codes = {
+            lot.movement_id: lot.lot_code
+            for lot in self._db.scalars(
+                select(InventoryLot).where(InventoryLot.product_id == product.id)
+            )
+        }
+        existing_codes.update(overrides)
+
+        self._db.execute(
+            delete(MovementAllocation).where(
+                MovementAllocation.movement_id.in_(
+                    select(InventoryMovement.id).where(InventoryMovement.product_id == product.id)
+                )
+            )
+        )
+        self._db.execute(delete(InventoryLot).where(InventoryLot.product_id == product.id))
+        self._db.flush()
+
+        movements = list(
+            self._db.scalars(
+                select(InventoryMovement)
+                .where(InventoryMovement.product_id == product.id)
+                .order_by(InventoryMovement.movement_date, InventoryMovement.id)
+            )
+        )
+
+        fifo_lots: list[InventoryLot] = []
+        for mv in movements:
+            qty = float(mv.quantity)
+            if mv.type in ("purchase", "adjustment") and qty > 0:
+                code = existing_codes.get(mv.id)
+                if not code:
+                    prefix = "ADJ" if mv.type == "adjustment" else product.sku
+                    code = f"{prefix}-{mv.movement_date:%Y%m%d%H%M%S%f}"
+
+                lot = InventoryLot(
+                    movement_id=mv.id,
+                    product_id=product.id,
+                    lot_code=code,
+                    received_at=mv.movement_date,
+                    unit_cost=float(mv.unit_cost or 0),
+                    qty_received=qty,
+                    qty_remaining=qty,
+                )
+                self._db.add(lot)
+                self._db.flush()
+                fifo_lots.append(lot)
+                continue
+
+            consume_qty = 0.0
+            if mv.type == "sale":
+                consume_qty = abs(qty)
+            elif mv.type == "adjustment" and qty < 0:
+                consume_qty = abs(qty)
+
+            if consume_qty <= 0:
+                continue
+
+            remaining = consume_qty
+            for lot in fifo_lots:
+                if remaining <= 0:
+                    break
+                take = min(float(lot.qty_remaining), remaining)
+                if take <= 0:
+                    continue
+                lot.qty_remaining = float(lot.qty_remaining) - take
+                alloc = MovementAllocation(
+                    movement_id=mv.id,
+                    lot_id=lot.id,
+                    quantity=take,
+                    unit_cost=float(lot.unit_cost),
+                )
+                self._db.add(alloc)
+                remaining -= take
+
+            if remaining > 0:
+                raise HTTPException(status_code=409, detail="Insufficient stock")
+
+    def reset_purchases_and_sales(self) -> None:
+        movement_ids = select(InventoryMovement.id).where(
+            InventoryMovement.type.in_(("purchase", "sale"))
+        )
+        purchase_ids = select(InventoryMovement.id).where(InventoryMovement.type == "purchase")
+        purchase_lot_ids = select(InventoryLot.id).where(InventoryLot.movement_id.in_(purchase_ids))
+
+        self._db.execute(
+            delete(MovementAllocation).where(
+                (MovementAllocation.movement_id.in_(movement_ids))
+                | (MovementAllocation.lot_id.in_(purchase_lot_ids))
+            )
+        )
+        self._db.execute(delete(InventoryLot).where(InventoryLot.id.in_(purchase_lot_ids)))
+        self._db.execute(delete(InventoryMovement).where(InventoryMovement.id.in_(movement_ids)))
+        self._db.commit()
+
+    def update_purchase(
+        self,
+        movement_id: int,
+        sku: str,
+        quantity: float,
+        unit_cost: float,
+        movement_date: Optional[datetime],
+        lot_code: Optional[str],
+        note: Optional[str],
+    ) -> MovementResult:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "purchase":
+            raise HTTPException(status_code=404, detail="Purchase movement not found")
+
+        if quantity <= 0:
+            raise HTTPException(status_code=422, detail="quantity must be > 0")
+        if unit_cost < 0:
+            raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
+
+        old_product_id = mv.product_id
+        product = self._get_product(sku)
+        mv.product_id = product.id
+        mv.quantity = quantity
+        mv.unit_cost = unit_cost
+        mv.movement_date = self._movement_datetime(movement_date)
+        mv.note = note
+
+        self._db.flush()
+
+        overrides: dict[int, str] = {}
+        if lot_code:
+            overrides[mv.id] = lot_code
+
+        affected_ids = {old_product_id, product.id}
+        try:
+            for pid in affected_ids:
+                prod = self._db.get(Product, pid)
+                if prod is None:
+                    continue
+                self._rebuild_product_fifo(prod, lot_code_overrides=overrides if pid == product.id else None)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+        self._db.refresh(mv)
+        stock_after = self._inventory.stock_for_product_id(product.id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(mv),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
+    def update_sale(
+        self,
+        movement_id: int,
+        sku: str,
+        quantity: float,
+        unit_price: float,
+        movement_date: Optional[datetime],
+        note: Optional[str],
+    ) -> MovementResult:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "sale":
+            raise HTTPException(status_code=404, detail="Sale movement not found")
+
+        if quantity <= 0:
+            raise HTTPException(status_code=422, detail="quantity must be > 0")
+        if unit_price < 0:
+            raise HTTPException(status_code=422, detail="unit_price must be >= 0")
+
+        old_product_id = mv.product_id
+        product = self._get_product(sku)
+        mv.product_id = product.id
+        mv.quantity = -quantity
+        mv.unit_price = unit_price
+        mv.movement_date = self._movement_datetime(movement_date)
+        mv.note = note
+
+        self._db.flush()
+
+        affected_ids = {old_product_id, product.id}
+        try:
+            for pid in affected_ids:
+                prod = self._db.get(Product, pid)
+                if prod is None:
+                    continue
+                self._rebuild_product_fifo(prod)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+        self._db.refresh(mv)
+        stock_after = self._inventory.stock_for_product_id(product.id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(mv),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
     def purchase(self, payload: PurchaseCreate) -> MovementResult:
         if payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
-        if payload.unit_cost < 0:
-            raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
 
         product = self._get_product(payload.sku)
+        unit_cost = payload.unit_cost
+        if unit_cost is None:
+            unit_cost = product.default_purchase_cost
+        if unit_cost is None:
+            raise HTTPException(status_code=422, detail="unit_cost is required")
+        if unit_cost < 0:
+            raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
+
         movement_dt = self._movement_datetime(payload.movement_date)
         lot_code = payload.lot_code or f"{product.sku}-{movement_dt:%Y%m%d%H%M%S%f}"
 
@@ -82,7 +290,7 @@ class InventoryService:
             product_id=product.id,
             type="purchase",
             quantity=payload.quantity,
-            unit_cost=payload.unit_cost,
+            unit_cost=unit_cost,
             unit_price=None,
             movement_date=movement_dt,
             note=payload.note,
@@ -95,7 +303,7 @@ class InventoryService:
             product_id=product.id,
             lot_code=lot_code,
             received_at=movement_dt,
-            unit_cost=payload.unit_cost,
+            unit_cost=unit_cost,
             qty_received=payload.quantity,
             qty_remaining=payload.quantity,
         )
@@ -114,10 +322,16 @@ class InventoryService:
     def sale(self, payload: SaleCreate) -> MovementResult:
         if payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
-        if payload.unit_price < 0:
-            raise HTTPException(status_code=422, detail="unit_price must be >= 0")
 
         product = self._get_product(payload.sku)
+        unit_price = payload.unit_price
+        if unit_price is None:
+            unit_price = product.default_sale_price
+        if unit_price is None:
+            raise HTTPException(status_code=422, detail="unit_price is required")
+        if unit_price < 0:
+            raise HTTPException(status_code=422, detail="unit_price must be >= 0")
+
         movement_dt = self._movement_datetime(payload.movement_date)
 
         stock_before = self._inventory.stock_for_product_id(product.id)
@@ -129,7 +343,7 @@ class InventoryService:
             type="sale",
             quantity=-payload.quantity,
             unit_cost=None,
-            unit_price=payload.unit_price,
+            unit_price=unit_price,
             movement_date=movement_dt,
             note=payload.note,
         )
@@ -224,6 +438,7 @@ class InventoryService:
         return StockRead(
             sku=product.sku,
             name=product.name,
+            unit_of_measure=product.unit_of_measure,
             quantity=qty,
             min_stock=min_stock,
             needs_restock=min_stock > 0 and qty < min_stock,
@@ -234,11 +449,12 @@ class InventoryService:
             StockRead(
                 sku=sku,
                 name=name,
+                unit_of_measure=uom or None,
                 quantity=qty,
                 min_stock=min_stock,
                 needs_restock=min_stock > 0 and qty < min_stock,
             )
-            for sku, name, qty, min_stock in self._inventory.stock_list(query=query)
+            for sku, name, uom, qty, min_stock in self._inventory.stock_list(query=query)
         ]
 
     def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:

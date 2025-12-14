@@ -1,3 +1,6 @@
+<h3>Artículos a reponer</h3>
+<p class="muted">Stock actual por debajo del stock mínimo.</p>
+
 <table>
   <thead>
     <tr>
@@ -6,26 +9,24 @@
       <th>Unidad</th>
       <th>Stock</th>
       <th>Mínimo</th>
-      <th>Reponer</th>
-      <th>Acciones</th>
+      <th>Falta</th>
     </tr>
   </thead>
   <tbody>
     {% for item in items %}
-      <tr class="{% if item.needs_restock %}warn{% endif %}">
+      <tr class="warn">
         <td>{{ item.sku }}</td>
         <td>{{ item.name or '' }}</td>
         <td>{{ item.unit_of_measure or '' }}</td>
         <td>{{ '%.4f'|format(item.quantity) }}</td>
         <td>{{ '%.4f'|format(item.min_stock) }}</td>
-        <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
-        <td>
-          <button type="button"
-                  hx-get="/ui/product/{{ item.sku }}/edit-inventory"
-                  hx-target="#inventory-edit"
-                  hx-swap="innerHTML">Editar</button>
-        </td>
+        <td>{{ '%.4f'|format(item.min_stock - item.quantity) }}</td>
       </tr>
     {% endfor %}
+    {% if items|length == 0 %}
+      <tr>
+        <td colspan="6" class="muted">Sin alertas por ahora.</td>
+      </tr>
+    {% endif %}
   </tbody>
 </table>

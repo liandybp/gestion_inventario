@@ -11,6 +11,18 @@ class ProductCreate(BaseModel):
     name: str
     category: Optional[str] = None
     min_stock: float = 0
+    unit_of_measure: Optional[str] = None
+    default_purchase_cost: Optional[float] = None
+    default_sale_price: Optional[float] = None
+
+
+class ProductUpdate(BaseModel):
+    sku: Optional[str] = None
+    name: str
+    category: Optional[str] = None
+    min_stock: float = 0
+    unit_of_measure: Optional[str] = None
+    default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None
 
 
@@ -20,6 +32,8 @@ class ProductRead(BaseModel):
     name: str
     category: Optional[str]
     min_stock: float
+    unit_of_measure: Optional[str]
+    default_purchase_cost: Optional[float]
     default_sale_price: Optional[float]
 
     model_config = {"from_attributes": True}
@@ -28,7 +42,7 @@ class ProductRead(BaseModel):
 class PurchaseCreate(BaseModel):
     sku: str
     quantity: float
-    unit_cost: float
+    unit_cost: Optional[float] = None
     movement_date: Optional[datetime] = None
     lot_code: Optional[str] = None
     note: Optional[str] = None
@@ -37,7 +51,7 @@ class PurchaseCreate(BaseModel):
 class SaleCreate(BaseModel):
     sku: str
     quantity: float
-    unit_price: float
+    unit_price: Optional[float] = None
     movement_date: Optional[datetime] = None
     note: Optional[str] = None
 
@@ -72,6 +86,7 @@ class MovementResult(BaseModel):
 class StockRead(BaseModel):
     sku: str
     name: Optional[str] = None
+    unit_of_measure: Optional[str] = None
     quantity: float
     min_stock: float
     needs_restock: bool

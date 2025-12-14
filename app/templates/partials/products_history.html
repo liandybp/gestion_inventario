@@ -3,8 +3,11 @@
     <tr>
       <th>SKU</th>
       <th>Nombre</th>
+      <th>Unidad</th>
       <th>Categoría</th>
       <th>Stock mín.</th>
+      <th>Costo def.</th>
+      <th>Precio def.</th>
     </tr>
   </thead>
   <tbody>
@@ -12,8 +15,11 @@
       <tr>
         <td>{{ p.sku }}</td>
         <td>{{ p.name }}</td>
+        <td>{{ p.unit_of_measure or '' }}</td>
         <td>{{ p.category or '' }}</td>
         <td>{{ '%.4f'|format(p.min_stock or 0) }}</td>
+        <td>{{ '%.4f'|format(p.default_purchase_cost or 0) }}</td>
+        <td>{{ '%.4f'|format(p.default_sale_price or 0) }}</td>
       </tr>
     {% endfor %}
   </tbody>

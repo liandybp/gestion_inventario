@@ -19,3 +19,17 @@ app.include_router(ui_router)
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+
+    with engine.connect() as conn:
+        cols = {
+            row[1]
+            for row in conn.exec_driver_sql("PRAGMA table_info(products)").fetchall()
+        }
+        if "unit_of_measure" not in cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE products ADD COLUMN unit_of_measure VARCHAR(32)"
+            )
+        if "default_purchase_cost" not in cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE products ADD COLUMN default_purchase_cost NUMERIC(14, 4)"
+            )
