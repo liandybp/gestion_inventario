@@ -51,6 +51,21 @@ class InventoryMovement(Base):
     )
 
 
+class MoneyExtraction(Base):
+    __tablename__ = "money_extractions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    extraction_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    party: Mapped[str] = mapped_column(String(32), index=True)
+    amount: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+    concept: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class InventoryLot(Base):
     __tablename__ = "inventory_lots"
 

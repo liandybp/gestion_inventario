@@ -134,6 +134,24 @@ def tab_expenses(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
     )
 
 
+@router.get("/tabs/dividends", response_class=HTMLResponse)
+def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    service = InventoryService(db)
+    now = datetime.now(timezone.utc)
+    start, end = _month_range(now)
+    summary = service.monthly_dividends_report(now=now)
+    extractions = service.list_extractions(start=start, end=end, limit=200)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_dividends.html",
+        context={
+            "summary": summary,
+            "extractions": extractions,
+            "movement_date_default": _dt_to_local_input(now),
+        },
+    )
+
+
 @router.post("/expenses/create", response_class=HTMLResponse)
 def expense_create(
     request: Request,
@@ -152,7 +170,7 @@ def expense_create(
             request=request,
             name="partials/tab_expenses.html",
             context={
-                "message": "Gasto registrado",
+                "message": "Costo operativo registrado",
                 "message_class": "ok",
                 "expenses": expenses,
                 "expenses_total": total,
@@ -177,6 +195,56 @@ def expense_create(
         )
 
 
+@router.post("/extractions/create", response_class=HTMLResponse)
+def extraction_create(
+    request: Request,
+    extraction_date: Optional[str] = Form(None),
+    party: str = Form(...),
+    amount: float = Form(...),
+    concept: str = Form(...),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    now = datetime.now(timezone.utc)
+    start, end = _month_range(now)
+    try:
+        service.create_extraction(
+            party=party,
+            amount=amount,
+            concept=concept,
+            extraction_date=_parse_dt(extraction_date),
+        )
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Retiro registrado",
+                "message_class": "ok",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+        )
+    except Exception as e:
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Error al registrar retiro",
+                "message_detail": str(e),
+                "message_class": "error",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+            status_code=400,
+        )
+
+
 @router.get("/expense/{expense_id}/edit", response_class=HTMLResponse)
 def expense_edit_form(
     request: Request,
@@ -191,6 +259,24 @@ def expense_edit_form(
         context={
             "expense": expense,
             "expense_date_value": _dt_to_local_input(expense.expense_date),
+        },
+    )
+
+
+@router.get("/extraction/{extraction_id}/edit", response_class=HTMLResponse)
+def extraction_edit_form(
+    request: Request,
+    extraction_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    extraction = service.get_extraction(extraction_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/extraction_edit_form.html",
+        context={
+            "extraction": extraction,
+            "extraction_date_value": _dt_to_local_input(extraction.extraction_date),
         },
     )
 
@@ -219,7 +305,7 @@ def expense_update(
             request=request,
             name="partials/tab_expenses.html",
             context={
-                "message": "Gasto actualizado",
+                "message": "Costo operativo actualizado",
                 "message_class": "ok",
                 "expenses": expenses,
                 "expenses_total": total,
@@ -255,6 +341,74 @@ def expense_update(
                 "expenses": expenses,
                 "expenses_total": total,
                 "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+
+@router.post("/extraction/{extraction_id}/update", response_class=HTMLResponse)
+def extraction_update(
+    request: Request,
+    extraction_id: int,
+    extraction_date: Optional[str] = Form(None),
+    party: str = Form(...),
+    amount: float = Form(...),
+    concept: str = Form(...),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    now = datetime.now(timezone.utc)
+    start, end = _month_range(now)
+    try:
+        service.update_extraction(
+            extraction_id=extraction_id,
+            party=party,
+            amount=amount,
+            concept=concept,
+            extraction_date=_parse_dt(extraction_date),
+        )
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Retiro actualizado",
+                "message_class": "ok",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+        )
+    except HTTPException as e:
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Error al actualizar retiro",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Error al actualizar retiro",
+                "message_detail": str(e),
+                "message_class": "error",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
             },
             status_code=400,
         )

@@ -7,7 +7,14 @@ from fastapi import HTTPException
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
-from app.models import InventoryLot, InventoryMovement, MovementAllocation, OperatingExpense, Product
+from app.models import (
+    InventoryLot,
+    InventoryMovement,
+    MoneyExtraction,
+    MovementAllocation,
+    OperatingExpense,
+    Product,
+)
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.product_repository import ProductRepository
 from app.schemas import (
@@ -186,6 +193,100 @@ class InventoryService:
         )
         self._db.add(exp)
         self._db.commit()
+
+    def create_extraction(
+        self,
+        party: str,
+        amount: float,
+        concept: str,
+        extraction_date: Optional[datetime],
+    ) -> None:
+        row = MoneyExtraction(
+            party=(party or "").strip(),
+            amount=float(amount),
+            concept=concept.strip(),
+            extraction_date=self._movement_datetime(extraction_date),
+        )
+        self._db.add(row)
+        self._db.commit()
+
+    def get_extraction(self, extraction_id: int) -> MoneyExtraction:
+        row = self._db.get(MoneyExtraction, extraction_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Extraction not found")
+        return row
+
+    def update_extraction(
+        self,
+        extraction_id: int,
+        party: str,
+        amount: float,
+        concept: str,
+        extraction_date: Optional[datetime],
+    ) -> None:
+        row = self.get_extraction(extraction_id)
+        row.party = (party or "").strip()
+        row.amount = float(amount)
+        row.concept = concept.strip()
+        row.extraction_date = self._movement_datetime(extraction_date)
+        self._db.commit()
+
+    def list_extractions(self, start: datetime, end: datetime, limit: int = 200) -> list[MoneyExtraction]:
+        return list(
+            self._db.scalars(
+                select(MoneyExtraction)
+                .where(and_(MoneyExtraction.extraction_date >= start, MoneyExtraction.extraction_date < end))
+                .order_by(MoneyExtraction.extraction_date.desc(), MoneyExtraction.id.desc())
+                .limit(limit)
+            )
+        )
+
+    def total_extractions_by_party(self, start: datetime, end: datetime) -> dict[str, float]:
+        rows = self._db.execute(
+            select(
+                MoneyExtraction.party,
+                func.coalesce(func.sum(MoneyExtraction.amount), 0).label("total"),
+            )
+            .where(and_(MoneyExtraction.extraction_date >= start, MoneyExtraction.extraction_date < end))
+            .group_by(MoneyExtraction.party)
+        ).all()
+        return {(party or ""): float(total or 0) for party, total in rows}
+
+    def monthly_dividends_report(self, now: Optional[datetime] = None) -> dict:
+        now_dt = now or datetime.now(timezone.utc)
+        start, end = self._month_range(now_dt)
+        summary, _items = self.monthly_profit_report(now=now_dt)
+        extraction_totals = self.total_extractions_by_party(start=start, end=end)
+
+        cogs_total = float(summary.get("cogs_total", 0) or 0)
+        expenses_total = float(summary.get("expenses_total", 0) or 0)
+        net_total = float(summary.get("net_total", 0) or 0)
+        share_each = net_total / 2.0
+
+        negocio_ext = float(extraction_totals.get("Negocio", 0) or 0)
+        liandy_ext = float(extraction_totals.get("Liandy", 0) or 0)
+        randy_ext = float(extraction_totals.get("Randy", 0) or 0)
+
+        pending = {
+            "Negocio": (cogs_total + expenses_total) - negocio_ext,
+            "Liandy": share_each - liandy_ext,
+            "Randy": share_each - randy_ext,
+        }
+
+        return {
+            "month_start": start,
+            "month_end": end,
+            "cogs_total": cogs_total,
+            "expenses_total": expenses_total,
+            "net_total": net_total,
+            "share_each": share_each,
+            "extractions": {
+                "Negocio": negocio_ext,
+                "Liandy": liandy_ext,
+                "Randy": randy_ext,
+            },
+            "pending": pending,
+        }
 
     def get_expense(self, expense_id: int) -> OperatingExpense:
         exp = self._db.get(OperatingExpense, expense_id)

@@ -145,9 +145,8 @@
       <button class="tab" id="tab-expenses" aria-selected="false"
               hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML"
               hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
-        Gastos
+        Costos operativos
       </button>
-
       <button class="tab" id="tab-profit-items" aria-selected="false"
               hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML"
               hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
@@ -159,6 +158,13 @@
               hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
         Utilidades
       </button>
+
+      <button class="tab" id="tab-dividends" aria-selected="false"
+              hx-get="/ui/tabs/dividends" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Dividendos
+      </button>
+
     </div>
 
     <div id="tab-content" class="card"
