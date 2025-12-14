@@ -3,6 +3,7 @@
   <thead>
     <tr>
       <th>SKU</th>
+      <th>Nombre</th>
       <th>Stock</th>
       <th>Mínimo</th>
       <th>Reponer</th>
@@ -12,6 +13,7 @@
     {% for item in items %}
       <tr class="{% if item.needs_restock %}warn{% endif %}">
         <td>{{ item.sku }}</td>
+        <td>{{ item.name or '' }}</td>
         <td>{{ '%.4f'|format(item.quantity) }}</td>
         <td>{{ '%.4f'|format(item.min_stock) }}</td>
         <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>

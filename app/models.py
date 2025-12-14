@@ -50,6 +50,9 @@ class InventoryLot(Base):
     __tablename__ = "inventory_lots"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    movement_id: Mapped[int] = mapped_column(
+        ForeignKey("inventory_movements.id"), index=True
+    )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     lot_code: Mapped[str] = mapped_column(String(64), index=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

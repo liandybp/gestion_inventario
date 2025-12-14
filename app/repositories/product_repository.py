@@ -25,5 +25,19 @@ class ProductRepository:
         ).all()
         return [sku for (sku,) in rows]
 
+    def search(self, query: str, limit: int = 20) -> list[Product]:
+        q = query.strip()
+        if not q:
+            return self.list()[:limit]
+        like = f"%{q}%"
+        return list(
+            self._db.scalars(
+                select(Product)
+                .where((Product.sku.like(like)) | (Product.name.like(like)))
+                .order_by(Product.name)
+                .limit(limit)
+            )
+        )
+
     def add(self, product: Product) -> None:
         self._db.add(product)

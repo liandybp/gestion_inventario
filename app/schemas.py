@@ -71,6 +71,7 @@ class MovementResult(BaseModel):
 
 class StockRead(BaseModel):
     sku: str
+    name: Optional[str] = None
     quantity: float
     min_stock: float
     needs_restock: bool

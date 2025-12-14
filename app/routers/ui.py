@@ -27,17 +27,37 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
     return dt
 
 
+def _extract_sku(product_field: str) -> str:
+    value = (product_field or "").strip()
+    if " - " in value:
+        value = value.split(" - ", 1)[0].strip()
+    return value
+
+
 @router.get("/", response_class=HTMLResponse)
 def ui_root() -> RedirectResponse:
     return RedirectResponse(url="/ui/dashboard", status_code=302)
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request) -> HTMLResponse:
+def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    product_service = ProductService(db)
+    inventory_service = InventoryService(db)
+
+    products = product_service.recent(limit=20)
+    product_options = product_service.search(query="", limit=200)
+    purchases = inventory_service.recent_purchases(limit=20)
+    sales = inventory_service.recent_sales(limit=20)
+
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={},
+        context={
+            "products": products,
+            "product_options": product_options,
+            "purchases": purchases,
+            "sales": sales,
+        },
     )
 
 
@@ -45,9 +65,10 @@ def dashboard(request: Request) -> HTMLResponse:
 def stock_table(
     request: Request,
     db: Session = Depends(session_dep),
+    query: str = "",
 ) -> HTMLResponse:
     service = InventoryService(db)
-    items = service.stock_list()
+    items = service.stock_list(query=query)
     return templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
@@ -58,7 +79,7 @@ def stock_table(
 @router.post("/purchase", response_class=HTMLResponse)
 def purchase(
     request: Request,
-    sku: str = Form(...),
+    product: str = Form(...),
     quantity: float = Form(...),
     unit_cost: float = Form(...),
     movement_date: Optional[str] = Form(None),
@@ -67,6 +88,8 @@ def purchase(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     service = InventoryService(db)
+    product_service = ProductService(db)
+    sku = _extract_sku(product)
     try:
         result = service.purchase(
             PurchaseCreate(
@@ -78,29 +101,27 @@ def purchase(
                 note=note or None,
             )
         )
-        items = service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/purchase_panel.html",
             context={
-                "title": "Compra registrada",
-                "detail": f"Stock después: {result.stock_after}",
-                "warning": result.warning,
-                "error": None,
-                "items": items,
+                "message": "Compra registrada",
+                "message_detail": f"Stock después: {result.stock_after}",
+                "message_class": "ok" if not result.warning else "warn",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
         )
     except HTTPException as e:
-        items = service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/purchase_panel.html",
             context={
-                "title": "Error en compra",
-                "detail": str(e.detail),
-                "warning": None,
-                "error": True,
-                "items": items,
+                "message": "Error en compra",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
             status_code=e.status_code,
         )
@@ -109,7 +130,7 @@ def purchase(
 @router.post("/sale", response_class=HTMLResponse)
 def sale(
     request: Request,
-    sku: str = Form(...),
+    product: str = Form(...),
     quantity: float = Form(...),
     unit_price: float = Form(...),
     movement_date: Optional[str] = Form(None),
@@ -117,6 +138,8 @@ def sale(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     service = InventoryService(db)
+    product_service = ProductService(db)
+    sku = _extract_sku(product)
     try:
         result = service.sale(
             SaleCreate(
@@ -127,29 +150,27 @@ def sale(
                 note=note or None,
             )
         )
-        items = service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/sale_panel.html",
             context={
-                "title": "Venta registrada",
-                "detail": f"Stock después: {result.stock_after}",
-                "warning": result.warning,
-                "error": None,
-                "items": items,
+                "message": "Venta registrada",
+                "message_detail": f"Stock después: {result.stock_after}",
+                "message_class": "ok" if not result.warning else "warn",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
         )
     except HTTPException as e:
-        items = service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/sale_panel.html",
             context={
-                "title": "Error en venta",
-                "detail": str(e.detail),
-                "warning": None,
-                "error": True,
-                "items": items,
+                "message": "Error en venta",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
             status_code=e.status_code,
         )
@@ -177,29 +198,27 @@ def create_product(
                 default_sale_price=default_sale_price,
             )
         )
-        items = inventory_service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/product_panel.html",
             context={
-                "title": "Producto creado",
-                "detail": f"SKU: {created.sku}",
-                "warning": None,
-                "error": None,
-                "items": items,
+                "message": "Producto creado",
+                "message_detail": f"SKU: {created.sku}",
+                "message_class": "ok",
+                "products": product_service.recent(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
         )
     except HTTPException as e:
-        items = inventory_service.stock_list()
         return templates.TemplateResponse(
             request=request,
-            name="partials/action_result.html",
+            name="partials/product_panel.html",
             context={
-                "title": "Error al crear producto",
-                "detail": str(e.detail),
-                "warning": None,
-                "error": True,
-                "items": items,
+                "message": "Error al crear producto",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "products": product_service.recent(limit=20),
+                "product_options": product_service.search(query="", limit=200),
             },
             status_code=e.status_code,
         )

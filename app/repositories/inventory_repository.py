@@ -39,16 +39,70 @@ class InventoryRepository:
             )
         )
 
-    def stock_list(self) -> list[tuple[str, float, float]]:
-        rows = self._db.execute(
+    def stock_list(self, query: str = "") -> list[tuple[str, str, float, float]]:
+        q = query.strip()
+        stmt = (
             select(
                 Product.sku,
+                Product.name,
                 func.coalesce(func.sum(InventoryLot.qty_remaining), 0).label("qty"),
                 Product.min_stock,
             )
             .select_from(Product)
             .outerjoin(InventoryLot, InventoryLot.product_id == Product.id)
-            .group_by(Product.id)
-            .order_by(Product.sku)
+        )
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+
+        rows = self._db.execute(
+            stmt.group_by(Product.id).order_by(Product.name)
         ).all()
-        return [(sku, float(qty or 0), float(min_stock or 0)) for sku, qty, min_stock in rows]
+        return [
+            (sku, name, float(qty or 0), float(min_stock or 0))
+            for sku, name, qty, min_stock in rows
+        ]
+
+    def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
+        q = query.strip()
+        stmt = (
+            select(
+                InventoryMovement.movement_date,
+                Product.sku,
+                Product.name,
+                InventoryMovement.quantity,
+                InventoryMovement.unit_cost,
+                InventoryLot.lot_code,
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .outerjoin(InventoryLot, InventoryLot.movement_id == InventoryMovement.id)
+            .where(InventoryMovement.type == "purchase")
+            .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
+            .limit(limit)
+        )
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+        return list(self._db.execute(stmt).all())
+
+    def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
+        q = query.strip()
+        stmt = (
+            select(
+                InventoryMovement.movement_date,
+                Product.sku,
+                Product.name,
+                func.abs(InventoryMovement.quantity),
+                InventoryMovement.unit_price,
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(InventoryMovement.type == "sale")
+            .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
+            .limit(limit)
+        )
+        if q:
+            like = f"%{q}%"
+            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+        return list(self._db.execute(stmt).all())

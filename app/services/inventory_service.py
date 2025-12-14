@@ -87,7 +87,11 @@ class InventoryService:
             movement_date=movement_dt,
             note=payload.note,
         )
+        self._inventory.add_movement(movement)
+
+        self._db.flush()
         lot = InventoryLot(
+            movement_id=movement.id,
             product_id=product.id,
             lot_code=lot_code,
             received_at=movement_dt,
@@ -95,7 +99,6 @@ class InventoryService:
             qty_received=payload.quantity,
             qty_remaining=payload.quantity,
         )
-        self._inventory.add_movement(movement)
         self._inventory.add_lot(lot)
         self._db.commit()
         self._db.refresh(movement)
@@ -170,7 +173,11 @@ class InventoryService:
                 movement_date=movement_dt,
                 note=payload.note,
             )
+            self._inventory.add_movement(movement)
+
+            self._db.flush()
             lot = InventoryLot(
+                movement_id=movement.id,
                 product_id=product.id,
                 lot_code=lot_code,
                 received_at=movement_dt,
@@ -178,7 +185,6 @@ class InventoryService:
                 qty_received=payload.quantity_delta,
                 qty_remaining=payload.quantity_delta,
             )
-            self._inventory.add_movement(movement)
             self._inventory.add_lot(lot)
             self._db.commit()
             self._db.refresh(movement)
@@ -217,18 +223,26 @@ class InventoryService:
         min_stock = float(product.min_stock or 0)
         return StockRead(
             sku=product.sku,
+            name=product.name,
             quantity=qty,
             min_stock=min_stock,
             needs_restock=min_stock > 0 and qty < min_stock,
         )
 
-    def stock_list(self) -> list[StockRead]:
+    def stock_list(self, query: str = "") -> list[StockRead]:
         return [
             StockRead(
                 sku=sku,
+                name=name,
                 quantity=qty,
                 min_stock=min_stock,
                 needs_restock=min_stock > 0 and qty < min_stock,
             )
-            for sku, qty, min_stock in self._inventory.stock_list()
+            for sku, name, qty, min_stock in self._inventory.stock_list(query=query)
         ]
+
+    def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
+        return self._inventory.recent_purchases(query=query, limit=limit)
+
+    def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
+        return self._inventory.recent_sales(query=query, limit=limit)

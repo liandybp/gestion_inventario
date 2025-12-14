@@ -1,0 +1,22 @@
+<table>
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>SKU</th>
+      <th>Nombre</th>
+      <th>Cant.</th>
+      <th>Precio</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d, sku, name, qty, unit_price in sales %}
+      <tr>
+        <td>{{ d }}</td>
+        <td>{{ sku }}</td>
+        <td>{{ name }}</td>
+        <td>{{ '%.4f'|format(qty) }}</td>
+        <td>{{ '%.4f'|format(unit_price or 0) }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

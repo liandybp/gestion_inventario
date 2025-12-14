@@ -1,0 +1,24 @@
+<table>
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>SKU</th>
+      <th>Nombre</th>
+      <th>Cant.</th>
+      <th>Costo</th>
+      <th>Lote</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d, sku, name, qty, unit_cost, lot_code in purchases %}
+      <tr>
+        <td>{{ d }}</td>
+        <td>{{ sku }}</td>
+        <td>{{ name }}</td>
+        <td>{{ '%.4f'|format(qty) }}</td>
+        <td>{{ '%.4f'|format(unit_cost or 0) }}</td>
+        <td>{{ lot_code or '' }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -56,3 +57,9 @@ class ProductService:
 
     def list(self) -> list[Product]:
         return self._products.list()
+
+    def search(self, query: str, limit: int = 20) -> list[Product]:
+        return self._products.search(query=query, limit=limit)
+
+    def recent(self, limit: int = 20) -> list[Product]:
+        return list(self._db.scalars(select(Product).order_by(Product.id.desc()).limit(limit)))
