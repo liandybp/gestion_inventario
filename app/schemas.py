@@ -14,6 +14,7 @@ class ProductCreate(BaseModel):
     unit_of_measure: Optional[str] = None
     default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None
+    image_url: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -24,6 +25,7 @@ class ProductUpdate(BaseModel):
     unit_of_measure: Optional[str] = None
     default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None
+    image_url: Optional[str] = None
 
 
 class ProductRead(BaseModel):
@@ -35,6 +37,7 @@ class ProductRead(BaseModel):
     unit_of_measure: Optional[str]
     default_purchase_cost: Optional[float]
     default_sale_price: Optional[float]
+    image_url: Optional[str]
 
     model_config = {"from_attributes": True}
 

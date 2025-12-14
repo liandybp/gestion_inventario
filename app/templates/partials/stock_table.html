@@ -16,8 +16,8 @@
         <td>{{ item.sku }}</td>
         <td>{{ item.name or '' }}</td>
         <td>{{ item.unit_of_measure or '' }}</td>
-        <td>{{ '%.4f'|format(item.quantity) }}</td>
-        <td>{{ '%.4f'|format(item.min_stock) }}</td>
+        <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
+        <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
         <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
         <td>
           <button type="button"

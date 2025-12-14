@@ -1,0 +1,115 @@
+<div id="profit-tab" hx-get="/ui/tabs/profit" hx-trigger="every 10m" hx-swap="innerHTML">
+  <h2>Utilidades</h2>
+  <p class="muted">Cálculo del mes corriente (ventas, costo FIFO, utilidad bruta y utilidad neta).</p>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+    <div class="card">
+      <div class="muted">Ventas</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.sales_total or 0) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">(-) Costo de ventas</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.cogs_total or 0) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">Utilidad bruta</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.gross_total or 0) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">Utilidad neta</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.net_total or 0) }}</div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:16px;">
+    <div class="card">
+      <div class="muted">% costo de ventas</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.cogs_pct or 0) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">% utilidad bruta</div>
+      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.gross_margin_pct or 0) }}</div>
+    </div>
+    <div class="card">
+      <div class="muted">% utilidad neta / % gastos</div>
+      <div style="font-size:22px;font-weight:700;">
+        {{ '%.2f'|format(summary.net_margin_pct or 0) }} / {{ '%.2f'|format(summary.expenses_pct or 0) }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Utilidad bruta por artículo (mes corriente)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th>Cant.</th>
+          <th>Ventas</th>
+          <th>Costo</th>
+          <th>Utilidad bruta</th>
+          <th>% costo</th>
+          <th>% utilidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in items %}
+          <tr>
+            <td>{{ r.sku }}</td>
+            <td>{{ r.name }}</td>
+            <td>{{ '%.0f'|format(r.qty or 0) }}</td>
+            <td>{{ '%.2f'|format(r.sales or 0) }}</td>
+            <td>{{ '%.2f'|format(r.cogs or 0) }}</td>
+            <td>{{ '%.2f'|format(r.gross or 0) }}</td>
+            <td>{{ '%.2f'|format(r.cost_pct or 0) }}</td>
+            <td>{{ '%.2f'|format(r.gross_pct or 0) }}</td>
+          </tr>
+        {% endfor %}
+        {% if not items %}
+          <tr><td colspan="8" class="muted">Sin ventas registradas en el mes.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:16px;">
+    <div class="card">
+      <h3>Resumen</h3>
+      <table>
+        <tbody>
+          <tr><th>Ventas</th><td>{{ '%.2f'|format(summary.sales_total or 0) }}</td></tr>
+          <tr><th>(-) Costo de ventas</th><td>{{ '%.2f'|format(summary.cogs_total or 0) }}</td></tr>
+          <tr><th>Utilidad bruta</th><td>{{ '%.2f'|format(summary.gross_total or 0) }}</td></tr>
+          <tr><th>(-) Gastos operativos</th><td>{{ '%.2f'|format(summary.expenses_total or 0) }}</td></tr>
+          <tr><th>Utilidad neta</th><td>{{ '%.2f'|format(summary.net_total or 0) }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Otros gastos (últimos del mes)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Cantidad</th>
+            <th>Concepto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in expenses %}
+            <tr>
+              <td>{{ e.expense_date.strftime('%Y-%m-%d %H:%M') if e.expense_date else '' }}</td>
+              <td>{{ '%.2f'|format(e.amount or 0) }}</td>
+              <td>{{ e.concept }}</td>
+            </tr>
+          {% endfor %}
+          {% if not expenses %}
+            <tr><td colspan="3" class="muted">Sin gastos registrados en el mes.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

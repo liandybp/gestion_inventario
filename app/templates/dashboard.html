@@ -5,26 +5,104 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Inventario</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+      :root {
+        --brand-navy: #0b2d42;
+        --brand-red: #cf1f27;
+        --brand-bg: #f8fafc;
+        --brand-surface: #ffffff;
+        --brand-border: #e5e7eb;
+        --brand-text: #0f172a;
+        --brand-muted: #64748b;
+      }
+
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--brand-bg); color: var(--brand-text); }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-      .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; }
+      .card { border: 1px solid var(--brand-border); border-radius: 10px; padding: 16px; background: var(--brand-surface); }
       .row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; margin-bottom: 10px; }
-      input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
-      button { padding: 10px 12px; border: 0; border-radius: 10px; background: #111827; color: white; cursor: pointer; }
+      input { width: 100%; padding: 8px; border: 1px solid var(--brand-border); border-radius: 8px; background: var(--brand-surface); color: var(--brand-text); }
+      button { padding: 10px 12px; border: 0; border-radius: 10px; background: var(--brand-navy); color: white; cursor: pointer; }
+      button:focus { outline: 2px solid rgba(207, 31, 39, 0.35); outline-offset: 2px; }
       table { width: 100%; border-collapse: collapse; }
       th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-      .muted { color: #6b7280; font-size: 13px; }
+      .muted { color: var(--brand-muted); font-size: 13px; }
       .warn { background: #fff7ed; }
       .error { background: #fef2f2; }
       .ok { background: #ecfdf5; }
       .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 16px; }
-      .tab { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 999px; cursor: pointer; }
-      .tab[aria-selected="true"] { background: #111827; color: white; border-color: #111827; }
+      .tab { background: #f1f5f9; border: 1px solid var(--brand-border); padding: 10px 12px; border-radius: 999px; cursor: pointer; color: var(--brand-text); }
+      .tab[aria-selected="true"] { background: var(--brand-navy); color: white; border-color: var(--brand-navy); }
+      .tab:hover { border-color: rgba(11, 45, 66, 0.35); }
+      a { color: var(--brand-red); }
     </style>
+
+    <script>
+      function renderBarcodes(root){
+        if(!window.JsBarcode){ return; }
+        const container = root || document;
+        const svgs = container.querySelectorAll('svg.barcode[data-code]:not([data-rendered="1"])');
+        svgs.forEach(svg => {
+          const code = svg.getAttribute('data-code') || '';
+          if(!code){ return; }
+          try {
+            JsBarcode(svg, code, { format: 'CODE128', displayValue: false, height: 28, margin: 0, width: 1 });
+            svg.setAttribute('data-rendered','1');
+          } catch(e) {}
+        });
+      }
+
+      window.renderMonthlyChart = function(root){
+        const container = root || document;
+        const el = container.querySelector('#monthly-chart');
+        if(!el){ return; }
+
+        const attempt = (n) => {
+          if(!window.Chart){
+            if(n > 0){ setTimeout(() => attempt(n - 1), 200); }
+            return;
+          }
+
+          const labels = JSON.parse(el.dataset.labels || '[]');
+          const sales = JSON.parse(el.dataset.sales || '[]');
+          const purchases = JSON.parse(el.dataset.purchases || '[]');
+          const profit = JSON.parse(el.dataset.profit || '[]');
+
+          if(window.__monthlyChart){ try { window.__monthlyChart.destroy(); } catch(e){} }
+          window.__monthlyChart = new Chart(el.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Ventas', data: sales, backgroundColor: 'rgba(11,45,66,0.85)' },
+                { label: 'Compras', data: purchases, backgroundColor: 'rgba(203, 58, 66, 0.75)' },
+                { label: 'Utilidad', data: profit, backgroundColor: 'rgba(16, 185, 129, 0.75)' },
+              ]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { position: 'bottom' } },
+              scales: { x: { stacked: false }, y: { beginAtZero: true } }
+            }
+          });
+        };
+
+        attempt(15);
+      }
+
+      document.addEventListener('htmx:afterSwap', (evt) => {
+        renderBarcodes(evt.target);
+        window.renderMonthlyChart(evt.target);
+      });
+      document.addEventListener('DOMContentLoaded', () => {
+        renderBarcodes(document);
+        window.renderMonthlyChart(document);
+      });
+    </script>
   </head>
   <body>
-    <h1>Dashboard</h1>
+    <h1 style="margin-bottom:6px;">Dashboard</h1>
     <p class="muted">La tabla se actualiza automáticamente. Si un SKU baja de stock mínimo, se marca.</p>
 
     <div class="tabs" role="tablist" aria-label="Secciones">
@@ -47,6 +125,24 @@
               hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML"
               hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
         Ventas
+      </button>
+
+      <button class="tab" id="tab-expenses" aria-selected="false"
+              hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Gastos
+      </button>
+
+      <button class="tab" id="tab-profit-items" aria-selected="false"
+              hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Utilidades por artículo
+      </button>
+
+      <button class="tab" id="tab-profit" aria-selected="false"
+              hx-get="/ui/tabs/profit" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Utilidades
       </button>
     </div>
 

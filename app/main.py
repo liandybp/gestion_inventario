@@ -33,3 +33,7 @@ def on_startup() -> None:
             conn.exec_driver_sql(
                 "ALTER TABLE products ADD COLUMN default_purchase_cost NUMERIC(14, 4)"
             )
+        if "image_url" not in cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE products ADD COLUMN image_url VARCHAR(512)"
+            )

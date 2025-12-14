@@ -40,6 +40,18 @@ def _dt_to_local_input(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M")
 
 
+def _month_range(now: datetime) -> tuple[datetime, datetime]:
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now = now.astimezone(timezone.utc)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return start, end
+
+
 def _extract_sku(product_field: str) -> str:
     value = (product_field or "").strip()
     if " - " in value:
@@ -70,6 +82,100 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     )
 
 
+@router.get("/tabs/profit", response_class=HTMLResponse)
+def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    inventory_service = InventoryService(db)
+    summary, items = inventory_service.monthly_profit_report()
+    expenses = inventory_service.list_expenses(
+        start=summary["month_start"],
+        end=summary["month_end"],
+        limit=50,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_profit.html",
+        context={
+            "summary": summary,
+            "items": items,
+            "expenses": expenses,
+        },
+    )
+
+
+@router.get("/tabs/profit-items", response_class=HTMLResponse)
+def tab_profit_items(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    inventory_service = InventoryService(db)
+    summary, items = inventory_service.monthly_profit_items_report()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_profit_items.html",
+        context={
+            "summary": summary,
+            "items": items,
+        },
+    )
+
+
+@router.get("/tabs/expenses", response_class=HTMLResponse)
+def tab_expenses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    inventory_service = InventoryService(db)
+    start, end = _month_range(datetime.now(timezone.utc))
+    expenses = inventory_service.list_expenses(start=start, end=end, limit=200)
+    total = inventory_service.total_expenses(start=start, end=end)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_expenses.html",
+        context={
+            "expenses": expenses,
+            "expenses_total": total,
+            "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+        },
+    )
+
+
+@router.post("/expenses/create", response_class=HTMLResponse)
+def expense_create(
+    request: Request,
+    expense_date: Optional[str] = Form(None),
+    amount: float = Form(...),
+    concept: str = Form(...),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    start, end = _month_range(datetime.now(timezone.utc))
+    try:
+        service.create_expense(amount=amount, concept=concept, expense_date=_parse_dt(expense_date))
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Gasto registrado",
+                "message_class": "ok",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except Exception as e:
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Error al registrar gasto",
+                "message_detail": str(e),
+                "message_class": "error",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+
 @router.get("/tabs/home", response_class=HTMLResponse)
 def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     product_service = ProductService(db)
@@ -85,10 +191,12 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
         "to_restock": len(restock_items),
     }
 
+    monthly = inventory_service.monthly_overview(months=12)
+
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_home.html",
-        context={"totals": totals},
+        context={"totals": totals, "monthly": monthly},
     )
 
 
@@ -461,6 +569,7 @@ def create_product(
     sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
+    image_url: str = Form(""),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: float = Form(...),
@@ -479,6 +588,7 @@ def create_product(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=default_purchase_cost,
                 default_sale_price=default_sale_price,
+                image_url=image_url or None,
             )
         )
         return templates.TemplateResponse(
@@ -531,6 +641,7 @@ def product_update(
     new_sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
+    image_url: str = Form(""),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
@@ -549,6 +660,7 @@ def product_update(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=_parse_optional_float(default_purchase_cost),
                 default_sale_price=_parse_optional_float(default_sale_price),
+                image_url=image_url or None,
             ),
         )
         return templates.TemplateResponse(
@@ -601,6 +713,7 @@ def product_update_inventory(
     new_sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
+    image_url: str = Form(""),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
@@ -619,6 +732,7 @@ def product_update_inventory(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=_parse_optional_float(default_purchase_cost),
                 default_sale_price=_parse_optional_float(default_sale_price),
+                image_url=image_url or None,
             ),
         )
         return templates.TemplateResponse(

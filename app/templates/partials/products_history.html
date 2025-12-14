@@ -8,6 +8,7 @@
       <th>Stock mín.</th>
       <th>Costo def.</th>
       <th>Precio def.</th>
+      <th>Acciones</th>
     </tr>
   </thead>
   <tbody>
@@ -17,9 +18,15 @@
         <td>{{ p.name }}</td>
         <td>{{ p.unit_of_measure or '' }}</td>
         <td>{{ p.category or '' }}</td>
-        <td>{{ '%.4f'|format(p.min_stock or 0) }}</td>
-        <td>{{ '%.4f'|format(p.default_purchase_cost or 0) }}</td>
-        <td>{{ '%.4f'|format(p.default_sale_price or 0) }}</td>
+        <td>{{ '%.0f'|format(p.min_stock or 0) }}</td>
+        <td>{{ '%.2f'|format(p.default_purchase_cost or 0) }}</td>
+        <td>{{ '%.2f'|format(p.default_sale_price or 0) }}</td>
+        <td>
+          <button type="button"
+                  hx-get="/ui/product/{{ p.sku }}/edit"
+                  hx-target="#product-edit"
+                  hx-swap="innerHTML">Editar</button>
+        </td>
       </tr>
     {% endfor %}
   </tbody>

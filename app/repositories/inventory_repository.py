@@ -73,6 +73,7 @@ class InventoryRepository:
                 Product.sku,
                 Product.name,
                 Product.unit_of_measure,
+                Product.image_url,
                 InventoryMovement.quantity,
                 InventoryMovement.unit_cost,
                 InventoryLot.lot_code,
@@ -98,12 +99,17 @@ class InventoryRepository:
                 Product.sku,
                 Product.name,
                 Product.unit_of_measure,
+                Product.image_url,
                 func.abs(InventoryMovement.quantity),
                 InventoryMovement.unit_price,
+                func.group_concat(InventoryLot.lot_code, ",").label("lot_codes"),
             )
             .select_from(InventoryMovement)
             .join(Product, Product.id == InventoryMovement.product_id)
+            .outerjoin(MovementAllocation, MovementAllocation.movement_id == InventoryMovement.id)
+            .outerjoin(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
             .where(InventoryMovement.type == "sale")
+            .group_by(InventoryMovement.id, Product.id)
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(limit)
         )

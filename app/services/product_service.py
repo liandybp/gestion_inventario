@@ -58,6 +58,9 @@ class ProductService:
             else None,
             default_purchase_cost=payload.default_purchase_cost,
             default_sale_price=payload.default_sale_price,
+            image_url=payload.image_url.strip()
+            if payload.image_url and payload.image_url.strip()
+            else None,
         )
         self._products.add(product)
         try:
@@ -103,6 +106,11 @@ class ProductService:
         )
         product.default_purchase_cost = payload.default_purchase_cost
         product.default_sale_price = payload.default_sale_price
+        product.image_url = (
+            payload.image_url.strip()
+            if payload.image_url and payload.image_url.strip()
+            else None
+        )
 
         try:
             self._db.commit()

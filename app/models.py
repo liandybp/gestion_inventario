@@ -26,6 +26,7 @@ class Product(Base):
     default_sale_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )
+    image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
 
 class InventoryMovement(Base):
@@ -78,3 +79,17 @@ class MovementAllocation(Base):
     lot_id: Mapped[int] = mapped_column(ForeignKey("inventory_lots.id"), index=True)
     quantity: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
     unit_cost: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+
+
+class OperatingExpense(Base):
+    __tablename__ = "operating_expenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    expense_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    amount: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+    concept: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

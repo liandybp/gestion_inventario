@@ -2,23 +2,45 @@
   <thead>
     <tr>
       <th>Fecha</th>
+      <th>Img</th>
       <th>SKU</th>
       <th>Nombre</th>
       <th>Unidad</th>
       <th>Cant.</th>
       <th>Precio</th>
+      <th>Lote</th>
+      <th>Barcode</th>
       <th>Acciones</th>
     </tr>
   </thead>
   <tbody>
-    {% for id, d, sku, name, uom, qty, unit_price in sales %}
+    {% for id, d, sku, name, uom, image_url, qty, unit_price, lot_codes in sales %}
       <tr>
         <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+        <td>
+          {% if image_url %}
+            <img src="{{ image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+          {% endif %}
+        </td>
         <td>{{ sku }}</td>
         <td>{{ name }}</td>
         <td>{{ uom or '' }}</td>
-        <td>{{ '%.4f'|format(qty) }}</td>
-        <td>{{ '%.4f'|format(unit_price or 0) }}</td>
+        <td>{{ '%.0f'|format(qty or 0) }}</td>
+        <td>{{ '%.2f'|format(unit_price or 0) }}</td>
+        <td>
+          {% if lot_codes %}
+            {% set lot_first = lot_codes.split(',')[0] %}
+            {% set lot_disp = (lot_first[:-5] if lot_first.endswith('00000') else lot_first) %}
+            <span title="{{ lot_codes }}">{{ lot_disp }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if lot_codes %}
+            {% set lot_first = lot_codes.split(',')[0] %}
+            {% set lot_disp = (lot_first[:-5] if lot_first.endswith('00000') else lot_first) %}
+            <svg class="barcode" data-code="{{ lot_disp }}" title="{{ lot_codes }}"></svg>
+          {% endif %}
+        </td>
         <td>
           <button type="button"
                   hx-get="/ui/movement/sale/{{ id }}/edit"
