@@ -24,11 +24,9 @@
   <div class="card" style="margin-top:16px;">
     <h3>Resumen mensual</h3>
     <p class="muted">Ventas, compras y utilidad bruta por mes (últimos 12 meses).</p>
-    <canvas id="monthly-chart" height="120"
-            data-labels="{{ monthly|map(attribute='month')|list|tojson }}"
-            data-sales="{{ monthly|map(attribute='sales')|list|tojson }}"
-            data-purchases="{{ monthly|map(attribute='purchases')|list|tojson }}"
-            data-profit="{{ monthly|map(attribute='gross_profit')|list|tojson }}"></canvas>
+    <canvas id="monthly-chart" height="120"></canvas>
+    <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
+    <div id="monthly-chart-debug" class="muted" style="margin-top:8px;"></div>
   </div>
 
   <script>

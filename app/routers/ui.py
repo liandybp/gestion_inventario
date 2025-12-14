@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timezone
 from typing import Optional
@@ -276,10 +277,19 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
 
     monthly = inventory_service.monthly_overview(months=12)
 
+    monthly_chart_json = json.dumps(
+        {
+            "labels": [m.get("month") for m in monthly],
+            "sales": [m.get("sales", 0) for m in monthly],
+            "purchases": [m.get("purchases", 0) for m in monthly],
+            "profit": [m.get("gross_profit", 0) for m in monthly],
+        }
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_home.html",
-        context={"totals": totals, "monthly": monthly},
+        context={"totals": totals, "monthly": monthly, "monthly_chart_json": monthly_chart_json},
     )
 
 

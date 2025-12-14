@@ -411,51 +411,57 @@ class InventoryService:
             else:
                 start = start.replace(month=start.month - 1)
 
-        month_key = func.strftime("%Y-%m", InventoryMovement.movement_date)
+        purchases_by: dict[str, float] = {}
+        sales_by: dict[str, float] = {}
+        cogs_by: dict[str, float] = {}
 
         purchase_rows = self._db.execute(
             select(
-                month_key.label("m"),
-                func.coalesce(
-                    func.sum(InventoryMovement.quantity * func.coalesce(InventoryMovement.unit_cost, 0)),
-                    0,
-                ).label("purchases"),
-            )
-            .where(
+                InventoryMovement.movement_date,
+                InventoryMovement.quantity,
+                InventoryMovement.unit_cost,
+            ).where(
                 and_(
                     InventoryMovement.type == "purchase",
                     InventoryMovement.movement_date >= start,
                 )
             )
-            .group_by("m")
         ).all()
+        for movement_date, qty, unit_cost in purchase_rows:
+            dt = movement_date
+            if dt is None:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            key = dt.astimezone(timezone.utc).strftime("%Y-%m")
+            purchases_by[key] = purchases_by.get(key, 0.0) + float(qty or 0) * float(unit_cost or 0)
 
-        sales_rows = self._db.execute(
+        sale_rows = self._db.execute(
             select(
-                month_key.label("m"),
-                func.coalesce(
-                    func.sum(
-                        func.abs(InventoryMovement.quantity)
-                        * func.coalesce(InventoryMovement.unit_price, 0)
-                    ),
-                    0,
-                ).label("sales"),
-            )
-            .where(
+                InventoryMovement.movement_date,
+                InventoryMovement.quantity,
+                InventoryMovement.unit_price,
+            ).where(
                 and_(
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                 )
             )
-            .group_by("m")
         ).all()
+        for movement_date, qty, unit_price in sale_rows:
+            dt = movement_date
+            if dt is None:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            key = dt.astimezone(timezone.utc).strftime("%Y-%m")
+            sales_by[key] = sales_by.get(key, 0.0) + abs(float(qty or 0)) * float(unit_price or 0)
 
         cogs_rows = self._db.execute(
             select(
-                month_key.label("m"),
-                func.coalesce(func.sum(MovementAllocation.quantity * MovementAllocation.unit_cost), 0).label(
-                    "cogs"
-                ),
+                InventoryMovement.movement_date,
+                MovementAllocation.quantity,
+                MovementAllocation.unit_cost,
             )
             .select_from(MovementAllocation)
             .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
@@ -465,12 +471,15 @@ class InventoryService:
                     InventoryMovement.movement_date >= start,
                 )
             )
-            .group_by("m")
         ).all()
-
-        purchases_by = {m: float(v or 0) for m, v in purchase_rows}
-        sales_by = {m: float(v or 0) for m, v in sales_rows}
-        cogs_by = {m: float(v or 0) for m, v in cogs_rows}
+        for movement_date, qty, unit_cost in cogs_rows:
+            dt = movement_date
+            if dt is None:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            key = dt.astimezone(timezone.utc).strftime("%Y-%m")
+            cogs_by[key] = cogs_by.get(key, 0.0) + float(qty or 0) * float(unit_cost or 0)
 
         series: list[dict] = []
         cursor = start

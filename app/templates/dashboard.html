@@ -58,16 +58,30 @@
         const el = container.querySelector('#monthly-chart');
         if(!el){ return; }
 
+        const debugEl = container.querySelector('#monthly-chart-debug') || document.querySelector('#monthly-chart-debug');
+        const dataEl = container.querySelector('#monthly-chart-data') || document.querySelector('#monthly-chart-data');
+        const setDebug = (msg) => { if(debugEl){ debugEl.textContent = msg || ''; } };
+
         const attempt = (n) => {
           if(!window.Chart){
+            setDebug('Cargando gráfica...');
             if(n > 0){ setTimeout(() => attempt(n - 1), 200); }
+            if(n === 0){ setDebug('No se pudo cargar Chart.js (revisa conexión/CDN).'); }
             return;
           }
 
-          const labels = JSON.parse(el.dataset.labels || '[]');
-          const sales = JSON.parse(el.dataset.sales || '[]');
-          const purchases = JSON.parse(el.dataset.purchases || '[]');
-          const profit = JSON.parse(el.dataset.profit || '[]');
+          let payload = null;
+          try {
+            payload = JSON.parse((dataEl && dataEl.textContent) ? dataEl.textContent : '{}');
+          } catch(e) {
+            setDebug('Error leyendo datos de gráfica.');
+            return;
+          }
+
+          const labels = Array.isArray(payload.labels) ? payload.labels : [];
+          const sales = Array.isArray(payload.sales) ? payload.sales : [];
+          const purchases = Array.isArray(payload.purchases) ? payload.purchases : [];
+          const profit = Array.isArray(payload.profit) ? payload.profit : [];
 
           if(window.__monthlyChart){ try { window.__monthlyChart.destroy(); } catch(e){} }
           window.__monthlyChart = new Chart(el.getContext('2d'), {
@@ -86,6 +100,7 @@
               scales: { x: { stacked: false }, y: { beginAtZero: true } }
             }
           });
+          setDebug('');
         };
 
         attempt(15);
