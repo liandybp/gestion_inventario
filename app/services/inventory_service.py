@@ -231,6 +231,11 @@ class InventoryService:
         row.extraction_date = self._movement_datetime(extraction_date)
         self._db.commit()
 
+    def delete_extraction(self, extraction_id: int) -> None:
+        row = self.get_extraction(extraction_id)
+        self._db.delete(row)
+        self._db.commit()
+
     def list_extractions(self, start: datetime, end: datetime, limit: int = 200) -> list[MoneyExtraction]:
         return list(
             self._db.scalars(
@@ -306,6 +311,50 @@ class InventoryService:
         exp.concept = concept.strip()
         exp.expense_date = self._movement_datetime(expense_date)
         self._db.commit()
+
+    def delete_expense(self, expense_id: int) -> None:
+        exp = self.get_expense(expense_id)
+        self._db.delete(exp)
+        self._db.commit()
+
+    def delete_purchase_movement(self, movement_id: int) -> None:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "purchase":
+            raise HTTPException(status_code=404, detail="Purchase movement not found")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv.id))
+            self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id == mv.id))
+            self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+    def delete_sale_movement(self, movement_id: int) -> None:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "sale":
+            raise HTTPException(status_code=404, detail="Sale movement not found")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv.id))
+            self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
 
     def list_expenses(self, start: datetime, end: datetime, limit: int = 100) -> list[OperatingExpense]:
         return list(

@@ -245,6 +245,64 @@ def extraction_create(
         )
 
 
+@router.post("/extraction/{extraction_id}/delete", response_class=HTMLResponse)
+def extraction_delete(
+    request: Request,
+    extraction_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    now = datetime.now(timezone.utc)
+    start, end = _month_range(now)
+    try:
+        service.delete_extraction(extraction_id)
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Retiro eliminado",
+                "message_class": "ok",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+        )
+    except HTTPException as e:
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Error al eliminar retiro",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        summary = service.monthly_dividends_report(now=now)
+        extractions = service.list_extractions(start=start, end=end, limit=200)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_dividends.html",
+            context={
+                "message": "Error al eliminar retiro",
+                "message_detail": str(e),
+                "message_class": "error",
+                "summary": summary,
+                "extractions": extractions,
+                "movement_date_default": _dt_to_local_input(now),
+            },
+            status_code=400,
+        )
+
+
 @router.get("/expense/{expense_id}/edit", response_class=HTMLResponse)
 def expense_edit_form(
     request: Request,
@@ -261,6 +319,63 @@ def expense_edit_form(
             "expense_date_value": _dt_to_local_input(expense.expense_date),
         },
     )
+
+
+@router.post("/expense/{expense_id}/delete", response_class=HTMLResponse)
+def expense_delete(
+    request: Request,
+    expense_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    start, end = _month_range(datetime.now(timezone.utc))
+    try:
+        service.delete_expense(expense_id)
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Costo operativo eliminado",
+                "message_class": "ok",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except HTTPException as e:
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Error al eliminar costo operativo",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Error al eliminar costo operativo",
+                "message_detail": str(e),
+                "message_class": "error",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
 
 
 @router.get("/extraction/{extraction_id}/edit", response_class=HTMLResponse)
@@ -685,6 +800,57 @@ def purchase_update(
         )
 
 
+@router.post("/movement/purchase/{movement_id}/delete", response_class=HTMLResponse)
+def purchase_delete(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    product_service = ProductService(db)
+    try:
+        service.delete_purchase_movement(movement_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "message": "Compra eliminada",
+                "message_class": "ok",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "message": "Error al eliminar compra",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "message": "Error al eliminar compra",
+                "message_detail": str(e),
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+
 @router.post("/sale", response_class=HTMLResponse)
 def sale(
     request: Request,
@@ -810,6 +976,57 @@ def sale_update(
         )
 
 
+@router.post("/movement/sale/{movement_id}/delete", response_class=HTMLResponse)
+def sale_delete(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    product_service = ProductService(db)
+    try:
+        service.delete_sale_movement(movement_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Venta eliminada",
+                "message_class": "ok",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Error al eliminar venta",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Error al eliminar venta",
+                "message_detail": str(e),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+
 @router.post("/product", response_class=HTMLResponse)
 def create_product(
     request: Request,
@@ -863,6 +1080,56 @@ def create_product(
                 "edit_product": None,
             },
             status_code=e.status_code,
+        )
+
+
+@router.post("/product/{sku}/delete", response_class=HTMLResponse)
+def product_delete(
+    request: Request,
+    sku: str,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    product_service = ProductService(db)
+    try:
+        product_service.delete(sku)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/product_panel.html",
+            context={
+                "message": "Producto eliminado",
+                "message_class": "ok",
+                "products": product_service.recent(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "edit_product": None,
+            },
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/product_panel.html",
+            context={
+                "message": "Error al eliminar producto",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "products": product_service.recent(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "edit_product": None,
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/product_panel.html",
+            context={
+                "message": "Error al eliminar producto",
+                "message_detail": str(e),
+                "message_class": "error",
+                "products": product_service.recent(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "edit_product": None,
+            },
+            status_code=400,
         )
 
 

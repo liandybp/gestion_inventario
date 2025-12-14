@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Product
+from app.models import InventoryLot, InventoryMovement, Product
 from app.repositories.product_repository import ProductRepository
 from app.schemas import ProductCreate, ProductUpdate
 
@@ -128,3 +128,31 @@ class ProductService:
 
     def recent(self, limit: int = 20) -> list[Product]:
         return list(self._db.scalars(select(Product).order_by(Product.id.desc()).limit(limit)))
+
+    def delete(self, sku: str) -> None:
+        product = self.get_by_sku(sku)
+
+        has_movements = (
+            self._db.scalar(
+                select(InventoryMovement.id)
+                .where(InventoryMovement.product_id == product.id)
+                .limit(1)
+            )
+            is not None
+        )
+        has_lots = (
+            self._db.scalar(
+                select(InventoryLot.id)
+                .where(InventoryLot.product_id == product.id)
+                .limit(1)
+            )
+            is not None
+        )
+        if has_movements or has_lots:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede eliminar el producto porque tiene movimientos/lotes registrados.",
+            )
+
+        self._db.delete(product)
+        self._db.commit()

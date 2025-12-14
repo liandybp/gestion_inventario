@@ -45,7 +45,13 @@
           <button type="button"
                   hx-get="/ui/movement/sale/{{ id }}/edit"
                   hx-target="#sale-edit"
-                  hx-swap="innerHTML">Editar</button>
+                  hx-swap="innerHTML">Edit</button>
+
+          <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                  hx-post="/ui/movement/sale/{{ id }}/delete"
+                  hx-target="#sale-panel"
+                  hx-swap="outerHTML"
+                  hx-confirm="¿Eliminar esta venta?">Del</button>
         </td>
       </tr>
     {% endfor %}

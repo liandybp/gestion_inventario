@@ -16,6 +16,9 @@
         --brand-border: #e5e7eb;
         --brand-text: #0f172a;
         --brand-muted: #64748b;
+        --row-odd: rgba(11, 45, 66, 0.08);
+        --row-even: rgba(207, 31, 39, 0.06);
+        --row-hover: rgba(11, 45, 66, 0.14);
       }
 
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--brand-bg); color: var(--brand-text); }
@@ -27,6 +30,10 @@
       button:focus { outline: 2px solid rgba(207, 31, 39, 0.35); outline-offset: 2px; }
       table { width: 100%; border-collapse: collapse; }
       th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+      tbody tr:nth-child(odd) td { background: var(--row-odd); }
+      tbody tr:nth-child(even) td { background: var(--row-even); }
+      tbody tr:hover td { background: var(--row-hover); }
+      thead th { background: rgba(11, 45, 66, 0.10); }
       .muted { color: var(--brand-muted); font-size: 13px; }
       .warn { background: #fff7ed; }
       .error { background: #fef2f2; }

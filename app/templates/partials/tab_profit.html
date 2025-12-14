@@ -38,41 +38,6 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px;">
-    <h3>Utilidad bruta por artículo (mes corriente)</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>SKU</th>
-          <th>Nombre</th>
-          <th>Cant.</th>
-          <th>Ventas</th>
-          <th>Costo</th>
-          <th>Utilidad bruta</th>
-          <th>% costo</th>
-          <th>% utilidad</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in items %}
-          <tr>
-            <td>{{ r.sku }}</td>
-            <td>{{ r.name }}</td>
-            <td>{{ '%.0f'|format(r.qty or 0) }}</td>
-            <td>{{ '%.2f'|format(r.sales or 0) }}</td>
-            <td>{{ '%.2f'|format(r.cogs or 0) }}</td>
-            <td>{{ '%.2f'|format(r.gross or 0) }}</td>
-            <td>{{ '%.2f'|format(r.cost_pct or 0) }}</td>
-            <td>{{ '%.2f'|format(r.gross_pct or 0) }}</td>
-          </tr>
-        {% endfor %}
-        {% if not items %}
-          <tr><td colspan="8" class="muted">Sin ventas registradas en el mes.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-
   <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:16px;">
     <div class="card">
       <h3>Resumen</h3>
