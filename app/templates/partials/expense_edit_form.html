@@ -1,0 +1,12 @@
+<div class="card">
+  <h3>Editar gasto</h3>
+
+  <form hx-post="/ui/expense/{{ expense.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+    <div class="row"><label>Fecha</label><input name="expense_date" type="datetime-local" value="{{ expense_date_value or '' }}" /></div>
+    <div class="row"><label>Cantidad</label><input name="amount" type="number" step="0.0001" value="{{ expense.amount or 0 }}" required /></div>
+    <div class="row"><label>Concepto</label><input name="concept" value="{{ expense.concept }}" required /></div>
+    <button type="submit">Guardar cambios</button>
+    <button type="button" style="margin-left:8px; background:#6b7280;"
+            hx-on:click="document.getElementById('expense-edit').innerHTML=''">Cancelar</button>
+  </form>
+</div>

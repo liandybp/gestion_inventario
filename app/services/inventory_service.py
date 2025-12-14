@@ -187,6 +187,25 @@ class InventoryService:
         self._db.add(exp)
         self._db.commit()
 
+    def get_expense(self, expense_id: int) -> OperatingExpense:
+        exp = self._db.get(OperatingExpense, expense_id)
+        if exp is None:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        return exp
+
+    def update_expense(
+        self,
+        expense_id: int,
+        amount: float,
+        concept: str,
+        expense_date: Optional[datetime],
+    ) -> None:
+        exp = self.get_expense(expense_id)
+        exp.amount = float(amount)
+        exp.concept = concept.strip()
+        exp.expense_date = self._movement_datetime(expense_date)
+        self._db.commit()
+
     def list_expenses(self, start: datetime, end: datetime, limit: int = 100) -> list[OperatingExpense]:
         return list(
             self._db.scalars(

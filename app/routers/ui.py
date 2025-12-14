@@ -176,6 +176,89 @@ def expense_create(
         )
 
 
+@router.get("/expense/{expense_id}/edit", response_class=HTMLResponse)
+def expense_edit_form(
+    request: Request,
+    expense_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    expense = service.get_expense(expense_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/expense_edit_form.html",
+        context={
+            "expense": expense,
+            "expense_date_value": _dt_to_local_input(expense.expense_date),
+        },
+    )
+
+
+@router.post("/expense/{expense_id}/update", response_class=HTMLResponse)
+def expense_update(
+    request: Request,
+    expense_id: int,
+    expense_date: Optional[str] = Form(None),
+    amount: float = Form(...),
+    concept: str = Form(...),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    start, end = _month_range(datetime.now(timezone.utc))
+    try:
+        service.update_expense(
+            expense_id=expense_id,
+            amount=amount,
+            concept=concept,
+            expense_date=_parse_dt(expense_date),
+        )
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Gasto actualizado",
+                "message_class": "ok",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except HTTPException as e:
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Error al actualizar gasto",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        expenses = service.list_expenses(start=start, end=end, limit=200)
+        total = service.total_expenses(start=start, end=end)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_expenses.html",
+            context={
+                "message": "Error al actualizar gasto",
+                "message_detail": str(e),
+                "message_class": "error",
+                "expenses": expenses,
+                "expenses_total": total,
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+
 @router.get("/tabs/home", response_class=HTMLResponse)
 def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     product_service = ProductService(db)
