@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -14,11 +15,11 @@ class Product(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     sku: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
-    category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    category: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     min_stock: Mapped[float] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=False, default=0, server_default="0"
     )
-    default_sale_price: Mapped[float | None] = mapped_column(
+    default_sale_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )
 
@@ -30,16 +31,16 @@ class InventoryMovement(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     type: Mapped[str] = mapped_column(String(16), index=True)
     quantity: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
-    unit_cost: Mapped[float | None] = mapped_column(
+    unit_cost: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )
-    unit_price: Mapped[float | None] = mapped_column(
+    unit_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )
     movement_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
-    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

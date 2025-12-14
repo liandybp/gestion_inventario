@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -30,10 +31,10 @@ class InventoryService:
             raise HTTPException(status_code=404, detail="Product not found")
         return product
 
-    def _movement_datetime(self, provided: datetime | None) -> datetime:
+    def _movement_datetime(self, provided: Optional[datetime]) -> datetime:
         return provided or datetime.now(timezone.utc)
 
-    def _warning_if_restock_needed(self, product: Product, stock_after: float) -> str | None:
+    def _warning_if_restock_needed(self, product: Product, stock_after: float) -> Optional[str]:
         min_stock = float(product.min_stock or 0)
         if min_stock > 0 and stock_after < min_stock:
             return "Needs restock"

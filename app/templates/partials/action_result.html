@@ -1,0 +1,10 @@
+{% set cls = 'ok' %}
+{% if error %}{% set cls = 'error' %}{% elif warning %}{% set cls = 'warn' %}{% endif %}
+<div class="{{ cls }}" style="padding:12px;border-radius:10px;">
+  <strong>{{ title }}</strong>
+  <div>{{ detail }}</div>
+  {% if warning %}<div><strong>Aviso:</strong> {{ warning }}</div>{% endif %}
+</div>
+<div style="margin-top:12px;">
+  {% include 'partials/stock_table.html' %}
+</div>

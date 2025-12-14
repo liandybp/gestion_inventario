@@ -14,7 +14,19 @@ class ProductService:
         self._db = db
         self._products = ProductRepository(db)
 
+    def _generate_sku(self, prefix: str = "SKU", width: int = 6) -> str:
+        existing = self._products.list_skus_starting_with(prefix)
+        max_n = 0
+        for sku in existing:
+            suffix = sku[len(prefix) :]
+            if suffix.isdigit():
+                max_n = max(max_n, int(suffix))
+        return f"{prefix}{str(max_n + 1).zfill(width)}"
+
     def create(self, payload: ProductCreate) -> Product:
+        if not payload.name.strip():
+            raise HTTPException(status_code=422, detail="name must not be empty")
+
         if payload.min_stock < 0:
             raise HTTPException(status_code=422, detail="min_stock must be >= 0")
         if payload.default_sale_price is not None and payload.default_sale_price < 0:
@@ -22,8 +34,12 @@ class ProductService:
                 status_code=422, detail="default_sale_price must be >= 0"
             )
 
+        sku = payload.sku.strip() if payload.sku else ""
+        if not sku:
+            sku = self._generate_sku()
+
         product = Product(
-            sku=payload.sku.strip(),
+            sku=sku,
             name=payload.name.strip(),
             category=payload.category.strip() if payload.category else None,
             min_stock=payload.min_stock,
