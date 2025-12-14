@@ -15,7 +15,20 @@ class ProductService:
         self._products = ProductRepository(db)
 
     def create(self, payload: ProductCreate) -> Product:
-        product = Product(sku=payload.sku.strip(), name=payload.name.strip())
+        if payload.min_stock < 0:
+            raise HTTPException(status_code=422, detail="min_stock must be >= 0")
+        if payload.default_sale_price is not None and payload.default_sale_price < 0:
+            raise HTTPException(
+                status_code=422, detail="default_sale_price must be >= 0"
+            )
+
+        product = Product(
+            sku=payload.sku.strip(),
+            name=payload.name.strip(),
+            category=payload.category.strip() if payload.category else None,
+            min_stock=payload.min_stock,
+            default_sale_price=payload.default_sale_price,
+        )
         self._products.add(product)
         try:
             self._db.commit()
