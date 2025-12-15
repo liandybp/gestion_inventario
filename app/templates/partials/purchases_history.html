@@ -31,7 +31,12 @@
         <td>{{ lot_disp or '' }}</td>
         <td>
           {% if sku %}
-            <svg class="barcode" data-code="{{ sku }}"></svg>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg class="barcode" data-code="{{ sku }}"></svg>
+              <a href="/ui/purchase/{{ id }}/label?copies={{ (qty|int) if (qty|int) > 0 else 1 }}" target="_blank" style="text-decoration:none;">
+                <button type="button">Print</button>
+              </a>
+            </div>
           {% endif %}
         </td>
         <td>

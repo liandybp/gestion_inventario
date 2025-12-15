@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Etiquetas</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+      @page { size: A4; margin: 8mm; }
+
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; color: #0f172a; }
+
+      .toolbar { padding: 10px 0 12px; display: flex; gap: 8px; align-items: center; }
+      .toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; }
+      .toolbar a { color: #cf1f27; text-decoration: none; }
+      .toolbar .muted { color: #64748b; font-size: 13px; }
+
+      .sheet {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2mm;
+      }
+
+      .label {
+        width: 50mm;
+        height: 25mm;
+        border: 1px solid #e5e7eb;
+        border-radius: 2mm;
+        padding: 2mm;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        align-items: start;
+        overflow: hidden;
+      }
+
+      .name {
+        font-weight: 700;
+        font-size: 10pt;
+        line-height: 1.05;
+        margin-bottom: 1mm;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      svg.barcode { width: 100%; height: 100%; }
+
+      @media print {
+        .toolbar { display: none; }
+        .label { border-color: transparent; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button type="button" onclick="window.print()">Imprimir</button>
+      <a href="/ui/dashboard" target="_blank">Volver</a>
+      <div class="muted">
+        Etiquetas: {{ labels|length }} | Tamaño: 50mm x 25mm | Barcode: CODE128 (SKU)
+        {% if truncated %} | Truncado a {{ max_labels }}{% endif %}
+      </div>
+    </div>
+
+    <div class="sheet">
+      {% for item in labels %}
+        <div class="label">
+          <div class="name">{{ item.name }}</div>
+          <svg class="barcode" data-code="{{ item.sku }}"></svg>
+        </div>
+      {% endfor %}
+    </div>
+
+    <script>
+      (function(){
+        const svgs = document.querySelectorAll('svg.barcode[data-code]');
+        svgs.forEach(svg => {
+          const code = svg.getAttribute('data-code') || '';
+          if(!code){ return; }
+          try {
+            JsBarcode(svg, code, {
+              format: 'CODE128',
+              displayValue: true,
+              fontSize: 12,
+              textMargin: 0,
+              height: 44,
+              margin: 0,
+              width: 1.2
+            });
+          } catch(e) {}
+        });
+      })();
+    </script>
+  </body>
+</html>

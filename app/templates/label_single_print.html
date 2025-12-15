@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Etiqueta</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+      @page { size: 50mm 25mm; margin: 0; }
+
+      html, body { width: 50mm; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; }
+
+      .toolbar { padding: 10px 0 12px; display: flex; gap: 8px; align-items: center; }
+      .toolbar input { width: 90px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 10px; }
+      .toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; }
+      .toolbar .muted { color: #64748b; font-size: 13px; }
+
+      .sheet { display: block; }
+
+      .page {
+        width: 50mm;
+        height: 25mm;
+      }
+
+      .label {
+        width: 50mm;
+        height: 25mm;
+        border: 1px solid transparent;
+        border-radius: 2mm;
+        padding: 2mm;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        align-items: start;
+        overflow: hidden;
+      }
+
+      .name {
+        font-weight: 700;
+        font-size: 10pt;
+        line-height: 1.05;
+        margin-bottom: 1mm;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      svg.barcode { width: 100%; height: 100%; }
+
+      @media print {
+        .toolbar { display: none; }
+        .label { border-color: transparent; }
+        .page { break-after: page; page-break-after: always; }
+        .page:last-child { break-after: auto; page-break-after: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <label for="copies">Copias</label>
+      <input id="copies" name="copies" type="number" min="1" step="1" value="{{ copies or 1 }}" />
+      <button type="button" id="btn-print">Imprimir</button>
+      <div class="muted">Etiqueta carrusel: 50mm x 25mm | Barcode: CODE128 (SKU)</div>
+    </div>
+
+    <div class="sheet" id="sheet"></div>
+
+    <script>
+      (function(){
+        const sku = {{ (label.sku or '')|tojson }};
+        const name = {{ (label.name or '')|tojson }};
+        const copiesInput = document.getElementById('copies');
+        const sheet = document.getElementById('sheet');
+
+        function makeLabelEl(){
+          const page = document.createElement('div');
+          page.className = 'page';
+          const wrap = document.createElement('div');
+          wrap.className = 'label';
+          const nameEl = document.createElement('div');
+          nameEl.className = 'name';
+          nameEl.textContent = name;
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('class', 'barcode');
+          svg.setAttribute('data-code', sku);
+          wrap.appendChild(nameEl);
+          wrap.appendChild(svg);
+          page.appendChild(wrap);
+          return page;
+        }
+
+        function render(){
+          const n = Math.max(1, parseInt(copiesInput.value || '1', 10) || 1);
+          sheet.innerHTML = '';
+          for(let i = 0; i < n; i++){
+            sheet.appendChild(makeLabelEl());
+          }
+
+          if(window.JsBarcode){
+            const svgs = sheet.querySelectorAll('svg.barcode[data-code]');
+            svgs.forEach(svg => {
+              try {
+                JsBarcode(svg, sku, {
+                  format: 'CODE128',
+                  displayValue: true,
+                  fontSize: 12,
+                  textMargin: 0,
+                  height: 40,
+                  margin: 0,
+                  width: 1.2
+                });
+              } catch(e) {}
+            });
+          }
+        }
+
+        copiesInput.addEventListener('change', render);
+        render();
+
+        document.getElementById('btn-print').addEventListener('click', () => {
+          render();
+          setTimeout(() => {
+            try { window.print(); } catch(e) {}
+          }, 100);
+        });
+      })();
+    </script>
+  </body>
+</html>

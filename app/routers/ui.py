@@ -752,6 +752,28 @@ def stock_table(
     )
 
 
+@router.get("/purchase/{movement_id}/label", response_class=HTMLResponse)
+def purchase_label_print(
+    request: Request,
+    movement_id: int,
+    copies: int = 1,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "purchase":
+        raise HTTPException(status_code=404, detail="Purchase movement not found")
+    product = db.get(Product, mv.product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    label = {"sku": product.sku, "name": product.name}
+    return templates.TemplateResponse(
+        request=request,
+        name="label_single_print.html",
+        context={"label": label, "copies": max(1, int(copies or 1))},
+    )
+
+
 @router.post("/purchase", response_class=HTMLResponse)
 def purchase(
     request: Request,
