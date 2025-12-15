@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+from pathlib import Path
+from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -23,6 +26,33 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 _DEV_ACTIONS_ENABLED = os.getenv("DEV_ACTIONS_ENABLED", "1") == "1"
+
+
+_UPLOAD_DIR = Path("app/static/uploads")
+
+
+def _save_product_image(image_file: UploadFile) -> str:
+    if image_file is None:
+        raise HTTPException(status_code=422, detail="image_file is required")
+    if not image_file.filename:
+        raise HTTPException(status_code=422, detail="image_file is required")
+
+    content_type = (image_file.content_type or "").lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=422, detail="Invalid image type")
+
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(image_file.filename).suffix.lower()
+    if not ext or len(ext) > 10:
+        ext = ".img"
+
+    filename = f"{uuid4().hex}{ext}"
+    out_path = _UPLOAD_DIR / filename
+    with out_path.open("wb") as f:
+        shutil.copyfileobj(image_file.file, f)
+
+    return f"/static/uploads/{filename}"
 
 
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
@@ -67,6 +97,35 @@ def _parse_optional_float(value: Optional[str]) -> Optional[float]:
     if not s:
         return None
     return float(s)
+
+
+def _barcode_to_sku(db: Session, barcode: str) -> str:
+    code = (barcode or "").strip()
+    if not code:
+        raise HTTPException(status_code=422, detail="barcode is required")
+
+    direct = code.split("|", 1)[0].strip()
+    if direct:
+        product = db.scalar(select(Product).where(Product.sku == direct))
+        if product is not None:
+            return product.sku
+
+    token = code.split("|", 1)[0].strip()
+    sku_candidate = token.split("-", 1)[0].strip()
+    if sku_candidate:
+        product = db.scalar(select(Product).where(Product.sku == sku_candidate))
+        if product is not None:
+            return product.sku
+
+    lot = db.scalar(select(InventoryLot).where(InventoryLot.lot_code == code))
+    if lot is None and not code.endswith("00000"):
+        lot = db.scalar(select(InventoryLot).where(InventoryLot.lot_code == f"{code}00000"))
+    if lot is not None:
+        product = db.get(Product, lot.product_id)
+        if product is not None:
+            return product.sku
+
+    raise HTTPException(status_code=404, detail="Barcode not recognized")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -298,6 +357,71 @@ def extraction_delete(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": _dt_to_local_input(now),
+            },
+            status_code=400,
+        )
+
+
+@router.post("/sale/barcode", response_class=HTMLResponse)
+def sale_barcode(
+    request: Request,
+    barcode: str = Form(...),
+    quantity: float = Form(...),
+    unit_price: str = Form(""),
+    movement_date: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    service = InventoryService(db)
+    product_service = ProductService(db)
+    try:
+        sku = _barcode_to_sku(db, barcode)
+        result = service.sale(
+            SaleCreate(
+                sku=sku,
+                quantity=quantity,
+                unit_price=_parse_optional_float(unit_price),
+                movement_date=_parse_dt(movement_date),
+                note=note or None,
+            )
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Venta registrada",
+                "message_detail": f"Stock después: {result.stock_after}",
+                "message_class": "ok" if not result.warning else "warn",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Error en venta",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "message": "Error en venta",
+                "message_detail": str(e),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": _dt_to_local_input(datetime.now(timezone.utc)),
             },
             status_code=400,
         )
@@ -1033,7 +1157,7 @@ def create_product(
     sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
-    image_url: str = Form(""),
+    image_file: Optional[UploadFile] = File(None),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: float = Form(...),
@@ -1043,6 +1167,7 @@ def create_product(
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
     try:
+        image_url = _save_product_image(image_file) if image_file is not None else None
         created = product_service.create(
             ProductCreate(
                 sku=sku or None,
@@ -1052,7 +1177,7 @@ def create_product(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=default_purchase_cost,
                 default_sale_price=default_sale_price,
-                image_url=image_url or None,
+                image_url=image_url,
             )
         )
         return templates.TemplateResponse(
@@ -1155,7 +1280,7 @@ def product_update(
     new_sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
-    image_url: str = Form(""),
+    image_file: Optional[UploadFile] = File(None),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
@@ -1164,6 +1289,8 @@ def product_update(
 ) -> HTMLResponse:
     product_service = ProductService(db)
     try:
+        existing = product_service.get_by_sku(sku)
+        image_url = _save_product_image(image_file) if image_file is not None else existing.image_url
         updated = product_service.update(
             sku,
             ProductUpdate(
@@ -1227,7 +1354,7 @@ def product_update_inventory(
     new_sku: str = Form(""),
     name: str = Form(...),
     unit_of_measure: str = Form(""),
-    image_url: str = Form(""),
+    image_file: Optional[UploadFile] = File(None),
     category: Optional[str] = Form(None),
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
@@ -1236,6 +1363,8 @@ def product_update_inventory(
 ) -> HTMLResponse:
     product_service = ProductService(db)
     try:
+        existing = product_service.get_by_sku(sku)
+        image_url = _save_product_image(image_file) if image_file is not None else existing.image_url
         updated = product_service.update(
             sku,
             ProductUpdate(

@@ -1,11 +1,11 @@
 <div class="card" id="product-panel">
   <h2>Producto</h2>
 
-  <form hx-post="/ui/product" hx-target="#product-panel" hx-swap="outerHTML">
+  <form hx-post="/ui/product" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
     <div class="row"><label>SKU</label><input name="sku" placeholder="(auto si lo dejas vacío)" /></div>
     <div class="row"><label>Nombre</label><input name="name" required /></div>
     <div class="row"><label>Unidad</label><input name="unit_of_measure" placeholder="(ej: u, kg, m, caja)" /></div>
-    <div class="row"><label>Imagen (URL)</label><input name="image_url" placeholder="https://..." /></div>
+    <div class="row"><label>Imagen</label><input name="image_file" type="file" accept="image/*" /></div>
     <div class="row"><label>Categoría</label><input name="category" placeholder="(opcional)" /></div>
     <div class="row"><label>Stock mínimo</label><input name="min_stock" type="number" step="0.0001" min="0" value="0" /></div>
     <div class="row"><label>Costo compra por defecto</label><input name="default_purchase_cost" type="number" step="0.0001" min="0" required /></div>

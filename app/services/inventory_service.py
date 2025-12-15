@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -123,7 +124,7 @@ class InventoryService:
                 code = existing_codes.get(mv.id)
                 if not code:
                     prefix = "ADJ" if mv.type == "adjustment" else product.sku
-                    code = f"{prefix}-{mv.movement_date:%y%m%d%H%M}-{mv.id}"
+                    code = f"{prefix}-{mv.movement_date:%y%m%d%H%M%S}-{mv.id}"
 
                 lot = InventoryLot(
                     movement_id=mv.id,
@@ -135,7 +136,10 @@ class InventoryService:
                     qty_remaining=qty,
                 )
                 self._db.add(lot)
-                self._db.flush()
+                try:
+                    self._db.flush()
+                except IntegrityError as e:
+                    raise HTTPException(status_code=409, detail="Lote ya existe") from e
                 fifo_lots.append(lot)
                 continue
 
@@ -785,7 +789,7 @@ class InventoryService:
 
         self._db.flush()
 
-        lot_code = payload.lot_code or f"{product.sku}-{movement_dt:%y%m%d%H%M}-{movement.id}"
+        lot_code = payload.lot_code or f"{product.sku}-{movement_dt:%y%m%d%H%M%S}-{movement.id}"
         lot = InventoryLot(
             movement_id=movement.id,
             product_id=product.id,
@@ -796,7 +800,11 @@ class InventoryService:
             qty_remaining=payload.quantity,
         )
         self._inventory.add_lot(lot)
-        self._db.commit()
+        try:
+            self._db.commit()
+        except IntegrityError as e:
+            self._db.rollback()
+            raise HTTPException(status_code=409, detail="Lote ya existe") from e
         self._db.refresh(movement)
 
         stock_after = self._inventory.stock_for_product_id(product.id)
@@ -878,7 +886,7 @@ class InventoryService:
 
             self._db.flush()
 
-            lot_code = f"ADJ-{product.sku}-{movement_dt:%y%m%d%H%M}-{movement.id}"
+            lot_code = f"ADJ-{product.sku}-{movement_dt:%y%m%d%H%M%S}-{movement.id}"
             lot = InventoryLot(
                 movement_id=movement.id,
                 product_id=product.id,
@@ -889,7 +897,11 @@ class InventoryService:
                 qty_remaining=payload.quantity_delta,
             )
             self._inventory.add_lot(lot)
-            self._db.commit()
+            try:
+                self._db.commit()
+            except IntegrityError as e:
+                self._db.rollback()
+                raise HTTPException(status_code=409, detail="Lote ya existe") from e
             self._db.refresh(movement)
         else:
             qty_to_remove = -payload.quantity_delta

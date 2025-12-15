@@ -9,7 +9,6 @@
       <th>Cant.</th>
       <th>Precio</th>
       <th>Lote</th>
-      <th>Barcode</th>
       <th>Acciones</th>
     </tr>
   </thead>
@@ -29,16 +28,13 @@
         <td>{{ '%.2f'|format(unit_price or 0) }}</td>
         <td>
           {% if lot_codes %}
-            {% set lot_first = lot_codes.split(',')[0] %}
-            {% set lot_disp = (lot_first[:-5] if lot_first.endswith('00000') else lot_first) %}
-            <span title="{{ lot_codes }}">{{ lot_disp }}</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if lot_codes %}
-            {% set lot_first = lot_codes.split(',')[0] %}
-            {% set lot_disp = (lot_first[:-5] if lot_first.endswith('00000') else lot_first) %}
-            <svg class="barcode" data-code="{{ lot_disp }}" title="{{ lot_codes }}"></svg>
+            {% set lot_list = lot_codes.split(',') %}
+            {% set lot_disp_list = [] %}
+            {% for lc in lot_list %}
+              {% set lc_trim = (lc[:-5] if lc.endswith('00000') else lc) %}
+              {% set _ = lot_disp_list.append(lc_trim) %}
+            {% endfor %}
+            <span title="{{ lot_codes }}">{{ lot_disp_list|join(', ') }}</span>
           {% endif %}
         </td>
         <td>

@@ -1,11 +1,21 @@
 <div class="card">
   <h3>Editar producto</h3>
 
-  <form hx-post="/ui/product/{{ product.sku }}/update-inventory" hx-target="#tab-content" hx-swap="innerHTML">
+  <form hx-post="/ui/product/{{ product.sku }}/update-inventory" hx-target="#tab-content" hx-swap="innerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
     <div class="row"><label>SKU</label><input name="new_sku" value="{{ product.sku }}" /></div>
     <div class="row"><label>Nombre</label><input name="name" value="{{ product.name }}" required /></div>
     <div class="row"><label>Unidad</label><input name="unit_of_measure" value="{{ product.unit_of_measure or '' }}" /></div>
-    <div class="row"><label>Imagen (URL)</label><input name="image_url" value="{{ product.image_url or '' }}" /></div>
+    <div class="row">
+      <label>Imagen</label>
+      <div>
+        {% if product.image_url %}
+          <div style="margin-bottom:6px;">
+            <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />
+          </div>
+        {% endif %}
+        <input name="image_file" type="file" accept="image/*" />
+      </div>
+    </div>
     <div class="row"><label>Categoría</label><input name="category" value="{{ product.category or '' }}" /></div>
     <div class="row"><label>Stock mínimo</label><input name="min_stock" type="number" step="0.0001" min="0" value="{{ product.min_stock or 0 }}" /></div>
     <div class="row"><label>Costo compra por defecto</label><input name="default_purchase_cost" type="number" step="0.0001" min="0" value="{{ product.default_purchase_cost or '' }}" /></div>

@@ -30,8 +30,8 @@
         {% set lot_disp = (lot_code[:-5] if lot_code and lot_code.endswith('00000') else lot_code) %}
         <td>{{ lot_disp or '' }}</td>
         <td>
-          {% if lot_disp %}
-            <svg class="barcode" data-code="{{ lot_disp }}"></svg>
+          {% if sku %}
+            <svg class="barcode" data-code="{{ sku }}"></svg>
           {% endif %}
         </td>
         <td>

@@ -74,7 +74,7 @@ class InventoryLot(Base):
         ForeignKey("inventory_movements.id"), index=True
     )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
-    lot_code: Mapped[str] = mapped_column(String(64), index=True)
+    lot_code: Mapped[str] = mapped_column(String(64), index=True, unique=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     unit_cost: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
     qty_received: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))

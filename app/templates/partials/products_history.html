@@ -1,6 +1,7 @@
 <table>
   <thead>
     <tr>
+      <th>Img</th>
       <th>SKU</th>
       <th>Nombre</th>
       <th>Unidad</th>
@@ -14,6 +15,11 @@
   <tbody>
     {% for p in products %}
       <tr>
+        <td>
+          {% if p.image_url %}
+            <img src="{{ p.image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+          {% endif %}
+        </td>
         <td>{{ p.sku }}</td>
         <td>{{ p.name }}</td>
         <td>{{ p.unit_of_measure or '' }}</td>
