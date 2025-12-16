@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -22,46 +24,11 @@ from app.routers.inventory import router as inventory_router
 from app.routers.products import router as products_router
 from app.routers.ui import router as ui_router
 from app.models import User
-
-app = FastAPI(title="Inventario")
-
-
-@app.middleware("http")
-async def ui_auth_middleware(request, call_next):
-    path = request.url.path or ""
-    if path.startswith("/static") or path == "/health":
-        return await call_next(request)
-    if path.startswith("/ui") and path not in ("/ui/login", "/ui/logout"):
-        session = getattr(request, "session", None) or {}
-        if not session.get("username"):
-            if request.headers.get("HX-Request") == "true":
-                resp = RedirectResponse(url="/ui/login", status_code=302)
-                resp.headers["HX-Redirect"] = "/ui/login"
-                return resp
-            return RedirectResponse(url="/ui/login", status_code=302)
-    return await call_next(request)
+from app.utils import get_session_secret
 
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "change-me"),
-    session_cookie="inventario_session",
-    max_age=60 * 60 * 24 * 7,
-    same_site="lax",
-    https_only=False,
-)
-
-app.include_router(health_router)
-app.include_router(products_router)
-app.include_router(inventory_router)
-app.include_router(ui_router)
-
-os.makedirs("app/static/uploads", exist_ok=True)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-
-@app.on_event("startup")
-def on_startup() -> None:
+def _run_startup_tasks() -> None:
+    """Ejecuta tareas de inicialización de la base de datos."""
     Base.metadata.create_all(bind=engine)
 
     with engine.connect() as conn:
@@ -155,6 +122,50 @@ def on_startup() -> None:
         db.commit()
     finally:
         db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Lifecycle manager para FastAPI."""
+    _run_startup_tasks()
+    yield
+
+
+app = FastAPI(title="Inventario", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def ui_auth_middleware(request, call_next):
+    path = request.url.path or ""
+    if path.startswith("/static") or path == "/health":
+        return await call_next(request)
+    if path.startswith("/ui") and path not in ("/ui/login", "/ui/logout"):
+        session = getattr(request, "session", None) or {}
+        if not session.get("username"):
+            if request.headers.get("HX-Request") == "true":
+                resp = RedirectResponse(url="/ui/login", status_code=302)
+                resp.headers["HX-Redirect"] = "/ui/login"
+                return resp
+            return RedirectResponse(url="/ui/login", status_code=302)
+    return await call_next(request)
+
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=get_session_secret(),
+    session_cookie="inventario_session",
+    max_age=60 * 60 * 24 * 7,
+    same_site="lax",
+    https_only=False,
+)
+
+app.include_router(health_router)
+app.include_router(products_router)
+app.include_router(inventory_router)
+app.include_router(ui_router)
+
+os.makedirs("app/static/uploads", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 if __name__ == "__main__":

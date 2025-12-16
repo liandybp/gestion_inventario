@@ -25,7 +25,7 @@ def create_product(
 ) -> ProductRead:
     created = service.create(payload)
     log_event(
-        service._db,
+        service.db,
         user,
         action="product_create",
         entity_type="product",

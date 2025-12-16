@@ -15,6 +15,10 @@ class ProductService:
         self._db = db
         self._products = ProductRepository(db)
 
+    @property
+    def db(self) -> Session:
+        return self._db
+
     def _generate_sku(self, prefix: str = "SKU", width: int = 6) -> str:
         existing = self._products.list_skus_starting_with(prefix)
         max_n = 0

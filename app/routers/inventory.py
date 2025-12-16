@@ -31,7 +31,7 @@ def create_purchase(
 ) -> MovementResult:
     result = service.purchase(payload)
     log_event(
-        service._db,
+        service.db,
         user,
         action="purchase_create",
         entity_type="movement",
@@ -49,7 +49,7 @@ def create_sale(
 ) -> MovementResult:
     result = service.sale(payload)
     log_event(
-        service._db,
+        service.db,
         user,
         action="sale_create",
         entity_type="movement",
@@ -67,7 +67,7 @@ def create_adjustment(
 ) -> MovementResult:
     result = service.adjustment(payload)
     log_event(
-        service._db,
+        service.db,
         user,
         action="adjustment_create",
         entity_type="movement",

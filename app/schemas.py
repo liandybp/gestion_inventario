@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class ProductCreate(BaseModel):
@@ -50,6 +50,13 @@ class PurchaseCreate(BaseModel):
     lot_code: Optional[str] = None
     note: Optional[str] = None
 
+    @field_validator("quantity")
+    @classmethod
+    def quantity_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("quantity must be greater than 0")
+        return v
+
 
 class SaleCreate(BaseModel):
     sku: str
@@ -57,6 +64,13 @@ class SaleCreate(BaseModel):
     unit_price: Optional[float] = None
     movement_date: Optional[datetime] = None
     note: Optional[str] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("quantity must be greater than 0")
+        return v
 
 
 class AdjustmentCreate(BaseModel):

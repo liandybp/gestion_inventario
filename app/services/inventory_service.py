@@ -26,6 +26,7 @@ from app.schemas import (
     SaleCreate,
     StockRead,
 )
+from app.utils import month_range as utils_month_range
 
 
 class InventoryService:
@@ -33,6 +34,10 @@ class InventoryService:
         self._db = db
         self._products = ProductRepository(db)
         self._inventory = InventoryRepository(db)
+
+    @property
+    def db(self) -> Session:
+        return self._db
 
     def _get_product(self, sku: str) -> Product:
         product = self._products.get_by_sku(sku)
@@ -44,15 +49,7 @@ class InventoryService:
         return provided or datetime.now(timezone.utc)
 
     def _month_range(self, now: datetime) -> tuple[datetime, datetime]:
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-        now = now.astimezone(timezone.utc)
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if start.month == 12:
-            end = start.replace(year=start.year + 1, month=1)
-        else:
-            end = start.replace(month=start.month + 1)
-        return start, end
+        return utils_month_range(now)
 
     def _warning_if_restock_needed(self, product: Product, stock_after: float) -> Optional[str]:
         min_stock = float(product.min_stock or 0)

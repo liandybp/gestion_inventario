@@ -4,7 +4,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from uuid import uuid4
 
 from fastapi import HTTPException, Request, UploadFile
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, Product
 from app.security import get_current_user_from_session
+from app.utils import month_range
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -68,16 +69,6 @@ def dt_to_local_input(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M")
 
 
-def month_range(now: datetime) -> tuple[datetime, datetime]:
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    now = now.astimezone(timezone.utc)
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if start.month == 12:
-        end = start.replace(year=start.year + 1, month=1)
-    else:
-        end = start.replace(month=start.month + 1)
-    return start, end
 
 
 def extract_sku(product_field: str) -> str:
@@ -93,7 +84,10 @@ def parse_optional_float(value: Optional[str]) -> Optional[float]:
     s = value.strip()
     if not s:
         return None
-    return float(s)
+    try:
+        return float(s)
+    except ValueError:
+        return None
 
 
 def barcode_to_sku(db: Session, barcode: str) -> str:
