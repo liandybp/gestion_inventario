@@ -13,16 +13,63 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+ 
+from app.audit import log_event
+from app.auth import authenticate
 from app.deps import session_dep
 from app.models import InventoryLot, InventoryMovement, Product
 from app.schemas import ProductCreate, ProductUpdate, PurchaseCreate, SaleCreate
+from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/ui", tags=["ui"])
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _ensure_admin(db: Session, request: Request) -> None:
+    user = get_current_user_from_session(db, request)
+    if user is None or (user.role or "").lower() != "admin":
+        raise HTTPException(status_code=403, detail="Admin required")
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_form(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request=request, name="login.html", context={})
+
+
+@router.post("/login", response_class=HTMLResponse)
+def login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(session_dep),
+):
+    user = authenticate(db, username=username, password=password)
+    if user is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Usuario o contraseña inválidos"},
+            status_code=401,
+        )
+
+    request.session["username"] = user.username
+    log_event(db, user, action="login", entity_type="auth", entity_id=user.username, detail={})
+    return RedirectResponse(url="/ui/dashboard", status_code=302)
+
+
+@router.get("/logout")
+def logout(request: Request, db: Session = Depends(session_dep)) -> RedirectResponse:
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(db, user, action="logout", entity_type="auth", entity_id=user.username, detail={})
+    try:
+        request.session.clear()
+    except Exception:
+        request.session.pop("username", None)
+    return RedirectResponse(url="/ui/login", status_code=302)
 
 
 _DEV_ACTIONS_ENABLED = os.getenv("DEV_ACTIONS_ENABLED", "1") == "1"
@@ -223,6 +270,17 @@ def expense_create(
     start, end = _month_range(datetime.now(timezone.utc))
     try:
         service.create_expense(amount=amount, concept=concept, expense_date=_parse_dt(expense_date))
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="expense_create",
+                entity_type="expense",
+                entity_id=None,
+                detail={"amount": amount, "concept": concept, "expense_date": expense_date},
+            )
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -273,6 +331,17 @@ def extraction_create(
             concept=concept,
             extraction_date=_parse_dt(extraction_date),
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="extraction_create",
+                entity_type="extraction",
+                entity_id=None,
+                detail={"party": party, "amount": amount, "concept": concept, "extraction_date": extraction_date},
+            )
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -314,7 +383,19 @@ def extraction_delete(
     now = datetime.now(timezone.utc)
     start, end = _month_range(now)
     try:
+        _ensure_admin(db, request)
         service.delete_extraction(extraction_id)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="extraction_delete",
+                entity_type="extraction",
+                entity_id=str(extraction_id),
+                detail={},
+            )
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -385,6 +466,17 @@ def sale_barcode(
                 note=note or None,
             )
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_create",
+                entity_type="movement",
+                entity_id=str(result.movement.id),
+                detail={"sku": sku, "quantity": quantity, "unit_price": _parse_optional_float(unit_price)},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -454,7 +546,19 @@ def expense_delete(
     service = InventoryService(db)
     start, end = _month_range(datetime.now(timezone.utc))
     try:
+        _ensure_admin(db, request)
         service.delete_expense(expense_id)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="expense_delete",
+                entity_type="expense",
+                entity_id=str(expense_id),
+                detail={},
+            )
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -538,6 +642,17 @@ def expense_update(
             concept=concept,
             expense_date=_parse_dt(expense_date),
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="expense_update",
+                entity_type="expense",
+                entity_id=str(expense_id),
+                detail={"amount": amount, "concept": concept, "expense_date": expense_date},
+            )
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -606,6 +721,17 @@ def extraction_update(
             concept=concept,
             extraction_date=_parse_dt(extraction_date),
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="extraction_update",
+                entity_type="extraction",
+                entity_id=str(extraction_id),
+                detail={"party": party, "amount": amount, "concept": concept, "extraction_date": extraction_date},
+            )
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -799,6 +925,17 @@ def purchase(
                 note=note or None,
             )
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="purchase_create",
+                entity_type="movement",
+                entity_id=str(result.movement.id),
+                detail={"sku": sku, "quantity": quantity, "unit_cost": _parse_optional_float(unit_cost)},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
@@ -835,6 +972,8 @@ def dev_reset_purchases_sales(
 ) -> HTMLResponse:
     if not _DEV_ACTIONS_ENABLED:
         raise HTTPException(status_code=404, detail="Not found")
+
+    _ensure_admin(db, request)
 
     service = InventoryService(db)
     product_service = ProductService(db)
@@ -918,6 +1057,17 @@ def purchase_update(
             lot_code=lot_code or None,
             note=note or None,
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="purchase_update",
+                entity_type="movement",
+                entity_id=str(movement_id),
+                detail={"sku": sku, "quantity": quantity, "unit_cost": unit_cost},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
@@ -955,7 +1105,19 @@ def purchase_delete(
     service = InventoryService(db)
     product_service = ProductService(db)
     try:
+        _ensure_admin(db, request)
         service.delete_purchase_movement(movement_id)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="purchase_delete",
+                entity_type="movement",
+                entity_id=str(movement_id),
+                detail={},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
@@ -1094,6 +1256,17 @@ def sale_update(
             movement_date=_parse_dt(movement_date),
             note=note or None,
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_update",
+                entity_type="movement",
+                entity_id=str(movement_id),
+                detail={"sku": sku, "quantity": quantity, "unit_price": unit_price},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -1131,7 +1304,19 @@ def sale_delete(
     service = InventoryService(db)
     product_service = ProductService(db)
     try:
+        _ensure_admin(db, request)
         service.delete_sale_movement(movement_id)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_delete",
+                entity_type="movement",
+                entity_id=str(movement_id),
+                detail={},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -1187,7 +1372,6 @@ def create_product(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
-    inventory_service = InventoryService(db)
     try:
         image_url = _save_product_image(image_file) if image_file is not None else None
         created = product_service.create(
@@ -1202,6 +1386,17 @@ def create_product(
                 image_url=image_url,
             )
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="product_create",
+                entity_type="product",
+                entity_id=created.sku,
+                detail={"name": created.name},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -1238,7 +1433,19 @@ def product_delete(
 ) -> HTMLResponse:
     product_service = ProductService(db)
     try:
+        _ensure_admin(db, request)
         product_service.delete(sku)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="product_delete",
+                entity_type="product",
+                entity_id=sku,
+                detail={},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -1326,6 +1533,17 @@ def product_update(
                 image_url=image_url or None,
             ),
         )
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="product_update",
+                entity_type="product",
+                entity_id=updated.sku,
+                detail={"from_sku": sku, "to_sku": updated.sku, "name": updated.name},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
