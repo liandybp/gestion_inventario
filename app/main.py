@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -8,6 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select
+
+if __name__ == "__main__" and __package__ is None:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.db import Base, engine
 from app.db import get_session
@@ -19,15 +24,6 @@ from app.routers.ui import router as ui_router
 from app.models import User
 
 app = FastAPI(title="Inventario")
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "change-me"),
-    session_cookie="inventario_session",
-    max_age=60 * 60 * 24 * 7,
-    same_site="lax",
-    https_only=False,
-)
 
 
 @app.middleware("http")
@@ -44,6 +40,16 @@ async def ui_auth_middleware(request, call_next):
                 return resp
             return RedirectResponse(url="/ui/login", status_code=302)
     return await call_next(request)
+
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "change-me"),
+    session_cookie="inventario_session",
+    max_age=60 * 60 * 24 * 7,
+    same_site="lax",
+    https_only=False,
+)
 
 app.include_router(health_router)
 app.include_router(products_router)
@@ -149,3 +155,14 @@ def on_startup() -> None:
         db.commit()
     finally:
         db.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "8000")),
+        reload=os.getenv("RELOAD", "1") == "1",
+    )
