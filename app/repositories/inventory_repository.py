@@ -95,6 +95,12 @@ class InventoryRepository:
 
     def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
         q = query.strip()
+
+        if self._db.get_bind().dialect.name == "postgresql":
+            lot_codes_expr = func.string_agg(InventoryLot.lot_code, ",").label("lot_codes")
+        else:
+            lot_codes_expr = func.group_concat(InventoryLot.lot_code, ",").label("lot_codes")
+
         stmt = (
             select(
                 InventoryMovement.id,
@@ -105,7 +111,7 @@ class InventoryRepository:
                 Product.image_url,
                 func.abs(InventoryMovement.quantity),
                 InventoryMovement.unit_price,
-                func.group_concat(InventoryLot.lot_code, ",").label("lot_codes"),
+                lot_codes_expr,
             )
             .select_from(InventoryMovement)
             .join(Product, Product.id == InventoryMovement.product_id)
