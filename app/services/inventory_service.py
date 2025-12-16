@@ -963,3 +963,19 @@ class InventoryService:
 
     def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
         return self._inventory.recent_sales(query=query, limit=limit)
+
+    def movement_history(
+        self,
+        sku: Optional[str] = None,
+        movement_type: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 100,
+    ) -> list[tuple]:
+        return self._inventory.movement_history(
+            sku=sku,
+            movement_type=movement_type,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )

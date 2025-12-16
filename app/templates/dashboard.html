@@ -172,6 +172,12 @@
         Dividendos
       </button>
 
+      <button class="tab" id="tab-history" aria-selected="false"
+              hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Historial
+      </button>
+
     </div>
 
     <div id="tab-content" class="card"

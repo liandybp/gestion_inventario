@@ -1,0 +1,102 @@
+<div>
+  <h2>Historial de Movimientos</h2>
+  <p class="muted">Filtra por producto, tipo de movimiento y rango de fechas.</p>
+
+  {% if message %}
+  <div class="{{ message_class or '' }}" style="padding:10px;margin-bottom:12px;border-radius:8px;">
+    <strong>{{ message }}</strong>
+    {% if message_detail %}<br><span class="muted">{{ message_detail }}</span>{% endif %}
+  </div>
+  {% endif %}
+
+  <form hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML" style="margin-bottom:16px;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+      <div>
+        <label style="display:block;font-size:13px;margin-bottom:4px;">Producto (SKU)</label>
+        <select name="sku" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);min-width:200px;">
+          <option value="">-- Todos --</option>
+          {% for p in product_options %}
+          <option value="{{ p.sku }}" {% if sku_filter == p.sku %}selected{% endif %}>{{ p.sku }} - {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;margin-bottom:4px;">Tipo</label>
+        <select name="movement_type" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);">
+          <option value="">-- Todos --</option>
+          <option value="purchase" {% if type_filter == 'purchase' %}selected{% endif %}>Compra</option>
+          <option value="sale" {% if type_filter == 'sale' %}selected{% endif %}>Venta</option>
+          <option value="adjustment" {% if type_filter == 'adjustment' %}selected{% endif %}>Ajuste</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;margin-bottom:4px;">Desde</label>
+        <input type="datetime-local" name="start_date" value="{{ start_date_value or '' }}" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;margin-bottom:4px;">Hasta</label>
+        <input type="datetime-local" name="end_date" value="{{ end_date_value or '' }}" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
+      </div>
+      <div>
+        <button type="submit" style="margin-bottom:0;">Filtrar</button>
+      </div>
+      <div>
+        <a href="#" hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML" style="font-size:13px;">Limpiar filtros</a>
+      </div>
+    </div>
+  </form>
+
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>SKU</th>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Costo Unit.</th>
+          <th>Precio Unit.</th>
+          <th>Nota</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mv in movements %}
+        <tr>
+          <td>{{ mv[1].strftime('%Y-%m-%d %H:%M') if mv[1] else '' }}</td>
+          <td>
+            {% if mv[2] == 'purchase' %}
+              <span style="color:#059669;">Compra</span>
+            {% elif mv[2] == 'sale' %}
+              <span style="color:#dc2626;">Venta</span>
+            {% elif mv[2] == 'adjustment' %}
+              <span style="color:#d97706;">Ajuste</span>
+            {% else %}
+              {{ mv[2] }}
+            {% endif %}
+          </td>
+          <td><code>{{ mv[3] }}</code></td>
+          <td>{{ mv[4] }}</td>
+          <td style="text-align:right;">
+            {% if mv[2] == 'sale' %}
+              {{ "%.2f"|format(mv[6]|abs) }}
+            {% else %}
+              {{ "%.2f"|format(mv[6]) }}
+            {% endif %}
+            {% if mv[5] %}<span class="muted">{{ mv[5] }}</span>{% endif %}
+          </td>
+          <td style="text-align:right;">{% if mv[7] %}${{ "%.2f"|format(mv[7]) }}{% endif %}</td>
+          <td style="text-align:right;">{% if mv[8] %}${{ "%.2f"|format(mv[8]) }}{% endif %}</td>
+          <td class="muted">{{ mv[9] or '' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="muted" style="text-align:center;">No hay movimientos con los filtros seleccionados.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="muted" style="margin-top:12px;">Mostrando {{ movements|length }} movimiento(s).</p>
+</div>

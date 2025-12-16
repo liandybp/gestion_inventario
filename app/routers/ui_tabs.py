@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,7 +12,7 @@ from app.deps import session_dep
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 
-from .ui_common import dt_to_local_input, month_range, templates
+from .ui_common import dt_to_local_input, month_range, parse_dt, templates
 
 router = APIRouter()
 
@@ -195,4 +196,43 @@ def restock_table(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         request=request,
         name="partials/restock_table.html",
         context={"items": items},
+    )
+
+
+@router.get("/tabs/history", response_class=HTMLResponse)
+def tab_history(
+    request: Request,
+    db: Session = Depends(session_dep),
+    sku: Optional[str] = None,
+    movement_type: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    product_service = ProductService(db)
+    inventory_service = InventoryService(db)
+
+    sku_filter = sku.strip() if sku else None
+    type_filter = movement_type.strip() if movement_type else None
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+
+    movements = inventory_service.movement_history(
+        sku=sku_filter or None,
+        movement_type=type_filter or None,
+        start_date=start_dt,
+        end_date=end_dt,
+        limit=200,
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_history.html",
+        context={
+            "movements": movements,
+            "product_options": product_service.search(query="", limit=200),
+            "sku_filter": sku_filter or "",
+            "type_filter": type_filter or "",
+            "start_date_value": start_date or "",
+            "end_date_value": end_date or "",
+        },
     )

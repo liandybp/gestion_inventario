@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Optional
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -116,4 +119,45 @@ class InventoryRepository:
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+        return list(self._db.execute(stmt).all())
+
+    def movement_history(
+        self,
+        sku: Optional[str] = None,
+        movement_type: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 100,
+    ) -> list[tuple]:
+        stmt = (
+            select(
+                InventoryMovement.id,
+                InventoryMovement.movement_date,
+                InventoryMovement.type,
+                Product.sku,
+                Product.name,
+                Product.unit_of_measure,
+                InventoryMovement.quantity,
+                InventoryMovement.unit_cost,
+                InventoryMovement.unit_price,
+                InventoryMovement.note,
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
+        )
+
+        if sku:
+            stmt = stmt.where(Product.sku == sku)
+
+        if movement_type:
+            stmt = stmt.where(InventoryMovement.type == movement_type)
+
+        if start_date:
+            stmt = stmt.where(InventoryMovement.movement_date >= start_date)
+
+        if end_date:
+            stmt = stmt.where(InventoryMovement.movement_date < end_date)
+
+        stmt = stmt.limit(limit)
         return list(self._db.execute(stmt).all())
