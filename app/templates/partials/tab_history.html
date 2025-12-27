@@ -10,10 +10,10 @@
   {% endif %}
 
   <form hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML" style="margin-bottom:16px;">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; align-items:end;">
       <div>
         <label style="display:block;font-size:13px;margin-bottom:4px;">Producto (SKU)</label>
-        <select name="sku" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);min-width:200px;">
+        <select name="sku" style="width:100%; padding:8px;border-radius:8px;border:1px solid var(--brand-border);">
           <option value="">-- Todos --</option>
           {% for p in product_options %}
           <option value="{{ p.sku }}" {% if sku_filter == p.sku %}selected{% endif %}>{{ p.sku }} - {{ p.name }}</option>
@@ -22,7 +22,7 @@
       </div>
       <div>
         <label style="display:block;font-size:13px;margin-bottom:4px;">Tipo</label>
-        <select name="movement_type" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);">
+        <select name="movement_type" style="width:100%; padding:8px;border-radius:8px;border:1px solid var(--brand-border);">
           <option value="">-- Todos --</option>
           <option value="purchase" {% if type_filter == 'purchase' %}selected{% endif %}>Compra</option>
           <option value="sale" {% if type_filter == 'sale' %}selected{% endif %}>Venta</option>
@@ -31,16 +31,14 @@
       </div>
       <div>
         <label style="display:block;font-size:13px;margin-bottom:4px;">Desde</label>
-        <input type="datetime-local" name="start_date" value="{{ start_date_value or '' }}" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
+        <input type="date" name="start_date" value="{{ start_date_value or '' }}" style="width:100%; padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
       </div>
       <div>
         <label style="display:block;font-size:13px;margin-bottom:4px;">Hasta</label>
-        <input type="datetime-local" name="end_date" value="{{ end_date_value or '' }}" style="padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
+        <input type="date" name="end_date" value="{{ end_date_value or '' }}" style="width:100%; padding:8px;border-radius:8px;border:1px solid var(--brand-border);" />
       </div>
-      <div>
+      <div style="display:flex; gap:10px; align-items:center;">
         <button type="submit" style="margin-bottom:0;">Filtrar</button>
-      </div>
-      <div>
         <a href="#" hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML" style="font-size:13px;">Limpiar filtros</a>
       </div>
     </div>

@@ -62,21 +62,21 @@
   <div class="card" style="margin-top:16px;">
     <h3>Ventas ({{ month_label }})</h3>
     <p class="muted">Distribución por artículo + serie temporal diaria.</p>
-    <div style="display:flex; gap:16px; align-items:stretch;">
-      <div style="flex: 0 0 auto;">
-        <div id="monthly-sales-pie-wrap" style="display:flex; gap:14px; align-items:center; position:relative;">
+    <div style="display:grid; grid-template-columns: 594px 1fr; gap:16px; align-items:stretch;">
+      <div style="width:594px;">
+        <div id="monthly-sales-pie-wrap" style="display:grid; grid-template-columns: 320px 260px; column-gap:14px; align-items:center; position:relative; width:594px;">
           <svg id="monthly-sales-pie-line" style="position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none;">
             <line id="monthly-sales-pie-line-el" x1="0" y1="0" x2="0" y2="0" stroke="rgba(11,45,66,0.45)" stroke-width="2" />
           </svg>
           <div style="width:320px; height:220px;">
             <canvas id="monthly-sales-pie" style="width:100%; height:100%;"></canvas>
           </div>
-          <div id="monthly-sales-pie-tooltip" class="card" style="padding:12px; min-width:260px;">
+          <div id="monthly-sales-pie-tooltip" class="card" style="padding:12px; width:260px; max-width:260px; overflow-wrap:anywhere; word-break:break-word;">
             <div class="muted">Pasa el ratón por un color para ver el detalle.</div>
           </div>
         </div>
       </div>
-      <div style="flex:1 1 auto; min-width:320px;">
+      <div style="min-width:320px;">
         <div style="width:100%; height:220px;">
           <canvas id="monthly-sales-daily-line" style="width:100%; height:100%;"></canvas>
         </div>

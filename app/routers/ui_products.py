@@ -39,6 +39,7 @@ def create_product(
 ) -> HTMLResponse:
     product_service = ProductService(db)
     try:
+        ensure_admin(db, request)
         image_url = save_product_image(image_file) if image_file is not None else None
         created = product_service.create(
             ProductCreate(
@@ -159,6 +160,7 @@ def product_edit_form(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     product_service = ProductService(db)
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(
@@ -185,6 +187,7 @@ def product_update(
 ) -> HTMLResponse:
     product_service = ProductService(db)
     try:
+        ensure_admin(db, request)
         existing = product_service.get_by_sku(sku)
         image_url = save_product_image(image_file) if image_file is not None else existing.image_url
         updated = product_service.update(
@@ -246,6 +249,7 @@ def product_edit_form_inventory(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     product_service = ProductService(db)
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(

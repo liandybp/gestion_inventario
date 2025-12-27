@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
+from app.models import AuditLog
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
@@ -35,6 +37,7 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 
 @router.get("/tabs/home", response_class=HTMLResponse)
 def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
 
@@ -159,7 +162,8 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
 
 
 @router.get("/tabs/inventory", response_class=HTMLResponse)
-def tab_inventory(request: Request) -> HTMLResponse:
+def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_inventory.html",
@@ -222,6 +226,7 @@ def tab_expenses(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
 
 @router.get("/tabs/dividends", response_class=HTMLResponse)
 def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
@@ -240,6 +245,7 @@ def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
 @router.get("/tabs/profit", response_class=HTMLResponse)
 def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     inventory_service = InventoryService(db)
     summary, items = inventory_service.monthly_profit_report()
     expenses = inventory_service.list_expenses(
@@ -260,6 +266,7 @@ def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResp
 
 @router.get("/tabs/profit-items", response_class=HTMLResponse)
 def tab_profit_items(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     inventory_service = InventoryService(db)
     summary, items = inventory_service.monthly_profit_items_report()
     return templates.TemplateResponse(
@@ -278,6 +285,7 @@ def stock_table(
     db: Session = Depends(session_dep),
     query: str = "",
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     service = InventoryService(db)
     user = get_current_user_from_session(db, request)
     items = service.stock_list(query=query)
@@ -329,6 +337,7 @@ def stock_delete_product(
 
 @router.get("/restock-table", response_class=HTMLResponse)
 def restock_table(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     inventory_service = InventoryService(db)
     items = [i for i in inventory_service.stock_list() if i.needs_restock]
     return templates.TemplateResponse(
@@ -347,6 +356,7 @@ def tab_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
 
@@ -354,6 +364,8 @@ def tab_history(
     type_filter = movement_type.strip() if movement_type else None
     start_dt = parse_dt(start_date) if start_date else None
     end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
 
     movements = inventory_service.movement_history(
         sku=sku_filter or None,
@@ -371,7 +383,121 @@ def tab_history(
             "product_options": product_service.search(query="", limit=200),
             "sku_filter": sku_filter or "",
             "type_filter": type_filter or "",
-            "start_date_value": start_date or "",
-            "end_date_value": end_date or "",
+            "start_date_value": (start_date or "")[:10],
+            "end_date_value": (end_date or "")[:10],
+        },
+    )
+
+
+@router.get("/tabs/activity", response_class=HTMLResponse)
+def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
+
+    username: str = (request.query_params.get("username") or "").strip()
+    role_filter: str = (request.query_params.get("role") or "").strip().lower()
+    start_date = (request.query_params.get("start_date") or "").strip()
+    end_date = (request.query_params.get("end_date") or "").strip()
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    stmt = (
+        select(AuditLog)
+        .where(AuditLog.entity_type == "auth")
+        .where(AuditLog.action.in_(["login", "logout"]))
+    )
+    if username:
+        stmt = stmt.where(AuditLog.username == username)
+    if start_dt is not None:
+        stmt = stmt.where(AuditLog.created_at >= start_dt)
+    if end_dt is not None:
+        stmt = stmt.where(AuditLog.created_at < end_dt)
+
+    stmt = stmt.order_by(AuditLog.created_at.desc()).limit(2000)
+    rows = db.execute(stmt).scalars().all()
+
+    def fmt_dt(dt: Optional[datetime]) -> str:
+        if dt is None:
+            return ""
+        try:
+            return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return str(dt)
+
+    def parse_detail(raw: Optional[str]) -> dict:
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+
+    if role_filter and role_filter != "all":
+        filtered_rows: list[AuditLog] = []
+        for ev in rows:
+            detail = parse_detail(ev.detail)
+            role = str(detail.get("role") or "").strip().lower()
+            if role == role_filter:
+                filtered_rows.append(ev)
+        rows = filtered_rows
+
+    events = list(reversed(rows))
+    pending_login: dict[str, dict] = {}
+    sessions: list[dict] = []
+
+    for ev in events:
+        username = (ev.username or "").strip() or "(desconocido)"
+        detail = parse_detail(ev.detail)
+        role = str(detail.get("role") or "") or "-"
+        if ev.action == "login":
+            pending_login[username] = {"login_at": ev.created_at, "role": role}
+            continue
+
+        if ev.action == "logout":
+            login_info = pending_login.pop(username, None)
+            login_at = (login_info or {}).get("login_at")
+            logout_at = ev.created_at
+            duration_seconds = None
+            if isinstance(login_at, datetime) and isinstance(logout_at, datetime):
+                try:
+                    duration_seconds = max(0, int((logout_at - login_at).total_seconds()))
+                except Exception:
+                    duration_seconds = None
+
+            sessions.append(
+                {
+                    "username": username,
+                    "role": (login_info or {}).get("role") or role,
+                    "login_at": fmt_dt(login_at) if login_at else "",
+                    "logout_at": fmt_dt(logout_at),
+                    "duration_seconds": duration_seconds,
+                }
+            )
+
+    sessions.sort(key=lambda r: (r.get("logout_at") or r.get("login_at") or ""), reverse=True)
+
+    event_rows: list[dict] = []
+    for ev in rows[:200]:
+        detail = parse_detail(ev.detail)
+        event_rows.append(
+            {
+                "at": fmt_dt(ev.created_at),
+                "username": (ev.username or "").strip() or "(desconocido)",
+                "action": ev.action,
+                "role": str(detail.get("role") or "") or "-",
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_activity.html",
+        context={
+            "sessions": sessions,
+            "events": event_rows,
+            "username_filter": username,
+            "role_filter": role_filter or "",
+            "start_date_value": (start_date or "")[:10],
+            "end_date_value": (end_date or "")[:10],
         },
     )

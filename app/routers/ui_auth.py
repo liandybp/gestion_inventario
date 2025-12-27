@@ -36,7 +36,14 @@ def login_submit(
         )
 
     request.session["username"] = user.username
-    log_event(db, user, action="login", entity_type="auth", entity_id=user.username, detail={})
+    log_event(
+        db,
+        user,
+        action="login",
+        entity_type="auth",
+        entity_id=user.username,
+        detail={"role": user.role},
+    )
     return RedirectResponse(url="/ui/dashboard", status_code=302)
 
 
@@ -44,7 +51,14 @@ def login_submit(
 def logout(request: Request, db: Session = Depends(session_dep)) -> RedirectResponse:
     user = get_current_user_from_session(db, request)
     if user is not None:
-        log_event(db, user, action="logout", entity_type="auth", entity_id=user.username, detail={})
+        log_event(
+            db,
+            user,
+            action="logout",
+            entity_type="auth",
+            entity_id=user.username,
+            detail={"role": user.role},
+        )
     try:
         request.session.clear()
     except Exception:

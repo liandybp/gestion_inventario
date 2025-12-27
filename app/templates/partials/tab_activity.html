@@ -1,0 +1,102 @@
+<div>
+  <h2>Actividad</h2>
+  <p class="muted">Sesiones (login/logout) y eventos recientes.</p>
+
+  <div class="card" style="margin-top:12px;">
+    <h3 style="margin-top:0;">Filtros</h3>
+    <form hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Usuario</div>
+          <input name="username" value="{{ username_filter or '' }}" placeholder="admin / operator" />
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Rol</div>
+          <select name="role" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
+            <option value="all" {% if (role_filter or '') == '' or (role_filter or '') == 'all' %}selected{% endif %}>Todos</option>
+            <option value="admin" {% if (role_filter or '') == 'admin' %}selected{% endif %}>admin</option>
+            <option value="operator" {% if (role_filter or '') == 'operator' %}selected{% endif %}>operator</option>
+          </select>
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Desde</div>
+          <input type="date" name="start_date" value="{{ start_date_value or '' }}" />
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Hasta</div>
+          <input type="date" name="end_date" value="{{ end_date_value or '' }}" />
+        </div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <button type="submit">Aplicar</button>
+        <a href="/ui/tabs/activity" hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML">Limpiar</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <h3 style="margin-top:0;">Sesiones</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Rol</th>
+          <th>Entrada</th>
+          <th>Salida</th>
+          <th>Duración</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+          <tr>
+            <td>{{ s.username }}</td>
+            <td>{{ s.role }}</td>
+            <td>{{ s.login_at }}</td>
+            <td>{{ s.logout_at }}</td>
+            <td>
+              {% if s.duration_seconds is not none %}
+                {{ (s.duration_seconds // 3600) }}h {{ ((s.duration_seconds % 3600) // 60) }}m
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if not sessions %}
+          <tr>
+            <td colspan="5" class="muted">Sin sesiones registradas todavía.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <h3 style="margin-top:0;">Eventos recientes</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha/hora</th>
+          <th>Usuario</th>
+          <th>Rol</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+          <tr>
+            <td>{{ e.at }}</td>
+            <td>{{ e.username }}</td>
+            <td>{{ e.role }}</td>
+            <td>{{ e.action }}</td>
+          </tr>
+        {% endfor %}
+        {% if not events %}
+          <tr>
+            <td colspan="4" class="muted">Sin eventos.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>

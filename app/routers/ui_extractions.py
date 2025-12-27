@@ -30,6 +30,7 @@ def extraction_create(
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     try:
+        ensure_admin(db, request)
         service.create_extraction(
             party=party,
             amount=amount,
@@ -154,6 +155,7 @@ def extraction_edit_form(
     extraction_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     service = InventoryService(db)
     extraction = service.get_extraction(extraction_id)
     return templates.TemplateResponse(
@@ -180,6 +182,7 @@ def extraction_update(
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     try:
+        ensure_admin(db, request)
         service.update_extraction(
             extraction_id=extraction_id,
             party=party,
