@@ -1,0 +1,15 @@
+<div class="card">
+  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+    <h3 style="margin:0;">Editar cliente</h3>
+    <button type="button" style="background:#6b7280;" hx-on:click="document.getElementById('customer-edit').innerHTML=''">Cerrar</button>
+  </div>
+
+  <form hx-post="/ui/customer/{{ customer.id }}/update" hx-target="#tab-content" hx-swap="innerHTML" style="margin-top:12px;">
+    <div class="row"><label>ID cliente</label><input name="client_id" value="{{ customer.client_id }}" required /></div>
+    <div class="row"><label>Nombre</label><input name="name" value="{{ customer.name }}" required /></div>
+    <div class="row"><label>Dirección (opcional)</label><input name="address" value="{{ customer.address or '' }}" /></div>
+    <div class="row"><label>Teléfono (opcional)</label><input name="phone" value="{{ customer.phone or '' }}" /></div>
+    <div class="row"><label>Email (opcional)</label><input name="email" value="{{ customer.email or '' }}" /></div>
+    <button type="submit">Guardar cambios</button>
+  </form>
+</div>

@@ -347,6 +347,18 @@
         Ventas
       </button>
 
+      <button class="tab" id="tab-documents" aria-selected="false"
+              hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Documentos
+      </button>
+
+      <button class="tab" id="tab-customers" aria-selected="false"
+              hx-get="/ui/tabs/customers" hx-target="#tab-content" hx-swap="innerHTML"
+              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+        Clientes
+      </button>
+
       <button class="tab" id="tab-expenses" aria-selected="false"
               hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML"
               hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">

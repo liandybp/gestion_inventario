@@ -90,6 +90,18 @@ def _run_startup_tasks() -> None:
                     "ALTER TABLE products ADD COLUMN lead_time_days INTEGER DEFAULT 0"
                 )
 
+            sales_doc_cols = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(sales_documents)").fetchall()
+            }
+            if "customer_id" not in sales_doc_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE sales_documents ADD COLUMN customer_id INTEGER"
+                )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_sales_documents_customer_id ON sales_documents(customer_id)"
+            )
+
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
             try:
@@ -103,6 +115,19 @@ def _run_startup_tasks() -> None:
             except SQLAlchemyError as e:
                 raise RuntimeError(
                     "No se pudo crear la columna lead_time_days en products."
+                ) from e
+
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='sales_documents' AND column_name='customer_id'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE sales_documents ADD COLUMN customer_id INTEGER"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna customer_id en sales_documents."
                 ) from e
 
     db = get_session()

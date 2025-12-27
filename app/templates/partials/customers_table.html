@@ -1,0 +1,41 @@
+<div class="card">
+  <h3 style="margin-top:0;">Listado</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Teléfono</th>
+        <th>Email</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in customers %}
+        <tr>
+          <td><code>{{ c.client_id }}</code></td>
+          <td>{{ c.name }}</td>
+          <td>{{ c.phone or '' }}</td>
+          <td>{{ c.email or '' }}</td>
+          <td style="text-align:right;">
+            <button type="button"
+                    hx-get="/ui/customer/{{ c.id }}"
+                    hx-target="#customer-detail"
+                    hx-swap="innerHTML">Ver</button>
+            <button type="button" style="margin-left:8px;"
+                    hx-get="/ui/customer/{{ c.id }}/edit"
+                    hx-target="#customer-edit"
+                    hx-swap="innerHTML">Editar</button>
+            <form hx-post="/ui/customer/{{ c.id }}/delete" hx-target="#tab-content" hx-swap="innerHTML" style="display:inline; margin-left:8px;">
+              <button type="submit" formnovalidate style="background: var(--brand-red);"
+                      hx-confirm="¿Eliminar este cliente?">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      {% if not customers %}
+        <tr><td colspan="5" class="muted">Sin clientes.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

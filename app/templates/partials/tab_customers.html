@@ -1,0 +1,40 @@
+<div>
+  <h2>Clientes</h2>
+  <p class="muted">Gestiona clientes y revisa su historial de compras para personalizar ofertas.</p>
+
+  {% if message %}
+    <div class="{{ message_class or '' }}" style="padding:12px;border-radius:10px;margin-top:12px;">
+      <strong>{{ message }}</strong>
+      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+    <div class="card">
+      <h3 style="margin-top:0;">Buscar</h3>
+      <form hx-get="/ui/customers/table" hx-target="#customers-table" hx-swap="innerHTML">
+        <div class="row"><label>Nombre o ID</label><input name="query" value="{{ query or '' }}" /></div>
+        <button type="submit">Buscar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Nuevo cliente</h3>
+      <form hx-post="/ui/customer/create" hx-target="#tab-content" hx-swap="innerHTML">
+        <div class="row"><label>ID cliente</label><input name="client_id" required /></div>
+        <div class="row"><label>Nombre</label><input name="name" required /></div>
+        <div class="row"><label>Dirección (opcional)</label><input name="address" /></div>
+        <div class="row"><label>Teléfono (opcional)</label><input name="phone" /></div>
+        <div class="row"><label>Email (opcional)</label><input name="email" /></div>
+        <button type="submit">Guardar</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="customer-detail" style="margin-top:12px;"></div>
+  <div id="customer-edit" style="margin-top:12px;"></div>
+
+  <div id="customers-table" style="margin-top:12px;">
+    {% include 'partials/customers_table.html' %}
+  </div>
+</div>

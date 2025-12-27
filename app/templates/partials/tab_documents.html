@@ -1,0 +1,11 @@
+<div>
+  <h2>Documentos</h2>
+
+  <datalist id="product-options">
+    {% for p in product_options %}
+      <option value="{{ p.sku }} - {{ p.name }}"></option>
+    {% endfor %}
+  </datalist>
+
+  {% include 'partials/sales_document_panel.html' %}
+</div>

@@ -1,0 +1,46 @@
+<div class="card">
+  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+    <h3 style="margin:0;">Cliente: {{ customer.name }}</h3>
+    <button type="button" style="background:#6b7280;" hx-on:click="document.getElementById('customer-detail').innerHTML=''">Cerrar</button>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+    <div>
+      <div><strong>ID:</strong> <code>{{ customer.client_id }}</code></div>
+      {% if customer.address %}<div><strong>Dirección:</strong> {{ customer.address }}</div>{% endif %}
+      {% if customer.phone %}<div><strong>Teléfono:</strong> {{ customer.phone }}</div>{% endif %}
+      {% if customer.email %}<div><strong>Email:</strong> {{ customer.email }}</div>{% endif %}
+    </div>
+    <div>
+      <div><strong>Total facturado:</strong> {{ currency_symbol }}{{ '%.2f'|format(metrics.total_invoices or 0) }}</div>
+      <div><strong>Total presupuestos:</strong> {{ currency_symbol }}{{ '%.2f'|format(metrics.total_quotes or 0) }}</div>
+      <div><strong>Nº compras:</strong> {{ metrics.count_invoices or 0 }}</div>
+      <div><strong>Última compra:</strong> {{ metrics.last_purchase or '' }}</div>
+    </div>
+  </div>
+
+  <h4 style="margin-top:14px;">Documentos</h4>
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Fecha</th>
+        <th>Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in documents %}
+        <tr>
+          <td><code>{{ d.code }}</code></td>
+          <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
+          <td style="text-align:right;">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
+          <td style="text-align:right;"><a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a></td>
+        </tr>
+      {% endfor %}
+      {% if not documents %}
+        <tr><td colspan="4" class="muted">Sin documentos.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

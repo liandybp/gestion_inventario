@@ -19,6 +19,24 @@
 
   <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:12px;">
     <div class="card">
+      <div class="muted">Inventario total (valor a costo)</div>
+      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_value_total or 0) }} €</div>
+      <div class="muted">Estimación en base a lotes FIFO (stock actual).</div>
+    </div>
+    <div class="card">
+      <div class="muted">Inventario total (valor a venta)</div>
+      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_sale_value_total or 0) }} €</div>
+      <div class="muted">Estimación en base a precios de venta actuales.</div>
+    </div>
+    <div class="card">
+      <div class="muted">Gasto operativo que más impacta ({{ month_label }})</div>
+      <div style="font-size:18px;font-weight:700;">{{ (top_expense.concept if top_expense else '-') }}</div>
+      <div class="muted">{% if top_expense %}{{ '%.2f'|format(top_expense.total or 0) }} €{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:12px;">
+    <div class="card">
       <div class="muted">Más vendido (año {{ year }})</div>
       <div style="font-size:18px;font-weight:700;">{{ (top_year.name if top_year else '-') }}</div>
       <div class="muted">
@@ -38,24 +56,6 @@
       <div class="muted">Mayor margen % ({{ month_label }})</div>
       <div style="font-size:18px;font-weight:700;">{{ (top_margin.name if top_margin else '-') }}</div>
       <div class="muted">{{ (top_margin.sku if top_margin else '') }} {% if top_margin %}- {{ '%.2f'|format(top_margin.gross_pct or 0) }}%{% endif %}</div>
-    </div>
-  </div>
-
-  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:12px;">
-    <div class="card">
-      <div class="muted">Inventario total (valor a costo)</div>
-      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_value_total or 0) }} €</div>
-      <div class="muted">Estimación en base a lotes FIFO (stock actual).</div>
-    </div>
-    <div class="card">
-      <div class="muted">Inventario total (valor a venta)</div>
-      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_sale_value_total or 0) }} €</div>
-      <div class="muted">Estimación en base a precios de venta actuales.</div>
-    </div>
-    <div class="card">
-      <div class="muted">Gasto operativo que más impacta ({{ month_label }})</div>
-      <div style="font-size:18px;font-weight:700;">{{ (top_expense.concept if top_expense else '-') }}</div>
-      <div class="muted">{% if top_expense %}{{ '%.2f'|format(top_expense.total or 0) }} €{% endif %}</div>
     </div>
   </div>
 

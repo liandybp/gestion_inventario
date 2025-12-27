@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import AuditLog
+from app.models import Customer
 from app.models import SalesDocument
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -34,6 +35,25 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
         request=request,
         name="dashboard.html",
         context={"user": user},
+    )
+
+
+@router.get("/tabs/customers", response_class=HTMLResponse)
+def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
+    _ = get_current_user_from_session(db, request)
+    q = (query or "").strip()
+    stmt = select(Customer)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
+    customers = list(db.scalars(stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_customers.html",
+        context={
+            "customers": customers,
+            "query": q,
+        },
     )
 
 
@@ -203,6 +223,9 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
         cart = []
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        draft = {}
 
     recent_documents = list(
         db.scalars(
@@ -211,6 +234,8 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             .limit(10)
         )
     )
+
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_sales.html",
@@ -224,6 +249,47 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "issuer": config.issuer.model_dump(),
             "cart": cart,
             "recent_documents": recent_documents,
+            "customers": customers,
+            "draft": draft,
+        },
+    )
+
+
+@router.get("/tabs/documents", response_class=HTMLResponse)
+def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    _ = get_current_user_from_session(db, request)
+    product_service = ProductService(db)
+    config = load_business_config()
+
+    session = getattr(request, "session", None) or {}
+    cart = session.get("sales_doc_cart")
+    if not isinstance(cart, list):
+        cart = []
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        draft = {}
+
+    recent_documents = list(
+        db.scalars(
+            select(SalesDocument)
+            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
+            .limit(10)
+        )
+    )
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_documents.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "cart": cart,
+            "recent_documents": recent_documents,
+            "customers": customers,
+            "draft": draft,
+            "product_options": product_service.search(query="", limit=200),
         },
     )
 

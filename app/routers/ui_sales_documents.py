@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.business_config import load_business_config
 from app.deps import session_dep
-from app.models import Product, SalesDocument, SalesDocumentItem
+from app.models import Customer, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
 from app.security import get_current_user_from_session
 from app.services.product_service import ProductService
@@ -18,6 +18,19 @@ from app.services.product_service import ProductService
 from .ui_common import extract_sku, templates
 
 router = APIRouter()
+
+
+def _upsert_customer(db: Session, *, client_id: str, name: str, address: Optional[str]) -> Customer:
+    customer = db.scalar(select(Customer).where(Customer.client_id == client_id))
+    if customer is None:
+        customer = Customer(client_id=client_id, name=name, address=address)
+        db.add(customer)
+        db.flush()
+        return customer
+    customer.name = name
+    customer.address = address
+    db.flush()
+    return customer
 
 
 def _calc_cart_items(cart: list[dict]) -> tuple[list[dict], float]:
@@ -68,6 +81,48 @@ def _clear_cart(request: Request) -> None:
         pass
 
 
+def _get_draft(request: Request) -> dict:
+    session = getattr(request, "session", None) or {}
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        return {}
+    return {
+        "doc_type": str(draft.get("doc_type") or "").strip() or None,
+        "client_name": str(draft.get("client_name") or "").strip() or None,
+        "client_id": str(draft.get("client_id") or "").strip() or None,
+        "client_address": str(draft.get("client_address") or "").strip() or None,
+        "notes": str(draft.get("notes") or "").strip() or None,
+    }
+
+
+def _set_draft(
+    request: Request,
+    *,
+    doc_type: Optional[str] = None,
+    client_name: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_address: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> None:
+    try:
+        request.session["sales_doc_draft"] = {
+            "doc_type": (doc_type or "").strip() or None,
+            "client_name": (client_name or "").strip() or None,
+            "client_id": (client_id or "").strip() or None,
+            "client_address": (client_address or "").strip() or None,
+            "notes": (notes or "").strip() or None,
+        }
+    except Exception:
+        pass
+
+
+def _clear_draft(request: Request) -> None:
+    try:
+        request.session.pop("sales_doc_draft", None)
+    except Exception:
+        pass
+
+
 def _recent_documents(db: Session, limit: int = 10) -> list[SalesDocument]:
     return list(
         db.scalars(select(SalesDocument).order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(limit))
@@ -99,6 +154,15 @@ def sales_doc_preview(
     if not client_name or not client_id:
         raise HTTPException(status_code=422, detail="Cliente (Nombre e ID) es obligatorio")
 
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+    )
+
     cart = _get_cart(request)
     if not cart:
         raise HTTPException(status_code=422, detail="El carrito está vacío")
@@ -121,6 +185,42 @@ def sales_doc_preview(
             "subtotal": subtotal,
             "total": total,
             "currency_symbol": config.currency.symbol,
+        },
+    )
+
+
+@router.post("/sales-doc/{doc_id}/delete", response_class=HTMLResponse)
+def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
+    _ = get_current_user_from_session(db, request)
+    config = load_business_config()
+
+    doc = db.get(SalesDocument, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    items = list(db.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    for it in items:
+        db.delete(it)
+    db.delete(doc)
+    db.commit()
+
+    cart = _get_cart(request)
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    draft = _get_draft(request)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/sales_document_panel.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "cart": cart,
+            "recent_documents": _recent_documents(db, limit=10),
+            "customers": customers,
+            "draft": draft,
+            "message": "Documento eliminado",
+            "message_class": "ok",
         },
     )
 
@@ -175,6 +275,9 @@ async def sales_doc_update(
         raise HTTPException(status_code=422, detail="client_name is required")
     if not client_id:
         raise HTTPException(status_code=422, detail="client_id is required")
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address)
+    doc.customer_id = customer.id
 
     items = list(
         db.scalars(
@@ -281,76 +384,201 @@ def sales_doc_product_defaults(
     )
 
 
+@router.get("/sales-doc/customer-defaults", response_class=HTMLResponse)
+def sales_doc_customer_defaults(client_name: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
+    raw = (client_name or "").strip()
+    if not raw:
+        return HTMLResponse("")
+
+    extracted_id: Optional[str] = None
+    if " - " in raw:
+        parts = [p.strip() for p in raw.split(" - ") if p.strip()]
+        if len(parts) >= 2:
+            extracted_id = parts[-1]
+
+    customer = None
+    if extracted_id:
+        customer = db.scalar(select(Customer).where(Customer.client_id == extracted_id))
+    if customer is None:
+        customer = db.scalar(select(Customer).where(Customer.name.ilike(raw)).order_by(Customer.id.asc()).limit(1))
+    if customer is None:
+        like = f"%{raw}%"
+        customer = db.scalar(select(Customer).where(Customer.name.ilike(like)).order_by(Customer.id.asc()).limit(1))
+
+    if customer is None:
+        return HTMLResponse("")
+
+    addr = (customer.address or "")
+    return HTMLResponse(
+        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{customer.client_id}' required />"
+        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{addr}' />"
+    )
+
+
 @router.post("/sales-doc/cart/add", response_class=HTMLResponse)
 def sales_doc_cart_add(
     request: Request,
     product: str = Form(""),
     description: str = Form(""),
-    quantity: float = Form(1),
-    unit_price: float = Form(0),
+    quantity: str = Form("1"),
+    unit_price: str = Form(""),
+    doc_type: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     config = load_business_config()
     product_service = ProductService(db)
 
-    sku = extract_sku(product)
-    desc = (description or "").strip()
-    uom: Optional[str] = None
+    try:
 
-    if sku:
-        p = product_service.get_by_sku(sku)
-        if p is not None:
-            if not desc:
-                desc = f"{p.sku} - {p.name}".strip(" -")
-            uom = p.unit_of_measure
-        elif not desc:
-            desc = product.strip()
+        doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+        if doc_type_norm not in ("F", "P"):
+            doc_type_norm = "F"
+        _set_draft(
+            request,
+            doc_type=doc_type_norm,
+            client_name=client_name,
+            client_id=client_id,
+            client_address=client_address,
+            notes=notes,
+        )
 
-    if not desc:
-        desc = product.strip() or "(sin descripción)"
+        sku = extract_sku(product)
+        desc = (description or "").strip()
+        uom: Optional[str] = None
 
-    if quantity <= 0:
-        raise HTTPException(status_code=422, detail="quantity must be > 0")
+        if sku:
+            try:
+                p = product_service.get_by_sku(sku)
+            except HTTPException:
+                p = None
+            if p is not None:
+                if not desc:
+                    desc = f"{p.sku} - {p.name}".strip(" -")
+                uom = p.unit_of_measure
+            elif not desc:
+                desc = product.strip()
 
-    cart = _get_cart(request)
-    cart.append(
-        {
-            "sku": sku or None,
-            "description": desc,
-            "unit_of_measure": uom,
-            "quantity": float(quantity),
-            "unit_price": float(unit_price or 0),
-        }
-    )
-    _set_cart(request, cart)
+        if not desc:
+            desc = product.strip() or "(sin descripción)"
 
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/sales_document_panel.html",
-        context={
-            "sales_doc_config": config.sales_documents.model_dump(),
-            "currency": config.currency.model_dump(),
-            "issuer": config.issuer.model_dump(),
-            "cart": cart,
-            "recent_documents": _recent_documents(db, limit=10),
-            "message": "Producto agregado al documento",
-            "message_class": "ok",
-        },
-    )
+        try:
+            quantity_f = float(quantity) if str(quantity).strip() else 0.0
+        except Exception:
+            quantity_f = 0.0
+
+        if quantity_f <= 0:
+            cart = _get_cart(request)
+            customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+            draft = _get_draft(request)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/sales_document_panel.html",
+                context={
+                    "sales_doc_config": config.sales_documents.model_dump(),
+                    "currency": config.currency.model_dump(),
+                    "issuer": config.issuer.model_dump(),
+                    "cart": cart,
+                    "recent_documents": _recent_documents(db, limit=10),
+                    "customers": customers,
+                    "draft": draft,
+                    "message": "Cantidad inválida (debe ser mayor que 0)",
+                    "message_class": "error",
+                },
+            )
+
+        try:
+            unit_price_f = float(unit_price) if str(unit_price).strip() else 0.0
+        except Exception:
+            unit_price_f = 0.0
+
+        cart = _get_cart(request)
+        cart.append(
+            {
+                "sku": sku or None,
+                "description": desc,
+                "unit_of_measure": uom,
+                "quantity": float(quantity_f),
+                "unit_price": float(unit_price_f),
+            }
+        )
+        _set_cart(request, cart)
+
+        customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+        draft = _get_draft(request)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sales_document_panel.html",
+            context={
+                "sales_doc_config": config.sales_documents.model_dump(),
+                "currency": config.currency.model_dump(),
+                "issuer": config.issuer.model_dump(),
+                "cart": cart,
+                "recent_documents": _recent_documents(db, limit=10),
+                "customers": customers,
+                "draft": draft,
+                "message": "Producto agregado al documento",
+                "message_class": "ok",
+            },
+        )
+    except Exception as e:
+        cart = _get_cart(request)
+        customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+        draft = _get_draft(request)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sales_document_panel.html",
+            context={
+                "sales_doc_config": config.sales_documents.model_dump(),
+                "currency": config.currency.model_dump(),
+                "issuer": config.issuer.model_dump(),
+                "cart": cart,
+                "recent_documents": _recent_documents(db, limit=10),
+                "customers": customers,
+                "draft": draft,
+                "message": f"Error agregando producto: {e}",
+                "message_class": "error",
+            },
+        )
 
 
 @router.post("/sales-doc/cart/remove", response_class=HTMLResponse)
 def sales_doc_cart_remove(
     request: Request,
     index: int = Form(...),
+    doc_type: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     config = load_business_config()
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+    )
+
     cart = _get_cart(request)
     if 0 <= index < len(cart):
         cart.pop(index)
     _set_cart(request, cart)
 
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    draft = _get_draft(request)
+
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -360,15 +588,41 @@ def sales_doc_cart_remove(
             "issuer": config.issuer.model_dump(),
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
+            "customers": customers,
+            "draft": draft,
         },
     )
 
 
 @router.post("/sales-doc/cart/clear", response_class=HTMLResponse)
-def sales_doc_cart_clear(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def sales_doc_cart_clear(
+    request: Request,
+    doc_type: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
     config = load_business_config()
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+    )
+
     _clear_cart(request)
     cart: list[dict] = []
+
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    draft = _get_draft(request)
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -378,6 +632,8 @@ def sales_doc_cart_clear(request: Request, db: Session = Depends(session_dep)) -
             "issuer": config.issuer.model_dump(),
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
+            "customers": customers,
+            "draft": draft,
         },
     )
 
@@ -407,6 +663,8 @@ def sales_doc_issue(
         raise HTTPException(status_code=422, detail="client_name is required")
     if not client_id:
         raise HTTPException(status_code=422, detail="client_id is required")
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address)
 
     cart = _get_cart(request)
     if not cart:
@@ -448,6 +706,7 @@ def sales_doc_issue(
         )
 
     doc = SalesDocument(
+        customer_id=customer.id,
         doc_type=doc_type_norm,
         year_month=year_month,
         seq=seq,
@@ -476,6 +735,7 @@ def sales_doc_issue(
     db.commit()
 
     _clear_cart(request)
+    _clear_draft(request)
 
     doc_label = config.sales_documents.invoice_label if doc_type_norm == "F" else config.sales_documents.quote_label
 
@@ -488,6 +748,8 @@ def sales_doc_issue(
             "issuer": config.issuer.model_dump(),
             "cart": [],
             "recent_documents": _recent_documents(db, limit=10),
+            "customers": list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200))),
+            "draft": {},
             "message": f"{doc_label} emitida: {code}",
             "message_class": "ok",
             "issued_doc": doc,

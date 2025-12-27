@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.business_config import load_business_config
 from app.deps import session_dep
-from app.models import InventoryMovement, Product, SalesDocument
+from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -36,6 +36,9 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
         cart = []
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        draft = {}
     recent_documents = list(
         db.scalars(
             select(SalesDocument)
@@ -43,12 +46,15 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
             .limit(10)
         )
     )
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     return {
         "sales_doc_config": config.sales_documents.model_dump(),
         "currency": config.currency.model_dump(),
         "issuer": config.issuer.model_dump(),
         "cart": cart,
         "recent_documents": recent_documents,
+        "customers": customers,
+        "draft": draft,
     }
 
 

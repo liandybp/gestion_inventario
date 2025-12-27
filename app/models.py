@@ -22,10 +22,27 @@ class User(Base):
     )
 
 
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
+    )
+
+
 class SalesDocument(Base):
     __tablename__ = "sales_documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
     doc_type: Mapped[str] = mapped_column(String(1), index=True)
     year_month: Mapped[str] = mapped_column(String(6), index=True)
     seq: Mapped[int] = mapped_column(Integer, index=True)
