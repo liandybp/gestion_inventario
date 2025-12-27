@@ -401,6 +401,134 @@ class InventoryService:
         )
         return float(total or 0)
 
+    def inventory_value_total(self) -> float:
+        total = self._db.scalar(
+            select(
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(InventoryLot.qty_remaining, 0)
+                        * func.coalesce(InventoryLot.unit_cost, 0)
+                    ),
+                    0,
+                )
+            )
+        )
+        return float(total or 0)
+
+    def inventory_sale_value_total(self) -> float:
+        total = self._db.scalar(
+            select(
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(InventoryLot.qty_remaining, 0)
+                        * func.coalesce(Product.default_sale_price, 0)
+                    ),
+                    0,
+                )
+            )
+            .select_from(InventoryLot)
+            .join(Product, Product.id == InventoryLot.product_id)
+        )
+        return float(total or 0)
+
+    def sales_by_product(self, start: datetime, end: datetime) -> tuple[float, list[dict]]:
+        rows = self._db.execute(
+            select(
+                Product.sku,
+                Product.name,
+                func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                func.coalesce(
+                    func.sum(
+                        func.abs(InventoryMovement.quantity)
+                        * func.coalesce(InventoryMovement.unit_price, 0)
+                    ),
+                    0,
+                ).label("sales"),
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(
+                and_(
+                    InventoryMovement.type == "sale",
+                    InventoryMovement.movement_date >= start,
+                    InventoryMovement.movement_date < end,
+                )
+            )
+            .group_by(Product.id)
+            .order_by(func.coalesce(func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0)), 0).desc())
+        ).all()
+
+        items: list[dict] = []
+        total_sales = 0.0
+        for sku, name, qty, sales in rows:
+            sales_f = float(sales or 0)
+            total_sales += sales_f
+            items.append(
+                {
+                    "sku": sku,
+                    "name": name,
+                    "qty": float(qty or 0),
+                    "sales": sales_f,
+                }
+            )
+        return total_sales, items
+
+    def daily_sales_series(self, start: datetime, end: datetime) -> list[dict]:
+        rows = self._db.execute(
+            select(
+                func.date(InventoryMovement.movement_date).label("day"),
+                func.coalesce(
+                    func.sum(
+                        func.abs(InventoryMovement.quantity)
+                        * func.coalesce(InventoryMovement.unit_price, 0)
+                    ),
+                    0,
+                ).label("sales"),
+            )
+            .select_from(InventoryMovement)
+            .where(
+                and_(
+                    InventoryMovement.type == "sale",
+                    InventoryMovement.movement_date >= start,
+                    InventoryMovement.movement_date < end,
+                )
+            )
+            .group_by(func.date(InventoryMovement.movement_date))
+            .order_by(func.date(InventoryMovement.movement_date))
+        ).all()
+
+        by_day: dict[str, float] = {}
+        for day, sales in rows:
+            by_day[str(day)] = float(sales or 0)
+
+        out: list[dict] = []
+        cur = start.date()
+        end_date = end.date()
+        while cur < end_date:
+            key = cur.isoformat()
+            out.append({"day": key, "sales": float(by_day.get(key, 0.0))})
+            cur = cur + timedelta(days=1)
+
+        return out
+
+    def top_expense_concept(self, start: datetime, end: datetime) -> Optional[dict]:
+        row = self._db.execute(
+            select(
+                OperatingExpense.concept,
+                func.coalesce(func.sum(OperatingExpense.amount), 0).label("total"),
+            )
+            .where(and_(OperatingExpense.expense_date >= start, OperatingExpense.expense_date < end))
+            .group_by(OperatingExpense.concept)
+            .order_by(func.coalesce(func.sum(OperatingExpense.amount), 0).desc())
+            .limit(1)
+        ).first()
+
+        if not row:
+            return None
+
+        concept, total = row
+        return {"concept": concept, "total": float(total or 0)}
+
     def monthly_profit_report(self, now: Optional[datetime] = None) -> tuple[dict, list[dict]]:
         now_dt = now or datetime.now(timezone.utc)
         start, end = self._month_range(now_dt)

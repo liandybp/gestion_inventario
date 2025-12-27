@@ -17,17 +17,75 @@
     </div>
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:12px;">
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:12px;">
     <div class="card">
-      <div class="muted">Más vendido (mes)</div>
-      <div style="font-size:18px;font-weight:700;">{{ (top_seller.name if top_seller else '-') }}</div>
-      <div class="muted">{{ (top_seller.sku if top_seller else '') }} {% if top_seller %}- {{ '%.0f'|format(top_seller.qty or 0) }} u.{% endif %}</div>
+      <div class="muted">Más vendido (año {{ year }})</div>
+      <div style="font-size:18px;font-weight:700;">{{ (top_year.name if top_year else '-') }}</div>
+      <div class="muted">
+        {{ (top_year.sku if top_year else '') }}
+        {% if top_year %}- {{ '%.2f'|format(top_year.sales or 0) }} € ({{ '%.1f'|format(top_year_pct or 0) }}%){% endif %}
+      </div>
     </div>
     <div class="card">
-      <div class="muted">Mayor margen % (mes)</div>
+      <div class="muted">Menos vendido (año {{ year }})</div>
+      <div style="font-size:18px;font-weight:700;">{{ (bottom_year.name if bottom_year else '-') }}</div>
+      <div class="muted">
+        {{ (bottom_year.sku if bottom_year else '') }}
+        {% if bottom_year %}- {{ '%.2f'|format(bottom_year.sales or 0) }} € ({{ '%.1f'|format(bottom_year_pct or 0) }}%){% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="muted">Mayor margen % ({{ month_label }})</div>
       <div style="font-size:18px;font-weight:700;">{{ (top_margin.name if top_margin else '-') }}</div>
       <div class="muted">{{ (top_margin.sku if top_margin else '') }} {% if top_margin %}- {{ '%.2f'|format(top_margin.gross_pct or 0) }}%{% endif %}</div>
     </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:12px;">
+    <div class="card">
+      <div class="muted">Inventario total (valor a costo)</div>
+      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_value_total or 0) }} €</div>
+      <div class="muted">Estimación en base a lotes FIFO (stock actual).</div>
+    </div>
+    <div class="card">
+      <div class="muted">Inventario total (valor a venta)</div>
+      <div style="font-size:18px;font-weight:700;">{{ '%.2f'|format(inventory_sale_value_total or 0) }} €</div>
+      <div class="muted">Estimación en base a precios de venta actuales.</div>
+    </div>
+    <div class="card">
+      <div class="muted">Gasto operativo que más impacta ({{ month_label }})</div>
+      <div style="font-size:18px;font-weight:700;">{{ (top_expense.concept if top_expense else '-') }}</div>
+      <div class="muted">{% if top_expense %}{{ '%.2f'|format(top_expense.total or 0) }} €{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Ventas ({{ month_label }})</h3>
+    <p class="muted">Distribución por artículo + serie temporal diaria.</p>
+    <div style="display:flex; gap:16px; align-items:stretch;">
+      <div style="flex: 0 0 auto;">
+        <div id="monthly-sales-pie-wrap" style="display:flex; gap:14px; align-items:center; position:relative;">
+          <svg id="monthly-sales-pie-line" style="position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none;">
+            <line id="monthly-sales-pie-line-el" x1="0" y1="0" x2="0" y2="0" stroke="rgba(11,45,66,0.45)" stroke-width="2" />
+          </svg>
+          <div style="width:320px; height:220px;">
+            <canvas id="monthly-sales-pie" style="width:100%; height:100%;"></canvas>
+          </div>
+          <div id="monthly-sales-pie-tooltip" class="card" style="padding:12px; min-width:260px;">
+            <div class="muted">Pasa el ratón por un color para ver el detalle.</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1 1 auto; min-width:320px;">
+        <div style="width:100%; height:220px;">
+          <canvas id="monthly-sales-daily-line" style="width:100%; height:100%;"></canvas>
+        </div>
+        <script type="application/json" id="monthly-sales-daily-line-data">{{ monthly_sales_daily_line_json | safe }}</script>
+        <div id="monthly-sales-daily-line-debug" class="muted" style="margin-top:8px;"></div>
+      </div>
+    </div>
+    <script type="application/json" id="monthly-sales-pie-data">{{ monthly_sales_pie_json | safe }}</script>
+    <div id="monthly-sales-pie-debug" class="muted" style="margin-top:8px;"></div>
   </div>
 
   <div class="card" style="margin-top:16px;" id="restock"
@@ -44,5 +102,6 @@
 
   <script>
     if(window.renderMonthlyChart){ window.renderMonthlyChart(document); }
+    if(window.renderMonthlySalesPieChart){ window.renderMonthlySalesPieChart(document); }
   </script>
 </div>

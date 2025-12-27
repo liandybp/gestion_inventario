@@ -50,12 +50,80 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
 
     monthly = inventory_service.monthly_overview(months=12)
 
-    _summary, profit_items = inventory_service.monthly_profit_report()
-    top_seller = None
+    now = datetime.now(timezone.utc)
+    start, end = month_range(now)
+    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
+
+    month_names = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+    ]
+    month_label = f"{month_names[int(now.month) - 1].title()} {now.year}"
+
     top_margin = None
     if profit_items:
-        top_seller = max(profit_items, key=lambda r: float(r.get("qty") or 0))
         top_margin = max(profit_items, key=lambda r: float(r.get("gross_pct") or 0))
+
+    year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+    year_end = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+    year_total_sales, year_items = inventory_service.sales_by_product(start=year_start, end=year_end)
+    year_items_nonzero = [i for i in year_items if float(i.get("sales") or 0) > 0]
+    top_year = year_items_nonzero[0] if year_items_nonzero else None
+    bottom_year = year_items_nonzero[-1] if year_items_nonzero else None
+    if year_items_nonzero:
+        top_year = max(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
+        bottom_year = min(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
+
+    top_year_pct = ((float(top_year.get("sales") or 0) / year_total_sales) * 100.0) if (top_year and year_total_sales) else 0.0
+    bottom_year_pct = ((float(bottom_year.get("sales") or 0) / year_total_sales) * 100.0) if (bottom_year and year_total_sales) else 0.0
+
+    inventory_value_total = inventory_service.inventory_value_total()
+    inventory_sale_value_total = inventory_service.inventory_sale_value_total()
+    top_expense = inventory_service.top_expense_concept(start=start, end=end)
+
+    pie_labels: list[str] = []
+    pie_values: list[float] = []
+    pie_qtys: list[float] = []
+    if profit_items:
+        items_sorted = sorted(profit_items, key=lambda r: float(r.get("sales") or 0), reverse=True)
+        top_n = 10
+        top_items = items_sorted[:top_n]
+        rest_items = items_sorted[top_n:]
+
+        for it in top_items:
+            label = str(it.get("sku") or "")
+            name = str(it.get("name") or "").strip()
+            if name:
+                label = f"{label} - {name}" if label else name
+            pie_labels.append(label or "(sin nombre)")
+            pie_values.append(float(it.get("sales") or 0))
+            pie_qtys.append(float(it.get("qty") or 0))
+
+        rest_total = float(sum(float(r.get("sales") or 0) for r in rest_items))
+        if rest_total > 0:
+            pie_labels.append("Otros")
+            pie_values.append(rest_total)
+            pie_qtys.append(float(sum(float(r.get("qty") or 0) for r in rest_items)))
+
+    monthly_sales_pie_json = json.dumps({"labels": pie_labels, "values": pie_values, "qtys": pie_qtys})
+
+    daily = inventory_service.daily_sales_series(start=start, end=end)
+    monthly_sales_daily_line_json = json.dumps(
+        {
+            "labels": [d.get("day") for d in daily],
+            "sales": [d.get("sales", 0) for d in daily],
+        }
+    )
 
     monthly_chart_json = json.dumps(
         {
@@ -73,8 +141,19 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
             "totals": totals,
             "monthly": monthly,
             "monthly_chart_json": monthly_chart_json,
-            "top_seller": top_seller,
+            "month_label": month_label,
             "top_margin": top_margin,
+            "year": now.year,
+            "year_total_sales": year_total_sales,
+            "top_year": top_year,
+            "bottom_year": bottom_year,
+            "top_year_pct": top_year_pct,
+            "bottom_year_pct": bottom_year_pct,
+            "inventory_value_total": inventory_value_total,
+            "inventory_sale_value_total": inventory_sale_value_total,
+            "top_expense": top_expense,
+            "monthly_sales_pie_json": monthly_sales_pie_json,
+            "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
         },
     )
 
