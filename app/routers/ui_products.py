@@ -180,6 +180,7 @@ def product_update(
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
     default_sale_price: str = Form(""),
+    lead_time_days: Optional[int] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
@@ -196,6 +197,7 @@ def product_update(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=parse_optional_float(default_purchase_cost),
                 default_sale_price=parse_optional_float(default_sale_price),
+                lead_time_days=lead_time_days,
                 image_url=image_url or None,
             ),
         )
@@ -265,6 +267,7 @@ def product_update_inventory(
     min_stock: float = Form(0),
     default_purchase_cost: str = Form(""),
     default_sale_price: str = Form(""),
+    lead_time_days: Optional[int] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
@@ -281,6 +284,7 @@ def product_update_inventory(
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=parse_optional_float(default_purchase_cost),
                 default_sale_price=parse_optional_float(default_sale_price),
+                lead_time_days=lead_time_days,
                 image_url=image_url or None,
             ),
         )

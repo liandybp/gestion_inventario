@@ -1,3 +1,10 @@
+{% if message %}
+<div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
+  <strong>{{ message }}</strong>
+  {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
+</div>
+{% endif %}
+
 <table>
   <thead>
     <tr>
@@ -6,6 +13,8 @@
       <th>Unidad</th>
       <th>Stock</th>
       <th>Mínimo</th>
+      <th>Aprov. (d)</th>
+      <th>Reaprov. (d)</th>
       <th>Reponer</th>
       <th>Acciones</th>
     </tr>
@@ -18,12 +27,23 @@
         <td>{{ item.unit_of_measure or '' }}</td>
         <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
         <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
+        <td>{{ item.lead_time_days or 0 }}</td>
+        <td>{% if item.reorder_in_days is not none %}{{ item.reorder_in_days }}{% else %}-{% endif %}</td>
         <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
         <td>
           <button type="button"
                   hx-get="/ui/product/{{ item.sku }}/edit-inventory"
                   hx-target="#inventory-edit"
                   hx-swap="innerHTML">Edit</button>
+
+          {% if user and (user.role or '')|lower == 'admin' %}
+          <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                  hx-post="/ui/stock/{{ item.sku }}/delete"
+                  hx-target="#stock-table"
+                  hx-swap="innerHTML"
+                  hx-include="#inventory_query"
+                  hx-confirm="¿Eliminar este artículo? (Solo se permite si no tiene movimientos/lotes)">Del</button>
+          {% endif %}
         </td>
       </tr>
     {% endfor %}

@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -50,6 +50,13 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
 
     monthly = inventory_service.monthly_overview(months=12)
 
+    _summary, profit_items = inventory_service.monthly_profit_report()
+    top_seller = None
+    top_margin = None
+    if profit_items:
+        top_seller = max(profit_items, key=lambda r: float(r.get("qty") or 0))
+        top_margin = max(profit_items, key=lambda r: float(r.get("gross_pct") or 0))
+
     monthly_chart_json = json.dumps(
         {
             "labels": [m.get("month") for m in monthly],
@@ -62,7 +69,13 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_home.html",
-        context={"totals": totals, "monthly": monthly, "monthly_chart_json": monthly_chart_json},
+        context={
+            "totals": totals,
+            "monthly": monthly,
+            "monthly_chart_json": monthly_chart_json,
+            "top_seller": top_seller,
+            "top_margin": top_margin,
+        },
     )
 
 
@@ -187,11 +200,51 @@ def stock_table(
     query: str = "",
 ) -> HTMLResponse:
     service = InventoryService(db)
+    user = get_current_user_from_session(db, request)
     items = service.stock_list(query=query)
     return templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
-        context={"items": items},
+        context={"items": items, "user": user},
+    )
+
+
+@router.post("/stock/{sku}/delete", response_class=HTMLResponse)
+def stock_delete_product(
+    request: Request,
+    sku: str,
+    db: Session = Depends(session_dep),
+    query: str = Form(""),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    user = get_current_user_from_session(db, request)
+    product_service = ProductService(db)
+    inventory_service = InventoryService(db)
+
+    message = None
+    message_detail = None
+    message_class = None
+    try:
+        product_service.delete(sku)
+        message = "Producto eliminado"
+        message_detail = f"SKU: {sku}"
+        message_class = "ok"
+    except Exception as e:
+        message = "No se pudo eliminar"
+        message_detail = str(getattr(e, "detail", e))
+        message_class = "error"
+
+    items = inventory_service.stock_list(query=query)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/stock_table.html",
+        context={
+            "items": items,
+            "user": user,
+            "message": message,
+            "message_detail": message_detail,
+            "message_class": message_class,
+        },
     )
 
 

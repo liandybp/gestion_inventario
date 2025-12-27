@@ -14,6 +14,7 @@ class ProductCreate(BaseModel):
     unit_of_measure: Optional[str] = None
     default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None
+    lead_time_days: int = 0
     image_url: Optional[str] = None
 
 
@@ -25,6 +26,7 @@ class ProductUpdate(BaseModel):
     unit_of_measure: Optional[str] = None
     default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None
+    lead_time_days: Optional[int] = None
     image_url: Optional[str] = None
 
 
@@ -37,6 +39,7 @@ class ProductRead(BaseModel):
     unit_of_measure: Optional[str]
     default_purchase_cost: Optional[float]
     default_sale_price: Optional[float]
+    lead_time_days: int
     image_url: Optional[str]
 
     model_config = {"from_attributes": True}
@@ -107,3 +110,6 @@ class StockRead(BaseModel):
     quantity: float
     min_stock: float
     needs_restock: bool
+    lead_time_days: int = 0
+    avg_daily_sales: float = 0
+    reorder_in_days: Optional[int] = None

@@ -10,6 +10,32 @@
   </button>
   {% endif %}
 
+  {% if user and (user.role or '')|lower == 'admin' %}
+  <h3 style="margin-top:0;">Importar compra desde factura (PDF)</h3>
+  <form hx-post="/ui/purchase/from-invoice" hx-target="#purchase-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
+    <div class="row">
+      <label>Factura (PDF)</label>
+      <input name="invoice_pdf" type="file" accept="application/pdf" required />
+    </div>
+    <button type="submit">Importar factura</button>
+  </form>
+
+  {% if invoice_created_products and invoice_created_products|length > 0 %}
+    <div class="warn" style="padding:12px;border-radius:10px;margin-top:12px;">
+      <strong>Productos creados automáticamente</strong>
+      <div class="muted" style="margin-top:6px;">
+        Debes completar <strong>precio de venta</strong> y <strong>cantidad mínima</strong> en estos productos.
+        El historial mostrará el precio de venta actual cuando lo actualices.
+      </div>
+      <div style="margin-top:8px;">
+        {% for p in invoice_created_products %}
+          <div><code>{{ p.sku }}</code> - {{ p.name }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  {% endif %}
+
   <form hx-post="/ui/purchase" hx-target="#purchase-panel" hx-swap="outerHTML">
     <div class="row">
       <label>Artículo</label>

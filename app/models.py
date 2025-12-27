@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -53,6 +53,9 @@ class Product(Base):
     )
     default_sale_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
+    )
+    lead_time_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )
     image_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 

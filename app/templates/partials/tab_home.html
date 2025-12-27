@@ -17,6 +17,19 @@
     </div>
   </div>
 
+  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:12px;">
+    <div class="card">
+      <div class="muted">Más vendido (mes)</div>
+      <div style="font-size:18px;font-weight:700;">{{ (top_seller.name if top_seller else '-') }}</div>
+      <div class="muted">{{ (top_seller.sku if top_seller else '') }} {% if top_seller %}- {{ '%.0f'|format(top_seller.qty or 0) }} u.{% endif %}</div>
+    </div>
+    <div class="card">
+      <div class="muted">Mayor margen % (mes)</div>
+      <div style="font-size:18px;font-weight:700;">{{ (top_margin.name if top_margin else '-') }}</div>
+      <div class="muted">{{ (top_margin.sku if top_margin else '') }} {% if top_margin %}- {{ '%.2f'|format(top_margin.gross_pct or 0) }}%{% endif %}</div>
+    </div>
+  </div>
+
   <div class="card" style="margin-top:16px;" id="restock"
        hx-get="/ui/restock-table" hx-trigger="load, every 5s" hx-swap="innerHTML">
   </div>

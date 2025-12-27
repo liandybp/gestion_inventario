@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, cast, func, select
+from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, InventoryLot, InventoryMovement, MovementAllocation, Product
@@ -42,7 +42,7 @@ class InventoryRepository:
             )
         )
 
-    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float]]:
+    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float, int]]:
         q = query.strip()
         stmt = (
             select(
@@ -51,6 +51,7 @@ class InventoryRepository:
                 Product.unit_of_measure,
                 func.coalesce(func.sum(InventoryLot.qty_remaining), 0).label("qty"),
                 Product.min_stock,
+                Product.lead_time_days,
             )
             .select_from(Product)
             .outerjoin(InventoryLot, InventoryLot.product_id == Product.id)
@@ -63,8 +64,8 @@ class InventoryRepository:
             stmt.group_by(Product.id).order_by(Product.name)
         ).all()
         return [
-            (sku, name, uom or "", float(qty or 0), float(min_stock or 0))
-            for sku, name, uom, qty, min_stock in rows
+            (sku, name, uom or "", float(qty or 0), float(min_stock or 0), int(lead_time_days or 0))
+            for sku, name, uom, qty, min_stock, lead_time_days in rows
         ]
 
     def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
@@ -161,7 +162,10 @@ class InventoryRepository:
                 Product.unit_of_measure,
                 InventoryMovement.quantity,
                 InventoryMovement.unit_cost,
-                InventoryMovement.unit_price,
+                case(
+                    (InventoryMovement.type == "purchase", Product.default_sale_price),
+                    else_=InventoryMovement.unit_price,
+                ).label("unit_price"),
                 InventoryMovement.note,
                 username_sq.label("username"),
             )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -56,6 +56,21 @@ class InventoryService:
         if min_stock > 0 and stock_after < min_stock:
             return "Needs restock"
         return None
+
+    def _unique_lot_code(self, base_code: str) -> str:
+        candidate = base_code
+        i = 0
+        while (
+            self._db.scalar(select(InventoryLot.id).where(InventoryLot.lot_code == candidate))
+            is not None
+        ):
+            suffix = chr(ord("A") + (i % 26))
+            n = i // 26
+            if n > 0:
+                suffix = (chr(ord("A") + ((n - 1) % 26))) + suffix
+            candidate = f"{base_code}-{suffix}"
+            i += 1
+        return candidate
 
     def _consume_fifo(self, product_id: int, movement_id: int, quantity: float) -> None:
         if quantity <= 0:
@@ -115,13 +130,24 @@ class InventoryService:
         )
 
         fifo_lots: list[InventoryLot] = []
+        used_codes: set[str] = set(existing_codes.values())
         for mv in movements:
             qty = float(mv.quantity)
             if mv.type in ("purchase", "adjustment") and qty > 0:
                 code = existing_codes.get(mv.id)
                 if not code:
                     prefix = "ADJ" if mv.type == "adjustment" else product.sku
-                    code = f"{prefix}-{mv.movement_date:%y%m%d%H%M%S}-{mv.id}"
+                    base = f"{prefix}-{mv.movement_date:%y%m%d%H%M}"
+                    code = base
+                    i = 0
+                    while code in used_codes:
+                        suffix = chr(ord("A") + (i % 26))
+                        n = i // 26
+                        if n > 0:
+                            suffix = (chr(ord("A") + ((n - 1) % 26))) + suffix
+                        code = f"{base}-{suffix}"
+                        i += 1
+                    used_codes.add(code)
 
                 lot = InventoryLot(
                     movement_id=mv.id,
@@ -786,7 +812,11 @@ class InventoryService:
 
         self._db.flush()
 
-        lot_code = payload.lot_code or f"{product.sku}-{movement_dt:%y%m%d%H%M%S}-{movement.id}"
+        if payload.lot_code:
+            lot_code = payload.lot_code
+        else:
+            base = f"{product.sku}-{movement_dt:%y%m%d%H%M}"
+            lot_code = self._unique_lot_code(base)
         lot = InventoryLot(
             movement_id=movement.id,
             product_id=product.id,
@@ -940,20 +970,59 @@ class InventoryService:
             quantity=qty,
             min_stock=min_stock,
             needs_restock=min_stock > 0 and qty < min_stock,
+            lead_time_days=int(getattr(product, "lead_time_days", 0) or 0),
         )
 
     def stock_list(self, query: str = "") -> list[StockRead]:
-        return [
-            StockRead(
-                sku=sku,
-                name=name,
-                unit_of_measure=uom or None,
-                quantity=qty,
-                min_stock=min_stock,
-                needs_restock=min_stock > 0 and qty < min_stock,
+        base_rows = list(self._inventory.stock_list(query=query))
+        skus = [sku for sku, *_ in base_rows if sku]
+
+        avg_daily_by_sku: dict[str, float] = {}
+        if skus:
+            now_dt = datetime.now(timezone.utc)
+            start = now_dt - timedelta(days=30)
+            rows = self._db.execute(
+                select(
+                    Product.sku,
+                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                )
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= start,
+                        Product.sku.in_(skus),
+                    )
+                )
+                .group_by(Product.sku)
+            ).all()
+            for sku, qty_sold in rows:
+                avg_daily_by_sku[str(sku)] = float(qty_sold or 0) / 30.0
+
+        out: list[StockRead] = []
+        for sku, name, uom, qty, min_stock, lead_time_days in base_rows:
+            avg_daily = float(avg_daily_by_sku.get(str(sku), 0.0))
+            reorder_in_days: Optional[int] = None
+            if avg_daily > 0:
+                days_cover = float(qty or 0) / avg_daily
+                reorder_in_days = max(0, int(days_cover - float(lead_time_days or 0)))
+
+            out.append(
+                StockRead(
+                    sku=sku,
+                    name=name,
+                    unit_of_measure=uom or None,
+                    quantity=qty,
+                    min_stock=min_stock,
+                    needs_restock=min_stock > 0 and qty < min_stock,
+                    lead_time_days=int(lead_time_days or 0),
+                    avg_daily_sales=avg_daily,
+                    reorder_in_days=reorder_in_days,
+                )
             )
-            for sku, name, uom, qty, min_stock in self._inventory.stock_list(query=query)
-        ]
+
+        return out
 
     def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
         return self._inventory.recent_purchases(query=query, limit=limit)

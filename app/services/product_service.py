@@ -43,10 +43,16 @@ class ProductService:
                 status_code=422, detail="default_purchase_cost must be >= 0"
             )
 
+        if payload.lead_time_days is not None and int(payload.lead_time_days) < 0:
+            raise HTTPException(status_code=422, detail="lead_time_days must be >= 0")
+
         if payload.default_purchase_cost is None:
             raise HTTPException(status_code=422, detail="default_purchase_cost is required")
         if payload.default_sale_price is None:
             raise HTTPException(status_code=422, detail="default_sale_price is required")
+
+        if int(payload.lead_time_days or 0) < 0:
+            raise HTTPException(status_code=422, detail="lead_time_days must be >= 0")
 
         sku = payload.sku.strip() if payload.sku else ""
         if not sku:
@@ -62,6 +68,7 @@ class ProductService:
             else None,
             default_purchase_cost=payload.default_purchase_cost,
             default_sale_price=payload.default_sale_price,
+            lead_time_days=int(payload.lead_time_days or 0),
             image_url=payload.image_url.strip()
             if payload.image_url and payload.image_url.strip()
             else None,
@@ -110,6 +117,8 @@ class ProductService:
         )
         product.default_purchase_cost = payload.default_purchase_cost
         product.default_sale_price = payload.default_sale_price
+        if payload.lead_time_days is not None:
+            product.lead_time_days = int(payload.lead_time_days)
         product.image_url = (
             payload.image_url.strip()
             if payload.image_url and payload.image_url.strip()

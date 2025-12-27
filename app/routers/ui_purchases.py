@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from app.schemas import PurchaseCreate
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.invoice_parsers import parse_autodoc_pdf
 
 from .ui_common import (
     _DEV_ACTIONS_ENABLED,
@@ -27,6 +28,191 @@ from .ui_common import (
 )
 
 router = APIRouter()
+
+
+@router.post("/purchase/from-invoice", response_class=HTMLResponse)
+def purchase_from_invoice(
+    request: Request,
+    invoice_pdf: UploadFile = File(...),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    product_service = ProductService(db)
+
+    if invoice_pdf is None or not invoice_pdf.filename:
+        raise HTTPException(status_code=422, detail="invoice_pdf is required")
+
+    content_type = (invoice_pdf.content_type or "").lower()
+    if ("pdf" not in content_type) and (not invoice_pdf.filename.lower().endswith(".pdf")):
+        raise HTTPException(status_code=422, detail="Invalid file type. Please upload a PDF")
+
+    try:
+        parsed = parse_autodoc_pdf(invoice_pdf.file)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el PDF: {e}") from e
+
+    if parsed.invoice_date is None:
+        user = get_current_user_from_session(db, request)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "user": user,
+                "message": "No se pudo importar la factura",
+                "message_detail": "No se encontró la fecha de factura en el PDF.",
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+    if not parsed.lines:
+        user = get_current_user_from_session(db, request)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "user": user,
+                "message": "No se pudo importar la factura",
+                "message_detail": "No se encontraron líneas de productos en el PDF.",
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=400,
+        )
+
+    user = get_current_user_from_session(db, request)
+
+    now = datetime.now(timezone.utc)
+    invoice_movement_dt = parsed.invoice_date.replace(
+        hour=now.hour,
+        minute=now.minute,
+        second=now.second,
+        microsecond=0,
+    )
+
+    invoice_tag = (
+        f"Factura AUTODOC {parsed.invoice_number}" if parsed.invoice_number else "Factura AUTODOC"
+    )
+
+    created_products: list[dict[str, str]] = []
+    created_movements = 0
+    errors: list[str] = []
+
+    for line in parsed.lines:
+        sku = (line.sku or "").strip()
+        if not sku:
+            continue
+
+        name = (line.name or "").strip()
+        if not name:
+            name = sku
+
+        try:
+            unit_cost_vat = round(float(line.net_unit_price) * 1.21, 4)
+        except Exception:
+            errors.append(f"{sku}: precio neto inválido")
+            continue
+
+        try:
+            product = db.scalar(select(Product).where(Product.sku == sku))
+            if product is None:
+                product = Product(
+                    sku=sku,
+                    name=name,
+                    category=None,
+                    min_stock=0,
+                    unit_of_measure=None,
+                    default_purchase_cost=unit_cost_vat,
+                    default_sale_price=0,
+                    lead_time_days=0,
+                    image_url=None,
+                )
+                db.add(product)
+                db.commit()
+                db.refresh(product)
+                created_products.append({"sku": product.sku, "name": product.name})
+
+                if user is not None:
+                    log_event(
+                        db,
+                        user,
+                        action="product_create",
+                        entity_type="product",
+                        entity_id=product.sku,
+                        detail={
+                            "name": product.name,
+                            "source": "invoice_pdf",
+                            "invoice_number": parsed.invoice_number,
+                            "invoice_date": invoice_movement_dt.isoformat() if invoice_movement_dt else None,
+                        },
+                    )
+
+            result = service.purchase(
+                PurchaseCreate(
+                    sku=sku,
+                    quantity=float(line.quantity),
+                    unit_cost=unit_cost_vat,
+                    movement_date=invoice_movement_dt,
+                    lot_code=None,
+                    note=invoice_tag,
+                )
+            )
+            created_movements += 1
+
+            if user is not None:
+                log_event(
+                    db,
+                    user,
+                    action="purchase_create",
+                    entity_type="movement",
+                    entity_id=str(result.movement.id),
+                    detail={
+                        "sku": sku,
+                        "quantity": float(line.quantity),
+                        "unit_cost": unit_cost_vat,
+                        "invoice_number": parsed.invoice_number,
+                        "invoice_date": invoice_movement_dt.isoformat() if invoice_movement_dt else None,
+                    },
+                )
+        except HTTPException as e:
+            errors.append(f"{sku}: {e.detail}")
+        except Exception as e:
+            errors.append(f"{sku}: {e}")
+
+    if created_movements == 0:
+        message = "No se pudo importar la factura"
+        detail = "No se pudo crear ninguna compra. " + ("; ".join(errors) if errors else "")
+        message_class = "error"
+        status = 400
+    else:
+        message = "Factura importada"
+        detail = f"Se registraron {created_movements} línea(s) de compra."
+        if errors:
+            detail = detail + " Errores: " + "; ".join(errors[:5])
+        message_class = "ok" if not errors else "warn"
+        status = 200
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/purchase_panel.html",
+        context={
+            "user": user,
+            "message": message,
+            "message_detail": detail,
+            "message_class": message_class,
+            "invoice_created_products": created_products,
+            "purchases": service.recent_purchases(limit=20),
+            "product_options": product_service.search(query="", limit=200),
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+        },
+        status_code=status,
+    )
 
 
 @router.post("/purchase", response_class=HTMLResponse)

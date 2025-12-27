@@ -85,6 +85,25 @@ def _run_startup_tasks() -> None:
                 conn.exec_driver_sql(
                     "ALTER TABLE products ADD COLUMN image_url VARCHAR(512)"
                 )
+            if "lead_time_days" not in cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE products ADD COLUMN lead_time_days INTEGER DEFAULT 0"
+                )
+
+    if engine.dialect.name == "postgresql":
+        with engine.connect() as conn:
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='lead_time_days'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE products ADD COLUMN lead_time_days INTEGER NOT NULL DEFAULT 0"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna lead_time_days en products."
+                ) from e
 
     db = get_session()
     try:
