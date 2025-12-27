@@ -40,6 +40,7 @@ def purchase(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     service = InventoryService(db)
     product_service = ProductService(db)
     sku = extract_sku(product)
@@ -69,6 +70,7 @@ def purchase(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Compra registrada",
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
@@ -78,10 +80,12 @@ def purchase(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Error en compra",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -100,6 +104,7 @@ def purchase_label_print(
     copies: int = 1,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -121,6 +126,7 @@ def purchase_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -154,6 +160,7 @@ def purchase_update(
 ) -> HTMLResponse:
     service = InventoryService(db)
     product_service = ProductService(db)
+    ensure_admin(db, request)
     sku = extract_sku(product)
     try:
         result = service.update_purchase(
@@ -180,6 +187,7 @@ def purchase_update(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Compra actualizada",
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
@@ -189,10 +197,12 @@ def purchase_update(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Error al actualizar compra",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -230,6 +240,7 @@ def purchase_delete(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Compra eliminada",
                 "message_class": "ok",
                 "purchases": service.recent_purchases(limit=20),
@@ -238,10 +249,12 @@ def purchase_delete(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Error al eliminar compra",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -252,10 +265,12 @@ def purchase_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
             context={
+                "user": user,
                 "message": "Error al eliminar compra",
                 "message_detail": str(e),
                 "message_class": "error",

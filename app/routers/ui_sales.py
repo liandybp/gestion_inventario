@@ -40,6 +40,7 @@ def sale(
 ) -> HTMLResponse:
     service = InventoryService(db)
     product_service = ProductService(db)
+    user = get_current_user_from_session(db, request)
     sku = extract_sku(product)
     try:
         result = service.sale(
@@ -51,10 +52,20 @@ def sale(
                 note=note or None,
             )
         )
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_create",
+                entity_type="movement",
+                entity_id=str(result.movement.id),
+                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Venta registrada",
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
@@ -64,10 +75,12 @@ def sale(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error en venta",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -117,6 +130,7 @@ def sale_barcode(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Venta registrada",
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
@@ -126,10 +140,12 @@ def sale_barcode(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error en venta",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -140,10 +156,12 @@ def sale_barcode(
             status_code=e.status_code,
         )
     except Exception as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error en venta",
                 "message_detail": str(e),
                 "message_class": "error",
@@ -216,6 +234,7 @@ def sale_update(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Venta actualizada",
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
@@ -225,10 +244,12 @@ def sale_update(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error al actualizar venta",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -249,7 +270,6 @@ def sale_delete(
     service = InventoryService(db)
     product_service = ProductService(db)
     try:
-        ensure_admin(db, request)
         service.delete_sale_movement(movement_id)
 
         user = get_current_user_from_session(db, request)
@@ -266,6 +286,7 @@ def sale_delete(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Venta eliminada",
                 "message_class": "ok",
                 "sales": service.recent_sales(limit=20),
@@ -274,10 +295,12 @@ def sale_delete(
             },
         )
     except HTTPException as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error al eliminar venta",
                 "message_detail": str(e.detail),
                 "message_class": "error",
@@ -288,10 +311,12 @@ def sale_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
             context={
+                "user": user,
                 "message": "Error al eliminar venta",
                 "message_detail": str(e),
                 "message_class": "error",

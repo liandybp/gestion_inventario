@@ -9,10 +9,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
+from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 
-from .ui_common import dt_to_local_input, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
 
 router = APIRouter()
 
@@ -24,10 +25,11 @@ def ui_root() -> RedirectResponse:
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    user = get_current_user_from_session(db, request)
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={},
+        context={"user": user},
     )
 
 
@@ -75,12 +77,15 @@ def tab_inventory(request: Request) -> HTMLResponse:
 
 @router.get("/tabs/purchases", response_class=HTMLResponse)
 def tab_purchases(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
+    user = get_current_user_from_session(db, request)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_purchases.html",
         context={
+            "user": user,
             "products": product_service.recent(limit=20),
             "product_options": product_service.search(query="", limit=200),
             "purchases": inventory_service.recent_purchases(limit=20),
@@ -93,10 +98,12 @@ def tab_purchases(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
+    user = get_current_user_from_session(db, request)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_sales.html",
         context={
+            "user": user,
             "sales": inventory_service.recent_sales(limit=20),
             "product_options": product_service.search(query="", limit=200),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),

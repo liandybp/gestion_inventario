@@ -47,51 +47,54 @@
   </form>
 
   <div style="overflow-x:auto;">
-    <table>
+    <table style="width:100%; table-layout:fixed;">
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Tipo</th>
-          <th>SKU</th>
-          <th>Producto</th>
-          <th>Cantidad</th>
-          <th>Costo Unit.</th>
-          <th>Precio Unit.</th>
-          <th>Nota</th>
+          <th style="width:12%; text-align:left;">Fecha</th>
+          <th style="width:8%; text-align:left;">Tipo</th>
+          <th style="width:10%; text-align:left;">Usuario</th>
+          <th style="width:8%; text-align:left;">SKU</th>
+          <th style="width:25%; text-align:left;">Producto</th>
+          <th style="width:7%; text-align:center;">Unidad</th>
+          <th style="width:8%; text-align:right;">Cantidad</th>
+          <th style="width:10%; text-align:right;">Costo Unit.</th>
+          <th style="width:10%; text-align:right;">Precio Unit.</th>
+          <th style="width:12%; text-align:left;">Nota</th>
         </tr>
       </thead>
       <tbody>
         {% for mv in movements %}
         <tr>
-          <td>{{ mv[1].strftime('%Y-%m-%d %H:%M') if mv[1] else '' }}</td>
-          <td>
-            {% if mv[2] == 'purchase' %}
+          <td style="text-align:left;white-space:nowrap;">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
+          <td style="text-align:left;">
+            {% if mv.type == 'purchase' %}
               <span style="color:#059669;">Compra</span>
-            {% elif mv[2] == 'sale' %}
+            {% elif mv.type == 'sale' %}
               <span style="color:#dc2626;">Venta</span>
-            {% elif mv[2] == 'adjustment' %}
+            {% elif mv.type == 'adjustment' %}
               <span style="color:#d97706;">Ajuste</span>
             {% else %}
-              {{ mv[2] }}
+              {{ mv.type }}
             {% endif %}
           </td>
-          <td><code>{{ mv[3] }}</code></td>
-          <td>{{ mv[4] }}</td>
-          <td style="text-align:right;">
-            {% if mv[2] == 'sale' %}
-              {{ "%.2f"|format(mv[6]|abs) }}
+          <td style="text-align:left;" class="muted">{{ mv.username or '' }}</td>
+          <td style="text-align:left;"><code>{{ mv.sku }}</code></td>
+          <td style="text-align:left;">{{ mv.name }}</td>
+          <td style="text-align:center;" class="muted">{{ mv.unit_of_measure or '' }}</td>
+          <td style="text-align:right;white-space:nowrap;">
+            {% if mv.type == 'sale' %}
+              {{ "%.2f"|format(mv.quantity|abs) }}
             {% else %}
-              {{ "%.2f"|format(mv[6]) }}
+              {{ "%.2f"|format(mv.quantity) }}
             {% endif %}
-            {% if mv[5] %}<span class="muted">{{ mv[5] }}</span>{% endif %}
           </td>
-          <td style="text-align:right;">{% if mv[7] %}${{ "%.2f"|format(mv[7]) }}{% endif %}</td>
-          <td style="text-align:right;">{% if mv[8] %}${{ "%.2f"|format(mv[8]) }}{% endif %}</td>
-          <td class="muted">{{ mv[9] or '' }}</td>
+          <td style="text-align:right;white-space:nowrap;">{% if mv.unit_cost %}${{ "%.2f"|format(mv.unit_cost) }}{% endif %}</td>
+          <td style="text-align:right;white-space:nowrap;">{% if mv.unit_price %}${{ "%.2f"|format(mv.unit_price) }}{% endif %}</td>
+          <td style="text-align:left;" class="muted">{{ mv.note or '' }}</td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted" style="text-align:center;">No hay movimientos con los filtros seleccionados.</td>
+          <td colspan="10" class="muted" style="text-align:center;">No hay movimientos con los filtros seleccionados.</td>
         </tr>
         {% endfor %}
       </tbody>

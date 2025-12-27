@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.models import InventoryLot, InventoryMovement, MovementAllocation, Product
+from app.models import AuditLog, InventoryLot, InventoryMovement, MovementAllocation, Product
 
 
 class InventoryRepository:
@@ -135,6 +135,22 @@ class InventoryRepository:
         end_date: Optional[datetime] = None,
         limit: int = 100,
     ) -> list[tuple]:
+        username_sq = (
+            select(AuditLog.username)
+            .where(
+                AuditLog.entity_type == "movement",
+                AuditLog.entity_id == cast(InventoryMovement.id, String),
+                AuditLog.action.in_([
+                    "purchase_create",
+                    "sale_create",
+                    "adjustment_create",
+                ]),
+            )
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+
         stmt = (
             select(
                 InventoryMovement.id,
@@ -147,6 +163,7 @@ class InventoryRepository:
                 InventoryMovement.unit_cost,
                 InventoryMovement.unit_price,
                 InventoryMovement.note,
+                username_sq.label("username"),
             )
             .select_from(InventoryMovement)
             .join(Product, Product.id == InventoryMovement.product_id)

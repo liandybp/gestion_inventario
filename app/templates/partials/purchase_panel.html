@@ -1,12 +1,14 @@
 <div class="card" id="purchase-panel">
   <h2>Compra</h2>
 
+  {% if user and (user.role or '')|lower == 'admin' %}
   <button type="button" style="background:#b91c1c; margin-bottom:10px;"
           hx-post="/ui/dev/reset-purchases-sales" hx-vals='{"panel":"purchase"}'
           hx-target="#purchase-panel" hx-swap="outerHTML"
           hx-confirm="Esto borrará TODAS las compras y ventas. ¿Continuar?">
     Borrar todas las compras y ventas (DEV)
   </button>
+  {% endif %}
 
   <form hx-post="/ui/purchase" hx-target="#purchase-panel" hx-swap="outerHTML">
     <div class="row">
