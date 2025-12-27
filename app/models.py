@@ -22,6 +22,50 @@ class User(Base):
     )
 
 
+class SalesDocument(Base):
+    __tablename__ = "sales_documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    doc_type: Mapped[str] = mapped_column(String(1), index=True)
+    year_month: Mapped[str] = mapped_column(String(6), index=True)
+    seq: Mapped[int] = mapped_column(Integer, index=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    issuer_name: Mapped[str] = mapped_column(String(255))
+    issuer_tax_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    issuer_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    client_name: Mapped[str] = mapped_column(String(255))
+    client_id: Mapped[str] = mapped_column(String(64))
+    client_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    currency_code: Mapped[str] = mapped_column(String(8), default="EUR", server_default="EUR")
+    currency_symbol: Mapped[str] = mapped_column(String(8), default="€", server_default="€")
+
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    subtotal: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False), default=0, server_default="0")
+    total: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False), default=0, server_default="0")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class SalesDocumentItem(Base):
+    __tablename__ = "sales_document_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("sales_documents.id"), index=True)
+    line_no: Mapped[int] = mapped_column(Integer)
+
+    sku: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    description: Mapped[str] = mapped_column(String(255))
+    unit_of_measure: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    quantity: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+    unit_price: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+    line_total: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

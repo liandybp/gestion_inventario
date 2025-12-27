@@ -5,11 +5,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
+from app.business_config import load_business_config
 from app.deps import session_dep
-from app.models import InventoryMovement, Product
+from app.models import InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -26,6 +28,28 @@ from .ui_common import (
 )
 
 router = APIRouter()
+
+
+def _sales_doc_context(db: Session, request: Request) -> dict:
+    config = load_business_config()
+    session = getattr(request, "session", None) or {}
+    cart = session.get("sales_doc_cart")
+    if not isinstance(cart, list):
+        cart = []
+    recent_documents = list(
+        db.scalars(
+            select(SalesDocument)
+            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
+            .limit(10)
+        )
+    )
+    return {
+        "sales_doc_config": config.sales_documents.model_dump(),
+        "currency": config.currency.model_dump(),
+        "issuer": config.issuer.model_dump(),
+        "cart": cart,
+        "recent_documents": recent_documents,
+    }
 
 
 @router.post("/sale", response_class=HTMLResponse)
@@ -72,6 +96,7 @@ def sale(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
         )
     except HTTPException as e:
@@ -87,6 +112,7 @@ def sale(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
         )
@@ -168,6 +194,7 @@ def sale_barcode(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
             status_code=400,
         )
@@ -241,6 +268,7 @@ def sale_update(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
         )
     except HTTPException as e:
@@ -256,6 +284,7 @@ def sale_update(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
         )
@@ -292,6 +321,7 @@ def sale_delete(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
         )
     except HTTPException as e:
@@ -307,6 +337,7 @@ def sale_delete(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
         )
@@ -323,6 +354,7 @@ def sale_delete(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
             },
             status_code=400,
         )

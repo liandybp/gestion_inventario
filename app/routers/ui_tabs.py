@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import AuditLog
+from app.models import SalesDocument
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.business_config import load_business_config
 
 from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
 
@@ -195,6 +197,20 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
     user = get_current_user_from_session(db, request)
+
+    config = load_business_config()
+    session = getattr(request, "session", None) or {}
+    cart = session.get("sales_doc_cart")
+    if not isinstance(cart, list):
+        cart = []
+
+    recent_documents = list(
+        db.scalars(
+            select(SalesDocument)
+            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
+            .limit(10)
+        )
+    )
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_sales.html",
@@ -203,6 +219,11 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "sales": inventory_service.recent_sales(limit=20),
             "product_options": product_service.search(query="", limit=200),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "cart": cart,
+            "recent_documents": recent_documents,
         },
     )
 
@@ -230,6 +251,7 @@ def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
+    config = load_business_config()
     summary = service.monthly_dividends_report(now=now)
     extractions = service.list_extractions(start=start, end=end, limit=200)
     return templates.TemplateResponse(
@@ -239,6 +261,7 @@ def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "summary": summary,
             "extractions": extractions,
             "movement_date_default": dt_to_local_input(now),
+            "dividends": config.dividends.model_dump(),
         },
     )
 

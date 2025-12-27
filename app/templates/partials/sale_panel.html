@@ -54,6 +54,10 @@
   <h3 style="margin-top:16px;">Historial de ventas</h3>
   {% include 'partials/sales_history.html' %}
 
+  {% if sales_doc_config is defined and currency is defined and issuer is defined and cart is defined and recent_documents is defined %}
+    {% include 'partials/sales_document_panel.html' %}
+  {% endif %}
+
   <div id="sale-edit" style="margin-top:12px;"></div>
 </div>
 

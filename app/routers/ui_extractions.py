@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
+from app.business_config import load_business_config
 from app.deps import session_dep
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -29,6 +30,7 @@ def extraction_create(
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
+    config = load_business_config()
     try:
         ensure_admin(db, request)
         service.create_extraction(
@@ -59,6 +61,7 @@ def extraction_create(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
         )
     except Exception as e:
@@ -74,6 +77,7 @@ def extraction_create(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
             status_code=400,
         )
@@ -88,6 +92,7 @@ def extraction_delete(
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
+    config = load_business_config()
     try:
         ensure_admin(db, request)
         service.delete_extraction(extraction_id)
@@ -113,6 +118,7 @@ def extraction_delete(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
         )
     except HTTPException as e:
@@ -128,6 +134,7 @@ def extraction_delete(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
             status_code=e.status_code,
         )
@@ -144,6 +151,7 @@ def extraction_delete(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
             status_code=400,
         )
@@ -158,12 +166,14 @@ def extraction_edit_form(
     ensure_admin(db, request)
     service = InventoryService(db)
     extraction = service.get_extraction(extraction_id)
+    config = load_business_config()
     return templates.TemplateResponse(
         request=request,
         name="partials/extraction_edit_form.html",
         context={
             "extraction": extraction,
             "extraction_date_value": dt_to_local_input(extraction.extraction_date),
+            "dividends": config.dividends.model_dump(),
         },
     )
 
@@ -181,6 +191,7 @@ def extraction_update(
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
+    config = load_business_config()
     try:
         ensure_admin(db, request)
         service.update_extraction(
@@ -212,6 +223,7 @@ def extraction_update(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
         )
     except HTTPException as e:
@@ -227,6 +239,7 @@ def extraction_update(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
             status_code=e.status_code,
         )
@@ -243,6 +256,7 @@ def extraction_update(
                 "summary": summary,
                 "extractions": extractions,
                 "movement_date_default": dt_to_local_input(now),
+                "dividends": config.dividends.model_dump(),
             },
             status_code=400,
         )

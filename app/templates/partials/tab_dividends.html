@@ -16,41 +16,47 @@
         <thead>
           <tr>
             <th></th>
-            <th>Negocio</th>
-            <th>Liandy</th>
-            <th>Randy</th>
+            <th>{{ dividends.business_label }}</th>
+            {% for p in dividends.partners %}
+              <th>{{ p }}</th>
+            {% endfor %}
           </tr>
         </thead>
         <tbody>
           <tr>
             <th>Inversión de mercancía</th>
             <td>{{ '%.2f'|format(summary.cogs_total or 0) }}</td>
-            <td class="muted">-</td>
-            <td class="muted">-</td>
+            {% for p in dividends.partners %}
+              <td class="muted">-</td>
+            {% endfor %}
           </tr>
           <tr>
             <th>Costos de operaciones</th>
             <td>{{ '%.2f'|format(summary.expenses_total or 0) }}</td>
-            <td class="muted">-</td>
-            <td class="muted">-</td>
+            {% for p in dividends.partners %}
+              <td class="muted">-</td>
+            {% endfor %}
           </tr>
           <tr>
             <th>Utilidades (50% cada uno)</th>
             <td class="muted">-</td>
-            <td>{{ '%.2f'|format(summary.share_each or 0) }}</td>
-            <td>{{ '%.2f'|format(summary.share_each or 0) }}</td>
+            {% for p in dividends.partners %}
+              <td>{{ '%.2f'|format(summary.share_each or 0) }}</td>
+            {% endfor %}
           </tr>
           <tr>
             <th>Retiros (-)</th>
-            <td>{{ '%.2f'|format(summary.extractions.Negocio or 0) }}</td>
-            <td>{{ '%.2f'|format(summary.extractions.Liandy or 0) }}</td>
-            <td>{{ '%.2f'|format(summary.extractions.Randy or 0) }}</td>
+            <td>{{ '%.2f'|format(summary.extractions[dividends.business_label] or 0) }}</td>
+            {% for p in dividends.partners %}
+              <td>{{ '%.2f'|format(summary.extractions[p] or 0) }}</td>
+            {% endfor %}
           </tr>
           <tr>
             <th>Total pendiente</th>
-            <td style="font-weight:700;">{{ '%.2f'|format(summary.pending.Negocio or 0) }}</td>
-            <td style="font-weight:700;">{{ '%.2f'|format(summary.pending.Liandy or 0) }}</td>
-            <td style="font-weight:700;">{{ '%.2f'|format(summary.pending.Randy or 0) }}</td>
+            <td style="font-weight:700;">{{ '%.2f'|format(summary.pending[dividends.business_label] or 0) }}</td>
+            {% for p in dividends.partners %}
+              <td style="font-weight:700;">{{ '%.2f'|format(summary.pending[p] or 0) }}</td>
+            {% endfor %}
           </tr>
         </tbody>
       </table>
@@ -63,9 +69,10 @@
         <div class="row">
           <label>Parte</label>
           <select name="party" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
-            <option value="Negocio">Negocio</option>
-            <option value="Liandy">Liandy</option>
-            <option value="Randy">Randy</option>
+            <option value="{{ dividends.business_label }}">{{ dividends.business_label }}</option>
+            {% for p in dividends.partners %}
+              <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
           </select>
         </div>
         <div class="row"><label>Cantidad</label><input name="amount" type="number" step="0.0001" required /></div>
@@ -81,9 +88,10 @@
           <thead>
             <tr>
               <th>Concepto</th>
-              <th>Negocio</th>
-              <th>Liandy</th>
-              <th>Randy</th>
+              <th>{{ dividends.business_label }}</th>
+              {% for p in dividends.partners %}
+                <th>{{ p }}</th>
+              {% endfor %}
               <th>Fecha</th>
               <th>Acciones</th>
             </tr>
@@ -92,9 +100,10 @@
             {% for r in extractions %}
               <tr>
                 <td>{{ r.concept }}</td>
-                <td>{% if r.party == 'Negocio' %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
-                <td>{% if r.party == 'Liandy' %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
-                <td>{% if r.party == 'Randy' %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                <td>{% if r.party == dividends.business_label %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                {% for p in dividends.partners %}
+                  <td>{% if r.party == p %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                {% endfor %}
                 <td>{{ r.extraction_date.strftime('%Y-%m-%d %H:%M') if r.extraction_date else '' }}</td>
                 <td>
                   <button type="button"

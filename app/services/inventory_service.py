@@ -16,6 +16,7 @@ from app.models import (
     OperatingExpense,
     Product,
 )
+from app.business_config import load_business_config
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.product_repository import ProductRepository
 from app.schemas import (
@@ -290,20 +291,23 @@ class InventoryService:
         summary, _items = self.monthly_profit_report(now=now_dt)
         extraction_totals = self.total_extractions_by_party(start=start, end=end)
 
+        config = load_business_config()
+        business_label = (config.dividends.business_label or "Negocio").strip() or "Negocio"
+        partners = [p.strip() for p in (config.dividends.partners or []) if (p or "").strip()]
+
         cogs_total = float(summary.get("cogs_total", 0) or 0)
         expenses_total = float(summary.get("expenses_total", 0) or 0)
         net_total = float(summary.get("net_total", 0) or 0)
-        share_each = net_total / 2.0
+        share_each = (net_total / float(len(partners))) if partners else 0.0
 
-        negocio_ext = float(extraction_totals.get("Negocio", 0) or 0)
-        liandy_ext = float(extraction_totals.get("Liandy", 0) or 0)
-        randy_ext = float(extraction_totals.get("Randy", 0) or 0)
+        business_ext = float(extraction_totals.get(business_label, 0) or 0)
+        extractions: dict[str, float] = {business_label: business_ext}
+        pending: dict[str, float] = {business_label: (cogs_total + expenses_total) - business_ext}
 
-        pending = {
-            "Negocio": (cogs_total + expenses_total) - negocio_ext,
-            "Liandy": share_each - liandy_ext,
-            "Randy": share_each - randy_ext,
-        }
+        for p in partners:
+            p_ext = float(extraction_totals.get(p, 0) or 0)
+            extractions[p] = p_ext
+            pending[p] = share_each - p_ext
 
         return {
             "month_start": start,
@@ -312,11 +316,7 @@ class InventoryService:
             "expenses_total": expenses_total,
             "net_total": net_total,
             "share_each": share_each,
-            "extractions": {
-                "Negocio": negocio_ext,
-                "Liandy": liandy_ext,
-                "Randy": randy_ext,
-            },
+            "extractions": extractions,
             "pending": pending,
         }
 
