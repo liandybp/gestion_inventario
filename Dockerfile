@@ -12,4 +12,4 @@ COPY app ./app
 
 EXPOSE 10000
 
-CMD ["python", "-m", "app.run"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
