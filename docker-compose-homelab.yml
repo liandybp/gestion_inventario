@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${APP_PORT}:10000
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_HTTPS_ONLY: "1"
+      RELOAD: "0"
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      OPERATOR_USERNAME: operator
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD}
+    volumes:
+      - uploads_data:/app/app/static/uploads
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
