@@ -5,8 +5,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - ${APP_PORT}:10000
+      - "10000:10000"
     environment:
+      APP_PORT: ${APP_PORT}
       DATABASE_URL: ${DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_HTTPS_ONLY: "1"
