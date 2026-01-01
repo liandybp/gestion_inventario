@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: gestion-inventario
     build:
       context: .
       dockerfile: Dockerfile
