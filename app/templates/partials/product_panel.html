@@ -1,6 +1,30 @@
 <div class="card" id="product-panel">
   <h2>Producto</h2>
 
+  <h3 style="margin-top:0;">Importar productos desde factura (PDF)</h3>
+  <form hx-post="/ui/product/from-invoice" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
+    <div class="row">
+      <label>Factura (PDF)</label>
+      <input name="invoice_pdf" type="file" accept="application/pdf" required />
+    </div>
+    <button type="submit">Importar productos</button>
+  </form>
+
+  {% if invoice_created_products and invoice_created_products|length > 0 %}
+    <div class="warn" style="padding:12px;border-radius:10px;margin-top:12px;margin-bottom:14px;">
+      <strong>Productos creados desde factura</strong>
+      <div class="muted" style="margin-top:6px;">
+        Debes completar <strong>precio de venta</strong> y <strong>stock mínimo</strong> en estos productos.
+      </div>
+      <div style="margin-top:8px;">
+        {% for p in invoice_created_products %}
+          <div><code>{{ p.sku }}</code> - {{ p.name }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <h3>Crear producto manualmente</h3>
   <form hx-post="/ui/product" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
     <div class="row"><label>SKU</label><input name="sku" placeholder="(auto si lo dejas vacío)" /></div>
     <div class="row"><label>Nombre</label><input name="name" required /></div>
