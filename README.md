@@ -53,12 +53,12 @@ pip install -r requirements.txt
 3) Ejecutar:
 
 ```bash
-python main.py
+python -m uvicorn app.main:app --host 127.0.0.1 --port 10000 --reload
 ```
 
 La app quedará disponible en:
 
-- `http://127.0.0.1:8000/ui`
+- `http://127.0.0.1:10000/ui`
 
 ## Acceso (usuarios)
 
@@ -84,6 +84,31 @@ En el arranque, la app asegura usuarios por variables de entorno:
 - **Usuarios/roles**
   - `ADMIN_USERNAME`, `ADMIN_PASSWORD`
   - `OPERATOR_USERNAME`, `OPERATOR_PASSWORD`
+
+## Versionado (SemVer) con bump2version
+
+Este proyecto usa tags tipo `vMAJOR.MINOR.PATCH` (ej: `v0.1.0`) y un archivo `VERSION`.
+
+1) Instala dependencias de desarrollo:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+2) Incrementa versión (esto crea **commit** y **tag** automáticamente):
+
+```bash
+bump2version patch  # 0.1.0 -> 0.1.1
+bump2version minor  # 0.1.0 -> 0.2.0
+bump2version major  # 0.1.0 -> 1.0.0
+```
+
+3) Sube commits y tags a GitHub:
+
+```bash
+git push origin main
+git push origin --tags
+```
 
 ## Configuración del negocio (`app/business_config.conf`)
 
@@ -117,7 +142,7 @@ docker compose up --build
 Servicios:
 
 - `db`: PostgreSQL
-- `app`: FastAPI en `:8000` (interno)
+- `app`: FastAPI en `:10000` (interno)
 - `caddy`: expone `80/443` (ver `Caddyfile`)
 
 Uploads persistentes:

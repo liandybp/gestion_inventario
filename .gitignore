@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+.env
+
+.idea/
+.DS_Store
+
+# Local runtime data
+inventario.db
+*.db
+cookies.txt
+
+# Uploads / generated assets
+app/static/uploads/
+
+# Build / caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
