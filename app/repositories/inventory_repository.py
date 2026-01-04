@@ -58,7 +58,7 @@ class InventoryRepository:
         )
         if q:
             like = f"%{q}%"
-            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
 
         rows = self._db.execute(
             stmt.group_by(Product.id).order_by(Product.name)
@@ -91,7 +91,7 @@ class InventoryRepository:
         )
         if q:
             like = f"%{q}%"
-            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
         if month and year:
             stmt = stmt.where(
                 func.extract('year', InventoryMovement.movement_date) == year,
@@ -130,7 +130,7 @@ class InventoryRepository:
         )
         if q:
             like = f"%{q}%"
-            stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
         if month and year:
             stmt = stmt.where(
                 func.extract('year', InventoryMovement.movement_date) == year,

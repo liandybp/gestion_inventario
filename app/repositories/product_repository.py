@@ -21,7 +21,7 @@ class ProductRepository:
 
     def list_skus_starting_with(self, prefix: str) -> list[str]:
         rows = self._db.execute(
-            select(Product.sku).where(Product.sku.like(f"{prefix}%"))
+            select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
         ).all()
         return [sku for (sku,) in rows]
 
@@ -33,7 +33,7 @@ class ProductRepository:
         return list(
             self._db.scalars(
                 select(Product)
-                .where((Product.sku.like(like)) | (Product.name.like(like)))
+                .where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
                 .order_by(Product.name)
                 .limit(limit)
             )
