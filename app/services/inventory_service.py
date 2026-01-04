@@ -309,6 +309,18 @@ class InventoryService:
             extractions[p] = p_ext
             pending[p] = share_each - p_ext
 
+        opening = getattr(config.dividends, "opening_pending", None) or {}
+        if isinstance(opening, dict):
+            for k, v in opening.items():
+                key = (str(k) or "").strip()
+                if not key:
+                    continue
+                try:
+                    add = float(v)
+                except Exception:
+                    continue
+                pending[key] = float(pending.get(key, 0) or 0) + add
+
         return {
             "month_start": start,
             "month_end": end,

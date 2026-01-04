@@ -35,6 +35,7 @@ class SalesDocumentsConfig(BaseModel):
 class DividendsConfig(BaseModel):
     business_label: str = "Negocio"
     partners: list[str] = Field(default_factory=lambda: ["Liandy", "Randy"])
+    opening_pending: dict[str, float] = Field(default_factory=dict)
 
 
 class BusinessConfig(BaseModel):
@@ -79,6 +80,45 @@ def load_business_config() -> BusinessConfig:
         parts = [p.strip() for p in raw.split(",")]
         return [p for p in parts if p]
 
+    def get_opening_pending() -> dict[str, float]:
+        raw = get("dividends", "opening_pending", "")
+        if not raw:
+            return {}
+        raw_str = raw.strip()
+        if not raw_str:
+            return {}
+        if raw_str.startswith("{"):
+            try:
+                data = json.loads(raw_str)
+                if isinstance(data, dict):
+                    out: dict[str, float] = {}
+                    for k, v in data.items():
+                        key = (str(k) or "").strip()
+                        if not key:
+                            continue
+                        try:
+                            out[key] = float(v)
+                        except Exception:
+                            continue
+                    return out
+            except Exception:
+                return {}
+
+        # Format: party:amount,party:amount
+        out2: dict[str, float] = {}
+        for part in [p.strip() for p in raw_str.split(",") if p.strip()]:
+            if ":" not in part:
+                continue
+            k, v = part.split(":", 1)
+            key = (k or "").strip()
+            if not key:
+                continue
+            try:
+                out2[key] = float((v or "").strip())
+            except Exception:
+                continue
+        return out2
+
     cfg = BusinessConfig(
         issuer=IssuerConfig(
             name=get("issuer", "name", "Mi Negocio"),
@@ -103,6 +143,7 @@ def load_business_config() -> BusinessConfig:
         dividends=DividendsConfig(
             business_label=get("dividends", "business_label", "Negocio"),
             partners=get_list("dividends", "partners"),
+            opening_pending=get_opening_pending(),
         ),
     )
 
