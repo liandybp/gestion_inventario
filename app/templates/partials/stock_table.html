@@ -1,10 +1,7 @@
-{% if message %}
-<div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-  <strong>{{ message }}</strong>
-  {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
-</div>
-{% endif %}
+{% from 'components/ui.html' import flash %}
+{{ flash(message, message_class or '', message_detail) }}
 
+<div class="table-wrapper">
 <table>
   <thead>
     <tr>
@@ -37,7 +34,7 @@
                   hx-swap="innerHTML">Edit</button>
 
           {% if user and (user.role or '')|lower == 'admin' %}
-          <button type="button" style="margin-left:8px;background: var(--brand-red);"
+          <button type="button" class="ml-8 btn-danger"
                   hx-post="/ui/stock/{{ item.sku }}/delete"
                   hx-target="#stock-table"
                   hx-swap="innerHTML"
@@ -49,3 +46,4 @@
     {% endfor %}
   </tbody>
 </table>
+</div>

@@ -49,3 +49,35 @@
   {{ caller() }}
 </div>
 {% endmacro %}
+
+{# Month/Year filter for history tables #}
+{% macro month_filter(current_month='', current_year='') %}
+<div class="card mb-12">
+  <form class="flex gap-12 items-center flex-wrap">
+    <div>
+      <label class="filter-label">Mes</label>
+      <select name="month" class="month-filter">
+        <option value="">Todos</option>
+        <option value="01" {% if current_month == '01' %}selected{% endif %}>Enero</option>
+        <option value="02" {% if current_month == '02' %}selected{% endif %}>Febrero</option>
+        <option value="03" {% if current_month == '03' %}selected{% endif %}>Marzo</option>
+        <option value="04" {% if current_month == '04' %}selected{% endif %}>Abril</option>
+        <option value="05" {% if current_month == '05' %}selected{% endif %}>Mayo</option>
+        <option value="06" {% if current_month == '06' %}selected{% endif %}>Junio</option>
+        <option value="07" {% if current_month == '07' %}selected{% endif %}>Julio</option>
+        <option value="08" {% if current_month == '08' %}selected{% endif %}>Agosto</option>
+        <option value="09" {% if current_month == '09' %}selected{% endif %}>Septiembre</option>
+        <option value="10" {% if current_month == '10' %}selected{% endif %}>Octubre</option>
+        <option value="11" {% if current_month == '11' %}selected{% endif %}>Noviembre</option>
+        <option value="12" {% if current_month == '12' %}selected{% endif %}>Diciembre</option>
+      </select>
+    </div>
+    <div>
+      <label class="filter-label">Año</label>
+      <input type="number" name="year" value="{{ current_year }}" min="2020" max="2099" class="year-filter" style="width: 100px;" />
+    </div>
+    <button type="submit" class="mb-0">Filtrar</button>
+    <a href="#" class="text-sm">Limpiar</a>
+  </form>
+</div>
+{% endmacro %}

@@ -194,11 +194,40 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
 
 @router.get("/tabs/purchases", response_class=HTMLResponse)
-def tab_purchases(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_purchases(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
     ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
     user = get_current_user_from_session(db, request)
+    
+    # Determine filter values
+    now = datetime.now(timezone.utc)
+    
+    # If show_all is set, don't filter by month/year
+    if show_all:
+        filter_month = None
+        filter_year = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        filter_month = month if month else None
+        filter_year = year if year else now.year
+        display_month = month if month else ''
+        display_year = filter_year
+    # Default: show current month
+    else:
+        filter_month = now.strftime('%m')
+        filter_year = now.year
+        display_month = filter_month
+        display_year = filter_year
+    
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_purchases.html",
@@ -206,17 +235,47 @@ def tab_purchases(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "user": user,
             "products": product_service.recent(limit=20),
             "product_options": product_service.search(query="", limit=200),
-            "purchases": inventory_service.recent_purchases(limit=20),
+            "purchases": inventory_service.recent_purchases(limit=100, month=filter_month, year=filter_year),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "filter_month": display_month,
+            "filter_year": display_year,
         },
     )
 
 
 @router.get("/tabs/sales", response_class=HTMLResponse)
-def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_sales(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
     user = get_current_user_from_session(db, request)
+    
+    # Determine filter values
+    now = datetime.now(timezone.utc)
+    
+    # If show_all is set, don't filter by month/year
+    if show_all:
+        filter_month = None
+        filter_year = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        filter_month = month if month else None
+        filter_year = year if year else now.year
+        display_month = month if month else ''
+        display_year = filter_year
+    # Default: show current month
+    else:
+        filter_month = now.strftime('%m')
+        filter_year = now.year
+        display_month = filter_month
+        display_year = filter_year
 
     config = load_business_config()
     session = getattr(request, "session", None) or {}
@@ -241,7 +300,9 @@ def tab_sales(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
         name="partials/tab_sales.html",
         context={
             "user": user,
-            "sales": inventory_service.recent_sales(limit=20),
+            "sales": inventory_service.recent_sales(limit=100, month=filter_month, year=filter_year),
+            "filter_month": display_month,
+            "filter_year": display_year,
             "product_options": product_service.search(query="", limit=200),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "sales_doc_config": config.sales_documents.model_dump(),
@@ -295,9 +356,37 @@ def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
 
 @router.get("/tabs/expenses", response_class=HTMLResponse)
-def tab_expenses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_expenses(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
     inventory_service = InventoryService(db)
-    start, end = month_range(datetime.now(timezone.utc))
+    
+    now = datetime.now(timezone.utc)
+    
+    # If show_all is set, show all records
+    if show_all:
+        start = None
+        end = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        target_year = year if year else now.year
+        target_month = int(month) if month else now.month
+        target_date = datetime(target_year, target_month, 1, tzinfo=timezone.utc)
+        start, end = month_range(target_date)
+        display_month = month if month else ''
+        display_year = target_year
+    # Default: show current month
+    else:
+        start, end = month_range(now)
+        display_month = now.strftime('%m')
+        display_year = now.year
+    
     expenses = inventory_service.list_expenses(start=start, end=end, limit=200)
     total = inventory_service.total_expenses(start=start, end=end)
     return templates.TemplateResponse(
@@ -307,6 +396,8 @@ def tab_expenses(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
             "expenses": expenses,
             "expenses_total": total,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "filter_month": display_month,
+            "filter_year": display_year,
         },
     )
 
@@ -451,10 +542,16 @@ def tab_history(
 
     sku_filter = sku.strip() if sku else None
     type_filter = movement_type.strip() if movement_type else None
-    start_dt = parse_dt(start_date) if start_date else None
-    end_dt = parse_dt(end_date) if end_date else None
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    
+    # Default to current month if no dates specified
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
 
     movements = inventory_service.movement_history(
         sku=sku_filter or None,

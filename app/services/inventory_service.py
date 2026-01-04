@@ -1164,11 +1164,11 @@ class InventoryService:
 
         return out
 
-    def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
-        return self._inventory.recent_purchases(query=query, limit=limit)
+    def recent_purchases(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
+        return self._inventory.recent_purchases(query=query, limit=limit, month=month, year=year)
 
-    def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
-        return self._inventory.recent_sales(query=query, limit=limit)
+    def recent_sales(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
+        return self._inventory.recent_sales(query=query, limit=limit, month=month, year=year)
 
     def movement_history(
         self,

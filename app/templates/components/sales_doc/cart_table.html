@@ -11,6 +11,7 @@
     <div><strong>Subtotal:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
     <div><strong>Total:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
   </div>
+  <div class="table-wrapper">
   <table>
     <thead>
       <tr>
@@ -55,4 +56,5 @@
       </tr>
     </tfoot>
   </table>
+  </div>
 {% endcall %}

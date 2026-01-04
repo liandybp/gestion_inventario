@@ -1,11 +1,11 @@
 (function () {
   function setActiveTab(tabEl) {
-    document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', 'false'));
+    document.querySelectorAll('.sidebar-item').forEach((t) => t.setAttribute('aria-selected', 'false'));
     if (tabEl) tabEl.setAttribute('aria-selected', 'true');
   }
 
   function onTabClick(evt) {
-    const el = evt.target.closest('.tab');
+    const el = evt.target.closest('.sidebar-item');
     if (!el) return;
     setActiveTab(el);
   }
@@ -303,5 +303,28 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     runEnhancers(document);
+    
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('mobile-menu-toggle');
+    const menuOverlay = document.getElementById('mobile-menu-overlay');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (menuToggle && menuOverlay && sidebar) {
+      const toggleMenu = () => {
+        sidebar.classList.toggle('active');
+        menuOverlay.classList.toggle('active');
+      };
+      
+      menuToggle.addEventListener('click', toggleMenu);
+      menuOverlay.addEventListener('click', toggleMenu);
+      
+      // Close menu when clicking a sidebar item
+      sidebar.addEventListener('click', (e) => {
+        if (e.target.closest('.sidebar-item')) {
+          sidebar.classList.remove('active');
+          menuOverlay.classList.remove('active');
+        }
+      });
+    }
   });
 })();

@@ -11,100 +11,95 @@
     <script src="/static/js/app.js" defer></script>
   </head>
   <body>
-    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:6px;">
-      <h1 style="margin:0;">Dashboard</h1>
-      <div class="muted" style="display:flex; gap:10px; align-items:center;">
-        {% if user %}
-          <span>{{ user.username }} ({{ user.role }})</span>
-          <a href="/ui/logout">Cerrar sesión</a>
-        {% endif %}
-      </div>
-    </div>
-    <p class="muted">La tabla se actualiza automáticamente. Si un SKU baja de stock mínimo, se marca.</p>
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú">
+      ☰
+    </button>
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
+    
+    <div class="app-layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <h2>Dashboard</h2>
+          {% if user %}
+            <div class="sidebar-user">{{ user.username }} ({{ user.role }})</div>
+            <a href="/ui/logout" class="sidebar-logout">Cerrar sesión</a>
+          {% endif %}
+        </div>
+        
+        <nav class="sidebar-nav" role="navigation" aria-label="Secciones">
+          {% if not user or (user.role or '')|lower != 'operator' %}
+          <button class="sidebar-item" id="tab-home" aria-selected="true"
+                  hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML">
+            Inicio
+          </button>
+          <button class="sidebar-item" id="tab-inventory" aria-selected="false"
+                  hx-get="/ui/tabs/inventory" hx-target="#tab-content" hx-swap="innerHTML">
+            Inventario
+          </button>
+          {% if user and (user.role or '')|lower == 'admin' %}
+          <button class="sidebar-item" id="tab-purchases" aria-selected="false"
+                  hx-get="/ui/tabs/purchases" hx-target="#tab-content" hx-swap="innerHTML">
+            Compras
+          </button>
+          {% endif %}
+          {% endif %}
 
-    <div class="tabs" role="tablist" aria-label="Secciones">
-      {% if not user or (user.role or '')|lower != 'operator' %}
-      <button class="tab" id="tab-home" aria-selected="true"
-              hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Inicio
-      </button>
-      <button class="tab" id="tab-inventory" aria-selected="false"
-              hx-get="/ui/tabs/inventory" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Inventario
-      </button>
-      {% if user and (user.role or '')|lower == 'admin' %}
-      <button class="tab" id="tab-purchases" aria-selected="false"
-              hx-get="/ui/tabs/purchases" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Compras
-      </button>
-      {% endif %}
-      {% endif %}
+          <button class="sidebar-item" id="tab-sales" aria-selected="{% if user and (user.role or '')|lower == 'operator' %}true{% else %}false{% endif %}"
+                  hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML">
+            Ventas
+          </button>
 
-      <button class="tab" id="tab-sales" aria-selected="{% if user and (user.role or '')|lower == 'operator' %}true{% else %}false{% endif %}"
-              hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Ventas
-      </button>
+          <button class="sidebar-item" id="tab-documents" aria-selected="false"
+                  hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML">
+            Documentos
+          </button>
 
-      <button class="tab" id="tab-documents" aria-selected="false"
-              hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Documentos
-      </button>
+          <button class="sidebar-item" id="tab-customers" aria-selected="false"
+                  hx-get="/ui/tabs/customers" hx-target="#tab-content" hx-swap="innerHTML">
+            Clientes
+          </button>
 
-      <button class="tab" id="tab-customers" aria-selected="false"
-              hx-get="/ui/tabs/customers" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Clientes
-      </button>
+          <button class="sidebar-item" id="tab-expenses" aria-selected="false"
+                  hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML">
+            Costos operativos
+          </button>
 
-      <button class="tab" id="tab-expenses" aria-selected="false"
-              hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Costos operativos
-      </button>
+          {% if not user or (user.role or '')|lower != 'operator' %}
+          <button class="sidebar-item" id="tab-profit-items" aria-selected="false"
+                  hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML">
+            Utilidades por artículo
+          </button>
 
-      {% if not user or (user.role or '')|lower != 'operator' %}
-      <button class="tab" id="tab-profit-items" aria-selected="false"
-              hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Utilidades por artículo
-      </button>
+          <button class="sidebar-item" id="tab-profit" aria-selected="false"
+                  hx-get="/ui/tabs/profit" hx-target="#tab-content" hx-swap="innerHTML">
+            Utilidades
+          </button>
 
-      <button class="tab" id="tab-profit" aria-selected="false"
-              hx-get="/ui/tabs/profit" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Utilidades
-      </button>
+          <button class="sidebar-item" id="tab-dividends" aria-selected="false"
+                  hx-get="/ui/tabs/dividends" hx-target="#tab-content" hx-swap="innerHTML">
+            Dividendos
+          </button>
 
-      <button class="tab" id="tab-dividends" aria-selected="false"
-              hx-get="/ui/tabs/dividends" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Dividendos
-      </button>
+          <button class="sidebar-item" id="tab-history" aria-selected="false"
+                  hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML">
+            Historial
+          </button>
 
-      <button class="tab" id="tab-history" aria-selected="false"
-              hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Historial
-      </button>
+          {% if user and (user.role or '')|lower == 'admin' %}
+          <button class="sidebar-item" id="tab-activity" aria-selected="false"
+                  hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML">
+            Actividad
+          </button>
+          {% endif %}
+          {% endif %}
+        </nav>
+      </aside>
 
-      {% if user and (user.role or '')|lower == 'admin' %}
-      <button class="tab" id="tab-activity" aria-selected="false"
-              hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML"
-              >
-        Actividad
-      </button>
-      {% endif %}
-      {% endif %}
-
-    </div>
-
-    <div id="tab-content" class="card"
-         hx-get="{% if user and (user.role or '')|lower == 'operator' %}/ui/tabs/sales{% else %}/ui/tabs/home{% endif %}" hx-trigger="load" hx-swap="innerHTML">
+      <main class="main-content">
+        <div id="tab-content"
+             hx-get="{% if user and (user.role or '')|lower == 'operator' %}/ui/tabs/sales{% else %}/ui/tabs/home{% endif %}" hx-trigger="load" hx-swap="innerHTML">
+        </div>
+      </main>
     </div>
   </body>
 </html>

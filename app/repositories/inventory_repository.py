@@ -68,7 +68,7 @@ class InventoryRepository:
             for sku, name, uom, qty, min_stock, lead_time_days in rows
         ]
 
-    def recent_purchases(self, query: str = "", limit: int = 20) -> list[tuple]:
+    def recent_purchases(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
         q = query.strip()
         stmt = (
             select(
@@ -92,9 +92,14 @@ class InventoryRepository:
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+        if month and year:
+            stmt = stmt.where(
+                func.extract('year', InventoryMovement.movement_date) == year,
+                func.extract('month', InventoryMovement.movement_date) == int(month)
+            )
         return list(self._db.execute(stmt).all())
 
-    def recent_sales(self, query: str = "", limit: int = 20) -> list[tuple]:
+    def recent_sales(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
         q = query.strip()
 
         if self._db.get_bind().dialect.name == "postgresql":
@@ -126,6 +131,11 @@ class InventoryRepository:
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.like(like)) | (Product.name.like(like)))
+        if month and year:
+            stmt = stmt.where(
+                func.extract('year', InventoryMovement.movement_date) == year,
+                func.extract('month', InventoryMovement.movement_date) == int(month)
+            )
         return list(self._db.execute(stmt).all())
 
     def movement_history(

@@ -19,6 +19,7 @@
   <div class="grid-2 mt-16">
     <div class="card">
       <h3>Resumen</h3>
+      <div class="table-wrapper">
       <table>
         <tbody>
           <tr><th>Ventas</th><td>{{ '%.2f'|format(summary.sales_total or 0) }}</td></tr>
@@ -28,10 +29,12 @@
           <tr><th>Utilidad neta</th><td>{{ '%.2f'|format(summary.net_total or 0) }}</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <div class="card">
       <h3>Otros gastos (últimos del mes)</h3>
+      <div class="table-wrapper">
       <table>
         <thead>
           <tr>
@@ -53,6 +56,10 @@
           {% endif %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
+</div>
+</div>
+</div>
 </div>
