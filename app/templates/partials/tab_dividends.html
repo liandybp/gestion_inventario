@@ -78,53 +78,54 @@
         <button type="submit">Guardar</button>
       </form>
 
-      <div id="extraction-edit" class="mt-12"></div>
+    </div>
+  </div>
 
-      <div class="card mt-16">
-        <h3>Retiros (mes corriente)</h3>
-        <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Concepto</th>
-              <th>{{ dividends.business_label }}</th>
-              {% for p in dividends.partners %}
-                <th>{{ p }}</th>
-              {% endfor %}
-              <th>Fecha</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in extractions %}
-              <tr>
-                <td>{{ r.concept }}</td>
-                <td>{% if r.party == dividends.business_label %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
-                {% for p in dividends.partners %}
-                  <td>{% if r.party == p %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
-                {% endfor %}
-                <td>{{ r.extraction_date.strftime('%Y-%m-%d %H:%M') if r.extraction_date else '' }}</td>
-                <td>
-                  <button type="button"
-                          hx-get="/ui/extraction/{{ r.id }}/edit"
-                          hx-target="#extraction-edit"
-                          hx-swap="innerHTML">Edit</button>
+  <div id="extraction-edit" class="mt-12"></div>
 
-                  <button type="button" class="ml-8 btn-danger"
-                          hx-post="/ui/extraction/{{ r.id }}/delete"
-                          hx-target="#tab-content"
-                          hx-swap="innerHTML"
-                          hx-confirm="¿Eliminar este retiro?">Del</button>
-                </td>
-              </tr>
+  <div class="card mt-16">
+    <h3>Retiros (mes corriente)</h3>
+    <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>{{ dividends.business_label }}</th>
+          {% for p in dividends.partners %}
+            <th>{{ p }}</th>
+          {% endfor %}
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in extractions %}
+          <tr>
+            <td>{{ r.concept }}</td>
+            <td>{% if r.party == dividends.business_label %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+            {% for p in dividends.partners %}
+              <td>{% if r.party == p %}{{ '%.2f'|format(r.amount or 0) }}{% else %}<span class="muted">-</span>{% endif %}</td>
             {% endfor %}
-            {% if not extractions %}
-              <tr><td colspan="6" class="muted">Sin retiros registrados en el mes.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-        </div>
-      </div>
+            <td>{{ r.extraction_date.strftime('%Y-%m-%d %H:%M') if r.extraction_date else '' }}</td>
+            <td>
+              <button type="button"
+                      hx-get="/ui/extraction/{{ r.id }}/edit"
+                      hx-target="#extraction-edit"
+                      hx-swap="innerHTML">Edit</button>
+
+              <button type="button" class="ml-8 btn-danger"
+                      hx-post="/ui/extraction/{{ r.id }}/delete"
+                      hx-target="#tab-content"
+                      hx-swap="innerHTML"
+                      hx-confirm="¿Eliminar este retiro?">Del</button>
+            </td>
+          </tr>
+        {% endfor %}
+        {% if not extractions %}
+          <tr><td colspan="6" class="muted">Sin retiros registrados en el mes.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
     </div>
   </div>
 </div>
