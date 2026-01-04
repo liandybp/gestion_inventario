@@ -1,5 +1,5 @@
-<div class="card">
-  <h3 style="margin-top:0;">Listado</h3>
+{% from 'components/ui.html' import card %}
+{% call card('Listado') %}
   <table>
     <thead>
       <tr>
@@ -17,17 +17,17 @@
           <td>{{ c.name }}</td>
           <td>{{ c.phone or '' }}</td>
           <td>{{ c.email or '' }}</td>
-          <td style="text-align:right;">
+          <td class="text-right">
             <button type="button"
                     hx-get="/ui/customer/{{ c.id }}"
                     hx-target="#customer-detail"
                     hx-swap="innerHTML">Ver</button>
-            <button type="button" style="margin-left:8px;"
+            <button type="button" class="ml-8"
                     hx-get="/ui/customer/{{ c.id }}/edit"
                     hx-target="#customer-edit"
                     hx-swap="innerHTML">Editar</button>
-            <form hx-post="/ui/customer/{{ c.id }}/delete" hx-target="#tab-content" hx-swap="innerHTML" style="display:inline; margin-left:8px;">
-              <button type="submit" formnovalidate style="background: var(--brand-red);"
+            <form hx-post="/ui/customer/{{ c.id }}/delete" hx-target="#tab-content" hx-swap="innerHTML" class="d-inline ml-8">
+              <button type="submit" formnovalidate class="btn-danger"
                       hx-confirm="¿Eliminar este cliente?">Eliminar</button>
             </form>
           </td>
@@ -38,4 +38,4 @@
       {% endif %}
     </tbody>
   </table>
-</div>
+{% endcall %}

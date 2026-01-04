@@ -16,6 +16,6 @@
     <div class="row"><label>Concepto</label><input name="concept" value="{{ extraction.concept }}" required /></div>
     <button type="submit">Guardar cambios</button>
     <button type="button" style="margin-left:8px; background:#6b7280;"
-            hx-on:click="document.getElementById('extraction-edit').innerHTML=''">Cancelar</button>
+            data-clear-target="#extraction-edit">Cancelar</button>
   </form>
 </div>

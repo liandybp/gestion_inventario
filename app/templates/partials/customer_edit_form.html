@@ -1,10 +1,10 @@
 <div class="card">
-  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
-    <h3 style="margin:0;">Editar cliente</h3>
-    <button type="button" style="background:#6b7280;" hx-on:click="document.getElementById('customer-edit').innerHTML=''">Cerrar</button>
+  <div class="flex justify-between gap-12 items-center flex-wrap">
+    <h3 class="m-0">Editar cliente</h3>
+    <button type="button" class="btn-secondary" data-clear-target="#customer-edit">Cerrar</button>
   </div>
 
-  <form hx-post="/ui/customer/{{ customer.id }}/update" hx-target="#tab-content" hx-swap="innerHTML" style="margin-top:12px;">
+  <form hx-post="/ui/customer/{{ customer.id }}/update" hx-target="#tab-content" hx-swap="innerHTML" class="mt-12">
     <div class="row"><label>ID cliente</label><input name="client_id" value="{{ customer.client_id }}" required /></div>
     <div class="row"><label>Nombre</label><input name="name" value="{{ customer.name }}" required /></div>
     <div class="row"><label>Dirección (opcional)</label><input name="address" value="{{ customer.address or '' }}" /></div>

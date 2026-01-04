@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -211,6 +211,15 @@ app.include_router(ui_router)
 
 os.makedirs("app/static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/")
+async def root(request: Request):
+    """Redirige a dashboard si hay sesión activa, sino a login."""
+    session = getattr(request, "session", None) or {}
+    if session.get("username"):
+        return RedirectResponse(url="/ui/dashboard", status_code=302)
+    return RedirectResponse(url="/ui/login", status_code=302)
 
 
 if __name__ == "__main__":

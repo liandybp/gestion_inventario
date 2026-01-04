@@ -1,40 +1,34 @@
 <div>
+  {% from 'components/ui.html' import card, flash, row %}
   <h2>Clientes</h2>
   <p class="muted">Gestiona clientes y revisa su historial de compras para personalizar ofertas.</p>
 
-  {% if message %}
-    <div class="{{ message_class or '' }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-      <strong>{{ message }}</strong>
-      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
-    </div>
-  {% endif %}
+  {{ flash(message, message_class or '', message_detail) }}
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr;">
-    <div class="card">
-      <h3 style="margin-top:0;">Buscar</h3>
+  <div class="grid grid-2">
+    {% call card('Buscar') %}
       <form hx-get="/ui/customers/table" hx-target="#customers-table" hx-swap="innerHTML">
-        <div class="row"><label>Nombre o ID</label><input name="query" value="{{ query or '' }}" /></div>
+        {% call row('Nombre o ID') %}<input name="query" value="{{ query or '' }}" />{% endcall %}
         <button type="submit">Buscar</button>
       </form>
-    </div>
+    {% endcall %}
 
-    <div class="card">
-      <h3 style="margin-top:0;">Nuevo cliente</h3>
+    {% call card('Nuevo cliente') %}
       <form hx-post="/ui/customer/create" hx-target="#tab-content" hx-swap="innerHTML">
-        <div class="row"><label>ID cliente</label><input name="client_id" required /></div>
-        <div class="row"><label>Nombre</label><input name="name" required /></div>
-        <div class="row"><label>Dirección (opcional)</label><input name="address" /></div>
-        <div class="row"><label>Teléfono (opcional)</label><input name="phone" /></div>
-        <div class="row"><label>Email (opcional)</label><input name="email" /></div>
+        {% call row('ID cliente') %}<input name="client_id" required />{% endcall %}
+        {% call row('Nombre') %}<input name="name" required />{% endcall %}
+        {% call row('Dirección (opcional)') %}<input name="address" />{% endcall %}
+        {% call row('Teléfono (opcional)') %}<input name="phone" />{% endcall %}
+        {% call row('Email (opcional)') %}<input name="email" />{% endcall %}
         <button type="submit">Guardar</button>
       </form>
-    </div>
+    {% endcall %}
   </div>
 
-  <div id="customer-detail" style="margin-top:12px;"></div>
-  <div id="customer-edit" style="margin-top:12px;"></div>
+  <div id="customer-detail" class="mt-12"></div>
+  <div id="customer-edit" class="mt-12"></div>
 
-  <div id="customers-table" style="margin-top:12px;">
+  <div id="customers-table" class="mt-12">
     {% include 'partials/customers_table.html' %}
   </div>
 </div>

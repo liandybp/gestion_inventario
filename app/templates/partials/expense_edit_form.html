@@ -7,6 +7,6 @@
     <div class="row"><label>Concepto</label><input name="concept" value="{{ expense.concept }}" required /></div>
     <button type="submit">Guardar cambios</button>
     <button type="button" style="margin-left:8px; background:#6b7280;"
-            hx-on:click="document.getElementById('expense-edit').innerHTML=''">Cancelar</button>
+            data-clear-target="#expense-edit">Cancelar</button>
   </form>
 </div>

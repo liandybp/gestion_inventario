@@ -1,31 +1,31 @@
-<div class="card" style="margin-top:12px;">
-  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
-    <h4 style="margin:0;">Vista previa</h4>
-    <button type="button" style="background:#6b7280;" hx-on:click="document.getElementById('sales-doc-preview').innerHTML=''">Cerrar</button>
+<div class="card mt-12">
+  <div class="flex justify-between gap-12 items-center flex-wrap">
+    <h4 class="m-0">Vista previa</h4>
+    <button type="button" class="btn-secondary" data-clear-target="#sales-doc-preview">Cerrar</button>
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+  <div class="grid grid-2 mt-10">
     <div>
       <div><strong>Tipo:</strong> {{ doc_label }}</div>
       <div><strong>Cliente:</strong> {{ client_name }} ({{ client_id }})</div>
       {% if client_address %}<div><strong>Dirección:</strong> {{ client_address }}</div>{% endif %}
       {% if notes %}<div><strong>Notas:</strong> {{ notes }}</div>{% endif %}
     </div>
-    <div style="text-align:right;">
+    <div class="text-right">
       <div><strong>Subtotal:</strong> {{ currency_symbol }}{{ '%.2f'|format(subtotal) }}</div>
       <div><strong>Total:</strong> {{ currency_symbol }}{{ '%.2f'|format(total) }}</div>
       <div class="muted">(Precios sin IVA)</div>
     </div>
   </div>
 
-  <table style="margin-top:10px;">
+  <table class="mt-10">
     <thead>
       <tr>
         <th>#</th>
         <th>Descripción</th>
-        <th style="text-align:right;">Cant.</th>
-        <th style="text-align:right;">Precio</th>
-        <th style="text-align:right;">Total</th>
+        <th class="text-right">Cant.</th>
+        <th class="text-right">Precio</th>
+        <th class="text-right">Total</th>
       </tr>
     </thead>
     <tbody>
@@ -33,15 +33,15 @@
         <tr>
           <td>{{ loop.index }}</td>
           <td>{{ it.description }}</td>
-          <td style="text-align:right;">{{ '%.2f'|format(it.quantity) }}</td>
-          <td style="text-align:right;">{{ currency_symbol }}{{ '%.2f'|format(it.unit_price) }}</td>
-          <td style="text-align:right;">{{ currency_symbol }}{{ '%.2f'|format(it.line_total) }}</td>
+          <td class="text-right">{{ '%.2f'|format(it.quantity) }}</td>
+          <td class="text-right">{{ currency_symbol }}{{ '%.2f'|format(it.unit_price) }}</td>
+          <td class="text-right">{{ currency_symbol }}{{ '%.2f'|format(it.line_total) }}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <form hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML" style="margin-top:12px;">
+  <form hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML" class="mt-12">
     <input type="hidden" name="doc_type" value="{{ doc_type }}" />
     <input type="hidden" name="client_name" value="{{ client_name }}" />
     <input type="hidden" name="client_id" value="{{ client_id }}" />

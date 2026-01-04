@@ -1,182 +1,25 @@
-<div class="card" id="sales-doc-panel" style="margin-top:16px;">
-  <h3 style="margin-top:0;">Documento (Factura / Presupuesto)</h3>
-  <p class="muted" style="margin-top:-6px;">Arma un carrito temporal y luego emite el documento. (Precios sin IVA)</p>
+{% from 'components/ui.html' import card, flash %}
+
+{% call card('Documento (Factura / Presupuesto)', id='sales-doc-panel', extra_class='mt-16') %}
+  <p class="muted mt-n6">Arma un carrito temporal y luego emite el documento. (Precios sin IVA)</p>
 
   {% set draft = draft if draft is defined and draft else {} %}
 
-  {% if message %}
-    <div class="{{ message_class or '' }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-      <strong>{{ message }}</strong>
-    </div>
-  {% endif %}
+  {{ flash(message, message_class or '', none) }}
 
   {% if issued_doc %}
-    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <div class="mt-10 flex gap-10 flex-wrap items-center">
       <a href="/ui/sales-doc/{{ issued_doc.id }}/pdf?download=1" target="_blank" rel="noopener">Descargar PDF</a>
       <a href="/ui/sales-doc/{{ issued_doc.id }}/pdf" target="_blank" rel="noopener">Abrir / Imprimir</a>
     </div>
   {% endif %}
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; align-items:stretch;">
-    <div class="card" style="height:100%; display:flex; flex-direction:column;">
-      <h4 style="margin-top:0;">Agregar al carrito</h4>
-      <form hx-post="/ui/sales-doc/cart/add" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false">
-        <div class="row">
-          <label>Producto</label>
-          <input name="product" list="product-options" placeholder="SKU - Nombre (o texto libre)" required
-                 hx-get="/ui/sales-doc/product-defaults" hx-trigger="change" hx-target="#sales-doc-defaults" hx-swap="innerHTML" />
-        </div>
-        <div class="row">
-          <label>Descripción (opcional)</label>
-          <input name="description" placeholder="Si lo dejas vacío, usa el producto" />
-        </div>
-        <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
-        <div class="row"><label>Precio unitario</label><input id="sales-doc-unit-price" name="unit_price" type="number" step="0.0001" min="0" value="0" /></div>
-        <button type="submit" formnovalidate>Agregar</button>
-      </form>
-
-      <datalist id="customer-options">
-        {% for c in customers %}
-          <option value="{{ c.name }}"></option>
-        {% endfor %}
-      </datalist>
-
-      <div id="sales-doc-customer-defaults"></div>
-
-      <div id="sales-doc-defaults"></div>
-
-      <form hx-post="/ui/sales-doc/cart/clear" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" style="margin-top:10px;">
-        <button type="submit" formnovalidate style="background:#6b7280;">Vaciar carrito</button>
-      </form>
-    </div>
-
-    <div class="card" style="height:100%; display:flex; flex-direction:column;">
-      <h4 style="margin-top:0;">Emitir documento</h4>
-      {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
-      <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
-        <div class="row">
-          <label>Tipo</label>
-          <select name="doc_type">
-            <option value="F" {% if selected_doc_type == 'F' %}selected{% endif %}>F - {{ sales_doc_config.invoice_label }}</option>
-            <option value="P" {% if selected_doc_type == 'P' %}selected{% endif %}>P - {{ sales_doc_config.quote_label }}</option>
-          </select>
-        </div>
-        <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"
-                                                          hx-get="/ui/sales-doc/customer-defaults" hx-trigger="change" hx-target="#sales-doc-customer-defaults" hx-swap="innerHTML" /></div>
-        <div class="row"><label>Cliente (ID)</label><input id="sales-doc-client-id" name="client_id" value="{{ draft.client_id or '' }}" /></div>
-        <div class="row"><label>Dirección (opcional)</label><input id="sales-doc-client-address" name="client_address" value="{{ draft.client_address or '' }}" /></div>
-        <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ draft.notes or '' }}" /></div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <button type="button"
-                  hx-post="/ui/sales-doc/preview"
-                  hx-target="#sales-doc-preview"
-                  hx-swap="innerHTML"
-                  hx-include="closest form">Vista previa</button>
-          <button type="submit">Emitir</button>
-        </div>
-      </form>
-
-      <div id="sales-doc-preview" style="margin-top:12px;"></div>
-    </div>
+  <div class="sales-doc-grid mt-12">
+    {% include 'components/sales_doc/cart_add.html' %}
+    {% include 'components/sales_doc/issue_form.html' %}
   </div>
 
-  <div class="card" style="margin-top:12px;">
-    <h4 style="margin-top:0;">Carrito</h4>
-    <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap; margin-top:-6px; margin-bottom:8px;">
-      {% set ns = namespace(subtotal=0) %}
-      {% for it in cart %}
-        {% set qty = (it.quantity or 0) %}
-        {% set price = (it.unit_price or 0) %}
-        {% set ns.subtotal = ns.subtotal + (qty * price) %}
-      {% endfor %}
-      <div><strong>Subtotal:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
-      <div><strong>Total:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Descripción</th>
-          <th style="text-align:right;">Cant.</th>
-          <th style="text-align:right;">Precio</th>
-          <th style="text-align:right;">Total</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% set ns = namespace(subtotal=0) %}
-        {% for it in cart %}
-          {% set qty = (it.quantity or 0) %}
-          {% set price = (it.unit_price or 0) %}
-          {% set line_total = qty * price %}
-          {% set ns.subtotal = ns.subtotal + line_total %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ it.description }}</td>
-            <td style="text-align:right;">{{ '%.2f'|format(qty) }}</td>
-            <td style="text-align:right;">{{ currency.symbol }}{{ '%.2f'|format(price) }}</td>
-            <td style="text-align:right;">{{ currency.symbol }}{{ '%.2f'|format(line_total) }}</td>
-            <td style="text-align:right;">
-              <form hx-post="/ui/sales-doc/cart/remove" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" style="display:inline;">
-                <input type="hidden" name="index" value="{{ loop.index0 }}" />
-                <button type="submit" formnovalidate style="background: var(--brand-red);">Quitar</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-        {% if not cart %}
-          <tr><td colspan="6" class="muted">Carrito vacío.</td></tr>
-        {% endif %}
-      </tbody>
-      <tfoot>
-        <tr>
-          <th colspan="4" style="text-align:right;">Subtotal</th>
-          <th style="text-align:right;">{{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</th>
-          <th></th>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
+  {% include 'components/sales_doc/cart_table.html' %}
 
-  <div class="card" style="margin-top:12px;">
-    <h4 style="margin-top:0;">Documentos recientes</h4>
-    <div id="sales-doc-edit" style="margin-top:12px;"></div>
-    <table>
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Tipo</th>
-          <th>Fecha</th>
-          <th>Cliente</th>
-          <th style="text-align:right;">Total</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for d in recent_documents %}
-          <tr>
-            <td><code>{{ d.code }}</code></td>
-            <td>{{ d.doc_type }}</td>
-            <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
-            <td>{{ d.client_name }}</td>
-            <td style="text-align:right;">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
-            <td style="text-align:right;">
-              <a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a>
-              <button type="button" style="margin-left:8px;"
-                      hx-get="/ui/sales-doc/{{ d.id }}/edit"
-                      hx-target="#sales-doc-edit"
-                      hx-swap="innerHTML">Editar</button>
-              <form hx-post="/ui/sales-doc/{{ d.id }}/delete" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" style="display:inline; margin-left:8px;">
-                <button type="submit" formnovalidate style="background: var(--brand-red);"
-                        hx-confirm="¿Eliminar este documento?">Eliminar</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-        {% if not recent_documents %}
-          <tr><td colspan="6" class="muted">Sin documentos emitidos.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
+  {% include 'components/sales_doc/recent_documents.html' %}
+{% endcall %}

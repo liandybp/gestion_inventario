@@ -1,44 +1,22 @@
 <div id="profit-tab" hx-get="/ui/tabs/profit" hx-trigger="every 10m" hx-swap="innerHTML">
+  {% from 'components/ui.html' import metric %}
   <h2>Utilidades</h2>
   <p class="muted">Cálculo del mes corriente (ventas, costo FIFO, utilidad bruta y utilidad neta).</p>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
-    <div class="card">
-      <div class="muted">Ventas</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.sales_total or 0) }}</div>
-    </div>
-    <div class="card">
-      <div class="muted">(-) Costo de ventas</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.cogs_total or 0) }}</div>
-    </div>
-    <div class="card">
-      <div class="muted">Utilidad bruta</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.gross_total or 0) }}</div>
-    </div>
-    <div class="card">
-      <div class="muted">Utilidad neta</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.net_total or 0) }}</div>
-    </div>
+  <div class="grid-4">
+    {{ metric('Ventas', '%.2f'|format(summary.sales_total or 0)) }}
+    {{ metric('(-) Costo de ventas', '%.2f'|format(summary.cogs_total or 0)) }}
+    {{ metric('Utilidad bruta', '%.2f'|format(summary.gross_total or 0)) }}
+    {{ metric('Utilidad neta', '%.2f'|format(summary.net_total or 0)) }}
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:16px;">
-    <div class="card">
-      <div class="muted">% costo de ventas</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.cogs_pct or 0) }}</div>
-    </div>
-    <div class="card">
-      <div class="muted">% utilidad bruta</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(summary.gross_margin_pct or 0) }}</div>
-    </div>
-    <div class="card">
-      <div class="muted">% utilidad neta / % gastos</div>
-      <div style="font-size:22px;font-weight:700;">
-        {{ '%.2f'|format(summary.net_margin_pct or 0) }} / {{ '%.2f'|format(summary.expenses_pct or 0) }}
-      </div>
-    </div>
+  <div class="grid-3 mt-16">
+    {{ metric('% costo de ventas', '%.2f'|format(summary.cogs_pct or 0)) }}
+    {{ metric('% utilidad bruta', '%.2f'|format(summary.gross_margin_pct or 0)) }}
+    {{ metric('% utilidad neta / % gastos', '%.2f'|format(summary.net_margin_pct or 0) ~ ' / ' ~ '%.2f'|format(summary.expenses_pct or 0)) }}
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:16px;">
+  <div class="grid-2 mt-16">
     <div class="card">
       <h3>Resumen</h3>
       <table>

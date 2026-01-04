@@ -1,0 +1,58 @@
+{% from 'components/ui.html' import subcard %}
+
+{% call subcard('Carrito', extra_class='mt-12') %}
+  <div class="flex justify-end gap-12 flex-wrap mt-n6 mb-8">
+    {% set ns = namespace(subtotal=0) %}
+    {% for it in cart %}
+      {% set qty = (it.quantity or 0) %}
+      {% set price = (it.unit_price or 0) %}
+      {% set ns.subtotal = ns.subtotal + (qty * price) %}
+    {% endfor %}
+    <div><strong>Subtotal:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
+    <div><strong>Total:</strong> {{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Descripción</th>
+        <th class="text-right">Cant.</th>
+        <th class="text-right">Precio</th>
+        <th class="text-right">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set ns = namespace(subtotal=0) %}
+      {% for it in cart %}
+        {% set qty = (it.quantity or 0) %}
+        {% set price = (it.unit_price or 0) %}
+        {% set line_total = qty * price %}
+        {% set ns.subtotal = ns.subtotal + line_total %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ it.description }}</td>
+          <td class="text-right">{{ '%.2f'|format(qty) }}</td>
+          <td class="text-right">{{ currency.symbol }}{{ '%.2f'|format(price) }}</td>
+          <td class="text-right">{{ currency.symbol }}{{ '%.2f'|format(line_total) }}</td>
+          <td class="text-right">
+            <form hx-post="/ui/sales-doc/cart/remove" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="d-inline">
+              <input type="hidden" name="index" value="{{ loop.index0 }}" />
+              <button type="submit" formnovalidate class="btn-danger">Quitar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      {% if not cart %}
+        <tr><td colspan="6" class="muted">Carrito vacío.</td></tr>
+      {% endif %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="4" class="text-right">Subtotal</th>
+        <th class="text-right">{{ currency.symbol }}{{ '%.2f'|format(ns.subtotal) }}</th>
+        <th></th>
+      </tr>
+    </tfoot>
+  </table>
+{% endcall %}

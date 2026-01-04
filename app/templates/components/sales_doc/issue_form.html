@@ -1,0 +1,29 @@
+{% from 'components/ui.html' import subcard %}
+
+{% call subcard('Emitir documento', extra_class='h-full') %}
+  {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
+  <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <div class="row">
+      <label>Tipo</label>
+      <select name="doc_type">
+        <option value="F" {% if selected_doc_type == 'F' %}selected{% endif %}>F - {{ sales_doc_config.invoice_label }}</option>
+        <option value="P" {% if selected_doc_type == 'P' %}selected{% endif %}>P - {{ sales_doc_config.quote_label }}</option>
+      </select>
+    </div>
+    <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"
+                                                      hx-get="/ui/sales-doc/customer-defaults" hx-trigger="change" hx-target="#sales-doc-customer-defaults" hx-swap="innerHTML" /></div>
+    <div class="row"><label>Cliente (ID)</label><input id="sales-doc-client-id" name="client_id" value="{{ draft.client_id or '' }}" /></div>
+    <div class="row"><label>Dirección (opcional)</label><input id="sales-doc-client-address" name="client_address" value="{{ draft.client_address or '' }}" /></div>
+    <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ draft.notes or '' }}" /></div>
+    <div class="flex gap-10 flex-wrap items-center">
+      <button type="button"
+              hx-post="/ui/sales-doc/preview"
+              hx-target="#sales-doc-preview"
+              hx-swap="innerHTML"
+              hx-include="closest form">Vista previa</button>
+      <button type="submit">Emitir</button>
+    </div>
+  </form>
+
+  <div id="sales-doc-preview" class="mt-12"></div>
+{% endcall %}

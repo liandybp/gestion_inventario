@@ -1,10 +1,10 @@
 <div class="card">
-  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
-    <h3 style="margin:0;">Cliente: {{ customer.name }}</h3>
-    <button type="button" style="background:#6b7280;" hx-on:click="document.getElementById('customer-detail').innerHTML=''">Cerrar</button>
+  <div class="flex justify-between gap-12 items-center flex-wrap">
+    <h3 class="m-0">Cliente: {{ customer.name }}</h3>
+    <button type="button" class="btn-secondary" data-clear-target="#customer-detail">Cerrar</button>
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+  <div class="grid grid-2 mt-10">
     <div>
       <div><strong>ID:</strong> <code>{{ customer.client_id }}</code></div>
       {% if customer.address %}<div><strong>Dirección:</strong> {{ customer.address }}</div>{% endif %}
@@ -19,7 +19,7 @@
     </div>
   </div>
 
-  <h4 style="margin-top:14px;">Documentos</h4>
+  <h4 class="mt-14">Documentos</h4>
   <table>
     <thead>
       <tr>
@@ -34,8 +34,8 @@
         <tr>
           <td><code>{{ d.code }}</code></td>
           <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
-          <td style="text-align:right;">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
-          <td style="text-align:right;"><a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a></td>
+          <td class="text-right">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
+          <td class="text-right"><a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a></td>
         </tr>
       {% endfor %}
       {% if not documents %}

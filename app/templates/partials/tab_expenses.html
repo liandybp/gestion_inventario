@@ -1,15 +1,11 @@
 <div>
+  {% from 'components/ui.html' import flash, metric %}
   <h2>Costos operativos</h2>
   <p class="muted">Registro de gastos operativos del mes corriente.</p>
 
-  {% if message %}
-    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-      <strong>{{ message }}</strong>
-      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
-    </div>
-  {% endif %}
+  {{ flash(message, message_class or '', message_detail) }}
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="grid-2">
     <div class="card">
       <h3>Registrar costo operativo</h3>
       <form hx-post="/ui/expenses/create" hx-target="#tab-content" hx-swap="innerHTML">
@@ -19,16 +15,13 @@
         <button type="submit">Guardar</button>
       </form>
 
-      <div id="expense-edit" style="margin-top:12px;"></div>
+      <div id="expense-edit" class="mt-12"></div>
     </div>
 
-    <div class="card">
-      <div class="muted">Total de costos operativos (mes)</div>
-      <div style="font-size:22px;font-weight:700;">{{ '%.2f'|format(expenses_total or 0) }}</div>
-    </div>
+    {{ metric('Total de costos operativos (mes)', '%.2f'|format(expenses_total or 0)) }}
   </div>
 
-  <div class="card" style="margin-top:16px;">
+  <div class="card mt-16">
     <h3>Costos operativos</h3>
     <table>
       <thead>
@@ -51,7 +44,7 @@
                       hx-target="#expense-edit"
                       hx-swap="innerHTML">Edit</button>
 
-              <button type="button" style="margin-left:8px;background: var(--brand-red);"
+              <button type="button" class="ml-8 btn-danger"
                       hx-post="/ui/expense/{{ e.id }}/delete"
                       hx-target="#tab-content"
                       hx-swap="innerHTML"

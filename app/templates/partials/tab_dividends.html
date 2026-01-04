@@ -1,15 +1,11 @@
 <div>
+  {% from 'components/ui.html' import flash %}
   <h2>Dividendos</h2>
   <p class="muted">Resumen del mes corriente (costo de venta, costos operativos, utilidad neta y reparto 50/50). Registra y edita retiros para calcular lo pendiente.</p>
 
-  {% if message %}
-    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-      <strong>{{ message }}</strong>
-      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
-    </div>
-  {% endif %}
+  {{ flash(message, message_class or '', message_detail) }}
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="grid-2">
     <div class="card">
       <h3>DIVIDENDOS</h3>
       <table>
@@ -53,9 +49,9 @@
           </tr>
           <tr>
             <th>Total pendiente</th>
-            <td style="font-weight:700;">{{ '%.2f'|format(summary.pending[dividends.business_label] or 0) }}</td>
+            <td class="font-bold">{{ '%.2f'|format(summary.pending[dividends.business_label] or 0) }}</td>
             {% for p in dividends.partners %}
-              <td style="font-weight:700;">{{ '%.2f'|format(summary.pending[p] or 0) }}</td>
+              <td class="font-bold">{{ '%.2f'|format(summary.pending[p] or 0) }}</td>
             {% endfor %}
           </tr>
         </tbody>
@@ -68,7 +64,7 @@
         <div class="row"><label>Fecha</label><input name="extraction_date" type="datetime-local" value="{{ movement_date_default or '' }}" /></div>
         <div class="row">
           <label>Parte</label>
-          <select name="party" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
+          <select name="party">
             <option value="{{ dividends.business_label }}">{{ dividends.business_label }}</option>
             {% for p in dividends.partners %}
               <option value="{{ p }}">{{ p }}</option>
@@ -80,9 +76,9 @@
         <button type="submit">Guardar</button>
       </form>
 
-      <div id="extraction-edit" style="margin-top:12px;"></div>
+      <div id="extraction-edit" class="mt-12"></div>
 
-      <div class="card" style="margin-top:16px;">
+      <div class="card mt-16">
         <h3>Retiros (mes corriente)</h3>
         <table>
           <thead>
@@ -111,7 +107,7 @@
                           hx-target="#extraction-edit"
                           hx-swap="innerHTML">Edit</button>
 
-                  <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                  <button type="button" class="ml-8 btn-danger"
                           hx-post="/ui/extraction/{{ r.id }}/delete"
                           hx-target="#tab-content"
                           hx-swap="innerHTML"

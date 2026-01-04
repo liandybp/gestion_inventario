@@ -1,0 +1,32 @@
+{% from 'components/ui.html' import subcard %}
+
+{% call subcard('Agregar al carrito', extra_class='h-full') %}
+  <form hx-post="/ui/sales-doc/cart/add" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false">
+    <div class="row">
+      <label>Producto</label>
+      <input name="product" list="product-options" placeholder="SKU - Nombre (o texto libre)" required
+             hx-get="/ui/sales-doc/product-defaults" hx-trigger="change" hx-target="#sales-doc-defaults" hx-swap="innerHTML" />
+    </div>
+    <div class="row">
+      <label>Descripción (opcional)</label>
+      <input name="description" placeholder="Si lo dejas vacío, usa el producto" />
+    </div>
+    <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
+    <div class="row"><label>Precio unitario</label><input id="sales-doc-unit-price" name="unit_price" type="number" step="0.0001" min="0" value="0" /></div>
+    <button type="submit" formnovalidate>Agregar</button>
+  </form>
+
+  <datalist id="customer-options">
+    {% for c in customers %}
+      <option value="{{ c.name }}"></option>
+    {% endfor %}
+  </datalist>
+
+  <div id="sales-doc-customer-defaults"></div>
+
+  <div id="sales-doc-defaults"></div>
+
+  <form hx-post="/ui/sales-doc/cart/clear" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="mt-10">
+    <button type="submit" formnovalidate class="btn-secondary">Vaciar carrito</button>
+  </form>
+{% endcall %}

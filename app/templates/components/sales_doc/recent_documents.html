@@ -1,0 +1,42 @@
+{% from 'components/ui.html' import subcard %}
+
+{% call subcard('Documentos recientes', extra_class='mt-12') %}
+  <div id="sales-doc-edit" class="mt-12"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Tipo</th>
+        <th>Fecha</th>
+        <th>Cliente</th>
+        <th class="text-right">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in recent_documents %}
+        <tr>
+          <td><code>{{ d.code }}</code></td>
+          <td>{{ d.doc_type }}</td>
+          <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
+          <td>{{ d.client_name }}</td>
+          <td class="text-right">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
+          <td class="text-right">
+            <a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a>
+            <button type="button" class="ml-8"
+                    hx-get="/ui/sales-doc/{{ d.id }}/edit"
+                    hx-target="#sales-doc-edit"
+                    hx-swap="innerHTML">Editar</button>
+            <form hx-post="/ui/sales-doc/{{ d.id }}/delete" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="d-inline ml-8">
+              <button type="submit" formnovalidate class="btn-danger"
+                      hx-confirm="¿Eliminar este documento?">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      {% if not recent_documents %}
+        <tr><td colspan="6" class="muted">Sin documentos emitidos.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+{% endcall %}

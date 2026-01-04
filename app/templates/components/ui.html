@@ -1,0 +1,51 @@
+{% macro flash(message=None, message_class='', message_detail=None) -%}
+  {%- if message -%}
+    <div class="flash {{ message_class or '' }}">
+      <strong>{{ message }}</strong>
+      {%- if message_detail -%}<div>{{ message_detail }}</div>{%- endif -%}
+    </div>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro card(title=None, id=None, style=None, extra_class='') -%}
+  <div class="card{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}{%- if style %} style="{{ style }}"{%- endif -%}>
+    {%- if title -%}
+      <h3 class="card-title">{{ title }}</h3>
+    {%- endif -%}
+    {{ caller() }}
+  </div>
+{%- endmacro %}
+
+{% macro subcard(title=None, id=None, style=None, extra_class='') -%}
+  <div class="card subcard{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}{%- if style %} style="{{ style }}"{%- endif -%}>
+    {%- if title -%}
+      <h4 class="subcard-title">{{ title }}</h4>
+    {%- endif -%}
+    {{ caller() }}
+  </div>
+{%- endmacro %}
+
+{% macro row(label_text) %}
+<div class="row">
+  <label>{{ label_text }}</label>
+  {{ caller() }}
+</div>
+{% endmacro %}
+
+{# Metric card: displays a metric with title, value and optional detail #}
+{% macro metric(title, value, detail='', size='large') %}
+<div class="card">
+  <div class="muted">{{ title }}</div>
+  <div class="metric-value metric-{{ size }}">{{ value }}</div>
+  {% if detail %}<div class="muted">{{ detail }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{# Chart wrapper: card with title, description and chart canvas #}
+{% macro chart_card(title, description='') %}
+<div class="card mt-16">
+  <h3>{{ title }}</h3>
+  {% if description %}<p class="muted">{{ description }}</p>{% endif %}
+  {{ caller() }}
+</div>
+{% endmacro %}

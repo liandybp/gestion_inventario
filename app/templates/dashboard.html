@@ -7,306 +7,8 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <style>
-      *, *::before, *::after { box-sizing: border-box; }
-      :root {
-        --brand-navy: #0b2d42;
-        --brand-red: #cf1f27;
-        --brand-bg: #f8fafc;
-        --brand-surface: #ffffff;
-        --brand-border: #e5e7eb;
-        --brand-text: #0f172a;
-        --brand-muted: #64748b;
-        --row-odd: #ffffff;
-        --row-even: rgba(59, 130, 246, 0.06);
-        --row-hover: rgba(59, 130, 246, 0.12);
-      }
-
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--brand-bg); color: var(--brand-text); }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-      .card { border: 1px solid var(--brand-border); border-radius: 10px; padding: 16px; background: var(--brand-surface); }
-      .row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; margin-bottom: 10px; }
-      input { width: 100%; padding: 8px; border: 1px solid var(--brand-border); border-radius: 8px; background: var(--brand-surface); color: var(--brand-text); }
-      select { width: 100%; padding: 8px; border: 1px solid var(--brand-border); border-radius: 8px; background: var(--brand-surface); color: var(--brand-text); }
-      button { padding: 10px 12px; border: 0; border-radius: 10px; background: var(--brand-navy); color: white; cursor: pointer; }
-      button:focus { outline: 2px solid rgba(207, 31, 39, 0.35); outline-offset: 2px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-      tbody tr:nth-child(odd) td { background: var(--row-odd); }
-      tbody tr:nth-child(even) td { background: var(--row-even); }
-      tbody tr:hover td { background: var(--row-hover); }
-      thead th { background: var(--brand-navy); color: #ffffff; }
-      .muted { color: var(--brand-muted); font-size: 13px; }
-      .warn { background: #fff7ed; }
-      .error { background: #fef2f2; }
-      .ok { background: #ecfdf5; }
-      .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 16px; }
-      .tab { background: #f1f5f9; border: 1px solid var(--brand-border); padding: 10px 12px; border-radius: 999px; cursor: pointer; color: var(--brand-text); }
-      .tab[aria-selected="true"] { background: var(--brand-navy); color: white; border-color: var(--brand-navy); }
-      .tab:hover { border-color: rgba(11, 45, 66, 0.35); }
-      a { color: var(--brand-red); }
-    </style>
-
-    <script>
-      function renderBarcodes(root){
-        if(!window.JsBarcode){ return; }
-        const container = root || document;
-        const svgs = container.querySelectorAll('svg.barcode[data-code]:not([data-rendered="1"])');
-        svgs.forEach(svg => {
-          const code = svg.getAttribute('data-code') || '';
-          if(!code){ return; }
-          try {
-            JsBarcode(svg, code, { format: 'CODE128', displayValue: false, height: 28, margin: 0, width: 1 });
-            svg.setAttribute('data-rendered','1');
-          } catch(e) {}
-        });
-      }
-
-      window.renderMonthlyChart = function(root){
-        const container = root || document;
-        const el = container.querySelector('#monthly-chart');
-        if(!el){ return; }
-
-        const debugEl = container.querySelector('#monthly-chart-debug') || document.querySelector('#monthly-chart-debug');
-        const dataEl = container.querySelector('#monthly-chart-data') || document.querySelector('#monthly-chart-data');
-        const setDebug = (msg) => { if(debugEl){ debugEl.textContent = msg || ''; } };
-
-        const attempt = (n) => {
-          if(!window.Chart){
-            setDebug('Cargando gráfica...');
-            if(n > 0){ setTimeout(() => attempt(n - 1), 200); }
-            if(n === 0){ setDebug('No se pudo cargar Chart.js (revisa conexión/CDN).'); }
-            return;
-          }
-
-          let payload = null;
-          try {
-            payload = JSON.parse((dataEl && dataEl.textContent) ? dataEl.textContent : '{}');
-          } catch(e) {
-            setDebug('Error leyendo datos de gráfica.');
-            return;
-          }
-
-          const labels = Array.isArray(payload.labels) ? payload.labels : [];
-          const sales = Array.isArray(payload.sales) ? payload.sales : [];
-          const purchases = Array.isArray(payload.purchases) ? payload.purchases : [];
-          const profit = Array.isArray(payload.profit) ? payload.profit : [];
-
-          if(window.__monthlyChart){ try { window.__monthlyChart.destroy(); } catch(e){} }
-          window.__monthlyChart = new Chart(el.getContext('2d'), {
-            type: 'bar',
-            data: {
-              labels,
-              datasets: [
-                { label: 'Ventas', data: sales, backgroundColor: 'rgba(11,45,66,0.85)' },
-                { label: 'Compras', data: purchases, backgroundColor: 'rgba(203, 58, 66, 0.75)' },
-                { label: 'Utilidad', data: profit, backgroundColor: 'rgba(16, 185, 129, 0.75)' },
-              ]
-            },
-            options: {
-              responsive: true,
-              plugins: { legend: { position: 'bottom' } },
-              scales: { x: { stacked: false }, y: { beginAtZero: true } }
-            }
-          });
-          setDebug('');
-        };
-
-        attempt(15);
-      }
-
-      window.renderMonthlySalesDailyLineChart = function(root){
-        const container = root || document;
-        const el = container.querySelector('#monthly-sales-daily-line');
-        if(!el){ return; }
-
-        const debugEl = container.querySelector('#monthly-sales-daily-line-debug') || document.querySelector('#monthly-sales-daily-line-debug');
-        const dataEl = container.querySelector('#monthly-sales-daily-line-data') || document.querySelector('#monthly-sales-daily-line-data');
-        const setDebug = (msg) => { if(debugEl){ debugEl.textContent = msg || ''; } };
-
-        const attempt = (n) => {
-          if(!window.Chart){
-            setDebug('Cargando gráfica...');
-            if(n > 0){ setTimeout(() => attempt(n - 1), 200); }
-            if(n === 0){ setDebug('No se pudo cargar Chart.js (revisa conexión/CDN).'); }
-            return;
-          }
-
-          let payload = null;
-          try {
-            payload = JSON.parse((dataEl && dataEl.textContent) ? dataEl.textContent : '{}');
-          } catch(e) {
-            setDebug('Error leyendo datos de gráfica.');
-            return;
-          }
-
-          const labels = Array.isArray(payload.labels) ? payload.labels : [];
-          const sales = Array.isArray(payload.sales) ? payload.sales : [];
-
-          if(window.__monthlySalesDailyLine){ try { window.__monthlySalesDailyLine.destroy(); } catch(e){} }
-          window.__monthlySalesDailyLine = new Chart(el.getContext('2d'), {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [
-                {
-                  label: 'Ventas por día (€)',
-                  data: sales,
-                  borderColor: 'rgba(11,45,66,0.85)',
-                  backgroundColor: 'rgba(11,45,66,0.10)',
-                  fill: true,
-                  tension: 0.25,
-                  pointRadius: 2,
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-                y: { beginAtZero: true }
-              }
-            }
-          });
-          setDebug('');
-        };
-
-        attempt(15);
-      }
-
-      window.renderMonthlySalesPieChart = function(root){
-        const container = root || document;
-        const el = container.querySelector('#monthly-sales-pie');
-        if(!el){ return; }
-
-        const wrap = container.querySelector('#monthly-sales-pie-wrap') || document.querySelector('#monthly-sales-pie-wrap');
-        const tooltipBox = container.querySelector('#monthly-sales-pie-tooltip') || document.querySelector('#monthly-sales-pie-tooltip');
-        const lineSvg = container.querySelector('#monthly-sales-pie-line') || document.querySelector('#monthly-sales-pie-line');
-        const lineEl = container.querySelector('#monthly-sales-pie-line-el') || document.querySelector('#monthly-sales-pie-line-el');
-
-        const debugEl = container.querySelector('#monthly-sales-pie-debug') || document.querySelector('#monthly-sales-pie-debug');
-        const dataEl = container.querySelector('#monthly-sales-pie-data') || document.querySelector('#monthly-sales-pie-data');
-        const setDebug = (msg) => { if(debugEl){ debugEl.textContent = msg || ''; } };
-
-        const attempt = (n) => {
-          if(!window.Chart){
-            setDebug('Cargando gráfica...');
-            if(n > 0){ setTimeout(() => attempt(n - 1), 200); }
-            if(n === 0){ setDebug('No se pudo cargar Chart.js (revisa conexión/CDN).'); }
-            return;
-          }
-
-          let payload = null;
-          try {
-            payload = JSON.parse((dataEl && dataEl.textContent) ? dataEl.textContent : '{}');
-          } catch(e) {
-            setDebug('Error leyendo datos de gráfica.');
-            return;
-          }
-
-          const labels = Array.isArray(payload.labels) ? payload.labels : [];
-          const values = Array.isArray(payload.values) ? payload.values : [];
-          const qtys = Array.isArray(payload.qtys) ? payload.qtys : [];
-          const total = values.reduce((a, b) => a + (Number(b) || 0), 0);
-
-          if(window.__monthlySalesPie){ try { window.__monthlySalesPie.destroy(); } catch(e){} }
-          window.__monthlySalesPie = new Chart(el.getContext('2d'), {
-            type: 'pie',
-            data: {
-              labels,
-              datasets: [
-                {
-                  data: values,
-                  backgroundColor: [
-                    'rgba(11,45,66,0.85)',
-                    'rgba(203, 58, 66, 0.75)',
-                    'rgba(16, 185, 129, 0.75)',
-                    'rgba(59, 130, 246, 0.75)',
-                    'rgba(245, 158, 11, 0.75)',
-                    'rgba(99, 102, 241, 0.75)',
-                    'rgba(236, 72, 153, 0.75)',
-                    'rgba(34, 197, 94, 0.65)',
-                    'rgba(148, 163, 184, 0.75)',
-                    'rgba(15, 118, 110, 0.70)',
-                    'rgba(107, 114, 128, 0.55)'
-                  ]
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  enabled: false,
-                  external: function(context){
-                    const chart = context.chart;
-                    const tt = context.tooltip;
-
-                    if(!wrap || !tooltipBox || !lineSvg || !lineEl){ return; }
-
-                    if(!tt || tt.opacity === 0){
-                      lineSvg.style.display = 'none';
-                      return;
-                    }
-
-                    const idx = (tt.dataPoints && tt.dataPoints.length) ? tt.dataPoints[0].dataIndex : 0;
-                    const label = labels[idx] || '';
-                    const qty = Number(qtys[idx] || 0);
-                    const v = Number(values[idx] || 0);
-                    const pct = total ? (v / total * 100) : 0;
-
-                    tooltipBox.innerHTML = `
-                      <div style="font-weight:700; margin-bottom:6px;">${label}</div>
-                      <div class="muted" style="margin-bottom:4px;">Cantidad vendida: ${qty.toFixed(2)}</div>
-                      <div class="muted" style="margin-bottom:4px;">Venta del artículo: ${v.toFixed(2)} €</div>
-                      <div class="muted" style="margin-bottom:4px;">Venta total mes: ${total.toFixed(2)} €</div>
-                      <div class="muted">Porcentaje: ${pct.toFixed(1)}%</div>
-                    `;
-
-                    const wrapRect = wrap.getBoundingClientRect();
-                    const canvasRect = el.getBoundingClientRect();
-                    const boxRect = tooltipBox.getBoundingClientRect();
-
-                    const x1 = (canvasRect.left - wrapRect.left) + (tt.caretX || 0);
-                    const y1 = (canvasRect.top - wrapRect.top) + (tt.caretY || 0);
-                    const x2 = (boxRect.left - wrapRect.left);
-                    const y2 = (boxRect.top - wrapRect.top) + (boxRect.height / 2);
-
-                    lineEl.setAttribute('x1', String(x1));
-                    lineEl.setAttribute('y1', String(y1));
-                    lineEl.setAttribute('x2', String(x2));
-                    lineEl.setAttribute('y2', String(y2));
-                    lineSvg.style.display = 'block';
-
-                    chart.draw();
-                  }
-                },
-              }
-            }
-          });
-          setDebug('');
-        };
-
-        attempt(15);
-      }
-
-      document.addEventListener('htmx:afterSwap', (evt) => {
-        renderBarcodes(evt.target);
-        window.renderMonthlyChart(evt.target);
-        window.renderMonthlySalesPieChart(evt.target);
-        window.renderMonthlySalesDailyLineChart(evt.target);
-      });
-      document.addEventListener('DOMContentLoaded', () => {
-        renderBarcodes(document);
-        window.renderMonthlyChart(document);
-        window.renderMonthlySalesPieChart(document);
-        window.renderMonthlySalesDailyLineChart(document);
-      });
-    </script>
+    <link rel="stylesheet" href="/static/css/app.css" />
+    <script src="/static/js/app.js" defer></script>
   </head>
   <body>
     <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:6px;">
@@ -324,18 +26,18 @@
       {% if not user or (user.role or '')|lower != 'operator' %}
       <button class="tab" id="tab-home" aria-selected="true"
               hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Inicio
       </button>
       <button class="tab" id="tab-inventory" aria-selected="false"
               hx-get="/ui/tabs/inventory" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Inventario
       </button>
       {% if user and (user.role or '')|lower == 'admin' %}
       <button class="tab" id="tab-purchases" aria-selected="false"
               hx-get="/ui/tabs/purchases" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Compras
       </button>
       {% endif %}
@@ -343,57 +45,57 @@
 
       <button class="tab" id="tab-sales" aria-selected="{% if user and (user.role or '')|lower == 'operator' %}true{% else %}false{% endif %}"
               hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Ventas
       </button>
 
       <button class="tab" id="tab-documents" aria-selected="false"
               hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Documentos
       </button>
 
       <button class="tab" id="tab-customers" aria-selected="false"
               hx-get="/ui/tabs/customers" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Clientes
       </button>
 
       <button class="tab" id="tab-expenses" aria-selected="false"
               hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Costos operativos
       </button>
 
       {% if not user or (user.role or '')|lower != 'operator' %}
       <button class="tab" id="tab-profit-items" aria-selected="false"
               hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Utilidades por artículo
       </button>
 
       <button class="tab" id="tab-profit" aria-selected="false"
               hx-get="/ui/tabs/profit" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Utilidades
       </button>
 
       <button class="tab" id="tab-dividends" aria-selected="false"
               hx-get="/ui/tabs/dividends" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Dividendos
       </button>
 
       <button class="tab" id="tab-history" aria-selected="false"
               hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Historial
       </button>
 
       {% if user and (user.role or '')|lower == 'admin' %}
       <button class="tab" id="tab-activity" aria-selected="false"
               hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML"
-              hx-on:click="document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false')); this.setAttribute('aria-selected','true');">
+              >
         Actividad
       </button>
       {% endif %}

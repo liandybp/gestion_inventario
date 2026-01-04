@@ -1,24 +1,25 @@
 <div id="profit-items-tab" hx-get="/ui/tabs/profit-items" hx-trigger="every 10m" hx-swap="innerHTML">
+  {% from 'components/ui.html' import metric %}
   <h2>Utilidades por artículo</h2>
   <p class="muted">Detalle del mes corriente por artículo vendido (FIFO por lote).</p>
 
-  <div class="card" style="margin-bottom:12px;">
-    <div class="grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+  <div class="card mb-12">
+    <div class="grid-4">
       <div>
         <div class="muted">Ventas</div>
-        <div style="font-size:20px;font-weight:700;">{{ '%.2f'|format(summary.sales_total or 0) }}</div>
+        <div class="metric-value metric-medium">{{ '%.2f'|format(summary.sales_total or 0) }}</div>
       </div>
       <div>
         <div class="muted">Costo</div>
-        <div style="font-size:20px;font-weight:700;">{{ '%.2f'|format(summary.cogs_total or 0) }}</div>
+        <div class="metric-value metric-medium">{{ '%.2f'|format(summary.cogs_total or 0) }}</div>
       </div>
       <div>
         <div class="muted">Utilidad</div>
-        <div style="font-size:20px;font-weight:700;">{{ '%.2f'|format(summary.profit_total or 0) }}</div>
+        <div class="metric-value metric-medium">{{ '%.2f'|format(summary.profit_total or 0) }}</div>
       </div>
       <div>
         <div class="muted">% Utilidad</div>
-        <div style="font-size:20px;font-weight:700;">{{ '%.2f'|format(summary.margin_pct or 0) }}%</div>
+        <div class="metric-value metric-medium">{{ '%.2f'|format(summary.margin_pct or 0) }}%</div>
       </div>
     </div>
   </div>
@@ -56,10 +57,10 @@
       {% endfor %}
 
       <tr>
-        <td colspan="7" style="text-align:right;font-weight:700;">Total</td>
-        <td style="font-weight:700;">{{ '%.0f'|format(summary.qty_total or 0) }}</td>
-        <td style="font-weight:700;">{{ '%.2f'|format(summary.profit_total or 0) }}</td>
-        <td style="font-weight:700;">{{ '%.2f'|format(summary.margin_pct or 0) }}%</td>
+        <td colspan="7" class="text-right font-bold">Total</td>
+        <td class="font-bold">{{ '%.0f'|format(summary.qty_total or 0) }}</td>
+        <td class="font-bold">{{ '%.2f'|format(summary.profit_total or 0) }}</td>
+        <td class="font-bold">{{ '%.2f'|format(summary.margin_pct or 0) }}%</td>
       </tr>
     </tbody>
   </table>
