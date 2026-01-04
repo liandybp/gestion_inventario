@@ -120,6 +120,7 @@ body {
 }
 
 .grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-2-desktop { grid-template-columns: 1fr 1fr; }
 .grid-3-2-1-1 { grid-template-columns: 2fr 1fr 1fr; }
 
 .card {
@@ -458,6 +459,7 @@ a { color: var(--brand-red); }
   .grid { grid-template-columns: 1fr !important; }
   .charts-grid { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
+  .grid-2-desktop { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
