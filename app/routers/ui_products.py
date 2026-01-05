@@ -279,6 +279,7 @@ def product_update_inventory(
     default_sale_price: str = Form(""),
     lead_time_days: Optional[int] = Form(None),
     desired_stock: Optional[float] = Form(None),
+    initial_inventory: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
@@ -317,18 +318,32 @@ def product_update_inventory(
                     unit_cost = parsed_purchase_cost
                     if unit_cost is None:
                         unit_cost = float(getattr(existing, "default_purchase_cost", 0) or 0)
-                    if unit_cost <= 0:
+                    if initial_inventory and unit_cost is None:
+                        unit_cost = 0
+                    if (not initial_inventory) and (unit_cost is None):
                         raise HTTPException(
                             status_code=422,
                             detail="Para aumentar stock necesitas un costo de compra (define 'Costo compra por defecto' o ingrésalo en el formulario)",
                         )
+                    if unit_cost is not None and unit_cost < 0:
+                        raise HTTPException(
+                            status_code=422,
+                            detail="El costo de compra por defecto debe ser >= 0",
+                        )
+
+                movement_date = None
+                note = "Ajuste por edición manual de stock"
+                if initial_inventory and delta > 0:
+                    movement_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
+                    note = "Inventario inicial (ajuste por edición manual de stock)"
 
                 inventory_service.adjustment(
                     AdjustmentCreate(
                         sku=updated.sku,
                         quantity_delta=float(delta),
                         unit_cost=float(unit_cost) if unit_cost is not None else None,
-                        note="Ajuste por edición manual de stock",
+                        movement_date=movement_date,
+                        note=note,
                     )
                 )
 
