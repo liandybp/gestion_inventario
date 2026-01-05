@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
-from app.schemas import ProductCreate, ProductUpdate
+from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
 from app.security import get_current_user_from_session
+from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
 from sqlalchemy import select
@@ -254,11 +255,13 @@ def product_edit_form_inventory(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     product_service = ProductService(db)
+    inventory_service = InventoryService(db)
     product = product_service.get_by_sku(sku)
+    current_stock = inventory_service.stock(sku).quantity
     return templates.TemplateResponse(
         request=request,
         name="partials/product_edit_form_inventory.html",
-        context={"product": product},
+        context={"product": product, "current_stock": float(current_stock or 0)},
     )
 
 
@@ -275,12 +278,18 @@ def product_update_inventory(
     default_purchase_cost: str = Form(""),
     default_sale_price: str = Form(""),
     lead_time_days: Optional[int] = Form(None),
+    desired_stock: Optional[float] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
+    inventory_service = InventoryService(db)
     try:
+        ensure_admin(db, request)
         existing = product_service.get_by_sku(sku)
+
+        stock_before = inventory_service.stock(sku).quantity
         image_url = save_product_image(image_file) if image_file is not None else existing.image_url
+        parsed_purchase_cost = parse_optional_float(default_purchase_cost)
         updated = product_service.update(
             sku,
             ProductUpdate(
@@ -289,12 +298,40 @@ def product_update_inventory(
                 category=category or None,
                 min_stock=min_stock,
                 unit_of_measure=unit_of_measure or None,
-                default_purchase_cost=parse_optional_float(default_purchase_cost),
+                default_purchase_cost=parsed_purchase_cost,
                 default_sale_price=parse_optional_float(default_sale_price),
                 lead_time_days=lead_time_days,
                 image_url=image_url or None,
             ),
         )
+
+        if desired_stock is not None:
+            desired = float(desired_stock)
+            if desired < 0:
+                raise HTTPException(status_code=422, detail="desired_stock must be >= 0")
+
+            delta = float(desired) - float(stock_before or 0)
+            if abs(delta) > 1e-9:
+                unit_cost = None
+                if delta > 0:
+                    unit_cost = parsed_purchase_cost
+                    if unit_cost is None:
+                        unit_cost = float(getattr(existing, "default_purchase_cost", 0) or 0)
+                    if unit_cost <= 0:
+                        raise HTTPException(
+                            status_code=422,
+                            detail="Para aumentar stock necesitas un costo de compra (define 'Costo compra por defecto' o ingrésalo en el formulario)",
+                        )
+
+                inventory_service.adjustment(
+                    AdjustmentCreate(
+                        sku=updated.sku,
+                        quantity_delta=float(delta),
+                        unit_cost=float(unit_cost) if unit_cost is not None else None,
+                        note="Ajuste por edición manual de stock",
+                    )
+                )
+
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_inventory.html",
