@@ -42,30 +42,55 @@ class InventoryRepository:
             )
         )
 
-    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float, int]]:
+    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float, int, Optional[float], Optional[float]]]:
         q = query.strip()
+
+        qty_subq = (
+            select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0))
+            .where(InventoryLot.product_id == Product.id)
+            .correlate(Product)
+            .scalar_subquery()
+        )
+        min_purchase_cost_subq = (
+            select(func.min(InventoryMovement.unit_cost))
+            .where(
+                InventoryMovement.product_id == Product.id,
+                InventoryMovement.type == "purchase",
+            )
+            .correlate(Product)
+            .scalar_subquery()
+        )
+
         stmt = (
             select(
                 Product.sku,
                 Product.name,
                 Product.unit_of_measure,
-                func.coalesce(func.sum(InventoryLot.qty_remaining), 0).label("qty"),
+                qty_subq.label("qty"),
                 Product.min_stock,
                 Product.lead_time_days,
+                min_purchase_cost_subq.label("min_purchase_cost"),
+                Product.default_sale_price,
             )
             .select_from(Product)
-            .outerjoin(InventoryLot, InventoryLot.product_id == Product.id)
         )
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
 
-        rows = self._db.execute(
-            stmt.group_by(Product.id).order_by(Product.name)
-        ).all()
+        rows = self._db.execute(stmt.order_by(Product.name)).all()
         return [
-            (sku, name, uom or "", float(qty or 0), float(min_stock or 0), int(lead_time_days or 0))
-            for sku, name, uom, qty, min_stock, lead_time_days in rows
+            (
+                sku,
+                name,
+                uom or "",
+                float(qty or 0),
+                float(min_stock or 0),
+                int(lead_time_days or 0),
+                float(min_purchase_cost) if min_purchase_cost is not None else None,
+                float(default_sale_price) if default_sale_price is not None else None,
+            )
+            for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in rows
         ]
 
     def recent_purchases(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
