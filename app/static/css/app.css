@@ -374,6 +374,24 @@ a { color: var(--brand-red); }
   align-items: stretch;
 }
 
+.home-charts-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.home-charts-filter-label {
+  font-size: 13px;
+  color: var(--brand-muted);
+}
+
+.home-charts-filter-input {
+  width: 220px;
+  max-width: 100%;
+}
+
 .monthly-sales-pie-wrap {
   display: grid;
   grid-template-columns: minmax(220px, 320px) minmax(240px, 1fr);
@@ -395,6 +413,10 @@ a { color: var(--brand-red); }
 .chart-box {
   width: 100%;
   height: 220px;
+}
+
+.chart-box-tall {
+  height: 260px;
 }
 
 /* Mobile menu toggle */

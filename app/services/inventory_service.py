@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, case, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -484,6 +484,136 @@ class InventoryService:
                 }
             )
         return total_sales, items
+
+    def sales_metrics_table(self, now: datetime, months: int = 12) -> list[dict]:
+        now_dt = now
+        if now_dt.tzinfo is None:
+            now_dt = now_dt.replace(tzinfo=timezone.utc)
+        now_dt = now_dt.astimezone(timezone.utc)
+
+        month_start, month_end = self._month_range(now_dt)
+
+        range_start = month_start
+        for _ in range(max(months - 1, 0)):
+            if range_start.month == 1:
+                range_start = range_start.replace(year=range_start.year - 1, month=12)
+            else:
+                range_start = range_start.replace(month=range_start.month - 1)
+
+        range_end = month_end
+        range_days = max(1, int((range_end - range_start).days))
+
+        qty_month_expr = func.sum(
+            case(
+                (
+                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < month_end),
+                    func.abs(InventoryMovement.quantity),
+                ),
+                else_=0,
+            )
+        )
+
+        sales_month_expr = func.sum(
+            case(
+                (
+                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < month_end),
+                    func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0),
+                ),
+                else_=0,
+            )
+        )
+
+        qty_range_expr = func.sum(func.abs(InventoryMovement.quantity))
+        sales_range_expr = func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0))
+
+        sale_days_expr = func.count(func.distinct(func.date(InventoryMovement.movement_date)))
+
+        stock_sq = (
+            select(
+                InventoryLot.product_id.label("product_id"),
+                func.coalesce(func.sum(func.coalesce(InventoryLot.qty_remaining, 0)), 0).label("stock_qty"),
+            )
+            .select_from(InventoryLot)
+            .group_by(InventoryLot.product_id)
+            .subquery()
+        )
+
+        rows = self._db.execute(
+            select(
+                Product.sku,
+                Product.name,
+                func.coalesce(qty_month_expr, 0).label("qty_month"),
+                func.coalesce(sales_month_expr, 0).label("sales_month"),
+                func.coalesce(qty_range_expr, 0).label("qty_range"),
+                func.coalesce(sales_range_expr, 0).label("sales_range"),
+                func.coalesce(sale_days_expr, 0).label("sale_days"),
+                func.coalesce(Product.min_stock, 0).label("min_stock"),
+                func.coalesce(Product.lead_time_days, 0).label("lead_time_days"),
+                func.coalesce(stock_sq.c.stock_qty, 0).label("stock_qty"),
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .outerjoin(stock_sq, stock_sq.c.product_id == Product.id)
+            .where(
+                and_(
+                    InventoryMovement.type == "sale",
+                    InventoryMovement.movement_date >= range_start,
+                    InventoryMovement.movement_date < range_end,
+                )
+            )
+            .group_by(
+                Product.id,
+                Product.sku,
+                Product.name,
+                Product.min_stock,
+                Product.lead_time_days,
+                stock_sq.c.stock_qty,
+            )
+            .order_by(func.coalesce(sales_month_expr, 0).desc())
+        ).all()
+
+        out: list[dict] = []
+        for sku, name, qty_month, sales_month, qty_range, sales_range, sale_days, min_stock, lead_time_days, stock_qty in rows:
+            qty_m = float(qty_month or 0)
+            sales_m = float(sales_month or 0)
+            qty_r = float(qty_range or 0)
+            sales_r = float(sales_range or 0)
+            sale_days_i = int(sale_days or 0)
+
+            stock_qty_f = float(stock_qty or 0)
+            min_stock_f = float(min_stock or 0)
+
+            avg_month_units = qty_r / float(max(months, 1))
+            freq_days = (float(range_days) / float(sale_days_i)) if sale_days_i > 0 else None
+
+            lead_time_i = int(lead_time_days or 0)
+            min_replenishment_days = max(30, lead_time_i)
+
+            avg_daily_units = float(avg_month_units) / 30.0
+            target_days = max(0, lead_time_i + 15)
+            target_stock = max(min_stock_f, avg_daily_units * float(target_days))
+            qty_to_order = max(0.0, float(target_stock) - stock_qty_f)
+
+            out.append(
+                {
+                    "sku": str(sku),
+                    "name": str(name or ""),
+                    "qty_month": qty_m,
+                    "sales_month": sales_m,
+                    "qty_range": qty_r,
+                    "sales_range": sales_r,
+                    "avg_month_units": float(avg_month_units),
+                    "freq_days": float(freq_days) if freq_days is not None else None,
+                    "stock_qty": float(stock_qty_f),
+                    "min_stock": float(min_stock_f),
+                    "min_replenishment_days": int(min_replenishment_days),
+                    "target_days": int(target_days),
+                    "target_stock": float(target_stock),
+                    "qty_to_order": float(qty_to_order),
+                }
+            )
+
+        return out
 
     def daily_sales_series(self, start: datetime, end: datetime) -> list[dict]:
         rows = self._db.execute(

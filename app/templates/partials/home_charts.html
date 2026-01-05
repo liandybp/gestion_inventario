@@ -1,0 +1,85 @@
+{% from 'components/ui.html' import chart_card %}
+
+<form class="home-charts-filter" hx-get="/ui/home-charts" hx-target="#home-charts" hx-swap="innerHTML" hx-trigger="change">
+  <label class="home-charts-filter-label">Mes</label>
+  <input class="home-charts-filter-input" type="month" name="ym" value="{{ selected_ym }}" />
+</form>
+
+{% call chart_card('Ventas (' ~ month_label ~ ')', 'Distribución por artículo + serie temporal diaria.') %}
+  <div class="charts-grid">
+    <div>
+      <div id="monthly-sales-pie-wrap" class="monthly-sales-pie-wrap">
+        <svg id="monthly-sales-pie-line" class="pie-line-overlay">
+          <line id="monthly-sales-pie-line-el" x1="0" y1="0" x2="0" y2="0" stroke="rgba(11,45,66,0.45)" stroke-width="2" />
+        </svg>
+        <div class="chart-box">
+          <canvas id="monthly-sales-pie" class="w-full h-full"></canvas>
+        </div>
+        <div id="monthly-sales-pie-tooltip" class="card monthly-sales-pie-tooltip">
+          <div class="muted">Pasa el ratón por un color para ver el detalle.</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="chart-box chart-box-tall">
+        <canvas id="monthly-sales-daily-line" class="w-full h-full"></canvas>
+      </div>
+      <script type="application/json" id="monthly-sales-daily-line-data">{{ monthly_sales_daily_line_json | safe }}</script>
+      <div id="monthly-sales-daily-line-debug" class="muted mt-8"></div>
+    </div>
+  </div>
+  <script type="application/json" id="monthly-sales-pie-data">{{ monthly_sales_pie_json | safe }}</script>
+  <div id="monthly-sales-pie-debug" class="muted mt-8"></div>
+{% endcall %}
+
+<div class="card mt-16" id="restock"
+     hx-get="/ui/restock-table" hx-trigger="load, every 5s" hx-swap="innerHTML">
+</div>
+
+{% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
+  <canvas id="monthly-chart" height="120"></canvas>
+  <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
+  <div id="monthly-chart-debug" class="muted mt-8"></div>
+{% endcall %}
+
+<div class="card mt-16">
+  <h3>Artículos (ordenados por venta del mes)</h3>
+  <p class="muted">Incluye métricas automáticas para planificación (se ampliará con más campos).</p>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th class="text-right">Venta mes (€)</th>
+          <th class="text-right">Unidades mes</th>
+          <th class="text-right">Promedio unidades/mes (12m)</th>
+          <th class="text-right">Frecuencia venta (días)</th>
+          <th class="text-right">Stock actual</th>
+          <th class="text-right">Stock mín</th>
+          <th class="text-right">Objetivo (LT+15 días)</th>
+          <th class="text-right">Sugerido a pedir</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in metrics_items %}
+          <tr>
+            <td><code>{{ it.sku }}</code></td>
+            <td>{{ it.name }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.sales_month or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.qty_month or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.avg_month_units or 0) }}</td>
+            <td class="text-right">{% if it.freq_days is not none %}{{ '%.1f'|format(it.freq_days) }}{% else %}-{% endif %}</td>
+            <td class="text-right">{{ '%.2f'|format(it.stock_qty or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.min_stock or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.target_stock or 0) }} ({{ it.target_days }}d)</td>
+            <td class="text-right font-bold">{{ '%.2f'|format(it.qty_to_order or 0) }}</td>
+          </tr>
+        {% endfor %}
+        {% if not metrics_items %}
+          <tr><td colspan="10" class="muted">Sin ventas en el periodo.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>

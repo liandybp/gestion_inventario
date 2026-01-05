@@ -23,62 +23,7 @@ from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, t
 router = APIRouter()
 
 
-@router.get("/", response_class=HTMLResponse)
-def ui_root() -> RedirectResponse:
-    return RedirectResponse(url="/ui/dashboard", status_code=302)
-
-
-@router.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    user = get_current_user_from_session(db, request)
-    return templates.TemplateResponse(
-        request=request,
-        name="dashboard.html",
-        context={"user": user},
-    )
-
-
-@router.get("/tabs/customers", response_class=HTMLResponse)
-def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    q = (query or "").strip()
-    stmt = select(Customer)
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
-    customers = list(db.scalars(stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/tab_customers.html",
-        context={
-            "customers": customers,
-            "query": q,
-        },
-    )
-
-
-@router.get("/tabs/home", response_class=HTMLResponse)
-def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
-    product_service = ProductService(db)
-    inventory_service = InventoryService(db)
-
-    products = product_service.list()
-    stock_items = inventory_service.stock_list()
-    restock_items = [i for i in stock_items if i.needs_restock]
-
-    totals = {
-        "products": len(products),
-        "stock_total": float(sum(i.quantity for i in stock_items)),
-        "to_restock": len(restock_items),
-    }
-
-    monthly = inventory_service.monthly_overview(months=12)
-
-    now = datetime.now(timezone.utc)
-    start, end = month_range(now)
-    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
-
+def _month_label_es(dt: datetime) -> str:
     month_names = [
         "enero",
         "febrero",
@@ -93,28 +38,33 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
         "noviembre",
         "diciembre",
     ]
-    month_label = f"{month_names[int(now.month) - 1].title()} {now.year}"
+    return f"{month_names[int(dt.month) - 1].title()} {dt.year}"
 
-    top_margin = None
-    if profit_items:
-        top_margin = max(profit_items, key=lambda r: float(r.get("gross_pct") or 0))
 
-    year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
-    year_end = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
-    year_total_sales, year_items = inventory_service.sales_by_product(start=year_start, end=year_end)
-    year_items_nonzero = [i for i in year_items if float(i.get("sales") or 0) > 0]
-    top_year = year_items_nonzero[0] if year_items_nonzero else None
-    bottom_year = year_items_nonzero[-1] if year_items_nonzero else None
-    if year_items_nonzero:
-        top_year = max(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
-        bottom_year = min(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
+def _parse_ym(ym: Optional[str]) -> Optional[datetime]:
+    if not ym:
+        return None
+    s = ym.strip()
+    if not s:
+        return None
+    try:
+        parts = s.split("-")
+        if len(parts) != 2:
+            return None
+        year = int(parts[0])
+        month = int(parts[1])
+        if month < 1 or month > 12:
+            return None
+        return datetime(year, month, 1, tzinfo=timezone.utc)
+    except Exception:
+        return None
 
-    top_year_pct = ((float(top_year.get("sales") or 0) / year_total_sales) * 100.0) if (top_year and year_total_sales) else 0.0
-    bottom_year_pct = ((float(bottom_year.get("sales") or 0) / year_total_sales) * 100.0) if (bottom_year and year_total_sales) else 0.0
 
-    inventory_value_total = inventory_service.inventory_value_total()
-    inventory_sale_value_total = inventory_service.inventory_sale_value_total()
-    top_expense = inventory_service.top_expense_concept(start=start, end=end)
+def _home_charts_context(inventory_service: InventoryService, now: datetime) -> dict:
+    start, end = month_range(now)
+    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
+
+    month_label = _month_label_es(now)
 
     pie_labels: list[str] = []
     pie_values: list[float] = []
@@ -150,6 +100,7 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
         }
     )
 
+    monthly = inventory_service.monthly_overview(months=12, now=now)
     monthly_chart_json = json.dumps(
         {
             "labels": [m.get("month") for m in monthly],
@@ -159,13 +110,102 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
         }
     )
 
+    metrics_items = inventory_service.sales_metrics_table(now=now, months=12)
+
+    return {
+        "month_label": month_label,
+        "monthly_sales_pie_json": monthly_sales_pie_json,
+        "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
+        "monthly_chart_json": monthly_chart_json,
+        "metrics_items": metrics_items,
+    }
+
+
+@router.get("/", response_class=HTMLResponse)
+def ui_root() -> RedirectResponse:
+    return RedirectResponse(url="/ui/dashboard", status_code=302)
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    user = get_current_user_from_session(db, request)
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html",
+        context={"user": user},
+    )
+
+
+@router.get("/tabs/customers", response_class=HTMLResponse)
+def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
+    _ = get_current_user_from_session(db, request)
+    q = (query or "").strip()
+    stmt = select(Customer)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
+    customers = list(db.scalars(stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_customers.html",
+        context={
+            "customers": customers,
+            "query": q,
+        },
+    )
+
+
+@router.get("/tabs/home", response_class=HTMLResponse)
+def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[str] = None) -> HTMLResponse:
+    ensure_admin(db, request)
+    product_service = ProductService(db)
+    inventory_service = InventoryService(db)
+
+    products = product_service.list()
+    stock_items = inventory_service.stock_list()
+    restock_items = [i for i in stock_items if i.needs_restock]
+
+    totals = {
+        "products": len(products),
+        "stock_total": float(sum(i.quantity for i in stock_items)),
+        "to_restock": len(restock_items),
+    }
+
+    now = _parse_ym(ym) or datetime.now(timezone.utc)
+    start, end = month_range(now)
+    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
+
+    month_label = _month_label_es(now)
+
+    top_margin = None
+    if profit_items:
+        top_margin = max(profit_items, key=lambda r: float(r.get("gross_pct") or 0))
+
+    year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+    year_end = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+    year_total_sales, year_items = inventory_service.sales_by_product(start=year_start, end=year_end)
+    year_items_nonzero = [i for i in year_items if float(i.get("sales") or 0) > 0]
+    top_year = year_items_nonzero[0] if year_items_nonzero else None
+    bottom_year = year_items_nonzero[-1] if year_items_nonzero else None
+    if year_items_nonzero:
+        top_year = max(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
+        bottom_year = min(year_items_nonzero, key=lambda r: float(r.get("sales") or 0))
+
+    top_year_pct = ((float(top_year.get("sales") or 0) / year_total_sales) * 100.0) if (top_year and year_total_sales) else 0.0
+    bottom_year_pct = ((float(bottom_year.get("sales") or 0) / year_total_sales) * 100.0) if (bottom_year and year_total_sales) else 0.0
+
+    inventory_value_total = inventory_service.inventory_value_total()
+    inventory_sale_value_total = inventory_service.inventory_sale_value_total()
+    top_expense = inventory_service.top_expense_concept(start=start, end=end)
+
+    charts_ctx = _home_charts_context(inventory_service, now)
+    selected_ym = now.strftime("%Y-%m")
+
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_home.html",
         context={
             "totals": totals,
-            "monthly": monthly,
-            "monthly_chart_json": monthly_chart_json,
             "month_label": month_label,
             "top_margin": top_margin,
             "year": now.year,
@@ -177,8 +217,24 @@ def tab_home(request: Request, db: Session = Depends(session_dep)) -> HTMLRespon
             "inventory_value_total": inventory_value_total,
             "inventory_sale_value_total": inventory_sale_value_total,
             "top_expense": top_expense,
-            "monthly_sales_pie_json": monthly_sales_pie_json,
-            "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
+            "selected_ym": selected_ym,
+            **charts_ctx,
+        },
+    )
+
+
+@router.get("/home-charts", response_class=HTMLResponse)
+def home_charts(request: Request, db: Session = Depends(session_dep), ym: Optional[str] = None) -> HTMLResponse:
+    ensure_admin(db, request)
+    inventory_service = InventoryService(db)
+    now = _parse_ym(ym) or datetime.now(timezone.utc)
+    charts_ctx = _home_charts_context(inventory_service, now)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/home_charts.html",
+        context={
+            "selected_ym": now.strftime("%Y-%m"),
+            **charts_ctx,
         },
     )
 

@@ -322,7 +322,15 @@
   document.addEventListener('click', onModalOverlayClick);
 
   document.addEventListener('htmx:afterSwap', (evt) => {
-    runEnhancers(evt.target);
+    const target = evt.target;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        runEnhancers(target);
+        try { if (window.__monthlySalesDailyLine && window.__monthlySalesDailyLine.resize) window.__monthlySalesDailyLine.resize(); } catch (e) {}
+        try { if (window.__monthlySalesPie && window.__monthlySalesPie.resize) window.__monthlySalesPie.resize(); } catch (e) {}
+        try { if (window.__monthlyChart && window.__monthlyChart.resize) window.__monthlyChart.resize(); } catch (e) {}
+      });
+    });
   });
 
   document.addEventListener('htmx:afterRequest', (evt) => {

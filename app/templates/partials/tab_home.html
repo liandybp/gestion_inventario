@@ -21,40 +21,7 @@
     {{ metric('Mayor margen % (' ~ month_label ~ ')', (top_margin.name if top_margin else '-'), (top_margin.sku ~ ' - ' ~ '%.2f'|format(top_margin.gross_pct or 0) ~ '%' if top_margin else ''), 'medium') }}
   </div>
 
-  {% call chart_card('Ventas (' ~ month_label ~ ')', 'Distribución por artículo + serie temporal diaria.') %}
-    <div class="charts-grid">
-      <div>
-        <div id="monthly-sales-pie-wrap" class="monthly-sales-pie-wrap">
-          <svg id="monthly-sales-pie-line" class="pie-line-overlay">
-            <line id="monthly-sales-pie-line-el" x1="0" y1="0" x2="0" y2="0" stroke="rgba(11,45,66,0.45)" stroke-width="2" />
-          </svg>
-          <div class="chart-box">
-            <canvas id="monthly-sales-pie" class="w-full h-full"></canvas>
-          </div>
-          <div id="monthly-sales-pie-tooltip" class="card monthly-sales-pie-tooltip">
-            <div class="muted">Pasa el ratón por un color para ver el detalle.</div>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="chart-box">
-          <canvas id="monthly-sales-daily-line" class="w-full h-full"></canvas>
-        </div>
-        <script type="application/json" id="monthly-sales-daily-line-data">{{ monthly_sales_daily_line_json | safe }}</script>
-        <div id="monthly-sales-daily-line-debug" class="muted mt-8"></div>
-      </div>
-    </div>
-    <script type="application/json" id="monthly-sales-pie-data">{{ monthly_sales_pie_json | safe }}</script>
-    <div id="monthly-sales-pie-debug" class="muted mt-8"></div>
-  {% endcall %}
-
-  <div class="card mt-16" id="restock"
-       hx-get="/ui/restock-table" hx-trigger="load, every 5s" hx-swap="innerHTML">
+  <div id="home-charts">
+    {% include 'partials/home_charts.html' %}
   </div>
-
-  {% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
-    <canvas id="monthly-chart" height="120"></canvas>
-    <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
-    <div id="monthly-chart-debug" class="muted mt-8"></div>
-  {% endcall %}
 </div>
