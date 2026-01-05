@@ -334,7 +334,6 @@ def product_update_inventory(
                 movement_date = None
                 note = "Ajuste por edición manual de stock"
                 if initial_inventory and delta > 0:
-                    movement_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
                     note = "Inventario inicial (ajuste por edición manual de stock)"
 
                 inventory_service.adjustment(

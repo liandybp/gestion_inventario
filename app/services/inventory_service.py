@@ -150,11 +150,14 @@ class InventoryService:
                         i += 1
                     used_codes.add(code)
 
+                received_at_dt = mv.movement_date
+                if mv.type == "adjustment" and (mv.note or "").startswith("Inventario inicial"):
+                    received_at_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
                 lot = InventoryLot(
                     movement_id=mv.id,
                     product_id=product.id,
                     lot_code=code,
-                    received_at=mv.movement_date,
+                    received_at=received_at_dt,
                     unit_cost=float(mv.unit_cost or 0),
                     qty_received=qty,
                     qty_remaining=qty,
@@ -1161,6 +1164,9 @@ class InventoryService:
 
         product = self._get_product(payload.sku)
         movement_dt = self._movement_datetime(payload.movement_date)
+        is_initial_inventory = bool(
+            payload.note and str(payload.note).startswith("Inventario inicial")
+        )
 
         if payload.quantity_delta > 0:
             if payload.unit_cost is None:
@@ -1184,11 +1190,14 @@ class InventoryService:
             self._db.flush()
 
             lot_code = f"ADJ-{product.sku}-{movement_dt:%y%m%d%H%M%S}-{movement.id}"
+            received_at_dt = movement_dt
+            if is_initial_inventory:
+                received_at_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
             lot = InventoryLot(
                 movement_id=movement.id,
                 product_id=product.id,
                 lot_code=lot_code,
-                received_at=movement_dt,
+                received_at=received_at_dt,
                 unit_cost=payload.unit_cost,
                 qty_received=payload.quantity_delta,
                 qty_remaining=payload.quantity_delta,
