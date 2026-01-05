@@ -12,7 +12,7 @@
 
     <div id="stock-table"
          hx-get="/ui/stock-table"
-         hx-trigger="load, every 2s, keyup changed delay:300ms from:#inventory_query"
+         hx-trigger="load, keyup changed delay:300ms from:#inventory_query"
          hx-include="#inventory_query"
          hx-swap="innerHTML">
     </div>

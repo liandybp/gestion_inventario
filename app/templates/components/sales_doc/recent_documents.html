@@ -26,8 +26,8 @@
             <a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a>
             <button type="button" class="ml-8"
                     hx-get="/ui/sales-doc/{{ d.id }}/edit"
-                    hx-target="#sales-doc-edit"
-                    hx-swap="innerHTML">Editar</button>
+                    hx-target="body"
+                    hx-swap="beforeend">Editar</button>
             <form hx-post="/ui/sales-doc/{{ d.id }}/delete" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="d-inline ml-8">
               <button type="submit" formnovalidate class="btn-danger"
                       hx-confirm="¿Eliminar este documento?">Eliminar</button>

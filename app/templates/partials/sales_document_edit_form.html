@@ -1,10 +1,12 @@
-<div class="card mt-12" id="sales-doc-edit-form">
-  <div class="flex justify-between gap-12 items-center flex-wrap">
-    <h4 class="m-0">Editar documento <code>{{ doc.code }}</code></h4>
-    <button type="button" class="btn-secondary" data-clear-target="#sales-doc-edit">Cerrar</button>
-  </div>
+<div class="modal-overlay" id="sales-doc-edit-modal">
+  <div class="modal-container">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Editar documento <code>{{ doc.code }}</code></h3>
+        <button type="button" class="modal-close" data-modal-close="sales-doc-edit-modal">&times;</button>
+      </div>
 
-  <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML" class="mt-12">
+      <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
     <div class="grid grid-2">
       <div class="row"><label>Cliente (Nombre)</label><input name="client_name" value="{{ doc.client_name }}" required /></div>
       <div class="row"><label>Cliente (ID)</label><input name="client_id" value="{{ doc.client_id }}" required /></div>
@@ -46,5 +48,8 @@
     </div>
 
     <button type="submit" class="mt-12">Guardar cambios</button>
+    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
   </form>
+    </div>
+  </div>
 </div>

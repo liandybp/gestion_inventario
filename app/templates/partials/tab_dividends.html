@@ -110,8 +110,8 @@
             <td>
               <button type="button"
                       hx-get="/ui/extraction/{{ r.id }}/edit"
-                      hx-target="#extraction-edit"
-                      hx-swap="innerHTML">Edit</button>
+                      hx-target="body"
+                      hx-swap="beforeend">Edit</button>
 
               <button type="button" class="ml-8 btn-danger"
                       hx-post="/ui/extraction/{{ r.id }}/delete"

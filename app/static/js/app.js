@@ -23,6 +23,28 @@
     clearTarget(btn.getAttribute('data-clear-target'));
   }
 
+  function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  function onModalClose(evt) {
+    const closeBtn = evt.target.closest('[data-modal-close]');
+    if (!closeBtn) return;
+    evt.preventDefault();
+    const modalId = closeBtn.getAttribute('data-modal-close');
+    closeModal(modalId);
+  }
+
+  function onModalOverlayClick(evt) {
+    if (evt.target.classList.contains('modal-overlay')) {
+      const modalId = evt.target.closest('[id]')?.id;
+      if (modalId) closeModal(modalId);
+    }
+  }
+
   function renderBarcodes(root) {
     if (!window.JsBarcode) return;
     const container = root || document;
@@ -296,9 +318,26 @@
 
   document.addEventListener('click', onTabClick);
   document.addEventListener('click', onClearClick);
+  document.addEventListener('click', onModalClose);
+  document.addEventListener('click', onModalOverlayClick);
 
   document.addEventListener('htmx:afterSwap', (evt) => {
     runEnhancers(evt.target);
+  });
+
+  document.addEventListener('htmx:afterRequest', (evt) => {
+    const elt = evt.detail && evt.detail.elt;
+    const xhr = evt.detail && evt.detail.xhr;
+    if (!elt || !xhr) return;
+
+    const modal = elt.closest('.modal-overlay');
+    if (!modal) return;
+
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        modal.remove();
+      } catch (e) {}
+    }
   });
 
   document.addEventListener('DOMContentLoaded', () => {

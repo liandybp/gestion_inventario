@@ -25,8 +25,8 @@
                     hx-swap="innerHTML">Ver</button>
             <button type="button" class="ml-8"
                     hx-get="/ui/customer/{{ c.id }}/edit"
-                    hx-target="#customer-edit"
-                    hx-swap="innerHTML">Editar</button>
+                    hx-target="body"
+                    hx-swap="beforeend">Editar</button>
             <form hx-post="/ui/customer/{{ c.id }}/delete" hx-target="#tab-content" hx-swap="innerHTML" class="d-inline ml-8">
               <button type="submit" formnovalidate class="btn-danger"
                       hx-confirm="¿Eliminar este cliente?">Eliminar</button>

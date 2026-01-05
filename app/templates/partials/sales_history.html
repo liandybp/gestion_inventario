@@ -41,8 +41,8 @@
         <td>
           <button type="button"
                   hx-get="/ui/movement/sale/{{ id }}/edit"
-                  hx-target="#sale-edit"
-                  hx-swap="innerHTML">Edit</button>
+                  hx-target="body"
+                  hx-swap="beforeend">Edit</button>
 
           <button type="button" style="margin-left:8px;background: var(--brand-red);"
                   hx-post="/ui/movement/sale/{{ id }}/delete"

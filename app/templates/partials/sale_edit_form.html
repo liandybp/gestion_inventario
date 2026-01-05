@@ -1,18 +1,24 @@
-<div class="card">
-  <h3>Editar venta</h3>
+<div class="modal-overlay" id="sale-edit-modal">
+  <div class="modal-container">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Editar venta</h3>
+        <button type="button" class="modal-close" data-modal-close="sale-edit-modal">&times;</button>
+      </div>
 
-  <form hx-post="/ui/movement/sale/{{ movement.id }}/update" hx-target="#sale-panel" hx-swap="outerHTML">
-    <div class="row">
-      <label>Artículo</label>
-      <input name="product" list="product-options" value="{{ product_label }}" required />
+      <form hx-post="/ui/movement/sale/{{ movement.id }}/update" hx-target="#sale-panel" hx-swap="outerHTML">
+        <div class="row">
+          <label>Artículo</label>
+          <input name="product" list="product-options" value="{{ product_label }}" required />
+        </div>
+        <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="{{ (movement.quantity * -1) if movement.quantity < 0 else movement.quantity }}" required /></div>
+        <div class="row"><label>Precio unitario</label><input name="unit_price" type="number" step="0.0001" min="0" value="{{ movement.unit_price or 0 }}" required /></div>
+        <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" value="{{ movement_date_value }}" /></div>
+        <div class="row"><label>Nota</label><input name="note" value="{{ movement.note or '' }}" /></div>
+
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="sale-edit-modal">Cancelar</button>
+      </form>
     </div>
-    <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="{{ (movement.quantity * -1) if movement.quantity < 0 else movement.quantity }}" required /></div>
-    <div class="row"><label>Precio unitario</label><input name="unit_price" type="number" step="0.0001" min="0" value="{{ movement.unit_price or 0 }}" required /></div>
-    <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" value="{{ movement_date_value }}" /></div>
-    <div class="row"><label>Nota</label><input name="note" value="{{ movement.note or '' }}" /></div>
-
-    <button type="submit">Guardar cambios</button>
-    <button type="button" style="margin-left:8px; background:#6b7280;"
-            data-clear-target="#sale-edit">Cancelar</button>
-  </form>
+  </div>
 </div>
