@@ -18,7 +18,7 @@
   </thead>
   <tbody>
     {% for item in items %}
-      {% if item.quantity > 0 %}
+      {% if (show_zero or false) or item.quantity > 0 %}
       <tr class="{% if item.needs_restock %}warn{% endif %}">
         <td>{{ item.sku }}</td>
         <td>{{ item.name or '' }}</td>

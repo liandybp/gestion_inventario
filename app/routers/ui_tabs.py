@@ -656,13 +656,22 @@ def stock_table(
     ensure_admin(db, request)
     service = InventoryService(db)
     user = get_current_user_from_session(db, request)
+    config = load_business_config()
+    central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
+    effective_code = (loc or central_code).strip()
+    show_zero = effective_code == central_code
     items = service.stock_list(query=query, location_code=loc)
     deletable_skus = _deletable_skus(db, [i.sku for i in items])
     return templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
-        context={"items": items, "user": user, "deletable_skus": deletable_skus},
+        context={
+            "items": items,
+            "user": user,
+            "deletable_skus": deletable_skus,
+            "show_zero": show_zero,
+        },
     )
 
 
@@ -679,6 +688,9 @@ def stock_delete_product(
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
 
+    config = load_business_config()
+    central_code = str(config.locations.central.code).strip()
+
     message = None
     message_detail = None
     message_class = None
@@ -693,6 +705,8 @@ def stock_delete_product(
         message_class = "error"
 
     loc = (location_code or "").strip() or None
+    effective_code = (loc or central_code).strip()
+    show_zero = effective_code == central_code
     items = inventory_service.stock_list(query=query, location_code=loc)
     deletable_skus = _deletable_skus(db, [i.sku for i in items])
     response = templates.TemplateResponse(
@@ -702,6 +716,7 @@ def stock_delete_product(
             "items": items,
             "user": user,
             "deletable_skus": deletable_skus,
+            "show_zero": show_zero,
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,
