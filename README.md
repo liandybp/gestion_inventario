@@ -18,6 +18,7 @@ Versión actual: `0.1.6` (ver `VERSION`).
   - Ajuste de **stock actual** desde el modal de edición (genera movimiento `adjustment` para trazabilidad).
   - Opción **Inventario inicial** al ajustar stock para que ese lote se consuma primero en FIFO.
   - **Devolución a proveedor (por lote)**: permite seleccionar el lote específico a devolver para preservar el costo de adquisición.
+  - Eliminación de producto protegida: se bloquea si el producto tiene movimientos/lotes.
   - Tabla de inventario con:
     - **Costo**: mínimo histórico de compras.
     - **Precio venta**: precio de venta por defecto.
@@ -35,6 +36,9 @@ Versión actual: `0.1.6` (ver `VERSION`).
 - **Transferencias (Envíos)**
   - Transferencias atómicas **CENTRAL → POS** con múltiples SKUs en una sola operación.
   - Preserva FIFO/costos al mover lotes a POS (sin estados de tránsito).
+  - En éxito, el formulario se limpia y el historial se refresca inmediatamente.
+  - Si un envío consume múltiples lotes FIFO, se registran entradas por lote (trazabilidad de costos).
+  - Mensajes de error claros cuando no hay stock en el almacén CENTRAL (incluye disponible vs solicitado).
 - **Clientes**
   - Alta/edición/listado.
   - Ficha de cliente con métricas y documentos.

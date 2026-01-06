@@ -8,6 +8,13 @@ Este archivo se genera a partir del historial de Git (`git log`).
 - feat: transferencias CENTRAL→POS multi-SKU (atómicas, preservando FIFO/costos)
 - feat: devoluciones a proveedor **por lote** (selección de lote, preserva costo) + filtros en Historial
 
+- fix(ui): transfers/envíos: refresco inmediato del tab tras crear envío y limpieza del formulario en éxito
+- fix(ui): transfers/envíos: historial ordenado y tablas más compactas (mejor UX en móvil)
+- fix(ui): transfers/envíos: prevención de doble submit (deshabilita botón durante la request)
+- fix: transfers/envíos: mensajes más claros cuando no hay stock en el almacén CENTRAL (incluye disponible vs solicitado)
+- fix(ui): inventario: preservar ubicación seleccionada al editar producto
+- fix(ui): inventario: deshabilitar eliminar producto si tiene movimientos/lotes (con tooltip explicativo)
+
 - d957087 (2026-01-05) feat: update inventory handling to set received date for initial inventory adjustments and improve checkbox styling
 - 71f270c (2026-01-05) feat: enhance stock list with minimum purchase cost and default sale price
 - 0a1d240 (2026-01-05) feat: add initial inventory checkbox and adjust stock handling logic in product edit form
