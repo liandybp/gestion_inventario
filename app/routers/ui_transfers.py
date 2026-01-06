@@ -39,14 +39,10 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
     movement_date_raw = (form.get("movement_date") or "").strip()
     note = (form.get("note") or "").strip() or None
 
-    product_options = []
-    try:
-        product_options = []
-        from app.services.product_service import ProductService
-
-        product_options = ProductService(db).search(query="", limit=200)
-    except Exception:
-        product_options = []
+    central_code = str(config.locations.central.code).strip()
+    product_options = [
+        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+    ]
 
     products = form.getlist("product")
     quantities = form.getlist("quantity")

@@ -590,12 +590,17 @@ def tab_transfers(request: Request, db: Session = Depends(session_dep), success:
         message_class = "ok"
         show_only_in = True
 
+    central_code = str(config.locations.central.code).strip()
+    product_options = [
+        p for p in inventory_service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_transfers.html",
         context={
             "user": user,
-            "product_options": product_service.search(query="", limit=200),
+            "product_options": product_options,
             "pos_locations": pos_locations,
             "default_to_location_code": default_to_location_code,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
