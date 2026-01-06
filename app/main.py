@@ -119,24 +119,50 @@ def _run_startup_tasks() -> None:
                 conn.exec_driver_sql(
                     "ALTER TABLE inventory_movements ADD COLUMN location_id INTEGER"
                 )
+
+            try:
                 conn.exec_driver_sql(
                     "CREATE INDEX IF NOT EXISTS ix_inventory_movements_location_id ON inventory_movements(location_id)"
                 )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear el índice para inventory_movements.location_id."
+                ) from e
 
             lot_cols = {
-                row[1]
-                for row in conn.exec_driver_sql("PRAGMA table_info(inventory_lots)").fetchall()
+                row[1] for row in conn.exec_driver_sql("PRAGMA table_info(inventory_lots)").fetchall()
             }
             if "location_id" not in lot_cols:
                 conn.exec_driver_sql(
                     "ALTER TABLE inventory_lots ADD COLUMN location_id INTEGER"
                 )
+            try:
                 conn.exec_driver_sql(
                     "CREATE INDEX IF NOT EXISTS ix_inventory_lots_location_id ON inventory_lots(location_id)"
                 )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear el índice para inventory_lots.location_id."
+                ) from e
 
     if engine.dialect.name == "postgresql":
-        with engine.connect() as conn:
+        with engine.begin() as conn:
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='role'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(16)"
+                    )
+                    conn.exec_driver_sql(
+                        "UPDATE users SET role='admin' WHERE role IS NULL OR role=''"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna role en users."
+                ) from e
+
             try:
                 exists = conn.exec_driver_sql(
                     "SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='lead_time_days'"
@@ -169,7 +195,7 @@ def _run_startup_tasks() -> None:
                 ).fetchone()
                 if exists is None:
                     conn.exec_driver_sql(
-                        "ALTER TABLE sales_documents ADD COLUMN location_id INTEGER"
+                        "ALTER TABLE sales_documents ADD COLUMN IF NOT EXISTS location_id INTEGER"
                     )
                     conn.exec_driver_sql(
                         "CREATE INDEX IF NOT EXISTS ix_sales_documents_location_id ON sales_documents(location_id)"
@@ -185,7 +211,7 @@ def _run_startup_tasks() -> None:
                 ).fetchone()
                 if exists is None:
                     conn.exec_driver_sql(
-                        "ALTER TABLE inventory_movements ADD COLUMN location_id INTEGER"
+                        "ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS location_id INTEGER"
                     )
                     conn.exec_driver_sql(
                         "CREATE INDEX IF NOT EXISTS ix_inventory_movements_location_id ON inventory_movements(location_id)"
@@ -201,7 +227,7 @@ def _run_startup_tasks() -> None:
                 ).fetchone()
                 if exists is None:
                     conn.exec_driver_sql(
-                        "ALTER TABLE inventory_lots ADD COLUMN location_id INTEGER"
+                        "ALTER TABLE inventory_lots ADD COLUMN IF NOT EXISTS location_id INTEGER"
                     )
                     conn.exec_driver_sql(
                         "CREATE INDEX IF NOT EXISTS ix_inventory_lots_location_id ON inventory_lots(location_id)"
