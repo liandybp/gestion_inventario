@@ -19,11 +19,12 @@ if __name__ == "__main__" and __package__ is None:
 from app.db import Base, engine
 from app.db import get_session
 from app.auth import hash_password
+from app.business_config import load_business_config
 from app.routers.health import router as health_router
 from app.routers.inventory import router as inventory_router
 from app.routers.products import router as products_router
 from app.routers.ui import router as ui_router
-from app.models import User
+from app.models import InventoryLot, InventoryMovement, Location, SalesDocument, User
 from app.utils import get_session_secret
 
 
@@ -102,6 +103,38 @@ def _run_startup_tasks() -> None:
                 "CREATE INDEX IF NOT EXISTS ix_sales_documents_customer_id ON sales_documents(customer_id)"
             )
 
+            if "location_id" not in sales_doc_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE sales_documents ADD COLUMN location_id INTEGER"
+                )
+                conn.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_sales_documents_location_id ON sales_documents(location_id)"
+                )
+
+            mv_cols = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(inventory_movements)").fetchall()
+            }
+            if "location_id" not in mv_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE inventory_movements ADD COLUMN location_id INTEGER"
+                )
+                conn.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_inventory_movements_location_id ON inventory_movements(location_id)"
+                )
+
+            lot_cols = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(inventory_lots)").fetchall()
+            }
+            if "location_id" not in lot_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE inventory_lots ADD COLUMN location_id INTEGER"
+                )
+                conn.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_inventory_lots_location_id ON inventory_lots(location_id)"
+                )
+
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
             try:
@@ -130,8 +163,58 @@ def _run_startup_tasks() -> None:
                     "No se pudo crear la columna customer_id en sales_documents."
                 ) from e
 
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='sales_documents' AND column_name='location_id'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE sales_documents ADD COLUMN location_id INTEGER"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_sales_documents_location_id ON sales_documents(location_id)"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna location_id en sales_documents."
+                ) from e
+
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='inventory_movements' AND column_name='location_id'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE inventory_movements ADD COLUMN location_id INTEGER"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_inventory_movements_location_id ON inventory_movements(location_id)"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna location_id en inventory_movements."
+                ) from e
+
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='inventory_lots' AND column_name='location_id'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE inventory_lots ADD COLUMN location_id INTEGER"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_inventory_lots_location_id ON inventory_lots(location_id)"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna location_id en inventory_lots."
+                ) from e
+
     db = get_session()
     try:
+        config = load_business_config()
+
         users_to_ensure = [
             {
                 "username": os.getenv("ADMIN_USERNAME", "admin"),
@@ -164,6 +247,49 @@ def _run_startup_tasks() -> None:
             else:
                 existing.role = str(spec.get("role") or existing.role or "operator")
                 existing.is_active = bool(spec.get("is_active", True))
+        db.commit()
+
+        # Ensure locations from config
+        central = config.locations.central
+        pos_list = list(config.locations.pos or [])
+        default_pos_code = str(config.locations.default_pos or "POS1").strip() or "POS1"
+
+        def ensure_location(code: str, name: str) -> Location:
+            c = (code or "").strip()
+            n = (name or "").strip() or c
+            existing_loc = db.scalar(select(Location).where(Location.code == c))
+            if existing_loc is None:
+                existing_loc = Location(code=c, name=n)
+                db.add(existing_loc)
+                db.flush()
+            else:
+                existing_loc.name = n
+            return existing_loc
+
+        central_loc = ensure_location(central.code, central.name)
+        pos_locs: dict[str, Location] = {}
+        for p in pos_list:
+            pos_locs[p.code] = ensure_location(p.code, p.name)
+        if default_pos_code not in pos_locs:
+            first = pos_list[0] if pos_list else None
+            if first is not None:
+                default_pos_code = first.code
+
+        default_pos_loc = pos_locs.get(default_pos_code)
+        if default_pos_loc is None:
+            default_pos_loc = ensure_location(default_pos_code, default_pos_code)
+            pos_locs[default_pos_code] = default_pos_loc
+
+        # Backfill existing rows
+        db.query(InventoryMovement).filter(InventoryMovement.location_id.is_(None)).update(
+            {InventoryMovement.location_id: central_loc.id}, synchronize_session=False
+        )
+        db.query(InventoryLot).filter(InventoryLot.location_id.is_(None)).update(
+            {InventoryLot.location_id: central_loc.id}, synchronize_session=False
+        )
+        db.query(SalesDocument).filter(SalesDocument.location_id.is_(None)).update(
+            {SalesDocument.location_id: default_pos_loc.id}, synchronize_session=False
+        )
         db.commit()
     finally:
         db.close()

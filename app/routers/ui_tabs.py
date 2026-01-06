@@ -9,18 +9,54 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit import log_event
 from app.deps import session_dep
 from app.models import AuditLog
 from app.models import Customer
+from app.models import InventoryLot
+from app.models import InventoryMovement
+from app.models import Product
 from app.models import SalesDocument
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
+from app.schemas import SupplierReturnLotCreate
 
 from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
 
 router = APIRouter()
+
+
+def _deletable_skus(db: Session, skus: list[str]) -> set[str]:
+    clean = [str(s).strip() for s in (skus or []) if str(s).strip()]
+    if not clean:
+        return set()
+
+    rows = db.execute(select(Product.id, Product.sku).where(Product.sku.in_(clean))).all()
+    if not rows:
+        return set()
+
+    product_ids = [int(pid) for pid, _ in rows]
+    id_to_sku = {int(pid): str(sku) for pid, sku in rows}
+
+    movement_pids = set(
+        db.scalars(
+            select(InventoryMovement.product_id)
+            .where(InventoryMovement.product_id.in_(product_ids))
+            .distinct()
+        ).all()
+    )
+    lot_pids = set(
+        db.scalars(
+            select(InventoryLot.product_id)
+            .where(InventoryLot.product_id.in_(product_ids))
+            .distinct()
+        ).all()
+    )
+    blocked = movement_pids | lot_pids
+
+    return {sku for pid, sku in id_to_sku.items() if pid not in blocked}
 
 
 def _month_label_es(dt: datetime) -> str:
@@ -242,10 +278,27 @@ def home_charts(request: Request, db: Session = Depends(session_dep), ym: Option
 @router.get("/tabs/inventory", response_class=HTMLResponse)
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin(db, request)
+    config = load_business_config()
+    locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
+    for loc in (config.locations.pos or []):
+        if getattr(loc, "code", None):
+            locations.append({"code": loc.code, "name": loc.name})
+    
+    product_options = []
+    try:
+        from app.services.product_service import ProductService
+        product_options = ProductService(db).search(query="", limit=200)
+    except Exception:
+        product_options = []
+    
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_inventory.html",
-        context={},
+        context={
+            "locations": locations,
+            "default_location_code": config.locations.central.code,
+            "product_options": product_options,
+        },
     )
 
 
@@ -351,6 +404,12 @@ def tab_sales(
     )
 
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_sales.html",
@@ -361,6 +420,9 @@ def tab_sales(
             "filter_year": display_year,
             "product_options": product_service.search(query="", limit=200),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "pos_locations": pos_locations,
+            "default_sale_location_code": default_sale_location_code,
+            "sale_location_code": default_sale_location_code,
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
@@ -377,6 +439,13 @@ def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     _ = get_current_user_from_session(db, request)
     product_service = ProductService(db)
     config = load_business_config()
+
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
 
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
@@ -402,6 +471,8 @@ def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": recent_documents,
             "customers": customers,
@@ -479,6 +550,66 @@ def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     )
 
 
+@router.get("/tabs/transfers", response_class=HTMLResponse)
+def tab_transfers(request: Request, db: Session = Depends(session_dep), success: int = 0) -> HTMLResponse:
+    ensure_admin(db, request)
+    user = get_current_user_from_session(db, request)
+
+    product_service = ProductService(db)
+    inventory_service = InventoryService(db)
+    config = load_business_config()
+
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
+    recent_transfer_out = inventory_service.movement_history(
+        movement_type="transfer_out",
+        start_date=None,
+        end_date=None,
+        limit=50,
+    )
+    recent_transfer_in = inventory_service.movement_history(
+        movement_type="transfer_in",
+        start_date=None,
+        end_date=None,
+        limit=50,
+    )
+
+    message = None
+    message_detail = None
+    message_class = None
+    show_only_in = False
+    
+    if success == 1:
+        message = "Envío registrado"
+        message_detail = "El envío se ha creado correctamente"
+        message_class = "ok"
+        show_only_in = True
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_transfers.html",
+        context={
+            "user": user,
+            "product_options": product_service.search(query="", limit=200),
+            "pos_locations": pos_locations,
+            "default_to_location_code": default_to_location_code,
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "rows_count": 12,
+            "recent_transfer_out": recent_transfer_out,
+            "recent_transfer_in": recent_transfer_in,
+            "message": message,
+            "message_detail": message_detail,
+            "message_class": message_class,
+            "show_only_in": show_only_in,
+        },
+    )
+
+
 @router.get("/tabs/profit", response_class=HTMLResponse)
 def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin(db, request)
@@ -520,15 +651,18 @@ def stock_table(
     request: Request,
     db: Session = Depends(session_dep),
     query: str = "",
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     service = InventoryService(db)
     user = get_current_user_from_session(db, request)
-    items = service.stock_list(query=query)
+    loc = (location_code or "").strip() or None
+    items = service.stock_list(query=query, location_code=loc)
+    deletable_skus = _deletable_skus(db, [i.sku for i in items])
     return templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
-        context={"items": items, "user": user},
+        context={"items": items, "user": user, "deletable_skus": deletable_skus},
     )
 
 
@@ -538,6 +672,7 @@ def stock_delete_product(
     sku: str,
     db: Session = Depends(session_dep),
     query: str = Form(""),
+    location_code: str = Form(""),
 ) -> HTMLResponse:
     ensure_admin(db, request)
     user = get_current_user_from_session(db, request)
@@ -557,18 +692,142 @@ def stock_delete_product(
         message_detail = str(getattr(e, "detail", e))
         message_class = "error"
 
-    items = inventory_service.stock_list(query=query)
-    return templates.TemplateResponse(
+    loc = (location_code or "").strip() or None
+    items = inventory_service.stock_list(query=query, location_code=loc)
+    deletable_skus = _deletable_skus(db, [i.sku for i in items])
+    response = templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
         context={
             "items": items,
             "user": user,
+            "deletable_skus": deletable_skus,
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,
         },
     )
+    response.headers["HX-Trigger"] = "stockTableRefresh"
+    return response
+
+
+@router.post("/movements/return-supplier", response_class=HTMLResponse)
+def ui_supplier_return(
+    request: Request,
+    db: Session = Depends(session_dep),
+    sku: str = Form(""),
+    lot_id: int = Form(0),
+    quantity: float = Form(0),
+    note: str = Form(""),
+    location_code: str = Form(""),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    user = get_current_user_from_session(db, request)
+    config = load_business_config()
+
+    locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
+    for loc in (config.locations.pos or []):
+        if getattr(loc, "code", None):
+            locations.append({"code": loc.code, "name": loc.name})
+
+    selected_location_code = (location_code or "").strip() or config.locations.central.code
+
+    service = InventoryService(db)
+    message = None
+    message_detail = None
+    message_class = None
+    
+    product_options = []
+    try:
+        from app.services.product_service import ProductService
+        product_options = ProductService(db).search(query="", limit=200)
+    except Exception:
+        product_options = []
+
+    try:
+        if int(lot_id or 0) <= 0:
+            raise Exception("lot_id is required")
+        result = service.supplier_return_by_lot(
+            SupplierReturnLotCreate(
+                lot_id=int(lot_id),
+                quantity=float(quantity or 0),
+                note=(note or "").strip() or None,
+                location_code=selected_location_code,
+            )
+        )
+        log_event(
+            db,
+            user,
+            action="supplier_return_create",
+            entity_type="movement",
+            entity_id=str(result.movement.id),
+            detail={
+                "sku": (sku or "").strip(),
+                "lot_id": int(lot_id or 0),
+                "quantity": float(quantity or 0),
+                "location_code": selected_location_code,
+            },
+        )
+        message = "Devolución registrada"
+        message_detail = f"SKU: {(sku or '').strip()}"
+        message_class = "ok"
+    except Exception as e:
+        message = "No se pudo registrar la devolución"
+        message_detail = str(getattr(e, "detail", e))
+        message_class = "error"
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_inventory.html",
+        context={
+            "locations": locations,
+            "default_location_code": config.locations.central.code,
+            "selected_location_code": selected_location_code,
+            "product_options": product_options,
+            "message": message,
+            "message_detail": message_detail,
+            "message_class": message_class,
+        },
+    )
+
+
+@router.get("/return-supplier/lots", response_class=HTMLResponse)
+def ui_supplier_return_lots(
+    request: Request,
+    db: Session = Depends(session_dep),
+    sku: str = "",
+    location_code: str = "",
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+
+    sku_clean = (sku or "").strip()
+    loc = (location_code or "").strip() or None
+    if not sku_clean:
+        return HTMLResponse("<select name='lot_id' disabled><option value=''>-- Ingrese SKU --</option></select>")
+
+    try:
+        lots = service.available_lots(sku_clean, location_code=loc)
+    except Exception as e:
+        error_msg = str(e)[:50] if str(e) else "Error"
+        return HTMLResponse(f"<select name='lot_id' disabled><option value=''>Error: {error_msg}</option></select>")
+
+    if not lots:
+        return HTMLResponse("<select name='lot_id' disabled><option value=''>Sin lotes en esta ubicación</option></select>")
+
+    parts: list[str] = ["<select name='lot_id' required>"]
+    parts.append("<option value=''>-- Selecciona lote --</option>")
+    for lot in lots:
+        parts.append(
+            "<option value='{}'>{} | disp={} | costo={}</option>".format(
+                int(lot.id),
+                str(lot.lot_code or ""),
+                float(lot.qty_remaining or 0),
+                float(lot.unit_cost or 0),
+            )
+        )
+    parts.append("</select>")
+    return HTMLResponse("".join(parts))
 
 
 @router.get("/restock-table", response_class=HTMLResponse)

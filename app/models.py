@@ -38,10 +38,24 @@ class Customer(Base):
     )
 
 
+class Location(Base):
+    __tablename__ = "locations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class SalesDocument(Base):
     __tablename__ = "sales_documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("locations.id"), nullable=True, index=True
+    )
     customer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
     doc_type: Mapped[str] = mapped_column(String(1), index=True)
     year_month: Mapped[str] = mapped_column(String(6), index=True)
@@ -126,6 +140,9 @@ class InventoryMovement(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    location_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("locations.id"), nullable=True, index=True
+    )
     type: Mapped[str] = mapped_column(String(16), index=True)
     quantity: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
     unit_cost: Mapped[Optional[float]] = mapped_column(
@@ -166,6 +183,9 @@ class InventoryLot(Base):
         ForeignKey("inventory_movements.id"), index=True
     )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    location_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("locations.id"), nullable=True, index=True
+    )
     lot_code: Mapped[str] = mapped_column(String(64), index=True, unique=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     unit_cost: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))

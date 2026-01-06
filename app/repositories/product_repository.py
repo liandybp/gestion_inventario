@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import unicodedata
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Product
+
+
+def _normalize_text(text: str) -> str:
+    """Remove accents/diacritics from text for accent-insensitive search."""
+    if not text:
+        return ""
+    nfd = unicodedata.normalize('NFD', text)
+    return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
 
 
 class ProductRepository:
@@ -29,15 +38,21 @@ class ProductRepository:
         q = query.strip()
         if not q:
             return self.list()[:limit]
-        like = f"%{q}%"
-        return list(
-            self._db.scalars(
-                select(Product)
-                .where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
-                .order_by(Product.name)
-                .limit(limit)
-            )
-        )
+        
+        normalized_query = _normalize_text(q).lower()
+        
+        all_products = self.list()
+        matches = []
+        for product in all_products:
+            normalized_sku = _normalize_text(product.sku or "").lower()
+            normalized_name = _normalize_text(product.name or "").lower()
+            
+            if normalized_query in normalized_sku or normalized_query in normalized_name:
+                matches.append(product)
+                if len(matches) >= limit:
+                    break
+        
+        return matches
 
     def add(self, product: Product) -> None:
         self._db.add(product)

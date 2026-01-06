@@ -8,8 +8,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
+from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Product
+from app.routers.ui_common import ensure_admin, parse_optional_float, save_product_image, templates
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
 from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -251,17 +253,23 @@ def product_update(
 def product_edit_form_inventory(
     request: Request,
     sku: str,
+    location_code: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
     product = product_service.get_by_sku(sku)
-    current_stock = inventory_service.stock(sku).quantity
+    loc = (location_code or "").strip() or None
+    current_stock = inventory_service.stock(sku, location_code=loc).quantity
     return templates.TemplateResponse(
         request=request,
         name="partials/product_edit_form_inventory.html",
-        context={"product": product, "current_stock": float(current_stock or 0)},
+        context={
+            "product": product,
+            "current_stock": float(current_stock or 0),
+            "location_code": loc or "",
+        },
     )
 
 
@@ -280,6 +288,7 @@ def product_update_inventory(
     lead_time_days: Optional[int] = Form(None),
     desired_stock: Optional[float] = Form(None),
     initial_inventory: bool = Form(False),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     product_service = ProductService(db)
@@ -288,7 +297,8 @@ def product_update_inventory(
         ensure_admin(db, request)
         existing = product_service.get_by_sku(sku)
 
-        stock_before = inventory_service.stock(sku).quantity
+        loc = (location_code or "").strip() or None
+        stock_before = inventory_service.stock(sku, location_code=loc).quantity
         image_url = save_product_image(image_file) if image_file is not None else existing.image_url
         parsed_purchase_cost = parse_optional_float(default_purchase_cost)
         updated = product_service.update(
@@ -343,23 +353,58 @@ def product_update_inventory(
                         unit_cost=float(unit_cost) if unit_cost is not None else None,
                         movement_date=movement_date,
                         note=note,
+                        location_code=loc,
                     )
                 )
+
+        config = load_business_config()
+        locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
+        for pos_loc in (config.locations.pos or []):
+            if getattr(pos_loc, "code", None):
+                locations.append({"code": pos_loc.code, "name": pos_loc.name})
+        default_location_code = str(getattr(config.locations.central, "code", "CENTRAL") or "CENTRAL")
+
+        product_options = []
+        try:
+            product_options = product_service.search(query="", limit=200)
+        except Exception:
+            product_options = []
 
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_inventory.html",
             context={
+                "locations": locations,
+                "default_location_code": default_location_code,
+                "selected_location_code": loc or "",
+                "product_options": product_options,
                 "message": "Producto actualizado",
                 "message_detail": f"SKU: {updated.sku}",
                 "message_class": "ok",
             },
         )
     except HTTPException as e:
+        config = load_business_config()
+        locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
+        for pos_loc in (config.locations.pos or []):
+            if getattr(pos_loc, "code", None):
+                locations.append({"code": pos_loc.code, "name": pos_loc.name})
+        default_location_code = str(getattr(config.locations.central, "code", "CENTRAL") or "CENTRAL")
+
+        product_options = []
+        try:
+            product_options = product_service.search(query="", limit=200)
+        except Exception:
+            product_options = []
+
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_inventory.html",
             context={
+                "locations": locations,
+                "default_location_code": default_location_code,
+                "selected_location_code": (location_code or "").strip() or "",
+                "product_options": product_options,
                 "message": "Error al actualizar producto",
                 "message_detail": str(e.detail),
                 "message_class": "error",

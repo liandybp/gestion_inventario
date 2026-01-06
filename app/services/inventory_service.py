@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     InventoryLot,
     InventoryMovement,
+    Location,
     MoneyExtraction,
     MovementAllocation,
     OperatingExpense,
@@ -26,6 +28,10 @@ from app.schemas import (
     PurchaseCreate,
     SaleCreate,
     StockRead,
+    SupplierReturnLotCreate,
+    TransferCreate,
+    TransferLineResult,
+    TransferResult,
 )
 from app.utils import month_range as utils_month_range
 
@@ -48,6 +54,23 @@ class InventoryService:
 
     def _movement_datetime(self, provided: Optional[datetime]) -> datetime:
         return provided or datetime.now(timezone.utc)
+
+    def _location_id_for_code(self, code: str) -> int:
+        c = (code or "").strip()
+        if not c:
+            raise HTTPException(status_code=422, detail="location_code is required")
+        loc_id = self._db.scalar(select(Location.id).where(Location.code == c))
+        if loc_id is None:
+            raise HTTPException(status_code=409, detail=f"Unknown location_code: {c}")
+        return int(loc_id)
+
+    def _central_location_id(self) -> int:
+        cfg = load_business_config()
+        return self._location_id_for_code(cfg.locations.central.code)
+
+    def _default_pos_location_id(self) -> int:
+        cfg = load_business_config()
+        return self._location_id_for_code(cfg.locations.default_pos)
 
     def _month_range(self, now: datetime) -> tuple[datetime, datetime]:
         return utils_month_range(now)
@@ -73,16 +96,16 @@ class InventoryService:
             i += 1
         return candidate
 
-    def _consume_fifo(self, product_id: int, movement_id: int, quantity: float) -> None:
+    def _consume_fifo(self, product_id: int, location_id: int, movement_id: int, quantity: float) -> None:
         if quantity <= 0:
             return
 
-        stock = self._inventory.stock_for_product_id(product_id)
+        stock = self._inventory.stock_for_product_id(product_id, location_id=location_id)
         if stock < quantity:
-            raise HTTPException(status_code=409, detail="Insufficient stock")
+            raise HTTPException(status_code=409, detail="Stock insuficiente")
 
         remaining = quantity
-        lots = self._inventory.fifo_lots_for_product_id(product_id)
+        lots = self._inventory.fifo_lots_for_product_id(product_id, location_id=location_id)
         for lot in lots:
             if remaining <= 0:
                 break
@@ -99,10 +122,12 @@ class InventoryService:
             remaining -= take
 
         if remaining > 0:
-            raise HTTPException(status_code=409, detail="Insufficient stock")
+            raise HTTPException(status_code=409, detail="Stock insuficiente")
 
     def _rebuild_product_fifo(self, product: Product, lot_code_overrides: Optional[dict[int, str]] = None) -> None:
         overrides = lot_code_overrides or {}
+
+        central_loc_id = self._central_location_id()
 
         existing_codes = {
             lot.movement_id: lot.lot_code
@@ -130,11 +155,13 @@ class InventoryService:
             )
         )
 
-        fifo_lots: list[InventoryLot] = []
+        fifo_lots_by_loc: dict[int, list[InventoryLot]] = {}
         used_codes: set[str] = set(existing_codes.values())
         for mv in movements:
             qty = float(mv.quantity)
-            if mv.type in ("purchase", "adjustment") and qty > 0:
+            mv_loc_id = int(getattr(mv, "location_id", None) or 0) or central_loc_id
+            fifo_lots = fifo_lots_by_loc.setdefault(mv_loc_id, [])
+            if mv.type in ("purchase", "adjustment", "transfer_in") and qty > 0:
                 code = existing_codes.get(mv.id)
                 if not code:
                     prefix = "ADJ" if mv.type == "adjustment" else product.sku
@@ -151,11 +178,23 @@ class InventoryService:
                     used_codes.add(code)
 
                 received_at_dt = mv.movement_date
+                if mv.type == "transfer_in":
+                    raw = str(mv.note or "")
+                    m = re.search(r"received_at=([^ ;]+)", raw)
+                    if m:
+                        val = m.group(1).strip()
+                        if val.endswith("Z"):
+                            val = val[:-1] + "+00:00"
+                        try:
+                            received_at_dt = datetime.fromisoformat(val)
+                        except Exception:
+                            received_at_dt = mv.movement_date
                 if mv.type == "adjustment" and (mv.note or "").startswith("Inventario inicial"):
                     received_at_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
                 lot = InventoryLot(
                     movement_id=mv.id,
                     product_id=product.id,
+                    location_id=mv_loc_id,
                     lot_code=code,
                     received_at=received_at_dt,
                     unit_cost=float(mv.unit_cost or 0),
@@ -170,8 +209,38 @@ class InventoryService:
                 fifo_lots.append(lot)
                 continue
 
+            if mv.type == "return_supplier":
+                raw = str(mv.note or "")
+                m = re.search(r"lot_code=([^ ;]+)", raw)
+                if m:
+                    target_code = m.group(1).strip()
+                    target_lot = None
+                    for lot in fifo_lots:
+                        if str(getattr(lot, "lot_code", "")) == target_code:
+                            target_lot = lot
+                            break
+                    if target_lot is None:
+                        raise HTTPException(status_code=409, detail="Lot not found for supplier return")
+
+                    remaining = abs(qty)
+                    take = min(float(target_lot.qty_remaining), remaining)
+                    if take <= 0:
+                        raise HTTPException(status_code=409, detail="Insufficient stock")
+                    target_lot.qty_remaining = float(target_lot.qty_remaining) - take
+                    alloc = MovementAllocation(
+                        movement_id=mv.id,
+                        lot_id=target_lot.id,
+                        quantity=take,
+                        unit_cost=float(target_lot.unit_cost),
+                    )
+                    self._db.add(alloc)
+                    remaining -= take
+                    if remaining > 0:
+                        raise HTTPException(status_code=409, detail="Insufficient stock")
+                    continue
+
             consume_qty = 0.0
-            if mv.type == "sale":
+            if mv.type in ("sale", "transfer_out", "return_supplier"):
                 consume_qty = abs(qty)
             elif mv.type == "adjustment" and qty < 0:
                 consume_qty = abs(qty)
@@ -1000,7 +1069,11 @@ class InventoryService:
             raise
 
         self._db.refresh(mv)
-        stock_after = self._inventory.stock_for_product_id(product.id)
+        loc_id = int(getattr(mv, "location_id", None) or 0) or self._central_location_id()
+        if mv.location_id is None:
+            mv.location_id = loc_id
+            self._db.commit()
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(mv),
@@ -1049,7 +1122,11 @@ class InventoryService:
             raise
 
         self._db.refresh(mv)
-        stock_after = self._inventory.stock_for_product_id(product.id)
+        loc_id = int(getattr(mv, "location_id", None) or 0) or self._default_pos_location_id()
+        if mv.location_id is None:
+            mv.location_id = loc_id
+            self._db.commit()
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(mv),
@@ -1072,8 +1149,11 @@ class InventoryService:
 
         movement_dt = self._movement_datetime(payload.movement_date)
 
+        central_loc_id = self._central_location_id()
+
         movement = InventoryMovement(
             product_id=product.id,
+            location_id=central_loc_id,
             type="purchase",
             quantity=payload.quantity,
             unit_cost=unit_cost,
@@ -1093,6 +1173,7 @@ class InventoryService:
         lot = InventoryLot(
             movement_id=movement.id,
             product_id=product.id,
+            location_id=central_loc_id,
             lot_code=lot_code,
             received_at=movement_dt,
             unit_cost=unit_cost,
@@ -1107,13 +1188,225 @@ class InventoryService:
             raise HTTPException(status_code=409, detail="Lote ya existe") from e
         self._db.refresh(movement)
 
-        stock_after = self._inventory.stock_for_product_id(product.id)
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=central_loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(movement),
             stock_after=stock_after,
             warning=warning,
         )
+
+    def supplier_return_by_lot(self, payload: SupplierReturnLotCreate) -> MovementResult:
+        if payload.quantity <= 0:
+            raise HTTPException(status_code=422, detail="quantity must be > 0")
+
+        lot = self._db.get(InventoryLot, int(payload.lot_id))
+        if lot is None:
+            raise HTTPException(status_code=404, detail="Lot not found")
+
+        product = self._db.get(Product, int(lot.product_id))
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        lot_loc_id = int(getattr(lot, "location_id", None) or 0)
+        if payload.location_code:
+            expected_loc_id = self._location_id_for_code(payload.location_code)
+            if int(expected_loc_id) != int(lot_loc_id):
+                raise HTTPException(status_code=409, detail="Lot does not belong to selected location")
+
+        if float(lot.qty_remaining or 0) < float(payload.quantity):
+            raise HTTPException(status_code=409, detail="Insufficient stock in selected lot")
+
+        movement_dt = self._movement_datetime(payload.movement_date)
+        raw_note = (payload.note or "").strip()
+        base_note = raw_note or "Devolución a proveedor"
+        note = f"{base_note} lot_code={lot.lot_code}"
+
+        movement = InventoryMovement(
+            product_id=int(lot.product_id),
+            location_id=lot_loc_id,
+            type="return_supplier",
+            quantity=-float(payload.quantity),
+            unit_cost=float(lot.unit_cost or 0),
+            unit_price=None,
+            movement_date=movement_dt,
+            note=note,
+        )
+        self._inventory.add_movement(movement)
+        self._db.flush()
+
+        lot.qty_remaining = float(lot.qty_remaining) - float(payload.quantity)
+        alloc = MovementAllocation(
+            movement_id=int(movement.id),
+            lot_id=int(lot.id),
+            quantity=float(payload.quantity),
+            unit_cost=float(lot.unit_cost or 0),
+        )
+        self._inventory.add_allocation(alloc)
+
+        self._db.commit()
+        self._db.refresh(movement)
+
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=lot_loc_id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(movement),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
+    def available_lots(self, sku: str, *, location_code: Optional[str] = None) -> list[InventoryLot]:
+        product = self._get_product(sku)
+        loc_id: Optional[int] = None
+        if location_code:
+            loc_id = self._location_id_for_code(location_code)
+        return self._inventory.fifo_lots_for_product_id(product.id, location_id=loc_id)
+
+    def transfer(self, payload: TransferCreate) -> TransferResult:
+        if not payload.lines:
+            raise HTTPException(status_code=422, detail="lines is required")
+
+        to_code = (payload.to_location_code or "").strip()
+        if not to_code:
+            raise HTTPException(status_code=422, detail="to_location_code is required")
+
+        movement_dt = self._movement_datetime(payload.movement_date)
+        central_loc_id = self._central_location_id()
+        to_loc_id = self._location_id_for_code(to_code)
+        if to_loc_id == central_loc_id:
+            raise HTTPException(status_code=422, detail="to_location_code must be different from CENTRAL")
+
+        results: list[TransferLineResult] = []
+
+        try:
+            for line in payload.lines:
+                sku = (line.sku or "").strip()
+                if not sku:
+                    continue
+                qty = float(line.quantity or 0)
+                if qty <= 0:
+                    raise HTTPException(status_code=422, detail=f"quantity must be > 0 for SKU {sku}")
+
+                product = self._get_product(sku)
+
+                stock_before = self._inventory.stock_for_product_id(product.id, location_id=central_loc_id)
+                if stock_before < qty:
+                    if float(stock_before or 0) <= 0:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"No hay stock en el almacén CENTRAL para {sku}.",
+                        )
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Stock insuficiente en el almacén CENTRAL para {sku}. "
+                            f"Disponible: {float(stock_before):g}. Solicitado: {float(qty):g}."
+                        ),
+                    )
+
+                note = payload.note
+                if note:
+                    note = f"Transfer CENTRAL->{to_code}: {note}"
+                else:
+                    note = f"Transfer CENTRAL->{to_code}"
+
+                mv_out = InventoryMovement(
+                    product_id=product.id,
+                    location_id=central_loc_id,
+                    type="transfer_out",
+                    quantity=-qty,
+                    unit_cost=None,
+                    unit_price=None,
+                    movement_date=movement_dt,
+                    note=note,
+                )
+                self._inventory.add_movement(mv_out)
+                self._db.flush()
+
+                self._consume_fifo(product.id, central_loc_id, mv_out.id, qty)
+                self._db.flush()
+
+                alloc_rows = list(
+                    self._db.execute(
+                        select(
+                            MovementAllocation.quantity,
+                            MovementAllocation.unit_cost,
+                            InventoryLot.lot_code,
+                            InventoryLot.received_at,
+                        )
+                        .select_from(MovementAllocation)
+                        .join(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
+                        .where(MovementAllocation.movement_id == mv_out.id)
+                        .order_by(InventoryLot.received_at, InventoryLot.id)
+                    ).all()
+                )
+
+                in_ids: list[int] = []
+                for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
+                    src_recv_dt = src_received_at
+                    if src_recv_dt is None:
+                        src_recv_dt = movement_dt
+
+                    recv_iso = None
+                    try:
+                        recv_iso = src_recv_dt.isoformat()
+                    except Exception:
+                        recv_iso = None
+
+                    mv_in_note = f"Transfer in from CENTRAL"
+                    if src_lot_code:
+                        mv_in_note = mv_in_note + f" lot={src_lot_code}"
+                    if recv_iso:
+                        mv_in_note = mv_in_note + f" received_at={recv_iso}"
+                    if payload.note:
+                        mv_in_note = mv_in_note + f"; {payload.note}"
+
+                    mv_in = InventoryMovement(
+                        product_id=product.id,
+                        location_id=to_loc_id,
+                        type="transfer_in",
+                        quantity=float(a_qty or 0),
+                        unit_cost=float(a_unit_cost or 0),
+                        unit_price=None,
+                        movement_date=movement_dt,
+                        note=mv_in_note,
+                    )
+                    self._inventory.add_movement(mv_in)
+                    self._db.flush()
+
+                    base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{movement_dt:%y%m%d%H%M%S}-{mv_in.id}"
+                    lot_code = self._unique_lot_code(base_code)
+                    lot = InventoryLot(
+                        movement_id=mv_in.id,
+                        product_id=product.id,
+                        location_id=to_loc_id,
+                        lot_code=lot_code,
+                        received_at=src_recv_dt,
+                        unit_cost=float(a_unit_cost or 0),
+                        qty_received=float(a_qty or 0),
+                        qty_remaining=float(a_qty or 0),
+                    )
+                    self._inventory.add_lot(lot)
+                    in_ids.append(int(mv_in.id))
+
+                results.append(
+                    TransferLineResult(
+                        sku=product.sku,
+                        quantity=qty,
+                        movements_out=[int(mv_out.id)],
+                        movements_in=in_ids,
+                    )
+                )
+
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+        except Exception as e:
+            self._db.rollback()
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+        return TransferResult(to_location_code=to_code, lines=results)
 
     def sale(self, payload: SaleCreate) -> MovementResult:
         if payload.quantity <= 0:
@@ -1130,12 +1423,17 @@ class InventoryService:
 
         movement_dt = self._movement_datetime(payload.movement_date)
 
-        stock_before = self._inventory.stock_for_product_id(product.id)
+        loc_id = self._default_pos_location_id()
+        if payload.location_code:
+            loc_id = self._location_id_for_code(payload.location_code)
+
+        stock_before = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         if stock_before < payload.quantity:
             raise HTTPException(status_code=409, detail="Insufficient stock")
 
         movement = InventoryMovement(
             product_id=product.id,
+            location_id=loc_id,
             type="sale",
             quantity=-payload.quantity,
             unit_cost=None,
@@ -1146,11 +1444,11 @@ class InventoryService:
         self._inventory.add_movement(movement)
 
         self._db.flush()
-        self._consume_fifo(product.id, movement.id, payload.quantity)
+        self._consume_fifo(product.id, loc_id, movement.id, payload.quantity)
         self._db.commit()
         self._db.refresh(movement)
 
-        stock_after = self._inventory.stock_for_product_id(product.id)
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(movement),
@@ -1168,6 +1466,10 @@ class InventoryService:
             payload.note and str(payload.note).startswith("Inventario inicial")
         )
 
+        loc_id = self._central_location_id()
+        if payload.location_code:
+            loc_id = self._location_id_for_code(payload.location_code)
+
         if payload.quantity_delta > 0:
             if payload.unit_cost is None:
                 raise HTTPException(
@@ -1178,6 +1480,7 @@ class InventoryService:
 
             movement = InventoryMovement(
                 product_id=product.id,
+                location_id=loc_id,
                 type="adjustment",
                 quantity=payload.quantity_delta,
                 unit_cost=payload.unit_cost,
@@ -1196,6 +1499,7 @@ class InventoryService:
             lot = InventoryLot(
                 movement_id=movement.id,
                 product_id=product.id,
+                location_id=loc_id,
                 lot_code=lot_code,
                 received_at=received_at_dt,
                 unit_cost=payload.unit_cost,
@@ -1211,12 +1515,13 @@ class InventoryService:
             self._db.refresh(movement)
         else:
             qty_to_remove = -payload.quantity_delta
-            stock_before = self._inventory.stock_for_product_id(product.id)
+            stock_before = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
             if stock_before < qty_to_remove:
                 raise HTTPException(status_code=409, detail="Insufficient stock")
 
             movement = InventoryMovement(
                 product_id=product.id,
+                location_id=loc_id,
                 type="adjustment",
                 quantity=payload.quantity_delta,
                 unit_cost=None,
@@ -1226,11 +1531,11 @@ class InventoryService:
             )
             self._inventory.add_movement(movement)
             self._db.flush()
-            self._consume_fifo(product.id, movement.id, qty_to_remove)
+            self._consume_fifo(product.id, loc_id, movement.id, qty_to_remove)
             self._db.commit()
             self._db.refresh(movement)
 
-        stock_after = self._inventory.stock_for_product_id(product.id)
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(movement),
@@ -1238,9 +1543,10 @@ class InventoryService:
             warning=warning,
         )
 
-    def stock(self, sku: str) -> StockRead:
+    def stock(self, sku: str, location_code: Optional[str] = None) -> StockRead:
         product = self._get_product(sku)
-        qty = self._inventory.stock_for_product_id(product.id)
+        loc_id = self._central_location_id() if not location_code else self._location_id_for_code(location_code)
+        qty = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         min_stock = float(product.min_stock or 0)
         return StockRead(
             sku=product.sku,
@@ -1252,14 +1558,30 @@ class InventoryService:
             lead_time_days=int(getattr(product, "lead_time_days", 0) or 0),
         )
 
-    def stock_list(self, query: str = "") -> list[StockRead]:
-        base_rows = list(self._inventory.stock_list(query=query))
+    def stock_for_location(self, sku: str, location_code: str) -> float:
+        product = self._get_product(sku)
+        loc_id = self._location_id_for_code(location_code)
+        return self._inventory.stock_for_product_id(product.id, location_id=loc_id)
+
+    def stock_list(self, query: str = "", location_code: Optional[str] = None) -> list[StockRead]:
+        loc_id = None
+        if location_code:
+            loc_id = self._location_id_for_code(location_code)
+        base_rows = list(self._inventory.stock_list(query=query, location_id=loc_id))
         skus = [sku for sku, *_ in base_rows if sku]
 
         avg_daily_by_sku: dict[str, float] = {}
         if skus:
             now_dt = datetime.now(timezone.utc)
             start = now_dt - timedelta(days=30)
+            where_parts = [
+                InventoryMovement.type == "sale",
+                InventoryMovement.movement_date >= start,
+                Product.sku.in_(skus),
+            ]
+            if loc_id is not None:
+                where_parts.append(InventoryMovement.location_id == loc_id)
+
             rows = self._db.execute(
                 select(
                     Product.sku,
@@ -1268,11 +1590,7 @@ class InventoryService:
                 .select_from(InventoryMovement)
                 .join(Product, Product.id == InventoryMovement.product_id)
                 .where(
-                    and_(
-                        InventoryMovement.type == "sale",
-                        InventoryMovement.movement_date >= start,
-                        Product.sku.in_(skus),
-                    )
+                    and_(*where_parts)
                 )
                 .group_by(Product.sku)
             ).all()

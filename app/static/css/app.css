@@ -215,9 +215,23 @@ th, td {
 
 .nowrap { white-space: nowrap; }
 
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-compact th, .table-compact td {
+  padding: 6px;
+}
+
 .overflow-x-auto { overflow-x: auto; }
 
 .table-fixed { table-layout: fixed; }
+
+ .htmx-indicator { display: none; }
+ .htmx-request .htmx-indicator { display: inline-block; }
+ .htmx-request.htmx-indicator { display: inline-block; }
 
 .w-full { width: 100%; }
 

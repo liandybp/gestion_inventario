@@ -7,6 +7,7 @@
       </div>
 
       <form hx-post="/ui/product/{{ product.sku }}/update-inventory" hx-target="#tab-content" hx-swap="innerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
+        <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
         <div class="row"><label>SKU</label><input name="new_sku" value="{{ product.sku }}" /></div>
         <div class="row"><label>Nombre</label><input name="name" value="{{ product.name }}" required /></div>
         <div class="row"><label>Unidad</label><input name="unit_of_measure" value="{{ product.unit_of_measure or '' }}" /></div>

@@ -52,6 +52,22 @@ class PurchaseCreate(BaseModel):
     movement_date: Optional[datetime] = None
     lot_code: Optional[str] = None
     note: Optional[str] = None
+    location_code: Optional[str] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("quantity must be greater than 0")
+        return v
+
+
+class SupplierReturnLotCreate(BaseModel):
+    lot_id: int
+    quantity: float
+    movement_date: Optional[datetime] = None
+    note: Optional[str] = None
+    location_code: Optional[str] = None
 
     @field_validator("quantity")
     @classmethod
@@ -67,6 +83,7 @@ class SaleCreate(BaseModel):
     unit_price: Optional[float] = None
     movement_date: Optional[datetime] = None
     note: Optional[str] = None
+    location_code: Optional[str] = None
 
     @field_validator("quantity")
     @classmethod
@@ -82,11 +99,13 @@ class AdjustmentCreate(BaseModel):
     unit_cost: Optional[float] = None
     movement_date: Optional[datetime] = None
     note: Optional[str] = None
+    location_code: Optional[str] = None
 
 
 class MovementRead(BaseModel):
     id: int
     product_id: int
+    location_id: Optional[int] = None
     type: str
     quantity: float
     unit_cost: Optional[float]
@@ -101,6 +120,30 @@ class MovementResult(BaseModel):
     movement: MovementRead
     stock_after: float
     warning: Optional[str] = None
+
+
+class TransferLineCreate(BaseModel):
+    sku: str
+    quantity: float
+
+
+class TransferCreate(BaseModel):
+    to_location_code: str
+    lines: list[TransferLineCreate]
+    movement_date: Optional[datetime] = None
+    note: Optional[str] = None
+
+
+class TransferLineResult(BaseModel):
+    sku: str
+    quantity: float
+    movements_out: list[int]
+    movements_in: list[int]
+
+
+class TransferResult(BaseModel):
+    to_location_code: str
+    lines: list[TransferLineResult]
 
 
 class StockRead(BaseModel):

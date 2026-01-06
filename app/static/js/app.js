@@ -23,6 +23,166 @@
     clearTarget(btn.getAttribute('data-clear-target'));
   }
 
+  function saveReusableNote(note) {
+    if (!note || !note.trim()) return;
+    const trimmed = note.trim();
+    try {
+      let notes = JSON.parse(localStorage.getItem('reusable_notes') || '[]');
+      if (!notes.includes(trimmed)) {
+        notes.unshift(trimmed);
+        notes = notes.slice(0, 20);
+        localStorage.setItem('reusable_notes', JSON.stringify(notes));
+      }
+    } catch (e) {}
+  }
+
+  function getReusableNotes() {
+    try {
+      return JSON.parse(localStorage.getItem('reusable_notes') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function enhanceNoteInputs(root) {
+    const noteInputs = (root || document).querySelectorAll('input[name="note"]');
+    noteInputs.forEach((input) => {
+      if (input.hasAttribute('data-note-enhanced')) return;
+      input.setAttribute('data-note-enhanced', 'true');
+      
+      let datalist = input.list;
+      if (!datalist) {
+        const listId = 'reusable-notes-list-' + Math.random().toString(36).substr(2, 9);
+        datalist = document.createElement('datalist');
+        datalist.id = listId;
+        input.setAttribute('list', listId);
+        input.parentElement.appendChild(datalist);
+      }
+      
+      const notes = getReusableNotes();
+      datalist.innerHTML = '';
+      notes.forEach((note) => {
+        const option = document.createElement('option');
+        option.value = note;
+        datalist.appendChild(option);
+      });
+      
+      const form = input.closest('form');
+      if (form && !form.hasAttribute('data-note-save-listener')) {
+        form.setAttribute('data-note-save-listener', 'true');
+        form.addEventListener('submit', () => {
+          const noteVal = input.value;
+          if (noteVal) saveReusableNote(noteVal);
+        });
+      }
+    });
+  }
+
+  function debugReturnLots(root) {
+    let returnSkuInput = null;
+    if (root && typeof root.querySelector === 'function') {
+      returnSkuInput = root.querySelector('#return-sku-input');
+    }
+    if (!returnSkuInput) {
+      returnSkuInput = document.getElementById('return-sku-input');
+    }
+    if (returnSkuInput && !returnSkuInput.hasAttribute('data-debug-listener')) {
+      returnSkuInput.setAttribute('data-debug-listener', 'true');
+      returnSkuInput.addEventListener('change', () => {
+        // debug hook (no-op)
+      });
+    }
+  }
+
+  function onTransferProductChange(evt) {
+    const input = evt.target;
+    if (!input || input.name !== 'product') return;
+    
+    const row = input.closest('tr');
+    if (!row) return;
+    
+    const qtyInput = row.querySelector('input[name="quantity"]');
+    if (!qtyInput) return;
+    
+    let sku = (input.value || '').trim();
+    if (sku.includes(' - ')) {
+      sku = sku.split(' - ')[0].trim();
+    }
+    if (!sku) return;
+    
+    fetch(`/ui/transfers/stock/${encodeURIComponent(sku)}`)
+      .then(res => res.text())
+      .then(stock => {
+        qtyInput.value = stock || '0';
+      })
+      .catch(() => {
+        qtyInput.value = '0';
+      });
+  }
+
+  function onTransferAddLine(evt) {
+    const btn = evt.target.closest('[data-transfer-add-line]');
+    if (!btn) return;
+    evt.preventDefault();
+
+    const container = btn.closest('form') || document;
+    const tbody = container.querySelector('#transfer-lines');
+    const tmpl = container.querySelector('#transfer-line-template');
+    if (!tbody || !tmpl) return;
+    const row = tmpl.content.firstElementChild;
+    if (!row) return;
+    const clone = row.cloneNode(true);
+    tbody.appendChild(clone);
+    const firstInput = clone.querySelector('input[name="product"]');
+    if (firstInput) {
+      try { firstInput.focus(); } catch (e) {}
+    }
+  }
+
+  function onTransferRemoveLine(evt) {
+    const btn = evt.target.closest('[data-transfer-remove-line]');
+    if (!btn) return;
+    evt.preventDefault();
+
+    const row = btn.closest('tr');
+    if (!row) return;
+    const tbody = row.parentElement;
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length <= 1) {
+      const prod = row.querySelector('input[name="product"]');
+      const qty = row.querySelector('input[name="quantity"]');
+      if (prod) prod.value = '';
+      if (qty) qty.value = '';
+      return;
+    }
+    row.remove();
+  }
+
+  function onTransferToggleEdit(evt) {
+    const btn = evt.target.closest('[data-transfer-toggle-edit]');
+    if (!btn) return;
+    evt.preventDefault();
+
+    const row = btn.closest('tr');
+    if (!row) return;
+
+    const fields = row.querySelectorAll('input[name="product"], input[name="quantity"]');
+    const anyEnabled = Array.from(fields).some((el) => !el.disabled);
+    if (anyEnabled) {
+      fields.forEach((el) => { el.disabled = true; });
+      btn.textContent = 'Editar';
+    } else {
+      fields.forEach((el) => { el.disabled = false; });
+      btn.textContent = 'Bloquear';
+      const first = row.querySelector('input[name="product"], input[name="quantity"]');
+      if (first) {
+        try { first.focus(); } catch (e) {}
+      }
+    }
+  }
+
   function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -314,12 +474,18 @@
     renderMonthlyChart(root);
     renderMonthlySalesPieChart(root);
     renderMonthlySalesDailyLineChart(root);
+    enhanceNoteInputs(root);
+    debugReturnLots(root);
   }
 
   document.addEventListener('click', onTabClick);
   document.addEventListener('click', onClearClick);
   document.addEventListener('click', onModalClose);
   document.addEventListener('click', onModalOverlayClick);
+  document.addEventListener('click', onTransferAddLine);
+  document.addEventListener('click', onTransferRemoveLine);
+  document.addEventListener('click', onTransferToggleEdit);
+  document.addEventListener('change', onTransferProductChange);
 
   document.addEventListener('htmx:afterSwap', (evt) => {
     const target = evt.target;

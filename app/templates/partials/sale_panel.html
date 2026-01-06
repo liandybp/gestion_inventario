@@ -15,6 +15,14 @@
       <h3 style="margin-top:0;">Venta por escáner</h3>
       <p class="muted" style="margin-top:-6px;">Escanea el código y presiona Enter.</p>
       <form hx-post="/ui/sale/barcode" hx-target="#sale-panel" hx-swap="outerHTML">
+        <div class="row">
+          <label>Ubicación</label>
+          <select name="location_code">
+            {% for loc in pos_locations %}
+              <option value="{{ loc['code'] }}" {% if (sale_location_code or default_sale_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="row"><label>Barcode</label><input name="barcode" placeholder="Escanea aquí" autocomplete="off" autofocus required /></div>
         <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
         <div class="row"><label>Precio unitario</label><input name="unit_price" type="number" step="0.0001" min="0" /></div>
@@ -27,6 +35,14 @@
     <div class="card" style="height:100%; display:flex; flex-direction:column;">
       <h3 style="margin-top:0;">Venta manual</h3>
       <form hx-post="/ui/sale" hx-target="#sale-panel" hx-swap="outerHTML">
+        <div class="row">
+          <label>Ubicación</label>
+          <select name="location_code">
+            {% for loc in pos_locations %}
+              <option value="{{ loc['code'] }}" {% if (sale_location_code or default_sale_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="row">
           <label>Artículo</label>
           <input name="product" list="product-options" placeholder="Busca por nombre o SKU" required

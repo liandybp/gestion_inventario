@@ -12,21 +12,29 @@ Versión actual: `0.1.6` (ver `VERSION`).
   - Imagen (opcional) y archivos en `app/static/uploads`.
 - **Inventario**
   - Movimientos y control de stock (lotes + FIFO).
+  - Soporte multi-ubicación: **CENTRAL** (almacén) y puntos de venta (**POS**) configurables.
+  - Selector de **Ubicación** en Inventario (filtra el stock por ubicación).
   - Edición de producto desde la pestaña Inventario.
   - Ajuste de **stock actual** desde el modal de edición (genera movimiento `adjustment` para trazabilidad).
   - Opción **Inventario inicial** al ajustar stock para que ese lote se consuma primero en FIFO.
+  - **Devolución a proveedor (por lote)**: permite seleccionar el lote específico a devolver para preservar el costo de adquisición.
   - Tabla de inventario con:
     - **Costo**: mínimo histórico de compras.
     - **Precio venta**: precio de venta por defecto.
 - **Ventas**
   - Venta por escáner y venta manual.
+  - Selector de **Ubicación (POS)**: las ventas descuentan stock en la ubicación seleccionada.
 - **Documentos (Factura / Presupuesto)**
   - Carrito temporal en sesión.
   - Vista previa.
   - Emisión y descarga/impresión en PDF.
+  - Selector de **Ubicación (POS)** al emitir.
   - Edición de documentos emitidos.
   - Eliminación de documentos emitidos.
   - **Importante:** emitir factura/presupuesto **no registra** una venta ni movimiento de inventario.
+- **Transferencias (Envíos)**
+  - Transferencias atómicas **CENTRAL → POS** con múltiples SKUs en una sola operación.
+  - Preserva FIFO/costos al mover lotes a POS (sin estados de tránsito).
 - **Clientes**
   - Alta/edición/listado.
   - Ficha de cliente con métricas y documentos.
@@ -133,6 +141,10 @@ La app usa un archivo `.conf` (INI) para parámetros de negocio:
   - `default_type` (`F` o `P`)
   - `enabled_types` (ej. `F,P`)
   - `invoice_label`, `quote_label`
+- `[locations]`:
+  - `central = CENTRAL:Almacén Central`
+  - `pos = POS1:Punto de venta ...` (se pueden definir múltiples POS)
+  - `default_pos = POS1`
 
 Edita el archivo:
 

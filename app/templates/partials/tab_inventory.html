@@ -6,15 +6,59 @@
 
   <div class="card mt-12">
     <div class="row">
+      <label>Ubicación</label>
+      <select id="inventory_location_code" name="location_code">
+        {% for loc in locations or [] %}
+          <option value="{{ loc['code'] }}" {% if (selected_location_code or default_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row">
       <label>Buscar</label>
       <input id="inventory_query" name="query" placeholder="Buscar por SKU o nombre" />
     </div>
 
     <div id="stock-table"
          hx-get="/ui/stock-table"
-         hx-trigger="load, keyup changed delay:300ms from:#inventory_query"
-         hx-include="#inventory_query"
+         hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, stockTableRefresh from:body"
+         hx-include="#inventory_query,#inventory_location_code"
          hx-swap="innerHTML">
+    </div>
+
+    <div class="mt-12">
+      <h3 class="m-0">Devolución a proveedor</h3>
+      <form class="mt-10" hx-post="/ui/movements/return-supplier" hx-target="#tab-content" hx-swap="innerHTML" hx-include="#inventory_location_code">
+        <div class="grid grid-3">
+          <div class="row">
+            <label>Producto (SKU o nombre)</label>
+            <input id="return-sku-input" name="sku" list="return-products-list" placeholder="Buscar por SKU o nombre" required />
+            <datalist id="return-products-list">
+              {% for p in product_options or [] %}
+                <option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="row">
+            <label>Lote</label>
+            <div id="return-supplier-lots"
+                 hx-get="/ui/return-supplier/lots"
+                 hx-trigger="load, change from:#return-sku-input delay:300ms"
+                 hx-include="#return-sku-input, #inventory_location_code"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+            </div>
+          </div>
+          <div class="row">
+            <label>Cantidad</label>
+            <input name="quantity" type="number" step="0.0001" min="0" value="1" required />
+          </div>
+        </div>
+        <div class="row mt-10">
+          <label>Nota (opcional)</label>
+          <input name="note" placeholder="Motivo / proveedor" />
+        </div>
+        <button type="submit">Registrar devolución</button>
+      </form>
     </div>
 
     <div id="inventory-edit" class="mt-12"></div>

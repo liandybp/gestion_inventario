@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.business_config import load_business_config
 from app.deps import session_dep
-from app.models import Customer, Product, SalesDocument, SalesDocumentItem
+from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
 from app.security import get_current_user_from_session
 from app.services.product_service import ProductService
@@ -88,6 +88,7 @@ def _get_draft(request: Request) -> dict:
         return {}
     return {
         "doc_type": str(draft.get("doc_type") or "").strip() or None,
+        "location_code": str(draft.get("location_code") or "").strip() or None,
         "client_name": str(draft.get("client_name") or "").strip() or None,
         "client_id": str(draft.get("client_id") or "").strip() or None,
         "client_address": str(draft.get("client_address") or "").strip() or None,
@@ -99,6 +100,7 @@ def _set_draft(
     request: Request,
     *,
     doc_type: Optional[str] = None,
+    location_code: Optional[str] = None,
     client_name: Optional[str] = None,
     client_id: Optional[str] = None,
     client_address: Optional[str] = None,
@@ -107,6 +109,7 @@ def _set_draft(
     try:
         request.session["sales_doc_draft"] = {
             "doc_type": (doc_type or "").strip() or None,
+            "location_code": (location_code or "").strip() or None,
             "client_name": (client_name or "").strip() or None,
             "client_id": (client_id or "").strip() or None,
             "client_address": (client_address or "").strip() or None,
@@ -133,6 +136,7 @@ def _recent_documents(db: Session, limit: int = 10) -> list[SalesDocument]:
 def sales_doc_preview(
     request: Request,
     doc_type: str = Form(""),
+    location_code: str = Form(""),
     client_name: str = Form(""),
     client_id: str = Form(""),
     client_address: str = Form(""),
@@ -146,6 +150,9 @@ def sales_doc_preview(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+
     client_name = (client_name or "").strip()
     client_id = (client_id or "").strip()
     client_address = (client_address or "").strip() or None
@@ -157,6 +164,7 @@ def sales_doc_preview(
     _set_draft(
         request,
         doc_type=doc_type_norm,
+        location_code=selected_location_code,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -176,6 +184,7 @@ def sales_doc_preview(
         name="partials/sales_document_preview.html",
         context={
             "doc_type": doc_type_norm,
+            "location_code": selected_location_code,
             "doc_label": doc_label,
             "client_name": client_name,
             "client_id": client_id,
@@ -208,6 +217,13 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     draft = _get_draft(request)
 
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -215,6 +231,8 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
             "customers": customers,
@@ -353,6 +371,15 @@ async def sales_doc_update(
     cart = _get_cart(request)
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    draft = _get_draft(request)
+
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -360,8 +387,12 @@ async def sales_doc_update(
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
+            "customers": customers,
+            "draft": draft,
             "message": f"{doc_label} actualizada: {doc.code}",
             "message_class": "ok",
             "issued_doc": doc,
@@ -423,6 +454,7 @@ def sales_doc_cart_add(
     quantity: str = Form("1"),
     unit_price: str = Form(""),
     doc_type: str = Form(""),
+    location_code: str = Form(""),
     client_name: str = Form(""),
     client_id: str = Form(""),
     client_address: str = Form(""),
@@ -437,9 +469,13 @@ def sales_doc_cart_add(
         doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
         if doc_type_norm not in ("F", "P"):
             doc_type_norm = "F"
+
+        default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+        selected_location_code = (location_code or "").strip() or default_doc_location_code
         _set_draft(
             request,
             doc_type=doc_type_norm,
+            location_code=selected_location_code,
             client_name=client_name,
             client_id=client_id,
             client_address=client_address,
@@ -474,6 +510,11 @@ def sales_doc_cart_add(
             cart = _get_cart(request)
             customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
             draft = _get_draft(request)
+            pos_locations = [
+                {"code": loc.code, "name": loc.name}
+                for loc in (config.locations.pos or [])
+                if getattr(loc, "code", None)
+            ]
             return templates.TemplateResponse(
                 request=request,
                 name="partials/sales_document_panel.html",
@@ -481,6 +522,8 @@ def sales_doc_cart_add(
                     "sales_doc_config": config.sales_documents.model_dump(),
                     "currency": config.currency.model_dump(),
                     "issuer": config.issuer.model_dump(),
+                    "pos_locations": pos_locations,
+                    "default_doc_location_code": default_doc_location_code,
                     "cart": cart,
                     "recent_documents": _recent_documents(db, limit=10),
                     "customers": customers,
@@ -510,6 +553,12 @@ def sales_doc_cart_add(
         customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
         draft = _get_draft(request)
 
+        pos_locations = [
+            {"code": loc.code, "name": loc.name}
+            for loc in (config.locations.pos or [])
+            if getattr(loc, "code", None)
+        ]
+
         return templates.TemplateResponse(
             request=request,
             name="partials/sales_document_panel.html",
@@ -517,6 +566,8 @@ def sales_doc_cart_add(
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
                 "issuer": config.issuer.model_dump(),
+                "pos_locations": pos_locations,
+                "default_doc_location_code": default_doc_location_code,
                 "cart": cart,
                 "recent_documents": _recent_documents(db, limit=10),
                 "customers": customers,
@@ -529,6 +580,12 @@ def sales_doc_cart_add(
         cart = _get_cart(request)
         customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
         draft = _get_draft(request)
+        pos_locations = [
+            {"code": loc.code, "name": loc.name}
+            for loc in (config.locations.pos or [])
+            if getattr(loc, "code", None)
+        ]
+        default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
         return templates.TemplateResponse(
             request=request,
             name="partials/sales_document_panel.html",
@@ -536,6 +593,8 @@ def sales_doc_cart_add(
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
                 "issuer": config.issuer.model_dump(),
+                "pos_locations": pos_locations,
+                "default_doc_location_code": default_doc_location_code,
                 "cart": cart,
                 "recent_documents": _recent_documents(db, limit=10),
                 "customers": customers,
@@ -551,6 +610,7 @@ def sales_doc_cart_remove(
     request: Request,
     index: int = Form(...),
     doc_type: str = Form(""),
+    location_code: str = Form(""),
     client_name: str = Form(""),
     client_id: str = Form(""),
     client_address: str = Form(""),
@@ -562,9 +622,13 @@ def sales_doc_cart_remove(
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
+
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
     _set_draft(
         request,
         doc_type=doc_type_norm,
+        location_code=selected_location_code,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -579,6 +643,12 @@ def sales_doc_cart_remove(
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     draft = _get_draft(request)
 
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -586,6 +656,8 @@ def sales_doc_cart_remove(
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
             "customers": customers,
@@ -598,6 +670,7 @@ def sales_doc_cart_remove(
 def sales_doc_cart_clear(
     request: Request,
     doc_type: str = Form(""),
+    location_code: str = Form(""),
     client_name: str = Form(""),
     client_id: str = Form(""),
     client_address: str = Form(""),
@@ -609,9 +682,13 @@ def sales_doc_cart_clear(
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
+
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
     _set_draft(
         request,
         doc_type=doc_type_norm,
+        location_code=selected_location_code,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -623,6 +700,11 @@ def sales_doc_cart_clear(
 
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     draft = _get_draft(request)
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -630,6 +712,8 @@ def sales_doc_cart_clear(
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": _recent_documents(db, limit=10),
             "customers": customers,
@@ -642,6 +726,7 @@ def sales_doc_cart_clear(
 def sales_doc_issue(
     request: Request,
     doc_type: str = Form(""),
+    location_code: str = Form(""),
     client_name: str = Form(""),
     client_id: str = Form(""),
     client_address: str = Form(""),
@@ -653,6 +738,9 @@ def sales_doc_issue(
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
+
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
 
     client_name = (client_name or "").strip()
     client_id = (client_id or "").strip()
@@ -677,6 +765,10 @@ def sales_doc_issue(
     max_seq = db.scalar(select(func.max(SalesDocument.seq)).where(SalesDocument.year_month == year_month))
     seq = int(max_seq or 0) + 1
     code = f"{doc_type_norm}{yyyymmdd}{seq:04d}"
+
+    loc_id = db.scalar(select(Location.id).where(Location.code == selected_location_code))
+    if loc_id is None:
+        raise HTTPException(status_code=409, detail=f"Unknown location_code: {selected_location_code}")
 
     issuer_address_parts = [
         config.issuer.address,
@@ -706,6 +798,7 @@ def sales_doc_issue(
         )
 
     doc = SalesDocument(
+        location_id=int(loc_id),
         customer_id=customer.id,
         doc_type=doc_type_norm,
         year_month=year_month,
@@ -746,6 +839,12 @@ def sales_doc_issue(
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
+            "pos_locations": [
+                {"code": loc.code, "name": loc.name}
+                for loc in (config.locations.pos or [])
+                if getattr(loc, "code", None)
+            ],
+            "default_doc_location_code": default_doc_location_code,
             "cart": [],
             "recent_documents": _recent_documents(db, limit=10),
             "customers": list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200))),

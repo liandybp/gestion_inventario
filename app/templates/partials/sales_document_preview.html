@@ -43,6 +43,7 @@
 
   <form hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML" class="mt-12">
     <input type="hidden" name="doc_type" value="{{ doc_type }}" />
+    <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
     <input type="hidden" name="client_name" value="{{ client_name }}" />
     <input type="hidden" name="client_id" value="{{ client_id }}" />
     <input type="hidden" name="client_address" value="{{ client_address or '' }}" />

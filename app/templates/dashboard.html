@@ -7,8 +7,8 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <link rel="stylesheet" href="/static/css/app.css?v=13" />
-    <script src="/static/js/app.js?v=13" defer></script>
+    <link rel="stylesheet" href="/static/css/app.css?v=32" />
+    <script src="/static/js/app.js?v=32" defer></script>
   </head>
   <body>
     <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú">
@@ -42,6 +42,11 @@
             Compras
           </button>
           {% endif %}
+
+          <button class="sidebar-item" id="tab-transfers" aria-selected="false"
+                  hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML">
+            Envíos
+          </button>
           {% endif %}
 
           <button class="sidebar-item" id="tab-sales" aria-selected="{% if user and (user.role or '')|lower == 'operator' %}true{% else %}false{% endif %}"

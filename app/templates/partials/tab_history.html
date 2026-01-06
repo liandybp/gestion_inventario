@@ -23,6 +23,9 @@
           <option value="purchase" {% if type_filter == 'purchase' %}selected{% endif %}>Compra</option>
           <option value="sale" {% if type_filter == 'sale' %}selected{% endif %}>Venta</option>
           <option value="adjustment" {% if type_filter == 'adjustment' %}selected{% endif %}>Ajuste</option>
+          <option value="transfer_out" {% if type_filter == 'transfer_out' %}selected{% endif %}>Envío (salida)</option>
+          <option value="transfer_in" {% if type_filter == 'transfer_in' %}selected{% endif %}>Envío (entrada)</option>
+          <option value="return_supplier" {% if type_filter == 'return_supplier' %}selected{% endif %}>Devolución a proveedor</option>
         </select>
       </div>
       <div>
@@ -67,6 +70,12 @@
               <span class="color-sale">Venta</span>
             {% elif mv.type == 'adjustment' %}
               <span class="color-adjustment">Ajuste</span>
+            {% elif mv.type == 'transfer_out' %}
+              <span>Envío (salida)</span>
+            {% elif mv.type == 'transfer_in' %}
+              <span>Envío (entrada)</span>
+            {% elif mv.type == 'return_supplier' %}
+              <span>Devolución a proveedor</span>
             {% else %}
               {{ mv.type }}
             {% endif %}
@@ -76,7 +85,7 @@
           <td class="text-left">{{ mv.name }}</td>
           <td class="text-center muted">{{ mv.unit_of_measure or '' }}</td>
           <td class="text-right nowrap">
-            {% if mv.type == 'sale' %}
+            {% if mv.type == 'sale' or mv.type == 'transfer_out' or mv.type == 'return_supplier' %}
               {{ "%.2f"|format(mv.quantity|abs) }}
             {% else %}
               {{ "%.2f"|format(mv.quantity) }}

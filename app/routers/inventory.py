@@ -11,7 +11,10 @@ from app.schemas import (
     MovementResult,
     PurchaseCreate,
     SaleCreate,
+    SupplierReturnLotCreate,
     StockRead,
+    TransferCreate,
+    TransferResult,
 )
 from app.security import require_user_api
 from app.services.inventory_service import InventoryService
@@ -38,6 +41,52 @@ def create_purchase(
         entity_id=str(result.movement.id),
         detail={"sku": payload.sku, "quantity": payload.quantity, "unit_cost": payload.unit_cost},
     )
+    return result
+
+
+@router.post("/movements/return-supplier-lot", response_model=MovementResult)
+def create_supplier_return_lot(
+    payload: SupplierReturnLotCreate,
+    user: User = Depends(require_user_api),
+    service: InventoryService = Depends(inventory_service_dep),
+) -> MovementResult:
+    result = service.supplier_return_by_lot(payload)
+    log_event(
+        service.db,
+        user,
+        action="supplier_return_create",
+        entity_type="movement",
+        entity_id=str(result.movement.id),
+        detail={
+            "lot_id": payload.lot_id,
+            "quantity": payload.quantity,
+            "location_code": payload.location_code,
+        },
+    )
+    return result
+
+
+@router.post("/movements/transfer", response_model=TransferResult)
+def create_transfer(
+    payload: TransferCreate,
+    user: User = Depends(require_user_api),
+    service: InventoryService = Depends(inventory_service_dep),
+) -> TransferResult:
+    result = service.transfer(payload)
+    for line in result.lines:
+        for mv_id in (line.movements_out or []) + (line.movements_in or []):
+            log_event(
+                service.db,
+                user,
+                action="transfer_create",
+                entity_type="movement",
+                entity_id=str(mv_id),
+                detail={
+                    "sku": line.sku,
+                    "quantity": float(line.quantity),
+                    "to_location_code": result.to_location_code,
+                },
+            )
     return result
 
 

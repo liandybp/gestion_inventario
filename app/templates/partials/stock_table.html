@@ -18,6 +18,7 @@
   </thead>
   <tbody>
     {% for item in items %}
+      {% if item.quantity > 0 %}
       <tr class="{% if item.needs_restock %}warn{% endif %}">
         <td>{{ item.sku }}</td>
         <td>{{ item.name or '' }}</td>
@@ -31,18 +32,24 @@
           <button type="button"
                   hx-get="/ui/product/{{ item.sku }}/edit-inventory"
                   hx-target="body"
-                  hx-swap="beforeend">Edit</button>
+                  hx-swap="beforeend"
+                  hx-include="#inventory_location_code">Edit</button>
 
           {% if user and (user.role or '')|lower == 'admin' %}
+            {% if deletable_skus and (item.sku in deletable_skus) %}
           <button type="button" class="ml-8 btn-danger"
                   hx-post="/ui/stock/{{ item.sku }}/delete"
                   hx-target="#stock-table"
                   hx-swap="innerHTML"
-                  hx-include="#inventory_query"
+                  hx-include="#inventory_query,#inventory_location_code"
                   hx-confirm="¿Eliminar este artículo? (Solo se permite si no tiene movimientos/lotes)">Del</button>
+            {% else %}
+          <button type="button" class="ml-8 btn-danger" disabled title="No se puede eliminar porque tiene movimientos/lotes registrados.">Del</button>
+            {% endif %}
           {% endif %}
         </td>
       </tr>
+      {% endif %}
     {% endfor %}
   </tbody>
 </table>

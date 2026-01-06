@@ -22,27 +22,34 @@ class InventoryRepository:
     def add_allocation(self, allocation: MovementAllocation) -> None:
         self._db.add(allocation)
 
-    def stock_for_product_id(self, product_id: int) -> float:
-        total = self._db.scalar(
-            select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0)).where(
-                InventoryLot.product_id == product_id
-            )
+    def stock_for_product_id(self, product_id: int, location_id: Optional[int] = None) -> float:
+        stmt = select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0)).where(
+            InventoryLot.product_id == product_id
         )
+        if location_id is not None:
+            stmt = stmt.where(InventoryLot.location_id == location_id)
+        total = self._db.scalar(stmt)
         return float(total or 0)
 
-    def fifo_lots_for_product_id(self, product_id: int) -> list[InventoryLot]:
+    def fifo_lots_for_product_id(self, product_id: int, location_id: Optional[int] = None) -> list[InventoryLot]:
+        stmt = (
+            select(InventoryLot)
+            .where(
+                InventoryLot.product_id == product_id,
+                InventoryLot.qty_remaining > 0,
+            )
+        )
+        if location_id is not None:
+            stmt = stmt.where(InventoryLot.location_id == location_id)
         return list(
             self._db.scalars(
-                select(InventoryLot)
-                .where(
-                    InventoryLot.product_id == product_id,
-                    InventoryLot.qty_remaining > 0,
-                )
-                .order_by(InventoryLot.received_at, InventoryLot.id)
+                stmt.order_by(InventoryLot.received_at, InventoryLot.id)
             )
         )
 
-    def stock_list(self, query: str = "") -> list[tuple[str, str, str, float, float, int, Optional[float], Optional[float]]]:
+    def stock_list(
+        self, query: str = "", location_id: Optional[int] = None
+    ) -> list[tuple[str, str, str, float, float, int, Optional[float], Optional[float]]]:
         q = query.strip()
 
         qty_subq = (
@@ -51,6 +58,16 @@ class InventoryRepository:
             .correlate(Product)
             .scalar_subquery()
         )
+        if location_id is not None:
+            qty_subq = (
+                select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0))
+                .where(
+                    InventoryLot.product_id == Product.id,
+                    InventoryLot.location_id == location_id,
+                )
+                .correlate(Product)
+                .scalar_subquery()
+            )
         min_purchase_cost_subq = (
             select(func.min(InventoryMovement.unit_cost))
             .where(
@@ -93,7 +110,14 @@ class InventoryRepository:
             for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in rows
         ]
 
-    def recent_purchases(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
+    def recent_purchases(
+        self,
+        query: str = "",
+        limit: int = 20,
+        month: Optional[str] = None,
+        year: Optional[int] = None,
+        location_id: Optional[int] = None,
+    ) -> list[tuple]:
         q = query.strip()
         stmt = (
             select(
@@ -114,6 +138,8 @@ class InventoryRepository:
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(limit)
         )
+        if location_id is not None:
+            stmt = stmt.where(InventoryMovement.location_id == location_id)
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
@@ -124,7 +150,14 @@ class InventoryRepository:
             )
         return list(self._db.execute(stmt).all())
 
-    def recent_sales(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
+    def recent_sales(
+        self,
+        query: str = "",
+        limit: int = 20,
+        month: Optional[str] = None,
+        year: Optional[int] = None,
+        location_id: Optional[int] = None,
+    ) -> list[tuple]:
         q = query.strip()
 
         if self._db.get_bind().dialect.name == "postgresql":
@@ -153,6 +186,8 @@ class InventoryRepository:
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(limit)
         )
+        if location_id is not None:
+            stmt = stmt.where(InventoryMovement.location_id == location_id)
         if q:
             like = f"%{q}%"
             stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
@@ -167,6 +202,7 @@ class InventoryRepository:
         self,
         sku: Optional[str] = None,
         movement_type: Optional[str] = None,
+        location_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         limit: int = 100,
@@ -180,6 +216,8 @@ class InventoryRepository:
                     "purchase_create",
                     "sale_create",
                     "adjustment_create",
+                    "transfer_create",
+                    "supplier_return_create",
                 ]),
             )
             .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
@@ -192,6 +230,7 @@ class InventoryRepository:
                 InventoryMovement.id,
                 InventoryMovement.movement_date,
                 InventoryMovement.type,
+                InventoryMovement.location_id,
                 Product.sku,
                 Product.name,
                 Product.unit_of_measure,
@@ -214,6 +253,9 @@ class InventoryRepository:
 
         if movement_type:
             stmt = stmt.where(InventoryMovement.type == movement_type)
+
+        if location_id is not None:
+            stmt = stmt.where(InventoryMovement.location_id == location_id)
 
         if start_date:
             stmt = stmt.where(InventoryMovement.movement_date >= start_date)

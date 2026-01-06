@@ -2,12 +2,21 @@
 
 {% call subcard('Emitir documento', extra_class='h-full') %}
   {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
+  {% set selected_location_code = (draft.location_code or default_doc_location_code or 'POS1') %}
   <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
     <div class="row">
       <label>Tipo</label>
       <select name="doc_type">
         <option value="F" {% if selected_doc_type == 'F' %}selected{% endif %}>F - {{ sales_doc_config.invoice_label }}</option>
         <option value="P" {% if selected_doc_type == 'P' %}selected{% endif %}>P - {{ sales_doc_config.quote_label }}</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Ubicación</label>
+      <select name="location_code">
+        {% for loc in pos_locations %}
+          <option value="{{ loc['code'] }}" {% if selected_location_code == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+        {% endfor %}
       </select>
     </div>
     <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"

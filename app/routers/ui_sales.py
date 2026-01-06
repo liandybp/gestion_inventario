@@ -61,6 +61,7 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
 def sale(
     request: Request,
     product: str = Form(...),
+    location_code: str = Form(""),
     quantity: float = Form(...),
     unit_price: str = Form(""),
     movement_date: Optional[str] = Form(None),
@@ -71,6 +72,10 @@ def sale(
     product_service = ProductService(db)
     user = get_current_user_from_session(db, request)
     sku = extract_sku(product)
+    config = load_business_config()
+    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
+    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_sale_location_code
     try:
         result = service.sale(
             SaleCreate(
@@ -79,6 +84,7 @@ def sale(
                 unit_price=parse_optional_float(unit_price),
                 movement_date=parse_dt(movement_date),
                 note=note or None,
+                location_code=selected_location_code,
             )
         )
         if user is not None:
@@ -101,6 +107,9 @@ def sale(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
         )
@@ -117,6 +126,9 @@ def sale(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
@@ -127,6 +139,7 @@ def sale(
 def sale_barcode(
     request: Request,
     barcode: str = Form(...),
+    location_code: str = Form(""),
     quantity: float = Form(...),
     unit_price: str = Form(""),
     movement_date: Optional[str] = Form(None),
@@ -135,6 +148,10 @@ def sale_barcode(
 ) -> HTMLResponse:
     service = InventoryService(db)
     product_service = ProductService(db)
+    config = load_business_config()
+    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
+    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_sale_location_code
     try:
         sku = barcode_to_sku(db, barcode)
         result = service.sale(
@@ -144,6 +161,7 @@ def sale_barcode(
                 unit_price=parse_optional_float(unit_price),
                 movement_date=parse_dt(movement_date),
                 note=note or None,
+                location_code=selected_location_code,
             )
         )
 
@@ -168,6 +186,9 @@ def sale_barcode(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
             },
         )
     except HTTPException as e:
@@ -183,6 +204,9 @@ def sale_barcode(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
             },
             status_code=e.status_code,
         )

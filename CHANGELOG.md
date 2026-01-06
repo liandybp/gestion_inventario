@@ -4,6 +4,10 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+- feat: inventario multi-ubicación (CENTRAL + POS) con selectores en Inventario/Ventas/Documentos
+- feat: transferencias CENTRAL→POS multi-SKU (atómicas, preservando FIFO/costos)
+- feat: devoluciones a proveedor **por lote** (selección de lote, preserva costo) + filtros en Historial
+
 - d957087 (2026-01-05) feat: update inventory handling to set received date for initial inventory adjustments and improve checkbox styling
 - 71f270c (2026-01-05) feat: enhance stock list with minimum purchase cost and default sale price
 - 0a1d240 (2026-01-05) feat: add initial inventory checkbox and adjust stock handling logic in product edit form
