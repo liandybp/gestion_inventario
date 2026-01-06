@@ -2,6 +2,8 @@
 
 Aplicación web para gestionar inventario, compras, ventas, documentos (facturas/presupuestos) y clientes.
 
+Versión actual: `0.1.6` (ver `VERSION`).
+
 ## Características
 
 - **Productos**
@@ -9,7 +11,13 @@ Aplicación web para gestionar inventario, compras, ventas, documentos (facturas
   - Unidad de medida, coste/venta por defecto.
   - Imagen (opcional) y archivos en `app/static/uploads`.
 - **Inventario**
-  - Movimientos y control de stock.
+  - Movimientos y control de stock (lotes + FIFO).
+  - Edición de producto desde la pestaña Inventario.
+  - Ajuste de **stock actual** desde el modal de edición (genera movimiento `adjustment` para trazabilidad).
+  - Opción **Inventario inicial** al ajustar stock para que ese lote se consuma primero en FIFO.
+  - Tabla de inventario con:
+    - **Costo**: mínimo histórico de compras.
+    - **Precio venta**: precio de venta por defecto.
 - **Ventas**
   - Venta por escáner y venta manual.
 - **Documentos (Factura / Presupuesto)**
@@ -89,6 +97,11 @@ En el arranque, la app asegura usuarios por variables de entorno:
 
 Este proyecto usa tags tipo `vMAJOR.MINOR.PATCH` (ej: `v0.1.0`) y un archivo `VERSION`.
 
+## Changelog
+
+- Ver `CHANGELOG.md`.
+- Nota: si ves cambios en `Unreleased`, significa que hay commits posteriores al último tag.
+
 1) Instala dependencias de desarrollo:
 
 ```bash
@@ -159,6 +172,9 @@ Uploads persistentes:
 
 - **Ventas**:
   - Realiza ventas por escáner o manual.
+- **Inventario**:
+  - Ajusta el **stock actual** desde “Inventario → Edit” (crea un ajuste en el historial).
+  - Marca **Inventario inicial** si estás migrando stock existente y quieres que se consuma primero en FIFO.
 - **Documentos**:
   - Agrega artículos al carrito temporal.
   - Usa **Vista previa**.
