@@ -4,9 +4,16 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+## 0.1.8 (2026-01-07)
+
 - feat: inventario multi-ubicación (CENTRAL + POS) con selectores en Inventario/Ventas/Documentos
 - feat: transferencias CENTRAL→POS multi-SKU (atómicas, preservando FIFO/costos)
+- feat(ui): envíos: edición y eliminación de envíos desde el historial (Edit/Del)
+- feat: envíos: vincular entradas a la salida mediante out_id para edición/borrado consistentes
 - feat: devoluciones a proveedor **por lote** (selección de lote, preserva costo) + filtros en Historial
+
+- fix(ui): ventas: datalist/selector de artículo filtrado por stock disponible en el POS seleccionado
+- fix: ventas: mensaje de stock insuficiente más explícito (incluye ubicación y disponible vs solicitado)
 
 - fix(ui): transfers/envíos: refresco inmediato del tab tras crear envío y limpieza del formulario en éxito
 - fix(ui): transfers/envíos: historial ordenado y tablas más compactas (mejor UX en móvil)

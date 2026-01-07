@@ -2,7 +2,7 @@
 
 Aplicación web para gestionar inventario, compras, ventas, documentos (facturas/presupuestos) y clientes.
 
-Versión actual: `0.1.6` (ver `VERSION`).
+Versión actual: `0.1.8` (ver `VERSION`).
 
 ## Características
 
@@ -39,6 +39,8 @@ Versión actual: `0.1.6` (ver `VERSION`).
   - En éxito, el formulario se limpia y el historial se refresca inmediatamente.
   - Si un envío consume múltiples lotes FIFO, se registran entradas por lote (trazabilidad de costos).
   - Mensajes de error claros cuando no hay stock en el almacén CENTRAL (incluye disponible vs solicitado).
+  - Edición y eliminación de envíos desde el historial (acciones **Edit/Del**) manteniendo consistencia CENTRAL/POS.
+  - Nota: los envíos muy antiguos (creados antes de habilitar esta función) pueden no ser editables/eliminables.
 - **Clientes**
   - Alta/edición/listado.
   - Ficha de cliente con métricas y documentos.
