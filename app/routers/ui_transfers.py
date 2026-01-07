@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -14,10 +14,206 @@ from app.security import get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
+from app.models import InventoryMovement, Product
 
 from .ui_common import dt_to_local_input, ensure_admin, parse_dt, templates
 
 router = APIRouter()
+
+
+@router.get("/movement/transfer/{movement_id}/edit", response_class=HTMLResponse)
+def transfer_edit_form(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    out_id = service._transfer_out_id_for_movement_id(movement_id)
+    mv = db.get(InventoryMovement, out_id)
+    if mv is None or mv.type != "transfer_out":
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+    product = db.get(Product, mv.product_id)
+
+    note_value = ""
+    raw = str(mv.note or "")
+    if ":" in raw:
+        note_value = raw.split(":", 1)[1].strip()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/transfer_edit_form.html",
+        context={
+            "movement": mv,
+            "product_label": f"{product.sku} - {product.name}" if product else "",
+            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "quantity_value": (abs(float(mv.quantity or 0)) if float(mv.quantity or 0) < 0 else float(mv.quantity or 0)),
+            "note_value": note_value,
+        },
+    )
+
+
+@router.post("/movement/transfer/{movement_id}/update", response_class=HTMLResponse)
+def transfer_update(
+    request: Request,
+    movement_id: int,
+    quantity: float = Form(...),
+    movement_date: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    config = load_business_config()
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    central_code = str(config.locations.central.code).strip()
+    product_options = [
+        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+    ]
+
+    try:
+        result = service.update_transfer_shipment(
+            movement_id=movement_id,
+            quantity=float(quantity),
+            movement_date=parse_dt(movement_date),
+            note=note or None,
+        )
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="transfer_update",
+                entity_type="movement",
+                entity_id=str(result.movement.id),
+                detail={"quantity": float(quantity)},
+            )
+
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Envío actualizado",
+                "message_detail": f"Stock en CENTRAL después: {result.stock_after}",
+                "message_class": "ok" if not result.warning else "warn",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": product_options,
+                "pos_locations": pos_locations,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+    except HTTPException as e:
+        user = get_current_user_from_session(db, request)
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Error al actualizar envío",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": product_options,
+                "pos_locations": pos_locations,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+            status_code=e.status_code,
+        )
+
+
+@router.post("/movement/transfer/{movement_id}/delete", response_class=HTMLResponse)
+def transfer_delete(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    config = load_business_config()
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    central_code = str(config.locations.central.code).strip()
+    product_options = [
+        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+    ]
+
+    try:
+        service.delete_transfer_shipment(movement_id)
+
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="transfer_delete",
+                entity_type="movement",
+                entity_id=str(movement_id),
+                detail={},
+            )
+
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Envío eliminado",
+                "message_class": "ok",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": product_options,
+                "pos_locations": pos_locations,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+    except HTTPException as e:
+        user = get_current_user_from_session(db, request)
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Error al eliminar envío",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": product_options,
+                "pos_locations": pos_locations,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+            status_code=e.status_code,
+        )
 
 
 @router.post("/transfers", response_class=HTMLResponse)

@@ -101,37 +101,103 @@
 
   <div class="mt-16"></div>
 
-  <h3>Últimos envíos (entrada)</h3>
+  <h3>Últimos envíos (salida)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-    <table class="w-full table-compact" style="min-width: 900px;">
+    <table class="w-full table-compact" style="min-width: 980px;">
       <thead>
         <tr>
           <th style="width:16%;">Fecha</th>
           <th style="width:9%;">Tipo</th>
           <th style="width:10%;">Usuario</th>
           <th style="width:9%;">SKU</th>
-          <th style="width:26%;">Producto</th>
+          <th style="width:28%;">Producto</th>
           <th style="width:10%;" class="text-right">Cantidad</th>
-          <th style="width:20%;">Nota</th>
+          <th style="width:18%;">Nota</th>
+          <th style="width:10%;">Acciones</th>
         </tr>
       </thead>
       <tbody>
-        {% for mv in recent_transfer_in %}
+        {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_out %}
         <tr>
-          <td class="text-left nowrap">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
-          <td class="text-left">Envío (entrada)</td>
-          <td class="text-left muted">{{ mv.username or '' }}</td>
-          <td class="text-left"><code>{{ mv.sku }}</code></td>
-          <td class="text-left">{{ mv.name }}</td>
-          <td class="text-right nowrap">{{ "%.2f"|format(mv.quantity) }}</td>
-          <td class="text-left muted truncate" title="{{ mv.note or '' }}">{{ mv.note or '' }}</td>
+          <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+          <td class="text-left">Envío (salida)</td>
+          <td class="text-left muted">{{ username or '' }}</td>
+          <td class="text-left"><code>{{ sku }}</code></td>
+          <td class="text-left">{{ name }}</td>
+          <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
+          <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
+          <td class="text-left nowrap">
+            {% if user and (user.role or '')|lower == 'admin' %}
+              <button type="button"
+                      hx-get="/ui/movement/transfer/{{ id }}/edit"
+                      hx-target="body"
+                      hx-swap="beforeend">Edit</button>
+
+              <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                      hx-post="/ui/movement/transfer/{{ id }}/delete"
+                      hx-target="#tab-content"
+                      hx-swap="innerHTML"
+                      hx-confirm="¿Eliminar este envío?">Del</button>
+            {% endif %}
+          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="7" class="muted text-center">No hay envíos registrados.</td>
+          <td colspan="8" class="muted text-center">No hay envíos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  <h3>Últimos envíos (entrada)</h3>
+  <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+    <table class="w-full table-compact" style="min-width: 980px;">
+      <thead>
+        <tr>
+          <th style="width:16%;">Fecha</th>
+          <th style="width:9%;">Tipo</th>
+          <th style="width:10%;">Usuario</th>
+          <th style="width:9%;">SKU</th>
+          <th style="width:28%;">Producto</th>
+          <th style="width:10%;" class="text-right">Cantidad</th>
+          <th style="width:18%;">Nota</th>
+          <th style="width:10%;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_in %}
+        <tr>
+          <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+          <td class="text-left">Envío (entrada)</td>
+          <td class="text-left muted">{{ username or '' }}</td>
+          <td class="text-left"><code>{{ sku }}</code></td>
+          <td class="text-left">{{ name }}</td>
+          <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
+          <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
+          <td class="text-left nowrap">
+            {% if user and (user.role or '')|lower == 'admin' %}
+              <button type="button"
+                      hx-get="/ui/movement/transfer/{{ id }}/edit"
+                      hx-target="body"
+                      hx-swap="beforeend">Edit</button>
+
+              <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                      hx-post="/ui/movement/transfer/{{ id }}/delete"
+                      hx-target="#tab-content"
+                      hx-swap="innerHTML"
+                      hx-confirm="¿Eliminar este envío?">Del</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="muted text-center">No hay envíos registrados.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="transfer-edit" style="margin-top:12px;"></div>
 </div>

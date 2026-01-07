@@ -448,6 +448,288 @@ class InventoryService:
             self._db.rollback()
             raise
 
+    def update_transfer_movement(
+        self,
+        movement_id: int,
+        quantity: float,
+        unit_cost: Optional[float],
+        movement_date: Optional[datetime],
+        note: Optional[str],
+    ) -> MovementResult:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type not in ("transfer_in", "transfer_out"):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+
+        if quantity <= 0:
+            raise HTTPException(status_code=422, detail="quantity must be > 0")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        mv.movement_date = self._movement_datetime(movement_date)
+        mv.note = note
+
+        if mv.type == "transfer_out":
+            mv.quantity = -float(quantity)
+            mv.unit_cost = None
+            mv.unit_price = None
+        else:
+            if unit_cost is None:
+                unit_cost = float(mv.unit_cost or 0)
+            if float(unit_cost) < 0:
+                raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
+            mv.quantity = float(quantity)
+            mv.unit_cost = float(unit_cost)
+            mv.unit_price = None
+
+        try:
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+        self._db.refresh(mv)
+        loc_id = int(getattr(mv, "location_id", None) or 0) or self._central_location_id()
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(mv),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
+    def _transfer_out_id_for_movement_id(self, movement_id: int) -> int:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type not in ("transfer_in", "transfer_out"):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+        if mv.type == "transfer_out":
+            return int(mv.id)
+        raw = str(mv.note or "")
+        m = re.search(r"out_id=(\d+)", raw)
+        if not m:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Este envío fue creado antes de habilitar la edición. "
+                    "Vuelve a registrarlo o elimínalo y créalo de nuevo."
+                ),
+            )
+        return int(m.group(1))
+
+    def _transfer_to_code_from_out_note(self, note: str) -> str:
+        raw = str(note or "")
+        m = re.search(r"Transfer CENTRAL->([^:; ]+)", raw)
+        if not m:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede editar este envío porque falta el destino en la nota.",
+            )
+        code = (m.group(1) or "").strip()
+        if not code:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede editar este envío porque falta el destino en la nota.",
+            )
+        return code
+
+    def update_transfer_shipment(
+        self,
+        movement_id: int,
+        quantity: float,
+        movement_date: Optional[datetime],
+        note: Optional[str],
+    ) -> MovementResult:
+        out_id = self._transfer_out_id_for_movement_id(movement_id)
+        mv_out = self._db.get(InventoryMovement, out_id)
+        if mv_out is None or mv_out.type != "transfer_out":
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+
+        if quantity <= 0:
+            raise HTTPException(status_code=422, detail="quantity must be > 0")
+
+        product = self._db.get(Product, mv_out.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        to_code = self._transfer_to_code_from_out_note(str(mv_out.note or ""))
+        central_loc_id = self._central_location_id()
+        to_loc_id = self._location_id_for_code(to_code)
+        mv_dt = self._movement_datetime(movement_date)
+
+        in_ids = list(
+            self._db.scalars(
+                select(InventoryMovement.id).where(
+                    InventoryMovement.type == "transfer_in",
+                    InventoryMovement.note.ilike(f"%out_id={out_id}%"),
+                )
+            )
+        )
+        if not in_ids:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Este envío fue creado antes de habilitar la edición. "
+                    "Vuelve a registrarlo o elimínalo y créalo de nuevo."
+                ),
+            )
+
+        clean_note = (note or "").strip()
+        base_note = f"Transfer CENTRAL->{to_code}"
+        mv_out.note = f"{base_note}: {clean_note}" if clean_note else base_note
+        mv_out.quantity = -float(quantity)
+        mv_out.movement_date = mv_dt
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv_out.id))
+            if in_ids:
+                self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id.in_(in_ids)))
+                self._db.execute(delete(InventoryMovement).where(InventoryMovement.id.in_(in_ids)))
+            self._db.flush()
+
+            self._consume_fifo(product.id, central_loc_id, mv_out.id, float(quantity))
+            self._db.flush()
+
+            alloc_rows = list(
+                self._db.execute(
+                    select(
+                        MovementAllocation.quantity,
+                        MovementAllocation.unit_cost,
+                        InventoryLot.lot_code,
+                        InventoryLot.received_at,
+                    )
+                    .select_from(MovementAllocation)
+                    .join(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
+                    .where(MovementAllocation.movement_id == mv_out.id)
+                    .order_by(InventoryLot.received_at, InventoryLot.id)
+                ).all()
+            )
+
+            for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
+                src_recv_dt = src_received_at
+                if src_recv_dt is None:
+                    src_recv_dt = mv_dt
+
+                recv_iso = None
+                try:
+                    recv_iso = src_recv_dt.isoformat()
+                except Exception:
+                    recv_iso = None
+
+                mv_in_note = f"Transfer in from CENTRAL out_id={mv_out.id}"
+                if src_lot_code:
+                    mv_in_note = mv_in_note + f" lot={src_lot_code}"
+                if recv_iso:
+                    mv_in_note = mv_in_note + f" received_at={recv_iso}"
+                if clean_note:
+                    mv_in_note = mv_in_note + f"; {clean_note}"
+
+                mv_in = InventoryMovement(
+                    product_id=product.id,
+                    location_id=to_loc_id,
+                    type="transfer_in",
+                    quantity=float(a_qty or 0),
+                    unit_cost=float(a_unit_cost or 0),
+                    unit_price=None,
+                    movement_date=mv_dt,
+                    note=mv_in_note,
+                )
+                self._inventory.add_movement(mv_in)
+                self._db.flush()
+
+                base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{mv_dt:%y%m%d%H%M%S}-{mv_in.id}"
+                lot_code = self._unique_lot_code(base_code)
+                lot = InventoryLot(
+                    movement_id=mv_in.id,
+                    product_id=product.id,
+                    location_id=to_loc_id,
+                    lot_code=lot_code,
+                    received_at=src_recv_dt,
+                    unit_cost=float(a_unit_cost or 0),
+                    qty_received=float(a_qty or 0),
+                    qty_remaining=float(a_qty or 0),
+                )
+                self._inventory.add_lot(lot)
+
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+        self._db.refresh(mv_out)
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=central_loc_id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(mv_out),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
+    def delete_transfer_shipment(self, movement_id: int) -> None:
+        out_id = self._transfer_out_id_for_movement_id(movement_id)
+        mv_out = self._db.get(InventoryMovement, out_id)
+        if mv_out is None or mv_out.type != "transfer_out":
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+
+        product = self._db.get(Product, mv_out.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        in_ids = list(
+            self._db.scalars(
+                select(InventoryMovement.id).where(
+                    InventoryMovement.type == "transfer_in",
+                    InventoryMovement.note.ilike(f"%out_id={out_id}%"),
+                )
+            )
+        )
+
+        if not in_ids:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Este envío fue creado antes de habilitar la edición. "
+                    "Vuelve a registrarlo o elimínalo y créalo de nuevo."
+                ),
+            )
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv_out.id))
+            if in_ids:
+                self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id.in_(in_ids)))
+                self._db.execute(delete(InventoryMovement).where(InventoryMovement.id.in_(in_ids)))
+            self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv_out.id))
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+    def delete_transfer_movement(self, movement_id: int) -> None:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type not in ("transfer_in", "transfer_out"):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv.id))
+            self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id == mv.id))
+            self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
     def delete_sale_movement(self, movement_id: int) -> None:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "sale":
@@ -1353,7 +1635,7 @@ class InventoryService:
                     except Exception:
                         recv_iso = None
 
-                    mv_in_note = f"Transfer in from CENTRAL"
+                    mv_in_note = f"Transfer in from CENTRAL out_id={mv_out.id}"
                     if src_lot_code:
                         mv_in_note = mv_in_note + f" lot={src_lot_code}"
                     if recv_iso:
@@ -1423,13 +1705,24 @@ class InventoryService:
 
         movement_dt = self._movement_datetime(payload.movement_date)
 
-        loc_id = self._default_pos_location_id()
-        if payload.location_code:
-            loc_id = self._location_id_for_code(payload.location_code)
+        cfg = load_business_config()
+        selected_code = str(payload.location_code or "").strip() or str(cfg.locations.default_pos)
+        loc_id = self._location_id_for_code(selected_code)
 
         stock_before = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
         if stock_before < payload.quantity:
-            raise HTTPException(status_code=409, detail="Insufficient stock")
+            if float(stock_before or 0) <= 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"No hay stock en {selected_code} para {product.sku}.",
+                )
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Stock insuficiente en {selected_code} para {product.sku}. "
+                    f"Disponible: {float(stock_before):g}. Solicitado: {float(payload.quantity):g}."
+                ),
+            )
 
         movement = InventoryMovement(
             product_id=product.id,

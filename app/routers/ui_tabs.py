@@ -360,7 +360,6 @@ def tab_sales(
     show_all: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    product_service = ProductService(db)
     inventory_service = InventoryService(db)
     user = get_current_user_from_session(db, request)
     
@@ -410,6 +409,12 @@ def tab_sales(
         if getattr(loc, "code", None)
     ]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
+    product_options = [
+        p
+        for p in inventory_service.stock_list(query="", location_code=default_sale_location_code)
+        if float(p.quantity or 0) > 0
+    ]
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_sales.html",
@@ -418,7 +423,7 @@ def tab_sales(
             "sales": inventory_service.recent_sales(limit=100, month=filter_month, year=filter_year),
             "filter_month": display_month,
             "filter_year": display_year,
-            "product_options": product_service.search(query="", limit=200),
+            "product_options": product_options,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "pos_locations": pos_locations,
             "default_sale_location_code": default_sale_location_code,

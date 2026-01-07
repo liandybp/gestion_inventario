@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import html
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -27,6 +29,32 @@ from .ui_common import (
 )
 
 router = APIRouter()
+
+
+@router.get("/sale/product-options", response_class=HTMLResponse)
+def sale_product_options(
+    request: Request,
+    location_code: str = "",
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    config = load_business_config()
+    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_sale_location_code
+
+    items = [
+        p
+        for p in service.stock_list(query="", location_code=selected_location_code)
+        if float(p.quantity or 0) > 0
+    ]
+
+    parts: list[str] = []
+    for p in items:
+        sku = html.escape(str(getattr(p, "sku", "") or ""))
+        name = html.escape(str(getattr(p, "name", "") or ""))
+        parts.append(f'<option value="{sku} - {name}"></option>')
+    return HTMLResponse("".join(parts))
 
 
 def _sales_doc_context(db: Session, request: Request) -> dict:
@@ -76,6 +104,12 @@ def sale(
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
+
+    product_options = [
+        p
+        for p in service.stock_list(query="", location_code=selected_location_code)
+        if float(p.quantity or 0) > 0
+    ]
     try:
         result = service.sale(
             SaleCreate(
@@ -105,7 +139,7 @@ def sale(
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
@@ -124,7 +158,7 @@ def sale(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
@@ -152,6 +186,12 @@ def sale_barcode(
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
+
+    product_options = [
+        p
+        for p in service.stock_list(query="", location_code=selected_location_code)
+        if float(p.quantity or 0) > 0
+    ]
     try:
         sku = barcode_to_sku(db, barcode)
         result = service.sale(
@@ -184,7 +224,7 @@ def sale_barcode(
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
@@ -202,7 +242,7 @@ def sale_barcode(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
@@ -221,7 +261,7 @@ def sale_barcode(
                 "message_detail": str(e),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 **_sales_doc_context(db, request),
             },

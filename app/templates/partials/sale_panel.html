@@ -17,7 +17,11 @@
       <form hx-post="/ui/sale/barcode" hx-target="#sale-panel" hx-swap="outerHTML">
         <div class="row">
           <label>Ubicación</label>
-          <select name="location_code">
+          <select name="location_code"
+                  hx-get="/ui/sale/product-options"
+                  hx-trigger="change"
+                  hx-target="#product-options"
+                  hx-swap="innerHTML">
             {% for loc in pos_locations %}
               <option value="{{ loc['code'] }}" {% if (sale_location_code or default_sale_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
             {% endfor %}
@@ -37,7 +41,11 @@
       <form hx-post="/ui/sale" hx-target="#sale-panel" hx-swap="outerHTML">
         <div class="row">
           <label>Ubicación</label>
-          <select name="location_code">
+          <select name="location_code"
+                  hx-get="/ui/sale/product-options"
+                  hx-trigger="change"
+                  hx-target="#product-options"
+                  hx-swap="innerHTML">
             {% for loc in pos_locations %}
               <option value="{{ loc['code'] }}" {% if (sale_location_code or default_sale_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
             {% endfor %}
