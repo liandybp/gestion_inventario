@@ -535,6 +535,73 @@ class InventoryService:
             )
         return code
 
+    def _legacy_transfer_in_ids_for_out(
+        self,
+        mv_out: InventoryMovement,
+        to_loc_id: int,
+        mv_dt: datetime,
+    ) -> list[int]:
+        alloc_rows = list(
+            self._db.execute(
+                select(
+                    MovementAllocation.quantity,
+                    MovementAllocation.unit_cost,
+                    InventoryLot.received_at,
+                )
+                .select_from(MovementAllocation)
+                .join(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
+                .where(MovementAllocation.movement_id == mv_out.id)
+                .order_by(InventoryLot.received_at, InventoryLot.id)
+            ).all()
+        )
+
+        if not alloc_rows:
+            return []
+
+        in_ids: list[int] = []
+        for a_qty, a_unit_cost, src_received_at in alloc_rows:
+            qty_val = float(a_qty or 0)
+            cost_val = float(a_unit_cost or 0)
+            recv_dt = src_received_at
+            if recv_dt is None:
+                recv_dt = mv_dt
+
+            dt_start = mv_dt - timedelta(minutes=5)
+            dt_end = mv_dt + timedelta(minutes=5)
+
+            eps = 0.0001
+            matches = list(
+                self._db.scalars(
+                    select(InventoryMovement.id)
+                    .select_from(InventoryLot)
+                    .join(InventoryMovement, InventoryMovement.id == InventoryLot.movement_id)
+                    .where(
+                        InventoryMovement.type == "transfer_in",
+                        InventoryMovement.product_id == mv_out.product_id,
+                        InventoryMovement.location_id == to_loc_id,
+                        InventoryMovement.movement_date >= dt_start,
+                        InventoryMovement.movement_date <= dt_end,
+                        InventoryLot.product_id == mv_out.product_id,
+                        InventoryLot.location_id == to_loc_id,
+                        InventoryLot.received_at == recv_dt,
+                        func.abs(func.coalesce(InventoryLot.qty_received, 0) - qty_val) <= eps,
+                        func.abs(func.coalesce(InventoryLot.unit_cost, 0) - cost_val) <= eps,
+                    )
+                )
+            )
+
+            if len(matches) != 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "No se pudo identificar las entradas del POS para este envío (envío antiguo). "
+                        "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
+                    ),
+                )
+            in_ids.append(int(matches[0]))
+
+        return sorted({int(x) for x in in_ids})
+
     def update_transfer_shipment(
         self,
         movement_id: int,
@@ -568,11 +635,18 @@ class InventoryService:
             )
         )
         if not in_ids:
+            current_dt = self._movement_datetime(mv_out.movement_date)
+            in_ids = self._legacy_transfer_in_ids_for_out(
+                mv_out=mv_out,
+                to_loc_id=to_loc_id,
+                mv_dt=current_dt,
+            )
+        if not in_ids:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Este envío fue creado antes de habilitar la edición. "
-                    "Vuelve a registrarlo o elimínalo y créalo de nuevo."
+                    "No se pudo identificar las entradas del POS para este envío. "
+                    "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
                 ),
             )
 
@@ -679,6 +753,10 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        to_code = self._transfer_to_code_from_out_note(str(mv_out.note or ""))
+        mv_dt = self._movement_datetime(mv_out.movement_date)
+        to_loc_id = self._location_id_for_code(to_code)
+
         in_ids = list(
             self._db.scalars(
                 select(InventoryMovement.id).where(
@@ -687,13 +765,14 @@ class InventoryService:
                 )
             )
         )
-
+        if not in_ids:
+            in_ids = self._legacy_transfer_in_ids_for_out(mv_out=mv_out, to_loc_id=to_loc_id, mv_dt=mv_dt)
         if not in_ids:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Este envío fue creado antes de habilitar la edición. "
-                    "Vuelve a registrarlo o elimínalo y créalo de nuevo."
+                    "No se pudo identificar las entradas del POS para este envío. "
+                    "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
                 ),
             )
 
