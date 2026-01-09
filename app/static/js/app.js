@@ -1,4 +1,37 @@
 (function () {
+  const ACTIVE_TAB_KEY = 'active_tab_v1';
+
+  function saveActiveTab(tabEl) {
+    if (!tabEl) return;
+    const tabId = tabEl.id || '';
+    const url = tabEl.getAttribute('hx-get') || '';
+    if (!url) return;
+    try {
+      localStorage.setItem(ACTIVE_TAB_KEY, JSON.stringify({ id: tabId, url }));
+    } catch (e) {}
+  }
+
+  function restoreActiveTab() {
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(ACTIVE_TAB_KEY) || 'null');
+    } catch (e) {
+      saved = null;
+    }
+    if (!saved || !saved.url) return;
+
+    const tabContent = document.getElementById('tab-content');
+    if (!tabContent) return;
+
+    const savedBtn = saved.id ? document.getElementById(saved.id) : null;
+    const btn = savedBtn && savedBtn.classList.contains('sidebar-item') ? savedBtn : null;
+    const url = (btn && btn.getAttribute('hx-get')) || saved.url;
+    if (!url) return;
+
+    tabContent.setAttribute('hx-get', url);
+    if (btn) setActiveTab(btn);
+  }
+
   function setActiveTab(tabEl) {
     document.querySelectorAll('.sidebar-item').forEach((t) => t.setAttribute('aria-selected', 'false'));
     if (tabEl) tabEl.setAttribute('aria-selected', 'true');
@@ -8,6 +41,7 @@
     const el = evt.target.closest('.sidebar-item');
     if (!el) return;
     setActiveTab(el);
+    saveActiveTab(el);
   }
 
   function clearTarget(selector) {
@@ -477,6 +511,8 @@
     enhanceNoteInputs(root);
     debugReturnLots(root);
   }
+
+  restoreActiveTab();
 
   document.addEventListener('click', onTabClick);
   document.addEventListener('click', onClearClick);

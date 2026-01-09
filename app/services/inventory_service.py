@@ -546,6 +546,7 @@ class InventoryService:
                 select(
                     MovementAllocation.quantity,
                     MovementAllocation.unit_cost,
+                    InventoryLot.lot_code,
                     InventoryLot.received_at,
                 )
                 .select_from(MovementAllocation)
@@ -558,47 +559,143 @@ class InventoryService:
         if not alloc_rows:
             return []
 
+        note_hint = ""
+        try:
+            raw = str(mv_out.note or "")
+            if ":" in raw:
+                note_hint = raw.split(":", 1)[1].strip()
+        except Exception:
+            note_hint = ""
+
         in_ids: list[int] = []
-        for a_qty, a_unit_cost, src_received_at in alloc_rows:
+        for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
             qty_val = float(a_qty or 0)
             cost_val = float(a_unit_cost or 0)
             recv_dt = src_received_at
             if recv_dt is None:
                 recv_dt = mv_dt
 
-            dt_start = mv_dt - timedelta(minutes=5)
-            dt_end = mv_dt + timedelta(minutes=5)
+            dt_start = mv_dt - timedelta(hours=12)
+            dt_end = mv_dt + timedelta(hours=12)
+
+            recv_start = recv_dt - timedelta(hours=12)
+            recv_end = recv_dt + timedelta(hours=12)
 
             eps = 0.0001
-            matches = list(
-                self._db.scalars(
-                    select(InventoryMovement.id)
-                    .select_from(InventoryLot)
-                    .join(InventoryMovement, InventoryMovement.id == InventoryLot.movement_id)
-                    .where(
-                        InventoryMovement.type == "transfer_in",
-                        InventoryMovement.product_id == mv_out.product_id,
-                        InventoryMovement.location_id == to_loc_id,
-                        InventoryMovement.movement_date >= dt_start,
-                        InventoryMovement.movement_date <= dt_end,
-                        InventoryLot.product_id == mv_out.product_id,
-                        InventoryLot.location_id == to_loc_id,
-                        InventoryLot.received_at == recv_dt,
-                        func.abs(func.coalesce(InventoryLot.qty_received, 0) - qty_val) <= eps,
-                        func.abs(func.coalesce(InventoryLot.unit_cost, 0) - cost_val) <= eps,
-                    )
+            src_code = (str(src_lot_code or "").strip() or None)
+            lot_filter = None
+            if src_code:
+                lot_filter = (
+                    InventoryLot.lot_code.ilike(f"TR-{src_code}-%")
+                    | InventoryMovement.note.ilike(f"%lot={src_code}%")
                 )
-            )
+            note_filter = InventoryMovement.note.ilike(f"%{note_hint}%") if note_hint else None
 
-            if len(matches) != 1:
+            def _candidates_lot(
+                *,
+                include_received_at: bool,
+                include_note: bool,
+                include_lot_hint: bool,
+            ) -> list[tuple[int, Optional[datetime]]]:
+                where_filters = [
+                    InventoryMovement.type == "transfer_in",
+                    InventoryMovement.product_id == mv_out.product_id,
+                    InventoryMovement.location_id == to_loc_id,
+                    InventoryMovement.movement_date >= dt_start,
+                    InventoryMovement.movement_date <= dt_end,
+                    InventoryLot.product_id == mv_out.product_id,
+                    InventoryLot.location_id == to_loc_id,
+                    func.abs(func.coalesce(InventoryLot.qty_received, 0) - qty_val) <= eps,
+                    func.abs(func.coalesce(InventoryLot.unit_cost, 0) - cost_val) <= eps,
+                ]
+                if include_received_at:
+                    where_filters.extend(
+                        [
+                            InventoryLot.received_at >= recv_start,
+                            InventoryLot.received_at <= recv_end,
+                        ]
+                    )
+                if include_lot_hint and lot_filter is not None:
+                    where_filters.append(lot_filter)
+                if include_note and note_filter is not None:
+                    where_filters.append(note_filter)
+                return list(
+                    self._db.execute(
+                        select(InventoryMovement.id, InventoryMovement.movement_date)
+                        .select_from(InventoryLot)
+                        .join(InventoryMovement, InventoryMovement.id == InventoryLot.movement_id)
+                        .where(*where_filters)
+                    ).all()
+                )
+
+            def _candidates_mv(
+                *,
+                include_note: bool,
+                include_lot_hint: bool,
+            ) -> list[tuple[int, Optional[datetime]]]:
+                where_filters = [
+                    InventoryMovement.type == "transfer_in",
+                    InventoryMovement.product_id == mv_out.product_id,
+                    InventoryMovement.location_id == to_loc_id,
+                    InventoryMovement.movement_date >= dt_start,
+                    InventoryMovement.movement_date <= dt_end,
+                    func.abs(func.coalesce(InventoryMovement.quantity, 0) - qty_val) <= eps,
+                    func.abs(func.coalesce(InventoryMovement.unit_cost, 0) - cost_val) <= eps,
+                ]
+                if include_lot_hint and src_code:
+                    where_filters.append(InventoryMovement.note.ilike(f"%lot={src_code}%"))
+                if include_note and note_filter is not None:
+                    where_filters.append(note_filter)
+                return list(
+                    self._db.execute(
+                        select(InventoryMovement.id, InventoryMovement.movement_date)
+                        .select_from(InventoryMovement)
+                        .where(*where_filters)
+                    ).all()
+                )
+
+            # Matching passes from most strict to most tolerant.
+            passes = [
+                ("lot_strict", lambda: _candidates_lot(include_received_at=True, include_note=True, include_lot_hint=True)),
+                ("lot_base", lambda: _candidates_lot(include_received_at=False, include_note=True, include_lot_hint=True)),
+                ("lot_no_note", lambda: _candidates_lot(include_received_at=False, include_note=False, include_lot_hint=True)),
+                ("mv_note", lambda: _candidates_mv(include_note=True, include_lot_hint=True)),
+                ("mv_no_note", lambda: _candidates_mv(include_note=False, include_lot_hint=True)),
+                ("mv_last", lambda: _candidates_mv(include_note=False, include_lot_hint=False)),
+            ]
+
+            chosen_from = None
+            candidates: list[tuple[int, Optional[datetime]]] = []
+            for name, fn in passes:
+                try:
+                    candidates = fn() or []
+                except Exception:
+                    candidates = []
+                if candidates:
+                    chosen_from = name
+                    break
+
+            if not candidates:
                 raise HTTPException(
                     status_code=409,
                     detail=(
                         "No se pudo identificar las entradas del POS para este envío (envío antiguo). "
-                        "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
+                        f"out_id={int(mv_out.id)} product_id={int(mv_out.product_id)} to_loc_id={int(to_loc_id)} "
+                        f"mv_dt={mv_dt.isoformat()} qty={qty_val:g} cost={cost_val:g} src_lot={src_code or ''} "
+                        f"note_hint={note_hint or ''}"
                     ),
                 )
-            in_ids.append(int(matches[0]))
+
+            unused = [c for c in candidates if int(c[0]) not in in_ids]
+            pool = unused if unused else candidates
+            pool_sorted = sorted(
+                pool,
+                key=lambda r: (
+                    abs((r[1] or mv_dt) - mv_dt),
+                    int(r[0]),
+                ),
+            )
+            in_ids.append(int(pool_sorted[0][0]))
 
         return sorted({int(x) for x in in_ids})
 

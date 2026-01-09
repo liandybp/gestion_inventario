@@ -134,7 +134,6 @@ def transfer_update(
                 "recent_transfer_out": recent_transfer_out,
                 "recent_transfer_in": recent_transfer_in,
             },
-            status_code=e.status_code,
         )
 
 
@@ -212,7 +211,6 @@ def transfer_delete(
                 "recent_transfer_out": recent_transfer_out,
                 "recent_transfer_in": recent_transfer_in,
             },
-            status_code=e.status_code,
         )
 
 
