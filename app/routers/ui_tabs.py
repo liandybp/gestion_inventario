@@ -662,6 +662,7 @@ def stock_table(
     db: Session = Depends(session_dep),
     query: str = "",
     location_code: str = "",
+    stock_filter: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     service = InventoryService(db)
@@ -670,8 +671,16 @@ def stock_table(
     central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
-    show_zero = effective_code == central_code
+
+    default_filter = "all" if effective_code == central_code else "in_stock"
+    effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
+
     items = service.stock_list(query=query, location_code=loc)
+    if effective_filter == "in_stock":
+        items = [i for i in items if float(i.quantity or 0) > 0]
+    elif effective_filter == "zero":
+        items = [i for i in items if float(i.quantity or 0) <= 0]
+
     deletable_skus = _deletable_skus(db, [i.sku for i in items])
     return templates.TemplateResponse(
         request=request,
@@ -680,7 +689,7 @@ def stock_table(
             "items": items,
             "user": user,
             "deletable_skus": deletable_skus,
-            "show_zero": show_zero,
+            "stock_filter": effective_filter,
         },
     )
 
@@ -692,6 +701,7 @@ def stock_delete_product(
     db: Session = Depends(session_dep),
     query: str = Form(""),
     location_code: str = Form(""),
+    stock_filter: str = Form(""),
 ) -> HTMLResponse:
     ensure_admin(db, request)
     user = get_current_user_from_session(db, request)
@@ -716,8 +726,16 @@ def stock_delete_product(
 
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
-    show_zero = effective_code == central_code
+
+    default_filter = "all" if effective_code == central_code else "in_stock"
+    effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
+
     items = inventory_service.stock_list(query=query, location_code=loc)
+    if effective_filter == "in_stock":
+        items = [i for i in items if float(i.quantity or 0) > 0]
+    elif effective_filter == "zero":
+        items = [i for i in items if float(i.quantity or 0) <= 0]
+
     deletable_skus = _deletable_skus(db, [i.sku for i in items])
     response = templates.TemplateResponse(
         request=request,
@@ -726,7 +744,7 @@ def stock_delete_product(
             "items": items,
             "user": user,
             "deletable_skus": deletable_skus,
-            "show_zero": show_zero,
+            "stock_filter": effective_filter,
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,

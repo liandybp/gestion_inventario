@@ -14,14 +14,22 @@
       </select>
     </div>
     <div class="row">
+      <label>Stock</label>
+      <select id="inventory_stock_filter" name="stock_filter">
+        <option value="all" {% if (selected_stock_filter or '') == 'all' %}selected{% endif %}>Todos</option>
+        <option value="in_stock" {% if (selected_stock_filter or '') == 'in_stock' %}selected{% endif %}>Con inventario</option>
+        <option value="zero" {% if (selected_stock_filter or '') == 'zero' %}selected{% endif %}>Sin inventario</option>
+      </select>
+    </div>
+    <div class="row">
       <label>Buscar</label>
       <input id="inventory_query" name="query" placeholder="Buscar por SKU o nombre" />
     </div>
 
     <div id="stock-table"
          hx-get="/ui/stock-table"
-         hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, stockTableRefresh from:body"
-         hx-include="#inventory_query,#inventory_location_code"
+         hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, change from:#inventory_stock_filter, stockTableRefresh from:body"
+         hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter"
          hx-swap="innerHTML">
     </div>
 
