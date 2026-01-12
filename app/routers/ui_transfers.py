@@ -114,27 +114,26 @@ def transfer_update(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
-        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
-        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
-        return templates.TemplateResponse(
+        out_id = service._transfer_out_id_for_movement_id(movement_id)
+        mv = db.get(InventoryMovement, out_id)
+        product = db.get(Product, mv.product_id) if mv else None
+
+        response = templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="partials/transfer_edit_form.html",
             context={
-                "user": user,
+                "movement": mv,
+                "product_label": f"{product.sku} - {product.name}" if product else "",
+                "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
+                "quantity_value": float(quantity or 0),
+                "note_value": note or "",
                 "message": "Error al actualizar envío",
                 "message_detail": str(e.detail),
                 "message_class": "error",
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
-                "product_options": product_options,
-                "pos_locations": pos_locations,
-                "default_to_location_code": default_to_location_code,
-                "note_value": "",
-                "rows_count": 12,
-                "recent_transfer_out": recent_transfer_out,
-                "recent_transfer_in": recent_transfer_in,
             },
         )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
 
 
 @router.post("/movement/transfer/{movement_id}/delete", response_class=HTMLResponse)
@@ -191,27 +190,26 @@ def transfer_delete(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
-        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
-        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
-        return templates.TemplateResponse(
+        out_id = service._transfer_out_id_for_movement_id(movement_id)
+        mv = db.get(InventoryMovement, out_id)
+        product = db.get(Product, mv.product_id) if mv else None
+
+        response = templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="partials/transfer_edit_form.html",
             context={
-                "user": user,
+                "movement": mv,
+                "product_label": f"{product.sku} - {product.name}" if product else "",
+                "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
+                "quantity_value": abs(float(mv.quantity or 0)) if mv else 0,
+                "note_value": "",
                 "message": "Error al eliminar envío",
                 "message_detail": str(e.detail),
                 "message_class": "error",
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
-                "product_options": product_options,
-                "pos_locations": pos_locations,
-                "default_to_location_code": default_to_location_code,
-                "note_value": "",
-                "rows_count": 12,
-                "recent_transfer_out": recent_transfer_out,
-                "recent_transfer_in": recent_transfer_in,
             },
         )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
 
 
 @router.post("/transfers", response_class=HTMLResponse)

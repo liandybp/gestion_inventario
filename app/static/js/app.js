@@ -543,6 +543,9 @@
     const modal = elt.closest('.modal-overlay');
     if (!modal) return;
 
+    const keepOpen = String(xhr.getResponseHeader('X-Modal-Keep') || '') === '1';
+    if (keepOpen) return;
+
     if (xhr.status >= 200 && xhr.status < 300) {
       try {
         modal.remove();
