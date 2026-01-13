@@ -80,29 +80,21 @@
 
   <h3 style="margin-top:16px;">Historial de ventas</h3>
   
-  <form hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12">
+  <form hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12"
+        hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end">
+    {% if filter_show_all %}<input type="hidden" name="show_all" value="1" />{% endif %}
     <div class="flex gap-12 items-center flex-wrap">
       <div>
-        <label class="filter-label">Mes</label>
-        <select name="month">
-          <option value="">Todos</option>
-          <option value="01" {% if filter_month == '01' %}selected{% endif %}>Enero</option>
-          <option value="02" {% if filter_month == '02' %}selected{% endif %}>Febrero</option>
-          <option value="03" {% if filter_month == '03' %}selected{% endif %}>Marzo</option>
-          <option value="04" {% if filter_month == '04' %}selected{% endif %}>Abril</option>
-          <option value="05" {% if filter_month == '05' %}selected{% endif %}>Mayo</option>
-          <option value="06" {% if filter_month == '06' %}selected{% endif %}>Junio</option>
-          <option value="07" {% if filter_month == '07' %}selected{% endif %}>Julio</option>
-          <option value="08" {% if filter_month == '08' %}selected{% endif %}>Agosto</option>
-          <option value="09" {% if filter_month == '09' %}selected{% endif %}>Septiembre</option>
-          <option value="10" {% if filter_month == '10' %}selected{% endif %}>Octubre</option>
-          <option value="11" {% if filter_month == '11' %}selected{% endif %}>Noviembre</option>
-          <option value="12" {% if filter_month == '12' %}selected{% endif %}>Diciembre</option>
-        </select>
+        <label class="filter-label">Buscar artículo</label>
+        <input id="sales-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" />
       </div>
       <div>
-        <label class="filter-label">Año</label>
-        <input type="number" name="year" value="{{ filter_year }}" min="2020" max="2099" style="width: 100px;" />
+        <label class="filter-label">Desde</label>
+        <input id="sales-filter-start" type="date" name="start_date" value="{{ filter_start_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Hasta</label>
+        <input id="sales-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
       </div>
       <button type="submit" class="mb-0">Filtrar</button>
       <a href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Ver todos</a>

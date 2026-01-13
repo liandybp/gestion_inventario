@@ -1,7 +1,14 @@
-<div id="profit-items-tab" hx-get="/ui/tabs/profit-items" hx-trigger="every 10m" hx-swap="innerHTML">
+<div id="profit-items-tab" hx-get="/ui/tabs/profit-items" hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query" hx-include="#profit-items-query" hx-swap="innerHTML">
   {% from 'components/ui.html' import metric %}
   <h2>Utilidades por artículo</h2>
   <p class="muted">Detalle del mes corriente por artículo vendido (FIFO por lote).</p>
+
+  <div class="card mb-12">
+    <div class="row">
+      <label>Buscar</label>
+      <input id="profit-items-query" name="query" value="{{ filter_query or '' }}" placeholder="SKU, nombre, categoría, lote" />
+    </div>
+  </div>
 
   <div class="card mb-12">
     <div class="grid-4">

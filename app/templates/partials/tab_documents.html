@@ -1,6 +1,25 @@
 <div>
   <h2>Documentos</h2>
 
+  <form hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12">
+    <div class="flex gap-12 items-center flex-wrap">
+      <div>
+        <label class="filter-label">Buscar</label>
+        <input type="text" name="query" value="{{ filter_query or '' }}" placeholder="Código o cliente" />
+      </div>
+      <div>
+        <label class="filter-label">Desde</label>
+        <input type="date" name="start_date" value="{{ filter_start_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Hasta</label>
+        <input type="date" name="end_date" value="{{ filter_end_date or '' }}" />
+      </div>
+      <button type="submit" class="mb-0">Filtrar</button>
+      <a href="/ui/tabs/documents" hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
+    </div>
+  </form>
+
   <datalist id="product-options">
     {% for p in product_options %}
       <option value="{{ p.sku }} - {{ p.name }}"></option>

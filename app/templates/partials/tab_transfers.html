@@ -101,6 +101,27 @@
 
   <div class="mt-16"></div>
 
+  <h3>Filtrar historial</h3>
+  <form hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12"
+        hx-trigger="submit, keyup changed delay:300ms from:#transfers-filter-query, change from:#transfers-filter-start, change from:#transfers-filter-end">
+    <div class="flex gap-12 items-center flex-wrap">
+      <div>
+        <label class="filter-label">Buscar artículo</label>
+        <input id="transfers-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" />
+      </div>
+      <div>
+        <label class="filter-label">Desde</label>
+        <input id="transfers-filter-start" type="date" name="start_date" value="{{ filter_start_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Hasta</label>
+        <input id="transfers-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
+      </div>
+      <button type="submit" class="mb-0">Filtrar</button>
+      <a href="/ui/tabs/transfers" hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
+    </div>
+  </form>
+
   <h3>Últimos envíos (salida)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
     <table class="w-full table-compact" style="min-width: 980px;">

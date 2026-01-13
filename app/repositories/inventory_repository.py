@@ -1,12 +1,29 @@
 from __future__ import annotations
 
 from datetime import datetime
+import unicodedata
 from typing import Optional
 
 from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, InventoryLot, InventoryMovement, MovementAllocation, Product
+
+
+def _normalize_text(text: str) -> str:
+    if not text:
+        return ""
+    nfd = unicodedata.normalize("NFD", text)
+    return "".join(char for char in nfd if unicodedata.category(char) != "Mn")
+
+
+def _query_match(query: str, sku: str, name: str) -> bool:
+    q = _normalize_text(query).lower().strip()
+    if not q:
+        return True
+    sku_n = _normalize_text(sku or "").lower()
+    name_n = _normalize_text(name or "").lower()
+    return (q in sku_n) or (q in name_n)
 
 
 class InventoryRepository:
@@ -91,11 +108,13 @@ class InventoryRepository:
             )
             .select_from(Product)
         )
-        if q:
-            like = f"%{q}%"
-            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
-
         rows = self._db.execute(stmt.order_by(Product.name)).all()
+        if q:
+            rows = [
+                (sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price)
+                for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in rows
+                if _query_match(q, str(sku or ""), str(name or ""))
+            ]
         return [
             (
                 sku,
@@ -114,11 +133,14 @@ class InventoryRepository:
         self,
         query: str = "",
         limit: int = 20,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         month: Optional[str] = None,
         year: Optional[int] = None,
         location_id: Optional[int] = None,
     ) -> list[tuple]:
         q = query.strip()
+        prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
         stmt = (
             select(
                 InventoryMovement.id,
@@ -136,29 +158,36 @@ class InventoryRepository:
             .outerjoin(InventoryLot, InventoryLot.movement_id == InventoryMovement.id)
             .where(InventoryMovement.type == "purchase")
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
-            .limit(limit)
+            .limit(prefetch_limit)
         )
         if location_id is not None:
             stmt = stmt.where(InventoryMovement.location_id == location_id)
-        if q:
-            like = f"%{q}%"
-            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
+        if start_date:
+            stmt = stmt.where(InventoryMovement.movement_date >= start_date)
+        if end_date:
+            stmt = stmt.where(InventoryMovement.movement_date < end_date)
         if month and year:
             stmt = stmt.where(
                 func.extract('year', InventoryMovement.movement_date) == year,
                 func.extract('month', InventoryMovement.movement_date) == int(month)
             )
-        return list(self._db.execute(stmt).all())
+        rows = list(self._db.execute(stmt).all())
+        if q:
+            rows = [r for r in rows if _query_match(q, str(r[2] or ""), str(r[3] or ""))]
+        return rows[: int(limit or 0)]
 
     def recent_sales(
         self,
         query: str = "",
         limit: int = 20,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         month: Optional[str] = None,
         year: Optional[int] = None,
         location_id: Optional[int] = None,
     ) -> list[tuple]:
         q = query.strip()
+        prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
 
         if self._db.get_bind().dialect.name == "postgresql":
             lot_codes_expr = func.string_agg(InventoryLot.lot_code, ",").label("lot_codes")
@@ -184,29 +213,36 @@ class InventoryRepository:
             .where(InventoryMovement.type == "sale")
             .group_by(InventoryMovement.id, Product.id)
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
-            .limit(limit)
+            .limit(prefetch_limit)
         )
         if location_id is not None:
             stmt = stmt.where(InventoryMovement.location_id == location_id)
-        if q:
-            like = f"%{q}%"
-            stmt = stmt.where((Product.sku.ilike(like)) | (Product.name.ilike(like)))
+        if start_date:
+            stmt = stmt.where(InventoryMovement.movement_date >= start_date)
+        if end_date:
+            stmt = stmt.where(InventoryMovement.movement_date < end_date)
         if month and year:
             stmt = stmt.where(
                 func.extract('year', InventoryMovement.movement_date) == year,
                 func.extract('month', InventoryMovement.movement_date) == int(month)
             )
-        return list(self._db.execute(stmt).all())
+        rows = list(self._db.execute(stmt).all())
+        if q:
+            rows = [r for r in rows if _query_match(q, str(r[2] or ""), str(r[3] or ""))]
+        return rows[: int(limit or 0)]
 
     def movement_history(
         self,
         sku: Optional[str] = None,
+        query: str = "",
         movement_type: Optional[str] = None,
         location_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         limit: int = 100,
     ) -> list[tuple]:
+        q = (query or "").strip()
+        prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
         username_sq = (
             select(AuditLog.username)
             .where(
@@ -263,5 +299,8 @@ class InventoryRepository:
         if end_date:
             stmt = stmt.where(InventoryMovement.movement_date < end_date)
 
-        stmt = stmt.limit(limit)
-        return list(self._db.execute(stmt).all())
+        stmt = stmt.limit(prefetch_limit)
+        rows = list(self._db.execute(stmt).all())
+        if q:
+            rows = [r for r in rows if _query_match(q, str(r[4] or ""), str(r[5] or ""))]
+        return rows[: int(limit or 0)]

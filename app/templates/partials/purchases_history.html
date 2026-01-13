@@ -1,63 +1,65 @@
-<div class="table-wrapper">
-<table>
-  <thead>
-    <tr>
-      <th>Fecha</th>
-      <th>Img</th>
-      <th>SKU</th>
-      <th>Nombre</th>
-      <th>Unidad</th>
-      <th>Cant.</th>
-      <th>Costo</th>
-      <th>Lote</th>
-      <th>Barcode</th>
-      {% if user and (user.role or '')|lower == 'admin' %}
-      <th>Acciones</th>
-      {% endif %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for id, d, sku, name, uom, image_url, qty, unit_cost, lot_code in purchases %}
+<div id="purchases-history">
+  <div class="table-wrapper">
+  <table>
+    <thead>
       <tr>
-        <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
-        <td>
-          {% if image_url %}
-            <img src="{{ image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
-          {% endif %}
-        </td>
-        <td>{{ sku }}</td>
-        <td>{{ name }}</td>
-        <td>{{ uom or '' }}</td>
-        <td>{{ '%.0f'|format(qty or 0) }}</td>
-        <td>{{ '%.2f'|format(unit_cost or 0) }}</td>
-        {% set lot_disp = (lot_code[:-5] if lot_code and lot_code.endswith('00000') else lot_code) %}
-        <td>{{ lot_disp or '' }}</td>
-        <td>
-          {% if sku %}
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg class="barcode" data-code="{{ sku }}"></svg>
-              <a href="/ui/purchase/{{ id }}/label?copies={{ (qty|int) if (qty|int) > 0 else 1 }}" target="_blank" style="text-decoration:none;">
-                <button type="button">Print</button>
-              </a>
-            </div>
-          {% endif %}
-        </td>
+        <th>Fecha</th>
+        <th>Img</th>
+        <th>SKU</th>
+        <th>Nombre</th>
+        <th>Unidad</th>
+        <th>Cant.</th>
+        <th>Costo</th>
+        <th>Lote</th>
+        <th>Barcode</th>
         {% if user and (user.role or '')|lower == 'admin' %}
-        <td>
-          <button type="button"
-                  hx-get="/ui/movement/purchase/{{ id }}/edit"
-                  hx-target="body"
-                  hx-swap="beforeend">Edit</button>
-
-          <button type="button" style="margin-left:8px;background: var(--brand-red);"
-                  hx-post="/ui/movement/purchase/{{ id }}/delete"
-                  hx-target="#purchase-panel"
-                  hx-swap="outerHTML"
-                  hx-confirm="¿Eliminar esta compra?">Del</button>
-        </td>
+        <th>Acciones</th>
         {% endif %}
       </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      {% for id, d, sku, name, uom, image_url, qty, unit_cost, lot_code in purchases %}
+        <tr>
+          <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+          <td>
+            {% if image_url %}
+              <img src="{{ image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+            {% endif %}
+          </td>
+          <td>{{ sku }}</td>
+          <td>{{ name }}</td>
+          <td>{{ uom or '' }}</td>
+          <td>{{ '%.0f'|format(qty or 0) }}</td>
+          <td>{{ '%.2f'|format(unit_cost or 0) }}</td>
+          {% set lot_disp = (lot_code[:-5] if lot_code and lot_code.endswith('00000') else lot_code) %}
+          <td>{{ lot_disp or '' }}</td>
+          <td>
+            {% if sku %}
+              <div style="display:flex; align-items:center; gap:8px;">
+                <svg class="barcode" data-code="{{ sku }}"></svg>
+                <a href="/ui/purchase/{{ id }}/label?copies={{ (qty|int) if (qty|int) > 0 else 1 }}" target="_blank" style="text-decoration:none;">
+                  <button type="button">Print</button>
+                </a>
+              </div>
+            {% endif %}
+          </td>
+          {% if user and (user.role or '')|lower == 'admin' %}
+          <td>
+            <button type="button"
+                    hx-get="/ui/movement/purchase/{{ id }}/edit"
+                    hx-target="body"
+                    hx-swap="beforeend">Edit</button>
+
+            <button type="button" style="margin-left:8px;background: var(--brand-red);"
+                    hx-post="/ui/movement/purchase/{{ id }}/delete"
+                    hx-target="#purchase-panel"
+                    hx-swap="outerHTML"
+                    hx-confirm="¿Eliminar esta compra?">Del</button>
+          </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
 </div>

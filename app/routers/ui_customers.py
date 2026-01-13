@@ -12,6 +12,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.security import get_current_user_from_session
+from app.utils import query_match
 
 from .ui_common import templates
 
@@ -20,12 +21,12 @@ router = APIRouter()
 
 def _list_customers(db: Session, query: str, limit: int = 200) -> list[Customer]:
     q = (query or "").strip()
-    stmt = select(Customer)
+    prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
+    stmt = select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(prefetch_limit)
+    rows = list(db.scalars(stmt))
     if q:
-        like = f"%{q}%"
-        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
-    stmt = stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(limit)
-    return list(db.scalars(stmt))
+        rows = [c for c in rows if query_match(q, str(c.name or ""), str(c.client_id or ""))]
+    return rows[: int(limit or 0)]
 
 
 @router.get("/customers/table", response_class=HTMLResponse)

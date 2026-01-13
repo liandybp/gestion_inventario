@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import unicodedata
 from datetime import datetime, timezone
 from typing import Tuple
 
@@ -25,3 +26,21 @@ def month_range(now: datetime) -> Tuple[datetime, datetime]:
     else:
         end = start.replace(month=start.month + 1)
     return start, end
+
+
+def normalize_text(value: str) -> str:
+    v = (value or "").strip()
+    if not v:
+        return ""
+    nfd = unicodedata.normalize("NFD", v)
+    return "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+
+
+def query_match(query: str, *values: str) -> bool:
+    q = normalize_text(query).lower().strip()
+    if not q:
+        return True
+    for v in values:
+        if q in normalize_text(v).lower():
+            return True
+    return False

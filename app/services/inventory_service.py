@@ -336,15 +336,19 @@ class InventoryService:
         self._db.delete(row)
         self._db.commit()
 
-    def list_extractions(self, start: datetime, end: datetime, limit: int = 200) -> list[MoneyExtraction]:
-        return list(
-            self._db.scalars(
-                select(MoneyExtraction)
-                .where(and_(MoneyExtraction.extraction_date >= start, MoneyExtraction.extraction_date < end))
-                .order_by(MoneyExtraction.extraction_date.desc(), MoneyExtraction.id.desc())
-                .limit(limit)
-            )
-        )
+    def list_extractions(
+        self,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: int = 200,
+    ) -> list[MoneyExtraction]:
+        stmt = select(MoneyExtraction)
+        if start is not None:
+            stmt = stmt.where(MoneyExtraction.extraction_date >= start)
+        if end is not None:
+            stmt = stmt.where(MoneyExtraction.extraction_date < end)
+        stmt = stmt.order_by(MoneyExtraction.extraction_date.desc(), MoneyExtraction.id.desc()).limit(limit)
+        return list(self._db.scalars(stmt))
 
     def total_extractions_by_party(self, start: datetime, end: datetime) -> dict[str, float]:
         rows = self._db.execute(
@@ -925,22 +929,27 @@ class InventoryService:
             self._db.rollback()
             raise
 
-    def list_expenses(self, start: datetime, end: datetime, limit: int = 100) -> list[OperatingExpense]:
-        return list(
-            self._db.scalars(
-                select(OperatingExpense)
-                .where(and_(OperatingExpense.expense_date >= start, OperatingExpense.expense_date < end))
-                .order_by(OperatingExpense.expense_date.desc(), OperatingExpense.id.desc())
-                .limit(limit)
-            )
-        )
+    def list_expenses(
+        self,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: int = 100,
+    ) -> list[OperatingExpense]:
+        stmt = select(OperatingExpense)
+        if start is not None:
+            stmt = stmt.where(OperatingExpense.expense_date >= start)
+        if end is not None:
+            stmt = stmt.where(OperatingExpense.expense_date < end)
+        stmt = stmt.order_by(OperatingExpense.expense_date.desc(), OperatingExpense.id.desc()).limit(limit)
+        return list(self._db.scalars(stmt))
 
-    def total_expenses(self, start: datetime, end: datetime) -> float:
-        total = self._db.scalar(
-            select(func.coalesce(func.sum(OperatingExpense.amount), 0)).where(
-                and_(OperatingExpense.expense_date >= start, OperatingExpense.expense_date < end)
-            )
-        )
+    def total_expenses(self, start: Optional[datetime] = None, end: Optional[datetime] = None) -> float:
+        stmt = select(func.coalesce(func.sum(OperatingExpense.amount), 0))
+        if start is not None:
+            stmt = stmt.where(OperatingExpense.expense_date >= start)
+        if end is not None:
+            stmt = stmt.where(OperatingExpense.expense_date < end)
+        total = self._db.scalar(stmt)
         return float(total or 0)
 
     def inventory_value_total(self) -> float:
@@ -2092,15 +2101,50 @@ class InventoryService:
 
         return out
 
-    def recent_purchases(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
-        return self._inventory.recent_purchases(query=query, limit=limit, month=month, year=year)
+    def recent_purchases(
+        self,
+        query: str = "",
+        limit: int = 20,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        month: Optional[str] = None,
+        year: Optional[int] = None,
+        location_id: Optional[int] = None,
+    ) -> list[tuple]:
+        return self._inventory.recent_purchases(
+            query=query,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+            month=month,
+            year=year,
+            location_id=location_id,
+        )
 
-    def recent_sales(self, query: str = "", limit: int = 20, month: Optional[str] = None, year: Optional[int] = None) -> list[tuple]:
-        return self._inventory.recent_sales(query=query, limit=limit, month=month, year=year)
+    def recent_sales(
+        self,
+        query: str = "",
+        limit: int = 20,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        month: Optional[str] = None,
+        year: Optional[int] = None,
+        location_id: Optional[int] = None,
+    ) -> list[tuple]:
+        return self._inventory.recent_sales(
+            query=query,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+            month=month,
+            year=year,
+            location_id=location_id,
+        )
 
     def movement_history(
         self,
         sku: Optional[str] = None,
+        query: str = "",
         movement_type: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -2108,6 +2152,7 @@ class InventoryService:
     ) -> list[tuple]:
         return self._inventory.movement_history(
             sku=sku,
+            query=query,
             movement_type=movement_type,
             start_date=start_date,
             end_date=end_date,

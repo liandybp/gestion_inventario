@@ -8,13 +8,8 @@
   <form hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML" class="mb-16">
     <div class="filter-grid">
       <div>
-        <label class="filter-label">Producto (SKU)</label>
-        <select name="sku">
-          <option value="">-- Todos --</option>
-          {% for p in product_options %}
-          <option value="{{ p.sku }}" {% if sku_filter == p.sku %}selected{% endif %}>{{ p.sku }} - {{ p.name }}</option>
-          {% endfor %}
-        </select>
+        <label class="filter-label">Buscar producto</label>
+        <input type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" />
       </div>
       <div>
         <label class="filter-label">Tipo</label>

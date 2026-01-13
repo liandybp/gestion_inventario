@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.utils import month_range, query_match
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import AuditLog
@@ -308,6 +309,9 @@ def tab_purchases(
     month: Optional[str] = None,
     year: Optional[int] = None,
     show_all: Optional[str] = None,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -318,8 +322,21 @@ def tab_purchases(
     # Determine filter values
     now = datetime.now(timezone.utc)
     
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    date_range_active = (start_dt is not None) or (end_dt is not None)
+
+    # If a date range is provided, don't apply month/year filtering.
+    if date_range_active:
+        filter_month = None
+        filter_year = None
+        display_month = ""
+        display_year = now.year
     # If show_all is set, don't filter by month/year
-    if show_all:
+    elif show_all:
         filter_month = None
         filter_year = None
         display_month = ''
@@ -344,10 +361,21 @@ def tab_purchases(
             "user": user,
             "products": product_service.recent(limit=20),
             "product_options": product_service.search(query="", limit=200),
-            "purchases": inventory_service.recent_purchases(limit=100, month=filter_month, year=filter_year),
+            "purchases": inventory_service.recent_purchases(
+                query=query,
+                limit=100,
+                start_date=start_dt,
+                end_date=end_dt,
+                month=filter_month,
+                year=filter_year,
+            ),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "filter_month": display_month,
             "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
         },
     )
 
@@ -358,6 +386,9 @@ def tab_sales(
     month: Optional[str] = None,
     year: Optional[int] = None,
     show_all: Optional[str] = None,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     inventory_service = InventoryService(db)
@@ -365,9 +396,22 @@ def tab_sales(
     
     # Determine filter values
     now = datetime.now(timezone.utc)
+
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    date_range_active = (start_dt is not None) or (end_dt is not None)
     
+    # If a date range is provided, don't apply month/year filtering.
+    if date_range_active:
+        filter_month = None
+        filter_year = None
+        display_month = ""
+        display_year = now.year
     # If show_all is set, don't filter by month/year
-    if show_all:
+    elif show_all:
         filter_month = None
         filter_year = None
         display_month = ''
@@ -394,13 +438,26 @@ def tab_sales(
     if not isinstance(draft, dict):
         draft = {}
 
-    recent_documents = list(
-        db.scalars(
-            select(SalesDocument)
-            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
-            .limit(10)
-        )
-    )
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    doc_stmt = select(SalesDocument)
+    if start_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
+    if end_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
+    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
+    recent_documents = list(db.scalars(doc_stmt))
+    q = (query or "").strip()
+    if q:
+        recent_documents = [
+            d
+            for d in recent_documents
+            if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
+        ]
+    recent_documents = recent_documents[:10]
 
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     pos_locations = [
@@ -420,9 +477,20 @@ def tab_sales(
         name="partials/tab_sales.html",
         context={
             "user": user,
-            "sales": inventory_service.recent_sales(limit=100, month=filter_month, year=filter_year),
+            "sales": inventory_service.recent_sales(
+                query=query,
+                limit=100,
+                start_date=start_dt,
+                end_date=end_dt,
+                month=filter_month,
+                year=filter_year,
+            ),
             "filter_month": display_month,
             "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
             "product_options": product_options,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "pos_locations": pos_locations,
@@ -440,7 +508,13 @@ def tab_sales(
 
 
 @router.get("/tabs/documents", response_class=HTMLResponse)
-def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_documents(
+    request: Request,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     product_service = ProductService(db)
     config = load_business_config()
@@ -460,13 +534,26 @@ def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     if not isinstance(draft, dict):
         draft = {}
 
-    recent_documents = list(
-        db.scalars(
-            select(SalesDocument)
-            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
-            .limit(10)
-        )
-    )
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    doc_stmt = select(SalesDocument)
+    if start_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
+    if end_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
+    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
+    recent_documents = list(db.scalars(doc_stmt))
+    q = (query or "").strip()
+    if q:
+        recent_documents = [
+            d
+            for d in recent_documents
+            if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
+        ]
+    recent_documents = recent_documents[:10]
     customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
 
     return templates.TemplateResponse(
@@ -480,6 +567,9 @@ def tab_documents(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "default_doc_location_code": default_doc_location_code,
             "cart": cart,
             "recent_documents": recent_documents,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
             "customers": customers,
             "draft": draft,
             "product_options": product_service.search(query="", limit=200),
@@ -493,12 +583,20 @@ def tab_expenses(
     month: Optional[str] = None,
     year: Optional[int] = None,
     show_all: Optional[str] = None,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     inventory_service = InventoryService(db)
     
     now = datetime.now(timezone.utc)
     
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
     # If show_all is set, show all records
     if show_all:
         start = None
@@ -519,8 +617,15 @@ def tab_expenses(
         display_month = now.strftime('%m')
         display_year = now.year
     
-    expenses = inventory_service.list_expenses(start=start, end=end, limit=200)
-    total = inventory_service.total_expenses(start=start, end=end)
+    eff_start = start_dt if start_dt is not None else start
+    eff_end = end_dt if end_dt is not None else end
+
+    expenses = inventory_service.list_expenses(start=eff_start, end=eff_end, limit=500)
+    q = (query or "").strip()
+    if q:
+        expenses = [e for e in expenses if query_match(q, str(e.concept or ""))]
+    expenses = expenses[:200]
+    total = inventory_service.total_expenses(start=eff_start, end=eff_end)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_expenses.html",
@@ -530,19 +635,43 @@ def tab_expenses(
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "filter_month": display_month,
             "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
         },
     )
 
 
 @router.get("/tabs/dividends", response_class=HTMLResponse)
-def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_dividends(
+    request: Request,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
     ensure_admin(db, request)
     service = InventoryService(db)
     now = datetime.now(timezone.utc)
-    start, end = month_range(now)
+    month_start, month_end = month_range(now)
     config = load_business_config()
     summary = service.monthly_dividends_report(now=now)
-    extractions = service.list_extractions(start=start, end=end, limit=200)
+
+    start_dt = parse_dt(start_date) if start_date else month_start
+    end_dt = parse_dt(end_date) if end_date else month_end
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    extractions = service.list_extractions(start=start_dt, end=end_dt, limit=500)
+    q = (query or "").strip()
+    if q:
+        extractions = [
+            r
+            for r in extractions
+            if query_match(q, str(r.concept or ""), str(r.party or ""))
+        ]
+    extractions = extractions[:200]
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_dividends.html",
@@ -551,12 +680,22 @@ def tab_dividends(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "extractions": extractions,
             "movement_date_default": dt_to_local_input(now),
             "dividends": config.dividends.model_dump(),
+            "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
         },
     )
 
 
 @router.get("/tabs/transfers", response_class=HTMLResponse)
-def tab_transfers(request: Request, db: Session = Depends(session_dep), success: int = 0) -> HTMLResponse:
+def tab_transfers(
+    request: Request,
+    db: Session = Depends(session_dep),
+    success: int = 0,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
     ensure_admin(db, request)
     user = get_current_user_from_session(db, request)
 
@@ -571,16 +710,23 @@ def tab_transfers(request: Request, db: Session = Depends(session_dep), success:
     ]
     default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
 
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
     recent_transfer_out = inventory_service.movement_history(
         movement_type="transfer_out",
-        start_date=None,
-        end_date=None,
+        query=query,
+        start_date=start_dt,
+        end_date=end_dt,
         limit=50,
     )
     recent_transfer_in = inventory_service.movement_history(
         movement_type="transfer_in",
-        start_date=None,
-        end_date=None,
+        query=query,
+        start_date=start_dt,
+        end_date=end_dt,
         limit=50,
     )
 
@@ -616,6 +762,9 @@ def tab_transfers(request: Request, db: Session = Depends(session_dep), success:
             "message_detail": message_detail,
             "message_class": message_class,
             "show_only_in": show_only_in,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
         },
     )
 
@@ -642,16 +791,30 @@ def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResp
 
 
 @router.get("/tabs/profit-items", response_class=HTMLResponse)
-def tab_profit_items(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_profit_items(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
     ensure_admin(db, request)
     inventory_service = InventoryService(db)
     summary, items = inventory_service.monthly_profit_items_report()
+    q = (query or "").strip()
+    if q:
+        items = [
+            r
+            for r in items
+            if query_match(
+                q,
+                str(getattr(r, "sku", "") or ""),
+                str(getattr(r, "name", "") or ""),
+                str(getattr(r, "category", "") or ""),
+                str(getattr(r, "lot_code", "") or ""),
+            )
+        ]
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_profit_items.html",
         context={
             "summary": summary,
             "items": items,
+            "filter_query": query,
         },
     )
 
@@ -889,16 +1052,15 @@ def restock_table(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 def tab_history(
     request: Request,
     db: Session = Depends(session_dep),
-    sku: Optional[str] = None,
+    query: str = "",
     movement_type: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    product_service = ProductService(db)
     inventory_service = InventoryService(db)
 
-    sku_filter = sku.strip() if sku else None
+    query_filter = (query or "").strip()
     type_filter = movement_type.strip() if movement_type else None
     
     # Default to current month if no dates specified
@@ -912,7 +1074,7 @@ def tab_history(
             end_dt = end_dt + timedelta(days=1)
 
     movements = inventory_service.movement_history(
-        sku=sku_filter or None,
+        query=query_filter,
         movement_type=type_filter or None,
         start_date=start_dt,
         end_date=end_dt,
@@ -924,8 +1086,7 @@ def tab_history(
         name="partials/tab_history.html",
         context={
             "movements": movements,
-            "product_options": product_service.search(query="", limit=200),
-            "sku_filter": sku_filter or "",
+            "filter_query": query_filter,
             "type_filter": type_filter or "",
             "start_date_value": (start_date or "")[:10],
             "end_date_value": (end_date or "")[:10],
