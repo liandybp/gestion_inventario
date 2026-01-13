@@ -6,6 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.sql import func
 
 from app.audit import log_event
 from app.deps import session_dep
@@ -69,10 +71,24 @@ def transfer_update(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
+    out_id = service._transfer_out_id_for_movement_id(movement_id)
+    mv_out = db.get(InventoryMovement, out_id)
+    from_code = default_from_location_code
+    to_code = default_to_location_code
+    try:
+        if mv_out is not None:
+            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+    except Exception:
+        from_code = default_from_location_code
+        to_code = default_to_location_code
+
     product_options = [
-        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+        p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
     ]
 
     try:
@@ -100,12 +116,15 @@ def transfer_update(
             name="partials/tab_transfers.html",
             context={
                 "user": user,
-                "message": "Envío actualizado",
-                "message_detail": f"Stock en CENTRAL después: {result.stock_after}",
+                "message": "Traspaso actualizado",
+                "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "product_options": product_options,
-                "pos_locations": pos_locations,
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
                 "default_to_location_code": default_to_location_code,
                 "note_value": "",
                 "rows_count": 12,
@@ -127,7 +146,7 @@ def transfer_update(
                 "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
                 "quantity_value": float(quantity or 0),
                 "note_value": note or "",
-                "message": "Error al actualizar envío",
+                "message": "Error al actualizar traspaso",
                 "message_detail": str(e.detail),
                 "message_class": "error",
             },
@@ -150,10 +169,24 @@ def transfer_delete(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
+    out_id = service._transfer_out_id_for_movement_id(movement_id)
+    mv_out = db.get(InventoryMovement, out_id)
+    from_code = default_from_location_code
+    to_code = default_to_location_code
+    try:
+        if mv_out is not None:
+            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+    except Exception:
+        from_code = default_from_location_code
+        to_code = default_to_location_code
+
     product_options = [
-        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+        p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
     ]
 
     try:
@@ -177,11 +210,14 @@ def transfer_delete(
             name="partials/tab_transfers.html",
             context={
                 "user": user,
-                "message": "Envío eliminado",
+                "message": "Traspaso eliminado",
                 "message_class": "ok",
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "product_options": product_options,
-                "pos_locations": pos_locations,
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
                 "default_to_location_code": default_to_location_code,
                 "note_value": "",
                 "rows_count": 12,
@@ -203,7 +239,7 @@ def transfer_delete(
                 "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
                 "quantity_value": abs(float(mv.quantity or 0)) if mv else 0,
                 "note_value": "",
-                "message": "Error al eliminar envío",
+                "message": "Error al eliminar traspaso",
                 "message_detail": str(e.detail),
                 "message_class": "error",
             },
@@ -223,17 +259,20 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
+    central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
     default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
 
     form = await request.form()
 
-    to_location_code = (form.get("to_location_code") or "").strip()
+    from_location_code = (form.get("from_location_code") or "").strip() or default_from_location_code
+    to_location_code = (form.get("to_location_code") or "").strip() or default_to_location_code
     movement_date_raw = (form.get("movement_date") or "").strip()
     note = (form.get("note") or "").strip() or None
 
-    central_code = str(config.locations.central.code).strip()
     product_options = [
-        p for p in service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+        p for p in service.stock_list(query="", location_code=from_location_code) if float(p.quantity or 0) > 0
     ]
 
     products = form.getlist("product")
@@ -261,6 +300,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
     try:
         result = service.transfer(
             TransferCreate(
+                from_location_code=from_location_code,
                 to_location_code=to_location_code,
                 lines=lines,
                 movement_date=movement_date,
@@ -280,7 +320,9 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
                         detail={
                             "sku": line.sku,
                             "quantity": float(line.quantity),
+                            "from_location_code": result.from_location_code,
                             "to_location_code": result.to_location_code,
+                            "transfer_ref": result.transfer_ref,
                         },
                     )
 
@@ -302,17 +344,21 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
             name="partials/tab_transfers.html",
             context={
                 "user": user,
-                "message": "Envío registrado",
+                "message": "Traspaso registrado",
                 "message_detail": f"Destino: {result.to_location_code}. Líneas: {len(result.lines)}",
                 "message_class": "ok",
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "product_options": product_options,
-                "pos_locations": pos_locations,
+                "all_locations": all_locations,
+                "from_location_code": from_location_code,
+                "to_location_code": to_location_code,
+                "default_from_location_code": default_from_location_code,
                 "default_to_location_code": default_to_location_code,
                 "note_value": "",
                 "rows_count": 12,
                 "recent_transfer_out": recent_transfer_out,
                 "recent_transfer_in": recent_transfer_in,
+                "transfer_ref": result.transfer_ref,
             },
         )
     except Exception as e:
@@ -340,14 +386,16 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
             name="partials/tab_transfers.html",
             context={
                 "user": user,
-                "message": "Error en envío",
+                "message": "Error en traspaso",
                 "message_detail": str(getattr(e, "detail", e)),
                 "message_class": "error",
                 "movement_date_default": movement_date_raw or dt_to_local_input(datetime.now(timezone.utc)),
                 "product_options": product_options,
-                "pos_locations": pos_locations,
-                "default_to_location_code": default_to_location_code,
+                "all_locations": all_locations,
+                "from_location_code": from_location_code,
                 "to_location_code": to_location_code,
+                "default_from_location_code": default_from_location_code,
+                "default_to_location_code": default_to_location_code,
                 "note_value": note or "",
                 "rows_count": 12,
                 "recent_transfer_out": recent_transfer_out,
@@ -359,8 +407,38 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
         return response
 
 
+@router.get("/transfers/product-options", response_class=HTMLResponse)
+def transfer_product_options(
+    request: Request,
+    db: Session = Depends(session_dep),
+    from_location_code: str = "",
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    cfg = load_business_config()
+    from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
+    options = [
+        p
+        for p in service.stock_list(query="", location_code=from_code)
+        if float(getattr(p, "quantity", 0) or 0) > 0
+    ]
+    parts: list[str] = []
+    for p in options:
+        sku = str(getattr(p, "sku", "") or "")
+        name = str(getattr(p, "name", "") or "")
+        if not sku:
+            continue
+        parts.append(f'<option value="{sku}">{sku} - {name}</option>')
+    return HTMLResponse("\n".join(parts))
+
+
 @router.get("/transfers/stock/{sku}", response_class=HTMLResponse)
-async def get_transfer_stock(sku: str, request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+async def get_transfer_stock(
+    sku: str,
+    request: Request,
+    db: Session = Depends(session_dep),
+    location_code: str = "",
+) -> HTMLResponse:
     ensure_admin(db, request)
     service = InventoryService(db)
     product_service = ProductService(db)
@@ -371,8 +449,99 @@ async def get_transfer_stock(sku: str, request: Request, db: Session = Depends(s
             return HTMLResponse("0")
         
         config = load_business_config()
-        central_code = config.locations.central.code
-        stock = service.stock_for_location(sku, location_code=central_code)
+        effective_code = (location_code or "").strip() or str(config.locations.central.code)
+        stock = service.stock_for_location(sku, location_code=effective_code)
         return HTMLResponse(str(int(stock)))
     except Exception:
         return HTMLResponse("0")
+
+
+@router.get("/transfers/print", response_class=HTMLResponse)
+def transfer_print(
+    request: Request,
+    db: Session = Depends(session_dep),
+    ref: str = "",
+    movement_id: int = 0,
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    service = InventoryService(db)
+    cfg = load_business_config()
+
+    ref_clean = (ref or "").strip()
+    if not ref_clean and movement_id:
+        mv = db.get(InventoryMovement, int(movement_id))
+        if mv is None:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        raw = str(mv.note or "")
+        if "ref=" in raw:
+            try:
+                ref_clean = raw.split("ref=", 1)[1].split()[0].strip()
+            except Exception:
+                ref_clean = ""
+
+    if not ref_clean:
+        raise HTTPException(status_code=422, detail="ref is required")
+
+    mvs = list(
+        db.scalars(
+            select(InventoryMovement)
+            .where(
+                InventoryMovement.type == "transfer_out",
+                InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
+            )
+            .order_by(InventoryMovement.movement_date.asc(), InventoryMovement.id.asc())
+        )
+    )
+    if not mvs:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+
+    from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mvs[0].note or ""))
+    movement_date = mvs[0].movement_date
+
+    code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
+    for loc in (cfg.locations.pos or []):
+        code_to_name[str(loc.code)] = str(loc.name)
+
+    rows = db.execute(
+        select(
+            Product.sku,
+            Product.name,
+            func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+            func.coalesce(Product.default_sale_price, 0).label("sale_price"),
+        )
+        .select_from(InventoryMovement)
+        .join(Product, Product.id == InventoryMovement.product_id)
+        .where(
+            InventoryMovement.type == "transfer_out",
+            InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
+        )
+        .group_by(Product.id)
+        .order_by(Product.sku.asc())
+    ).all()
+
+    items: list[dict] = []
+    for sku, name, qty, sale_price in rows:
+        sp = float(sale_price or 0)
+        items.append(
+            {
+                "sku": str(sku or ""),
+                "name": str(name or ""),
+                "qty": float(qty or 0),
+                "sale_price": sp,
+                "sale_price_10": sp * 0.10,
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="transfer_print.html",
+        context={
+            "ref": ref_clean,
+            "from_code": from_code,
+            "to_code": to_code,
+            "from_name": code_to_name.get(from_code, from_code),
+            "to_name": code_to_name.get(to_code, to_code),
+            "movement_date": movement_date,
+            "items": items,
+        },
+    )

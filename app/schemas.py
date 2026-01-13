@@ -128,6 +128,7 @@ class TransferLineCreate(BaseModel):
 
 
 class TransferCreate(BaseModel):
+    from_location_code: Optional[str] = None
     to_location_code: str
     lines: list[TransferLineCreate]
     movement_date: Optional[datetime] = None
@@ -142,8 +143,10 @@ class TransferLineResult(BaseModel):
 
 
 class TransferResult(BaseModel):
+    from_location_code: Optional[str] = None
     to_location_code: str
     lines: list[TransferLineResult]
+    transfer_ref: Optional[str] = None
 
 
 class StockRead(BaseModel):

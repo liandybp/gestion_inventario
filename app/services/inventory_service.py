@@ -517,27 +517,34 @@ class InventoryService:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Este envío fue creado antes de habilitar la edición. "
+                    "Este traspaso fue creado antes de habilitar la edición. "
                     "Vuelve a registrarlo o elimínalo y créalo de nuevo."
                 ),
             )
         return int(m.group(1))
 
     def _transfer_to_code_from_out_note(self, note: str) -> str:
+        _from_code, to_code, _ref = self._transfer_codes_from_out_note(note)
+        return to_code
+
+    def _transfer_codes_from_out_note(self, note: str) -> tuple[str, str, Optional[str]]:
         raw = str(note or "")
-        m = re.search(r"Transfer CENTRAL->([^:; ]+)", raw)
+        m = re.search(r"Transfer\s+([^\s:;]+)->([^\s:;]+)", raw)
         if not m:
             raise HTTPException(
                 status_code=409,
-                detail="No se puede editar este envío porque falta el destino en la nota.",
+                detail="No se puede editar este traspaso porque falta el origen/destino en la nota.",
             )
-        code = (m.group(1) or "").strip()
-        if not code:
+        from_code = (m.group(1) or "").strip()
+        to_code = (m.group(2) or "").strip()
+        if not from_code or not to_code:
             raise HTTPException(
                 status_code=409,
-                detail="No se puede editar este envío porque falta el destino en la nota.",
+                detail="No se puede editar este traspaso porque falta el origen/destino en la nota.",
             )
-        return code
+        ref_m = re.search(r"\bref=([^\s:;]+)", raw)
+        ref = (ref_m.group(1).strip() if ref_m else None) or None
+        return from_code, to_code, ref
 
     def _legacy_transfer_in_ids_for_out(
         self,
@@ -683,7 +690,7 @@ class InventoryService:
                 raise HTTPException(
                     status_code=409,
                     detail=(
-                        "No se pudo identificar las entradas del POS para este envío (envío antiguo). "
+                        "No se pudo identificar las entradas del POS para este traspaso (traspaso antiguo). "
                         f"out_id={int(mv_out.id)} product_id={int(mv_out.product_id)} to_loc_id={int(to_loc_id)} "
                         f"mv_dt={mv_dt.isoformat()} qty={qty_val:g} cost={cost_val:g} src_lot={src_code or ''} "
                         f"note_hint={note_hint or ''}"
@@ -722,8 +729,8 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        to_code = self._transfer_to_code_from_out_note(str(mv_out.note or ""))
-        central_loc_id = self._central_location_id()
+        from_code, to_code, ref = self._transfer_codes_from_out_note(str(mv_out.note or ""))
+        from_loc_id = self._location_id_for_code(from_code)
         to_loc_id = self._location_id_for_code(to_code)
         mv_dt = self._movement_datetime(movement_date)
 
@@ -746,13 +753,14 @@ class InventoryService:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "No se pudo identificar las entradas del POS para este envío. "
+                    "No se pudo identificar las entradas del POS para este traspaso. "
                     "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
                 ),
             )
 
+        effective_ref = (ref or "").strip() or f"TP-{from_code}-{to_code}-{mv_dt:%y%m%d%H%M%S}"
         clean_note = (note or "").strip()
-        base_note = f"Transfer CENTRAL->{to_code}"
+        base_note = f"Transfer {from_code}->{to_code} ref={effective_ref}"
         mv_out.note = f"{base_note}: {clean_note}" if clean_note else base_note
         mv_out.quantity = -float(quantity)
         mv_out.movement_date = mv_dt
@@ -764,7 +772,7 @@ class InventoryService:
                 self._db.execute(delete(InventoryMovement).where(InventoryMovement.id.in_(in_ids)))
             self._db.flush()
 
-            self._consume_fifo(product.id, central_loc_id, mv_out.id, float(quantity))
+            self._consume_fifo(product.id, from_loc_id, mv_out.id, float(quantity))
             self._db.flush()
 
             alloc_rows = list(
@@ -793,7 +801,7 @@ class InventoryService:
                 except Exception:
                     recv_iso = None
 
-                mv_in_note = f"Transfer in from CENTRAL out_id={mv_out.id}"
+                mv_in_note = f"Transfer in from {from_code} out_id={mv_out.id} ref={effective_ref}"
                 if src_lot_code:
                     mv_in_note = mv_in_note + f" lot={src_lot_code}"
                 if recv_iso:
@@ -836,7 +844,7 @@ class InventoryService:
             raise
 
         self._db.refresh(mv_out)
-        stock_after = self._inventory.stock_for_product_id(product.id, location_id=central_loc_id)
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=from_loc_id)
         warning = self._warning_if_restock_needed(product, stock_after)
         return MovementResult(
             movement=MovementRead.model_validate(mv_out),
@@ -854,7 +862,7 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        to_code = self._transfer_to_code_from_out_note(str(mv_out.note or ""))
+        _from_code, to_code, _ref = self._transfer_codes_from_out_note(str(mv_out.note or ""))
         mv_dt = self._movement_datetime(mv_out.movement_date)
         to_loc_id = self._location_id_for_code(to_code)
 
@@ -872,7 +880,7 @@ class InventoryService:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "No se pudo identificar las entradas del POS para este envío. "
+                    "No se pudo identificar las entradas del POS para este traspaso. "
                     "Recomendación: vuelve a registrarlo o elimínalo y créalo de nuevo."
                 ),
             )
@@ -1733,15 +1741,22 @@ class InventoryService:
         if not payload.lines:
             raise HTTPException(status_code=422, detail="lines is required")
 
+        from_code = (payload.from_location_code or "").strip()
+        if not from_code:
+            from_code = load_business_config().locations.central.code
+
         to_code = (payload.to_location_code or "").strip()
         if not to_code:
             raise HTTPException(status_code=422, detail="to_location_code is required")
 
+        if from_code == to_code:
+            raise HTTPException(status_code=422, detail="from_location_code must be different from to_location_code")
+
         movement_dt = self._movement_datetime(payload.movement_date)
-        central_loc_id = self._central_location_id()
+        from_loc_id = self._location_id_for_code(from_code)
         to_loc_id = self._location_id_for_code(to_code)
-        if to_loc_id == central_loc_id:
-            raise HTTPException(status_code=422, detail="to_location_code must be different from CENTRAL")
+
+        transfer_ref = f"TP-{from_code}-{to_code}-{movement_dt:%y%m%d%H%M%S}"  # stable grouping key
 
         results: list[TransferLineResult] = []
 
@@ -1756,30 +1771,30 @@ class InventoryService:
 
                 product = self._get_product(sku)
 
-                stock_before = self._inventory.stock_for_product_id(product.id, location_id=central_loc_id)
+                stock_before = self._inventory.stock_for_product_id(product.id, location_id=from_loc_id)
                 if stock_before < qty:
                     if float(stock_before or 0) <= 0:
                         raise HTTPException(
                             status_code=409,
-                            detail=f"No hay stock en el almacén CENTRAL para {sku}.",
+                            detail=f"No hay stock en {from_code} para {sku}.",
                         )
                     raise HTTPException(
                         status_code=409,
                         detail=(
-                            f"Stock insuficiente en el almacén CENTRAL para {sku}. "
+                            f"Stock insuficiente en {from_code} para {sku}. "
                             f"Disponible: {float(stock_before):g}. Solicitado: {float(qty):g}."
                         ),
                     )
 
                 note = payload.note
                 if note:
-                    note = f"Transfer CENTRAL->{to_code}: {note}"
+                    note = f"Transfer {from_code}->{to_code} ref={transfer_ref}: {note}"
                 else:
-                    note = f"Transfer CENTRAL->{to_code}"
+                    note = f"Transfer {from_code}->{to_code} ref={transfer_ref}"
 
                 mv_out = InventoryMovement(
                     product_id=product.id,
-                    location_id=central_loc_id,
+                    location_id=from_loc_id,
                     type="transfer_out",
                     quantity=-qty,
                     unit_cost=None,
@@ -1790,7 +1805,7 @@ class InventoryService:
                 self._inventory.add_movement(mv_out)
                 self._db.flush()
 
-                self._consume_fifo(product.id, central_loc_id, mv_out.id, qty)
+                self._consume_fifo(product.id, from_loc_id, mv_out.id, qty)
                 self._db.flush()
 
                 alloc_rows = list(
@@ -1820,7 +1835,7 @@ class InventoryService:
                     except Exception:
                         recv_iso = None
 
-                    mv_in_note = f"Transfer in from CENTRAL out_id={mv_out.id}"
+                    mv_in_note = f"Transfer in from {from_code} out_id={mv_out.id} ref={transfer_ref}"
                     if src_lot_code:
                         mv_in_note = mv_in_note + f" lot={src_lot_code}"
                     if recv_iso:
@@ -1873,7 +1888,7 @@ class InventoryService:
             self._db.rollback()
             raise HTTPException(status_code=400, detail=str(e)) from e
 
-        return TransferResult(to_location_code=to_code, lines=results)
+        return TransferResult(from_location_code=from_code, to_location_code=to_code, lines=results, transfer_ref=transfer_ref)
 
     def sale(self, payload: SaleCreate) -> MovementResult:
         if payload.quantity <= 0:

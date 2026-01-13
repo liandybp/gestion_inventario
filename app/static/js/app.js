@@ -143,8 +143,22 @@
       sku = sku.split(' - ')[0].trim();
     }
     if (!sku) return;
-    
-    fetch(`/ui/transfers/stock/${encodeURIComponent(sku)}`)
+
+    const form = input.closest('form');
+    let fromCode = '';
+    if (form) {
+      const fromSel = form.querySelector('select[name="from_location_code"]');
+      if (fromSel) {
+        fromCode = (fromSel.value || '').trim();
+      }
+    }
+
+    let url = `/ui/transfers/stock/${encodeURIComponent(sku)}`;
+    if (fromCode) {
+      url = url + `?location_code=${encodeURIComponent(fromCode)}`;
+    }
+
+    fetch(url)
       .then(res => res.text())
       .then(stock => {
         qtyInput.value = stock || '0';

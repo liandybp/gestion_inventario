@@ -1,6 +1,6 @@
 <div>
-  <h2>Envíos</h2>
-  <p class="muted">Envía stock desde CENTRAL hacia un punto de venta (multi-producto).</p>
+  <h2>Traspasos</h2>
+  <p class="muted">Traspasa stock entre ubicaciones (multi-producto).</p>
 
   {% from 'components/ui.html' import flash %}
   {{ flash(message, message_class or '', message_detail) }}
@@ -8,9 +8,18 @@
   <form hx-post="/ui/transfers" hx-target="#tab-content" hx-swap="innerHTML" hx-indicator="#transfer-loading" hx-sync="this:drop" hx-disabled-elt="#transfer-submit" class="card" id="transfer-form">
     <div class="grid-3" style="gap:12px;">
       <div>
+        <label class="filter-label">Origen</label>
+        <select name="from_location_code" required
+                hx-get="/ui/transfers/product-options" hx-trigger="change" hx-target="#transfer-products-list" hx-swap="innerHTML" hx-include="#transfer-form">
+          {% for loc in all_locations %}
+            <option value="{{ loc['code'] }}" {% if (from_location_code or default_from_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
         <label class="filter-label">Destino</label>
         <select name="to_location_code" required>
-          {% for loc in pos_locations %}
+          {% for loc in all_locations %}
             <option value="{{ loc['code'] }}" {% if (to_location_code or default_to_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
           {% endfor %}
         </select>
@@ -19,10 +28,11 @@
         <label class="filter-label">Fecha</label>
         <input type="datetime-local" name="movement_date" value="{{ movement_date_default or '' }}" />
       </div>
-      <div>
-        <label class="filter-label">Nota</label>
-        <input type="text" name="note" value="{{ note_value or '' }}" placeholder="Opcional" />
-      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px; grid-template-columns: auto 1fr;">
+      <label>Nota</label>
+      <input type="text" name="note" value="{{ note_value or '' }}" placeholder="Opcional" style="margin:0;" />
     </div>
 
     <div class="mt-12"></div>
@@ -32,7 +42,7 @@
         <thead>
           <tr>
             <th style="width:62%;">Producto</th>
-            <th style="width:23%;" class="text-right">Cantidad</th>
+            <th style="width:23%;">Cantidad</th>
             <th style="width:15%;"></th>
           </tr>
         </thead>
@@ -43,7 +53,7 @@
             <td>
               <input type="text" name="product" list="transfer-products-list" placeholder="Buscar por SKU o nombre" value="{{ line.product or '' }}" />
             </td>
-            <td class="text-right">
+            <td>
               <input type="number" step="0.01" min="0" name="quantity" value="{{ line.quantity or '' }}" />
             </td>
             <td class="text-right">
@@ -57,7 +67,7 @@
             <td>
               <input type="text" name="product" list="transfer-products-list" placeholder="Buscar por SKU o nombre" />
             </td>
-            <td class="text-right">
+            <td>
               <input type="number" step="0.01" min="0" name="quantity" value="" />
             </td>
             <td class="text-right">
@@ -81,7 +91,7 @@
         <td>
           <input type="text" name="product" list="transfer-products-list" placeholder="Buscar por SKU o nombre" />
         </td>
-        <td class="text-right">
+        <td>
           <input type="number" step="0.01" min="0" name="quantity" value="" />
         </td>
         <td class="text-right">
@@ -93,8 +103,11 @@
 
     <div class="mt-12 flex gap-10 items-center">
       <button type="button" class="mb-0" data-transfer-add-line>Agregar línea</button>
-      <button id="transfer-submit" type="submit" class="mb-0">Crear envío</button>
+      <button id="transfer-submit" type="submit" class="mb-0">Crear traspaso</button>
       <span id="transfer-loading" class="htmx-indicator" style="margin-left: 10px;">Procesando...</span>
+      {% if transfer_ref %}
+        <a href="/ui/transfers/print?ref={{ transfer_ref }}" target="_blank" class="text-sm">Imprimir</a>
+      {% endif %}
       <a href="#" hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
     </div>
   </form>
@@ -104,6 +117,8 @@
   <h3>Filtrar historial</h3>
   <form hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12"
         hx-trigger="submit, keyup changed delay:300ms from:#transfers-filter-query, change from:#transfers-filter-start, change from:#transfers-filter-end">
+    <input type="hidden" name="from_location_code" value="{{ from_location_code or '' }}" />
+    <input type="hidden" name="to_location_code" value="{{ to_location_code or '' }}" />
     <div class="flex gap-12 items-center flex-wrap">
       <div>
         <label class="filter-label">Buscar artículo</label>
@@ -122,7 +137,7 @@
     </div>
   </form>
 
-  <h3>Últimos envíos (salida)</h3>
+  <h3>Últimos traspasos (salida)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
     <table class="w-full table-compact" style="min-width: 980px;">
       <thead>
@@ -141,7 +156,7 @@
         {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_out %}
         <tr>
           <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
-          <td class="text-left">Envío (salida)</td>
+          <td class="text-left">Traspaso (salida)</td>
           <td class="text-left muted">{{ username or '' }}</td>
           <td class="text-left"><code>{{ sku }}</code></td>
           <td class="text-left">{{ name }}</td>
@@ -149,6 +164,13 @@
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
           <td class="text-left nowrap">
             {% if user and (user.role or '')|lower == 'admin' %}
+              {% set ref = '' %}
+              {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
+              {% if ref %}
+                <a href="/ui/transfers/print?ref={{ ref }}" target="_blank" style="text-decoration:none;">
+                  <button type="button">Print</button>
+                </a>
+              {% endif %}
               <button type="button"
                       hx-get="/ui/movement/transfer/{{ id }}/edit"
                       hx-target="body"
@@ -158,20 +180,20 @@
                       hx-post="/ui/movement/transfer/{{ id }}/delete"
                       hx-target="#tab-content"
                       hx-swap="innerHTML"
-                      hx-confirm="¿Eliminar este envío?">Del</button>
+                      hx-confirm="¿Eliminar este traspaso?">Del</button>
             {% endif %}
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted text-center">No hay envíos registrados.</td>
+          <td colspan="8" class="muted text-center">No hay traspasos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  <h3>Últimos envíos (entrada)</h3>
+  <h3>Últimos traspasos (entrada)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
     <table class="w-full table-compact" style="min-width: 980px;">
       <thead>
@@ -190,7 +212,7 @@
         {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_in %}
         <tr>
           <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
-          <td class="text-left">Envío (entrada)</td>
+          <td class="text-left">Traspaso (entrada)</td>
           <td class="text-left muted">{{ username or '' }}</td>
           <td class="text-left"><code>{{ sku }}</code></td>
           <td class="text-left">{{ name }}</td>
@@ -198,6 +220,13 @@
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
           <td class="text-left nowrap">
             {% if user and (user.role or '')|lower == 'admin' %}
+              {% set ref = '' %}
+              {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
+              {% if ref %}
+                <a href="/ui/transfers/print?ref={{ ref }}" target="_blank" style="text-decoration:none;">
+                  <button type="button">Print</button>
+                </a>
+              {% endif %}
               <button type="button"
                       hx-get="/ui/movement/transfer/{{ id }}/edit"
                       hx-target="body"
@@ -207,13 +236,13 @@
                       hx-post="/ui/movement/transfer/{{ id }}/delete"
                       hx-target="#tab-content"
                       hx-swap="innerHTML"
-                      hx-confirm="¿Eliminar este envío?">Del</button>
+                      hx-confirm="¿Eliminar este traspaso?">Del</button>
             {% endif %}
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted text-center">No hay envíos registrados.</td>
+          <td colspan="8" class="muted text-center">No hay traspasos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>

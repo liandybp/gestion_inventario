@@ -692,6 +692,8 @@ def tab_transfers(
     request: Request,
     db: Session = Depends(session_dep),
     success: int = 0,
+    from_location_code: str = "",
+    to_location_code: str = "",
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -708,7 +710,12 @@ def tab_transfers(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
+    central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
     default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_from_code = (from_location_code or "").strip() or default_from_location_code
+    selected_to_code = (to_location_code or "").strip() or default_to_location_code
 
     start_dt = parse_dt(start_date) if start_date else None
     end_dt = parse_dt(end_date) if end_date else None
@@ -736,14 +743,13 @@ def tab_transfers(
     show_only_in = False
     
     if success == 1:
-        message = "Envío registrado"
-        message_detail = "El envío se ha creado correctamente"
+        message = "Traspaso registrado"
+        message_detail = "El traspaso se ha creado correctamente"
         message_class = "ok"
         show_only_in = True
 
-    central_code = str(config.locations.central.code).strip()
     product_options = [
-        p for p in inventory_service.stock_list(query="", location_code=central_code) if float(p.quantity or 0) > 0
+        p for p in inventory_service.stock_list(query="", location_code=selected_from_code) if float(p.quantity or 0) > 0
     ]
 
     return templates.TemplateResponse(
@@ -752,7 +758,10 @@ def tab_transfers(
         context={
             "user": user,
             "product_options": product_options,
-            "pos_locations": pos_locations,
+            "all_locations": all_locations,
+            "from_location_code": selected_from_code,
+            "to_location_code": selected_to_code,
+            "default_from_location_code": default_from_location_code,
             "default_to_location_code": default_to_location_code,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "rows_count": 12,

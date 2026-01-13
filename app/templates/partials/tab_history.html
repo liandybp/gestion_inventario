@@ -18,8 +18,8 @@
           <option value="purchase" {% if type_filter == 'purchase' %}selected{% endif %}>Compra</option>
           <option value="sale" {% if type_filter == 'sale' %}selected{% endif %}>Venta</option>
           <option value="adjustment" {% if type_filter == 'adjustment' %}selected{% endif %}>Ajuste</option>
-          <option value="transfer_out" {% if type_filter == 'transfer_out' %}selected{% endif %}>Envío (salida)</option>
-          <option value="transfer_in" {% if type_filter == 'transfer_in' %}selected{% endif %}>Envío (entrada)</option>
+          <option value="transfer_out" {% if type_filter == 'transfer_out' %}selected{% endif %}>Traspaso (salida)</option>
+          <option value="transfer_in" {% if type_filter == 'transfer_in' %}selected{% endif %}>Traspaso (entrada)</option>
           <option value="return_supplier" {% if type_filter == 'return_supplier' %}selected{% endif %}>Devolución a proveedor</option>
         </select>
       </div>
@@ -66,9 +66,9 @@
             {% elif mv.type == 'adjustment' %}
               <span class="color-adjustment">Ajuste</span>
             {% elif mv.type == 'transfer_out' %}
-              <span>Envío (salida)</span>
+              <span>Traspaso (salida)</span>
             {% elif mv.type == 'transfer_in' %}
-              <span>Envío (entrada)</span>
+              <span>Traspaso (entrada)</span>
             {% elif mv.type == 'return_supplier' %}
               <span>Devolución a proveedor</span>
             {% else %}

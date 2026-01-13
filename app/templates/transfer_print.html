@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Traspaso {{ ref }}</title>
+    <style>
+      html, body { margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; }
+
+      .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+      .toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; }
+      .muted { color: #64748b; }
+
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
+      .meta div { font-size: 13px; }
+
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; font-size: 13px; }
+      th { text-align: left; background: #f8fafc; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+      @media print {
+        .toolbar { display: none; }
+        body { padding: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button type="button" onclick="window.print()">Imprimir</button>
+      <div class="muted">Ref: {{ ref }}</div>
+    </div>
+
+    <h1>Traspaso</h1>
+
+    <div class="meta">
+      <div><strong>Origen:</strong> {{ from_name }} ({{ from_code }})</div>
+      <div><strong>Destino:</strong> {{ to_name }} ({{ to_code }})</div>
+      <div><strong>Fecha:</strong> {{ movement_date.strftime('%Y-%m-%d %H:%M') if movement_date else '' }}</div>
+      <div><strong>Ref:</strong> {{ ref }}</div>
+    </div>
+
+    <table>
+      <colgroup>
+        <col style="width:16%" />
+        <col />
+        <col style="width:12%" />
+        <col style="width:14%" />
+        <col style="width:14%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th class="num">Cantidad</th>
+          <th class="num">Precio venta</th>
+          <th class="num">10%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+          <tr>
+            <td><code>{{ it.sku }}</code></td>
+            <td>{{ it.name }}</td>
+            <td class="num">{{ '%.2f'|format(it.qty or 0) }}</td>
+            <td class="num">{{ '%.2f'|format(it.sale_price or 0) }}</td>
+            <td class="num">{{ '%.2f'|format(it.sale_price_10 or 0) }}</td>
+          </tr>
+        {% endfor %}
+        {% if not items %}
+          <tr><td colspan="5" class="muted">Sin líneas.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </body>
+</html>
