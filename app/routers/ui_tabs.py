@@ -16,6 +16,7 @@ from app.models import AuditLog
 from app.models import Customer
 from app.models import InventoryLot
 from app.models import InventoryMovement
+from app.models import Location
 from app.models import Product
 from app.models import SalesDocument
 from app.security import get_current_user_from_session
@@ -97,9 +98,9 @@ def _parse_ym(ym: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _home_charts_context(inventory_service: InventoryService, now: datetime) -> dict:
+def _home_charts_context(inventory_service: InventoryService, now: datetime, location_id: Optional[int] = None) -> dict:
     start, end = month_range(now)
-    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
+    _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=location_id)
 
     month_label = _month_label_es(now)
 
@@ -129,7 +130,7 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime) -> 
 
     monthly_sales_pie_json = json.dumps({"labels": pie_labels, "values": pie_values, "qtys": pie_qtys})
 
-    daily = inventory_service.daily_sales_series(start=start, end=end)
+    daily = inventory_service.daily_sales_series(start=start, end=end, location_id=location_id)
     monthly_sales_daily_line_json = json.dumps(
         {
             "labels": [d.get("day") for d in daily],
@@ -137,7 +138,7 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime) -> 
         }
     )
 
-    monthly = inventory_service.monthly_overview(months=12, now=now)
+    monthly = inventory_service.monthly_overview(months=12, now=now, location_id=location_id)
     monthly_chart_json = json.dumps(
         {
             "labels": [m.get("month") for m in monthly],
@@ -147,7 +148,7 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime) -> 
         }
     )
 
-    metrics_items = inventory_service.sales_metrics_table(now=now, months=12)
+    metrics_items = inventory_service.sales_metrics_table(now=now, months=12, location_id=location_id)
 
     return {
         "month_label": month_label,
@@ -156,6 +157,24 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime) -> 
         "monthly_chart_json": monthly_chart_json,
         "metrics_items": metrics_items,
     }
+def _home_locations_context() -> tuple[list[dict], str]:
+    config = load_business_config()
+    locations: list[dict] = [{"code": "", "name": "General"}]
+    for loc in (config.locations.pos or []):
+        if getattr(loc, "code", None):
+            locations.append({"code": loc.code, "name": loc.name})
+    default_code = ""
+    return locations, default_code
+
+
+def _location_id_for_code(db: Session, location_code: str) -> Optional[int]:
+    code = (location_code or "").strip()
+    if not code:
+        return None
+    row = db.execute(select(Location.id).where(Location.code == code)).first()
+    if not row:
+        return None
+    return int(row[0])
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -193,13 +212,22 @@ def tab_customers(request: Request, db: Session = Depends(session_dep), query: s
 
 
 @router.get("/tabs/home", response_class=HTMLResponse)
-def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[str] = None) -> HTMLResponse:
+def tab_home(
+    request: Request,
+    db: Session = Depends(session_dep),
+    ym: Optional[str] = None,
+    location_code: str = "",
+) -> HTMLResponse:
     ensure_admin(db, request)
     product_service = ProductService(db)
     inventory_service = InventoryService(db)
 
+    locations, _default_loc_code = _home_locations_context()
+    selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(db, selected_location_code)
+
     products = product_service.list()
-    stock_items = inventory_service.stock_list()
+    stock_items = inventory_service.stock_list(location_code=selected_location_code or None)
     restock_items = [i for i in stock_items if i.needs_restock]
 
     totals = {
@@ -210,7 +238,7 @@ def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[
 
     now = _parse_ym(ym) or datetime.now(timezone.utc)
     start, end = month_range(now)
-    _summary, profit_items = inventory_service.monthly_profit_report(now=now)
+    _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=selected_location_id)
 
     month_label = _month_label_es(now)
 
@@ -220,7 +248,11 @@ def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[
 
     year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
     year_end = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
-    year_total_sales, year_items = inventory_service.sales_by_product(start=year_start, end=year_end)
+    year_total_sales, year_items = inventory_service.sales_by_product(
+        start=year_start,
+        end=year_end,
+        location_id=selected_location_id,
+    )
     year_items_nonzero = [i for i in year_items if float(i.get("sales") or 0) > 0]
     top_year = year_items_nonzero[0] if year_items_nonzero else None
     bottom_year = year_items_nonzero[-1] if year_items_nonzero else None
@@ -231,11 +263,14 @@ def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[
     top_year_pct = ((float(top_year.get("sales") or 0) / year_total_sales) * 100.0) if (top_year and year_total_sales) else 0.0
     bottom_year_pct = ((float(bottom_year.get("sales") or 0) / year_total_sales) * 100.0) if (bottom_year and year_total_sales) else 0.0
 
-    inventory_value_total = inventory_service.inventory_value_total()
-    inventory_sale_value_total = inventory_service.inventory_sale_value_total()
-    top_expense = inventory_service.top_expense_concept(start=start, end=end)
+    inventory_value_total = inventory_service.inventory_value_total(location_id=selected_location_id)
+    inventory_sale_value_total = inventory_service.inventory_sale_value_total(location_id=selected_location_id)
 
-    charts_ctx = _home_charts_context(inventory_service, now)
+    top_expense = None
+    if not selected_location_code:
+        top_expense = inventory_service.top_expense_concept(start=start, end=end)
+
+    charts_ctx = _home_charts_context(inventory_service, now, location_id=selected_location_id)
     selected_ym = now.strftime("%Y-%m")
 
     return templates.TemplateResponse(
@@ -243,6 +278,8 @@ def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[
         name="partials/tab_home.html",
         context={
             "totals": totals,
+            "locations": locations,
+            "selected_location_code": selected_location_code,
             "month_label": month_label,
             "top_margin": top_margin,
             "year": now.year,
@@ -261,16 +298,24 @@ def tab_home(request: Request, db: Session = Depends(session_dep), ym: Optional[
 
 
 @router.get("/home-charts", response_class=HTMLResponse)
-def home_charts(request: Request, db: Session = Depends(session_dep), ym: Optional[str] = None) -> HTMLResponse:
+def home_charts(
+    request: Request,
+    db: Session = Depends(session_dep),
+    ym: Optional[str] = None,
+    location_code: str = "",
+) -> HTMLResponse:
     ensure_admin(db, request)
     inventory_service = InventoryService(db)
     now = _parse_ym(ym) or datetime.now(timezone.utc)
-    charts_ctx = _home_charts_context(inventory_service, now)
+    selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(db, selected_location_code)
+    charts_ctx = _home_charts_context(inventory_service, now, location_id=selected_location_id)
     return templates.TemplateResponse(
         request=request,
         name="partials/home_charts.html",
         context={
             "selected_ym": now.strftime("%Y-%m"),
+            "selected_location_code": selected_location_code,
             **charts_ctx,
         },
     )
@@ -1046,10 +1091,15 @@ def ui_supplier_return_lots(
 
 
 @router.get("/restock-table", response_class=HTMLResponse)
-def restock_table(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
     ensure_admin(db, request)
     inventory_service = InventoryService(db)
-    items = [i for i in inventory_service.stock_list() if i.needs_restock]
+    selected_location_code = (location_code or "").strip()
+    items = [
+        i
+        for i in inventory_service.stock_list(location_code=selected_location_code or None)
+        if i.needs_restock
+    ]
     return templates.TemplateResponse(
         request=request,
         name="partials/restock_table.html",

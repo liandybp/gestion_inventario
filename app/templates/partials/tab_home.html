@@ -3,6 +3,16 @@
   <h2>Inicio</h2>
   <p class="muted">Resumen general (lo iremos ampliando paso a paso).</p>
 
+  <form class="home-charts-filter" hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="change">
+    <label class="home-charts-filter-label">Ubicación</label>
+    <select class="home-charts-filter-input" name="location_code">
+      {% for loc in locations %}
+        <option value="{{ loc.code }}" {% if (selected_location_code or '') == (loc.code or '') %}selected{% endif %}>{{ loc.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="ym" value="{{ selected_ym }}" />
+  </form>
+
   <div class="grid-3">
     {{ metric('Productos', totals.products) }}
     {{ metric('Stock total', '%.0f'|format(totals.stock_total or 0)) }}

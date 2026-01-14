@@ -960,8 +960,8 @@ class InventoryService:
         total = self._db.scalar(stmt)
         return float(total or 0)
 
-    def inventory_value_total(self) -> float:
-        total = self._db.scalar(
+    def inventory_value_total(self, location_id: Optional[int] = None) -> float:
+        stmt = (
             select(
                 func.coalesce(
                     func.sum(
@@ -971,11 +971,15 @@ class InventoryService:
                     0,
                 )
             )
+            .select_from(InventoryLot)
         )
+        if location_id is not None:
+            stmt = stmt.where(InventoryLot.location_id == location_id)
+        total = self._db.scalar(stmt)
         return float(total or 0)
 
-    def inventory_sale_value_total(self) -> float:
-        total = self._db.scalar(
+    def inventory_sale_value_total(self, location_id: Optional[int] = None) -> float:
+        stmt = (
             select(
                 func.coalesce(
                     func.sum(
@@ -988,9 +992,12 @@ class InventoryService:
             .select_from(InventoryLot)
             .join(Product, Product.id == InventoryLot.product_id)
         )
+        if location_id is not None:
+            stmt = stmt.where(InventoryLot.location_id == location_id)
+        total = self._db.scalar(stmt)
         return float(total or 0)
 
-    def sales_by_product(self, start: datetime, end: datetime) -> tuple[float, list[dict]]:
+    def sales_by_product(self, start: datetime, end: datetime, location_id: Optional[int] = None) -> tuple[float, list[dict]]:
         rows = self._db.execute(
             select(
                 Product.sku,
@@ -1011,6 +1018,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .group_by(Product.id)
@@ -1032,7 +1040,7 @@ class InventoryService:
             )
         return total_sales, items
 
-    def sales_metrics_table(self, now: datetime, months: int = 12) -> list[dict]:
+    def sales_metrics_table(self, now: datetime, months: int = 12, location_id: Optional[int] = None) -> list[dict]:
         now_dt = now
         if now_dt.tzinfo is None:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
@@ -1081,6 +1089,7 @@ class InventoryService:
                 func.coalesce(func.sum(func.coalesce(InventoryLot.qty_remaining, 0)), 0).label("stock_qty"),
             )
             .select_from(InventoryLot)
+            .where(True if location_id is None else (InventoryLot.location_id == location_id))
             .group_by(InventoryLot.product_id)
             .subquery()
         )
@@ -1106,6 +1115,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= range_start,
                     InventoryMovement.movement_date < range_end,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .group_by(
@@ -1162,7 +1172,7 @@ class InventoryService:
 
         return out
 
-    def daily_sales_series(self, start: datetime, end: datetime) -> list[dict]:
+    def daily_sales_series(self, start: datetime, end: datetime, location_id: Optional[int] = None) -> list[dict]:
         rows = self._db.execute(
             select(
                 func.date(InventoryMovement.movement_date).label("day"),
@@ -1180,6 +1190,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .group_by(func.date(InventoryMovement.movement_date))
@@ -1218,7 +1229,7 @@ class InventoryService:
         concept, total = row
         return {"concept": concept, "total": float(total or 0)}
 
-    def monthly_profit_report(self, now: Optional[datetime] = None) -> tuple[dict, list[dict]]:
+    def monthly_profit_report(self, now: Optional[datetime] = None, location_id: Optional[int] = None) -> tuple[dict, list[dict]]:
         now_dt = now or datetime.now(timezone.utc)
         start, end = self._month_range(now_dt)
 
@@ -1243,6 +1254,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .group_by(Product.id)
@@ -1263,6 +1275,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .group_by(Product.id)
@@ -1391,7 +1404,7 @@ class InventoryService:
 
         return summary, items
 
-    def monthly_overview(self, months: int = 12, now: Optional[datetime] = None) -> list[dict]:
+    def monthly_overview(self, months: int = 12, now: Optional[datetime] = None, location_id: Optional[int] = None) -> list[dict]:
         now_dt = now or datetime.now(timezone.utc)
         if now_dt.tzinfo is None:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
@@ -1418,6 +1431,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "purchase",
                     InventoryMovement.movement_date >= start,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
         ).all()
@@ -1439,6 +1453,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
         ).all()
@@ -1463,6 +1478,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
         ).all()

@@ -3,6 +3,7 @@
 <form class="home-charts-filter" hx-get="/ui/home-charts" hx-target="#home-charts" hx-swap="innerHTML" hx-trigger="change">
   <label class="home-charts-filter-label">Mes</label>
   <input class="home-charts-filter-input" type="month" name="ym" value="{{ selected_ym }}" />
+  <input type="hidden" name="location_code" value="{{ selected_location_code or '' }}" />
 </form>
 
 {% call chart_card('Ventas (' ~ month_label ~ ')', 'Distribución por artículo + serie temporal diaria.') %}
@@ -33,7 +34,7 @@
 {% endcall %}
 
 <div class="card mt-16" id="restock"
-     hx-get="/ui/restock-table" hx-trigger="load, every 5s" hx-swap="innerHTML">
+     hx-get="/ui/restock-table?location_code={{ selected_location_code or '' }}" hx-trigger="load, every 5s" hx-swap="innerHTML">
 </div>
 
 {% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
