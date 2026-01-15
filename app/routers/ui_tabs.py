@@ -109,7 +109,7 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime, loc
     pie_qtys: list[float] = []
     if profit_items:
         items_sorted = sorted(profit_items, key=lambda r: float(r.get("sales") or 0), reverse=True)
-        top_n = 10
+        top_n = 30
         top_items = items_sorted[:top_n]
         rest_items = items_sorted[top_n:]
 
