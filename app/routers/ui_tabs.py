@@ -230,8 +230,12 @@ def tab_home(
     stock_items = inventory_service.stock_list(location_code=selected_location_code or None)
     restock_items = [i for i in stock_items if i.needs_restock]
 
+    products_metric = len(products)
+    if selected_location_code:
+        products_metric = sum(1 for i in stock_items if float(i.quantity or 0) > 0)
+
     totals = {
-        "products": len(products),
+        "products": products_metric,
         "stock_total": float(sum(i.quantity for i in stock_items)),
         "to_restock": len(restock_items),
     }
