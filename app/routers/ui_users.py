@@ -54,8 +54,24 @@ def user_create(
         )
 
     role_norm = (role or "operator").strip().lower()
-    if role_norm not in ("admin", "operator"):
+    if role_norm not in ("admin", "owner", "operator"):
         role_norm = "operator"
+
+    if role_norm in ("owner", "operator") and not business_id:
+        users = list(db.scalars(select(User).order_by(User.username.asc())))
+        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_users.html",
+            context={
+                "users": users,
+                "businesses": businesses,
+                "message": "Error al crear usuario",
+                "message_detail": "Debes asignar un negocio a usuarios Operador/Dueño",
+                "message_class": "error",
+            },
+            status_code=422,
+        )
 
     new_user = User(
         username=username,
@@ -63,7 +79,7 @@ def user_create(
         role=role_norm,
         business_id=int(business_id) if business_id else None,
         is_active=bool(is_active),
-        must_change_password=False,
+        must_change_password=True,
     )
     db.add(new_user)
     db.commit()
@@ -151,8 +167,25 @@ def user_update(
         return response
 
     role_norm = (role or "operator").strip().lower()
-    if role_norm not in ("admin", "operator"):
+    if role_norm not in ("admin", "owner", "operator"):
         role_norm = "operator"
+
+    if role_norm in ("owner", "operator") and not business_id:
+        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/user_edit_form.html",
+            context={
+                "user": user,
+                "businesses": businesses,
+                "message": "Error al actualizar",
+                "message_detail": "Debes asignar un negocio a usuarios Operador/Dueño",
+                "message_class": "error",
+            },
+            status_code=422,
+        )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
 
     user.username = username
     user.role = role_norm

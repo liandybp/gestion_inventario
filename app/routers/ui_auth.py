@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.auth import authenticate
+from app.auth import hash_password
 from app.deps import session_dep
-from app.models import Business
+from app.models import Business, User
 from app.security import get_current_user_from_session
 
 from .ui_common import ensure_admin, templates
@@ -54,6 +55,85 @@ def login_submit(
         detail={"role": user.role},
     )
     return RedirectResponse(url="/ui/dashboard", status_code=302)
+
+
+@router.get("/must-change-password-form", response_class=HTMLResponse)
+def must_change_password_form(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    user = get_current_user_from_session(db, request)
+    if user is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    if not bool(getattr(user, "must_change_password", False)):
+        return HTMLResponse("")
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/must_change_password_form.html",
+        context={"user": user},
+    )
+
+
+@router.post("/must-change-password", response_class=HTMLResponse)
+def must_change_password_submit(
+    request: Request,
+    new_password: str = Form(...),
+    confirm_password: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    user = get_current_user_from_session(db, request)
+    if user is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    if not bool(getattr(user, "must_change_password", False)):
+        resp = HTMLResponse("")
+        resp.headers["HX-Refresh"] = "true"
+        return resp
+    if not new_password:
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/must_change_password_form.html",
+            context={
+                "user": user,
+                "message": "Error",
+                "message_detail": "La nueva contraseña es requerida",
+                "message_class": "error",
+            },
+            status_code=422,
+        )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
+    if (confirm_password or "") != (new_password or ""):
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/must_change_password_form.html",
+            context={
+                "user": user,
+                "message": "Error",
+                "message_detail": "Las contraseñas no coinciden",
+                "message_class": "error",
+            },
+            status_code=422,
+        )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
+
+    row = db.get(User, int(user.id))
+    if row is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    row.password_hash = hash_password(new_password)
+    row.must_change_password = False
+    db.commit()
+    db.refresh(row)
+    request.session["username"] = row.username
+
+    log_event(
+        db,
+        row,
+        action="must_change_password",
+        entity_type="auth",
+        entity_id=row.username,
+        detail={"role": row.role},
+    )
+    resp = HTMLResponse("")
+    resp.headers["HX-Refresh"] = "true"
+    return resp
 
 
 @router.post("/active-business")

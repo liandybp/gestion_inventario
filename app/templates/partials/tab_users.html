@@ -81,6 +81,8 @@
             <td>
               {% if (u.role or '')|lower == 'admin' %}
                 <span class="badge badge-admin">Administrador</span>
+              {% elif (u.role or '')|lower == 'owner' %}
+                <span class="badge badge-operator">Dueño</span>
               {% else %}
                 <span class="badge badge-operator">Operador</span>
               {% endif %}
@@ -104,6 +106,7 @@
             <td>
               <div class="action-buttons">
                 <button 
+                  type="button"
                   hx-get="/ui/user/{{ u.id }}/edit"
                   hx-target="#modal-container"
                   hx-swap="innerHTML"
@@ -112,6 +115,7 @@
                   ✏️ Editar
                 </button>
                 <button 
+                  type="button"
                   hx-get="/ui/user/{{ u.id }}/reset-password-form"
                   hx-target="#modal-container"
                   hx-swap="innerHTML"

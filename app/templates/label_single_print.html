@@ -6,9 +6,9 @@
     <title>Etiqueta</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <style>
-      @page { size: 50mm 25mm; margin: 0; }
+      @page { size: 60mm 30mm; margin: 0; }
 
-      html, body { width: 50mm; margin: 0; padding: 0; }
+      html, body { width: 60mm; margin: 0; padding: 0; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; }
 
       .toolbar { padding: 10px 0 12px; display: flex; gap: 8px; align-items: center; }
@@ -19,13 +19,13 @@
       .sheet { display: block; }
 
       .page {
-        width: 50mm;
-        height: 25mm;
+        width: 60mm;
+        height: 30mm;
       }
 
       .label {
-        width: 50mm;
-        height: 25mm;
+        width: 60mm;
+        height: 30mm;
         border: 1px solid transparent;
         border-radius: 2mm;
         padding: 2mm;
@@ -62,7 +62,7 @@
       <label for="copies">Copias</label>
       <input id="copies" name="copies" type="number" min="1" step="1" value="{{ copies or 1 }}" />
       <button type="button" id="btn-print">Imprimir</button>
-      <div class="muted">Etiqueta carrusel: 50mm x 25mm | Barcode: CODE128 (SKU)</div>
+      <div class="muted">Etiqueta carrusel: 60mm x 30mm | Barcode: CODE128 (SKU)</div>
     </div>
 
     <div class="sheet" id="sheet"></div>
@@ -118,6 +118,14 @@
 
         copiesInput.addEventListener('change', render);
         render();
+
+        const params = new URLSearchParams(window.location.search || '');
+        const autoPrint = (params.get('auto_print') || '') === '1';
+        if (autoPrint) {
+          setTimeout(() => {
+            try { window.print(); } catch(e) {}
+          }, 200);
+        }
 
         document.getElementById('btn-print').addEventListener('click', () => {
           render();

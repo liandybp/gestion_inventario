@@ -24,12 +24,17 @@
     if (!tabContent) return;
 
     const savedBtn = saved.id ? document.getElementById(saved.id) : null;
-    const btn = savedBtn && savedBtn.classList.contains('sidebar-item') ? savedBtn : null;
-    const url = (btn && btn.getAttribute('hx-get')) || saved.url;
+    let btn = savedBtn && savedBtn.classList.contains('sidebar-item') ? savedBtn : null;
+    if (!btn && saved.url) {
+      btn = document.querySelector(`.sidebar-item[hx-get="${saved.url}"]`);
+    }
+    if (!btn) return;
+
+    const url = btn.getAttribute('hx-get') || '';
     if (!url) return;
 
     tabContent.setAttribute('hx-get', url);
-    if (btn) setActiveTab(btn);
+    setActiveTab(btn);
   }
 
   function setActiveTab(tabEl) {
@@ -248,6 +253,7 @@
 
   function onModalOverlayClick(evt) {
     if (evt.target.classList.contains('modal-overlay')) {
+      if (evt.target.getAttribute('data-modal-static') === '1') return;
       const modalId = evt.target.closest('[id]')?.id;
       if (modalId) closeModal(modalId);
     }
@@ -569,6 +575,20 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     runEnhancers(document);
+
+    try {
+      const tabContent = document.getElementById('tab-content');
+      if (tabContent && (!String(tabContent.innerHTML || '').trim())) {
+        const url = tabContent.getAttribute('hx-get') || '';
+        if (url && window.htmx && typeof window.htmx.trigger === 'function') {
+          setTimeout(() => {
+            if (!String(tabContent.innerHTML || '').trim()) {
+              try { window.htmx.trigger(tabContent, 'load'); } catch (e) {}
+            }
+          }, 200);
+        }
+      }
+    } catch (e) {}
     
     // Mobile menu toggle
     const menuToggle = document.getElementById('mobile-menu-toggle');
