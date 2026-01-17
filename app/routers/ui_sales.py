@@ -14,7 +14,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
-from app.security import get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 
@@ -42,7 +42,7 @@ def sale_product_options(
         raise HTTPException(status_code=403, detail="Not authenticated")
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
 
@@ -61,7 +61,7 @@ def sale_product_options(
 
 
 def _sales_doc_context(db: Session, request: Request) -> dict:
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     bid = get_active_business_id(db, request)
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
@@ -107,7 +107,7 @@ def sale(
     product_service = ProductService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
     sku = extract_sku(product)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
@@ -190,7 +190,7 @@ def sale_barcode(
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code

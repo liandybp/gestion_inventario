@@ -12,7 +12,7 @@ from sqlalchemy.sql import func
 from app.audit import log_event
 from app.deps import session_dep
 from app.schemas import TransferCreate, TransferLineCreate
-from app.security import get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
@@ -69,7 +69,7 @@ def transfer_update(
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -168,7 +168,7 @@ def transfer_delete(
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -259,7 +259,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -422,7 +422,7 @@ def transfer_product_options(
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    cfg = load_business_config()
+    cfg = load_business_config(get_active_business_code(db, request))
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     options = [
         p
@@ -456,7 +456,7 @@ async def get_transfer_stock(
         if not product:
             return HTMLResponse("0")
         
-        config = load_business_config()
+        config = load_business_config(get_active_business_code(db, request))
         effective_code = (location_code or "").strip() or str(config.locations.central.code)
         stock = service.stock_for_location(sku, location_code=effective_code)
         return HTMLResponse(str(int(stock)))
@@ -474,7 +474,7 @@ def transfer_print(
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    cfg = load_business_config()
+    cfg = load_business_config(get_active_business_code(db, request))
 
     ref_clean = (ref or "").strip()
     if not ref_clean and movement_id:

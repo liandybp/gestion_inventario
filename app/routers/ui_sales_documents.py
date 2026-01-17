@@ -12,7 +12,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.services.product_service import ProductService
 
 from .ui_common import extract_sku, templates
@@ -148,7 +148,7 @@ def sales_doc_preview(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -206,7 +206,7 @@ def sales_doc_preview(
 def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = get_active_business_id(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
@@ -291,7 +291,7 @@ async def sales_doc_update(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = get_active_business_id(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
@@ -493,7 +493,7 @@ def sales_doc_cart_add(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = get_active_business_id(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     product_service = ProductService(db, business_id=bid)
 
     try:
@@ -649,7 +649,7 @@ def sales_doc_cart_remove(
     notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -709,7 +709,7 @@ def sales_doc_cart_clear(
     notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -765,7 +765,7 @@ def sales_doc_issue(
     notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -908,7 +908,7 @@ def sales_doc_pdf(
         )
     )
 
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
     try:

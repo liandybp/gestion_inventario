@@ -27,7 +27,6 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     if user is None:
         return None
 
-    # Owner and operator are fixed to their business, only admin can switch
     if not is_admin(user):
         return int(user.business_id) if user.business_id is not None else None
 
@@ -111,3 +110,11 @@ def can_access_full_dashboard(user: Optional[User]) -> bool:
         return False
     role = (user.role or "").lower()
     return role in ("admin", "owner")
+
+
+def get_active_business_code(db: Session, request: Request) -> Optional[str]:
+    bid = get_active_business_id(db, request)
+    if bid is None:
+        return None
+    code = db.scalar(select(Business.code).where(Business.id == int(bid)))
+    return (str(code).strip() if code is not None else None) or None

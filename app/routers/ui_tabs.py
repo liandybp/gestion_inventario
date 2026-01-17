@@ -21,7 +21,7 @@ from app.models import InventoryMovement
 from app.models import Location
 from app.models import Product
 from app.models import SalesDocument
-from app.security import get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
@@ -161,8 +161,8 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime, loc
     }
 
 
-def _home_locations_context() -> tuple[list[dict], str]:
-    config = load_business_config()
+def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[dict], str]:
+    config = load_business_config(business_code)
     locations: list[dict] = [{"code": "", "name": "General"}]
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
@@ -181,9 +181,9 @@ def _location_id_for_code(db: Session, location_code: str) -> Optional[int]:
     return int(row[0])
 
 
-def _location_name_for_code(location_code: str) -> str:
+def _location_name_for_code(location_code: str, business_code: Optional[str] = None) -> str:
     code = (location_code or "").strip()
-    locations, _default_loc_code = _home_locations_context()
+    locations, _default_loc_code = _home_locations_context(business_code)
     for loc in locations:
         if (str(loc.get("code") or "").strip()) == code:
             name = str(loc.get("name") or "").strip()
@@ -202,10 +202,10 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     active_business_id = get_active_business_id(db, request)
     businesses = []
     active_business = None
+    if active_business_id is not None:
+        active_business = db.get(Business, int(active_business_id))
     if user is not None and (user.role or "").lower() == "admin":
         businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
-        if active_business_id is not None:
-            active_business = db.get(Business, int(active_business_id))
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -249,11 +249,12 @@ def tab_home(
     location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
+    business_code = get_active_business_code(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    locations, _default_loc_code = _home_locations_context()
+    locations, _default_loc_code = _home_locations_context(business_code)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(db, selected_location_code)
 
@@ -361,7 +362,7 @@ def home_charts(
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
@@ -513,7 +514,7 @@ def tab_sales(
         display_month = filter_month
         display_year = filter_year
 
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
@@ -608,7 +609,7 @@ def tab_documents(
     _ = get_current_user_from_session(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -754,7 +755,7 @@ def tab_dividends(
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     summary = service.monthly_dividends_report(now=now)
 
     start_dt = parse_dt(start_date) if start_date else month_start
@@ -803,7 +804,7 @@ def tab_transfers(
 
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -942,7 +943,7 @@ def stock_table(
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
@@ -984,7 +985,7 @@ def stock_delete_product(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
     central_code = str(config.locations.central.code).strip()
 
     message = None
@@ -1043,7 +1044,7 @@ def ui_supplier_return(
     ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     for loc in (config.locations.pos or []):
@@ -1154,6 +1155,7 @@ def ui_supplier_return_lots(
 @router.get("/restock-table", response_class=HTMLResponse)
 def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
     ensure_admin_or_owner(db, request)
+    business_code = get_active_business_code(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
@@ -1168,7 +1170,7 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code),
+            "selected_location_name": _location_name_for_code(selected_location_code, business_code),
         },
     )
 
@@ -1176,6 +1178,7 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
 @router.get("/restock-print", response_class=HTMLResponse)
 def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
     ensure_admin_or_owner(db, request)
+    business_code = get_active_business_code(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
@@ -1190,7 +1193,7 @@ def restock_print(request: Request, db: Session = Depends(session_dep), location
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code),
+            "selected_location_name": _location_name_for_code(selected_location_code, business_code),
             "print_mode": True,
             "generated_at": datetime.now(timezone.utc),
         },

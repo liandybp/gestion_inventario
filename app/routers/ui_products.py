@@ -12,7 +12,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Product
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
-from app.security import get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -362,7 +362,7 @@ def product_update_inventory(
                     )
                 )
 
-        config = load_business_config()
+        config = load_business_config(get_active_business_code(db, request))
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -389,7 +389,7 @@ def product_update_inventory(
             },
         )
     except HTTPException as e:
-        config = load_business_config()
+        config = load_business_config(get_active_business_code(db, request))
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):

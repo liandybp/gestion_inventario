@@ -22,7 +22,7 @@
           <h2>Dashboard</h2>
           {% if user %}
             {% set user_role = (user.role or '')|lower %}
-            <div class="sidebar-user">{{ user.username }} ({{ user.role }})</div>
+            <div class="sidebar-user">{{ user.username }}</div>
             {% if user_role == 'admin' %}
               <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
               <form method="post" action="/ui/active-business" style="margin-top:8px;">

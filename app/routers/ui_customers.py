@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
-from app.security import get_current_user_from_session
+from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
 from app.utils import query_match
 
 from .ui_common import templates
@@ -152,7 +152,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
         .limit(10)
     ).all()
 
-    config = load_business_config()
+    config = load_business_config(get_active_business_code(db, request))
 
     return templates.TemplateResponse(
         request=request,

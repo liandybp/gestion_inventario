@@ -343,7 +343,7 @@ def _run_startup_tasks() -> None:
 
     db = get_session()
     try:
-        config = load_business_config()
+        config = load_business_config("recambios")
 
         def ensure_business(code: str, name: str) -> Business:
             c = (code or "").strip()

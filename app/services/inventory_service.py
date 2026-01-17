@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
+    Business,
     InventoryLot,
     InventoryMovement,
     Location,
@@ -40,6 +41,7 @@ class InventoryService:
     def __init__(self, db: Session, business_id: int | None = None):
         self._db = db
         self._business_id = int(business_id) if business_id is not None else None
+        self._business_code: Optional[str] = None
         self._products = ProductRepository(db, business_id=self._business_id)
         self._inventory = InventoryRepository(db, business_id=self._business_id)
 
@@ -65,12 +67,18 @@ class InventoryService:
             raise HTTPException(status_code=409, detail=f"Unknown location_code: {c}")
         return int(loc_id)
 
+    def _config(self):
+        if self._business_code is None and self._business_id is not None:
+            code = self._db.scalar(select(Business.code).where(Business.id == int(self._business_id)))
+            self._business_code = (str(code).strip() if code is not None else None) or ""
+        return load_business_config(self._business_code or None)
+
     def _central_location_id(self) -> int:
-        cfg = load_business_config()
+        cfg = self._config()
         return self._location_id_for_code(cfg.locations.central.code)
 
     def _default_pos_location_id(self) -> int:
-        cfg = load_business_config()
+        cfg = self._config()
         return self._location_id_for_code(cfg.locations.default_pos)
 
     def _month_range(self, now: datetime) -> tuple[datetime, datetime]:
@@ -393,7 +401,7 @@ class InventoryService:
         summary, _items = self.monthly_profit_report(now=now_dt)
         extraction_totals = self.total_extractions_by_party(start=start, end=end)
 
-        config = load_business_config()
+        config = self._config()
         business_label = (config.dividends.business_label or "Negocio").strip() or "Negocio"
         partners = [p.strip() for p in (config.dividends.partners or []) if (p or "").strip()]
 
@@ -1801,7 +1809,7 @@ class InventoryService:
 
         from_code = (payload.from_location_code or "").strip()
         if not from_code:
-            from_code = load_business_config().locations.central.code
+            from_code = self._config().locations.central.code
 
         to_code = (payload.to_location_code or "").strip()
         if not to_code:
@@ -1966,7 +1974,7 @@ class InventoryService:
 
         movement_dt = self._movement_datetime(payload.movement_date)
 
-        cfg = load_business_config()
+        cfg = self._config()
         selected_code = str(payload.location_code or "").strip() or str(cfg.locations.default_pos)
         loc_id = self._location_id_for_code(selected_code)
 

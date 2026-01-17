@@ -61,24 +61,58 @@ class BusinessConfig(BaseModel):
     locations: LocationsConfig = Field(default_factory=LocationsConfig)
 
 
-_cached_config: Optional[BusinessConfig] = None
+_cached_configs: dict[str, BusinessConfig] = {}
 
 
-def load_business_config() -> BusinessConfig:
-    global _cached_config
-    if _cached_config is not None:
-        return _cached_config
+def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
+    global _cached_configs
 
-    config_path = os.getenv("BUSINESS_CONFIG_PATH", "app/business_config.conf")
-    path = Path(config_path)
+    key = (business_code or "").strip().lower()
+    if key in _cached_configs:
+        return _cached_configs[key]
+
+    base_path = os.getenv("BUSINESS_CONFIG_PATH", "app/business_config.conf")
+    base = Path(base_path)
+
+    def pick_path() -> Path:
+        if not key:
+            return base
+
+        env_key = f"BUSINESS_CONFIG_PATH_{key.upper()}"
+        override = (os.getenv(env_key) or "").strip()
+        if override:
+            return Path(override)
+
+        dir_override = (os.getenv("BUSINESS_CONFIG_DIR") or "").strip()
+        if dir_override:
+            d = Path(dir_override)
+            cand = d / f"business_config.{key}.conf"
+            if cand.exists():
+                return cand
+            cand2 = d / f"business_config.{key}.json"
+            if cand2.exists():
+                return cand2
+
+        cand3 = Path("app") / f"business_config.{key}.conf"
+        if cand3.exists():
+            return cand3
+        cand4 = Path("app") / f"business_config.{key}.json"
+        if cand4.exists():
+            return cand4
+
+        return base
+
+    path = pick_path()
     if not path.exists():
-        _cached_config = BusinessConfig()
-        return _cached_config
+        cfg0 = BusinessConfig()
+        _cached_configs[key] = cfg0
+        return cfg0
 
     if path.suffix.lower() == ".json":
         data = json.loads(path.read_text(encoding="utf-8"))
-        _cached_config = BusinessConfig.model_validate(data)
-        return _cached_config
+        cfg_json = BusinessConfig.model_validate(data)
+        _cached_configs[key] = cfg_json
+        return cfg_json
 
     parser = configparser.ConfigParser()
     parser.read(path, encoding="utf-8")
@@ -218,5 +252,5 @@ def load_business_config() -> BusinessConfig:
     if cfg.locations.default_pos not in {p.code for p in cfg.locations.pos}:
         cfg.locations.default_pos = cfg.locations.pos[0].code
 
-    _cached_config = cfg
-    return _cached_config
+    _cached_configs[key] = cfg
+    return cfg
