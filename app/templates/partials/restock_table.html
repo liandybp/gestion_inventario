@@ -1,5 +1,14 @@
-<h3>Artículos a reponer</h3>
-<p class="muted">Stock actual por debajo del stock mínimo.</p>
+<div style="display:flex; gap:12px; align-items:baseline; justify-content:space-between;">
+  <div>
+    <h3>Artículos a reponer{% if selected_location_name %} ({{ selected_location_name }}){% endif %}</h3>
+    <p class="muted">Stock actual por debajo del stock mínimo.</p>
+  </div>
+  {% if not print_mode %}
+    <a href="/ui/restock-print?location_code={{ selected_location_code or '' }}" target="_blank" rel="noopener noreferrer">
+      <button type="button" class="btn-secondary">Imprimir</button>
+    </a>
+  {% endif %}
+</div>
 
 <div class="table-wrapper">
 <table>

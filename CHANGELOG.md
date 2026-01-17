@@ -4,27 +4,43 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+## 0.2.1 (Unreleased)
+
+- feat: update products count based on selected location in inventory metrics
+- feat: increase top items displayed from 10 to 30 in profit analysis
+
+## 0.2.0 (2026-01-14)
+
+- feat: add location selection to home charts and enhance inventory service methods
+- chore(release): bump version 0.1.9 → 0.2.0
+
+## 0.1.9 (2026-01-13)
+
+- feat: enhance transfer functionality with location selection and print option
+- feat: add date range and search functionality to inventory and sales history
+- feat: enhance transfer error handling and modal persistence
+- feat: implement active tab persistence and enhance inventory movement matching logic
+- fix: implement legacy transfer identification for shipment updates
+- feat: add stock filter functionality to inventory management
+- chore(release): bump version 0.1.8 → 0.1.9
+
 ## 0.1.8 (2026-01-07)
 
-- feat: inventario multi-ubicación (CENTRAL + POS) con selectores en Inventario/Ventas/Documentos
-- feat: transferencias CENTRAL→POS multi-SKU (atómicas, preservando FIFO/costos)
-- feat(ui): envíos: edición y eliminación de envíos desde el historial (Edit/Del)
-- feat: envíos: vincular entradas a la salida mediante out_id para edición/borrado consistentes
-- feat: devoluciones a proveedor **por lote** (selección de lote, preserva costo) + filtros en Historial
+- fix: add location_id column to multiple tables and create corresponding indexes
+- fix: update inventory table
+- feat: update product options to filter by central location in transfers
+- feat: add transfer shipment management with update and delete functionality
+- chore: update changelog and README for version 0.1.8 release
+- chore(release): bump version 0.1.7 → 0.1.8
 
-- fix(ui): ventas: datalist/selector de artículo filtrado por stock disponible en el POS seleccionado
-- fix: ventas: mensaje de stock insuficiente más explícito (incluye ubicación y disponible vs solicitado)
+## 0.1.7 (2026-01-06)
 
-- fix(ui): transfers/envíos: refresco inmediato del tab tras crear envío y limpieza del formulario en éxito
-- fix(ui): transfers/envíos: historial ordenado y tablas más compactas (mejor UX en móvil)
-- fix(ui): transfers/envíos: prevención de doble submit (deshabilita botón durante la request)
-- fix: transfers/envíos: mensajes más claros cuando no hay stock en el almacén CENTRAL (incluye disponible vs solicitado)
-- fix(ui): inventario: preservar ubicación seleccionada al editar producto
-- fix(ui): inventario: deshabilitar eliminar producto si tiene movimientos/lotes (con tooltip explicativo)
-
-- d957087 (2026-01-05) feat: update inventory handling to set received date for initial inventory adjustments and improve checkbox styling
-- 71f270c (2026-01-05) feat: enhance stock list with minimum purchase cost and default sale price
-- 0a1d240 (2026-01-05) feat: add initial inventory checkbox and adjust stock handling logic in product edit form
+- feat: add initial inventory checkbox and adjust stock handling logic in product edit form
+- feat: enhance stock list with minimum purchase cost and default sale price
+- feat: update inventory handling to set received date for initial inventory adjustments and improve checkbox styling
+- feat: implement multi-location inventory management with transfers and supplier returns
+- feat: update README and add CHANGELOG for version 0.1.6
+- chore(release): bump version 0.1.6 → 0.1.7
 
 ## 0.1.6 (2026-01-05)
 

@@ -177,6 +177,16 @@ def _location_id_for_code(db: Session, location_code: str) -> Optional[int]:
     return int(row[0])
 
 
+def _location_name_for_code(location_code: str) -> str:
+    code = (location_code or "").strip()
+    locations, _default_loc_code = _home_locations_context()
+    for loc in locations:
+        if (str(loc.get("code") or "").strip()) == code:
+            name = str(loc.get("name") or "").strip()
+            return name or (code or "General")
+    return code or "General"
+
+
 @router.get("/", response_class=HTMLResponse)
 def ui_root() -> RedirectResponse:
     return RedirectResponse(url="/ui/dashboard", status_code=302)
@@ -1107,7 +1117,34 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
     return templates.TemplateResponse(
         request=request,
         name="partials/restock_table.html",
-        context={"items": items},
+        context={
+            "items": items,
+            "selected_location_code": selected_location_code,
+            "selected_location_name": _location_name_for_code(selected_location_code),
+        },
+    )
+
+
+@router.get("/restock-print", response_class=HTMLResponse)
+def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
+    ensure_admin(db, request)
+    inventory_service = InventoryService(db)
+    selected_location_code = (location_code or "").strip()
+    items = [
+        i
+        for i in inventory_service.stock_list(location_code=selected_location_code or None)
+        if i.needs_restock
+    ]
+    return templates.TemplateResponse(
+        request=request,
+        name="restock_print.html",
+        context={
+            "items": items,
+            "selected_location_code": selected_location_code,
+            "selected_location_name": _location_name_for_code(selected_location_code),
+            "print_mode": True,
+            "generated_at": datetime.now(timezone.utc),
+        },
     )
 
 

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Artículos a reponer{% if selected_location_name %} - {{ selected_location_name }}{% endif %}</title>
+    <style>
+      html, body { margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; }
+
+      .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+      .toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; }
+      .muted { color: #64748b; }
+
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
+      .meta div { font-size: 13px; }
+
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; font-size: 13px; }
+      th { text-align: left; background: #f8fafc; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+      @media print {
+        .toolbar { display: none; }
+        body { padding: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button type="button" onclick="window.print()">Imprimir</button>
+      <div class="muted">{% if selected_location_name %}{{ selected_location_name }}{% else %}General{% endif %}</div>
+    </div>
+
+    <h1>Artículos a reponer</h1>
+
+    <div class="meta">
+      <div><strong>Ubicación:</strong> {% if selected_location_name %}{{ selected_location_name }}{% else %}General{% endif %}{% if selected_location_code %} ({{ selected_location_code }}){% endif %}</div>
+      <div><strong>Generado:</strong> {{ generated_at.strftime('%Y-%m-%d %H:%M') if generated_at else '' }}</div>
+    </div>
+
+    {% include 'partials/restock_table.html' %}
+  </body>
+</html>
