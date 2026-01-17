@@ -1,0 +1,141 @@
+<div class="tab-panel">
+  <div class="tab-header">
+    <h1>Gestión de Usuarios</h1>
+  </div>
+
+  {% if message %}
+  <div class="message {{ message_class }}">
+    <strong>{{ message }}</strong>
+    {% if message_detail %}<div class="muted">{{ message_detail }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Crear Nuevo Usuario</h2>
+    </div>
+    <form hx-post="/ui/users/create" hx-target="#tab-content" hx-swap="innerHTML" class="form-grid">
+      <div class="form-group">
+        <label for="new-username">Usuario *</label>
+        <input type="text" id="new-username" name="username" required autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label for="new-password">Contraseña *</label>
+        <input type="password" id="new-password" name="password" required autocomplete="new-password" />
+      </div>
+
+      <div class="form-group">
+        <label for="new-role">Rol *</label>
+        <select id="new-role" name="role" required>
+          <option value="operator">Operador</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="new-business">Negocio</label>
+        <select id="new-business" name="business_id">
+          <option value="">-- Sin negocio asignado --</option>
+          {% for b in businesses %}
+          <option value="{{ b.id }}">{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" name="is_active" value="true" checked />
+          Usuario activo
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Crear Usuario</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Usuarios Existentes</h2>
+    </div>
+    
+    {% if users %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Negocio</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td><strong>{{ u.username }}</strong></td>
+            <td>
+              {% if (u.role or '')|lower == 'admin' %}
+                <span class="badge badge-admin">Administrador</span>
+              {% else %}
+                <span class="badge badge-operator">Operador</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.business_id %}
+                {% for b in businesses %}
+                  {% if b.id == u.business_id %}{{ b.name }}{% endif %}
+                {% endfor %}
+              {% else %}
+                <span class="muted">Sin asignar</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge badge-success">Activo</span>
+              {% else %}
+                <span class="badge badge-inactive">Inactivo</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button 
+                  hx-get="/ui/user/{{ u.id }}/edit"
+                  hx-target="#modal-container"
+                  hx-swap="innerHTML"
+                  class="btn-sm btn-secondary"
+                  title="Editar usuario">
+                  ✏️ Editar
+                </button>
+                <button 
+                  hx-get="/ui/user/{{ u.id }}/reset-password-form"
+                  hx-target="#modal-container"
+                  hx-swap="innerHTML"
+                  class="btn-sm btn-warning"
+                  title="Resetear contraseña">
+                  🔑 Reset
+                </button>
+                <button 
+                  hx-post="/ui/user/{{ u.id }}/delete"
+                  hx-target="#tab-content"
+                  hx-swap="innerHTML"
+                  hx-confirm="¿Estás seguro de eliminar el usuario '{{ u.username }}'?"
+                  class="btn-sm btn-danger"
+                  title="Eliminar usuario">
+                  🗑️ Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No hay usuarios registrados.</p>
+    {% endif %}
+  </div>
+</div>

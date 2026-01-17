@@ -1,0 +1,51 @@
+<div class="modal-overlay" onclick="closeModal()"></div>
+<div class="modal">
+  <div class="modal-header">
+    <h2>Editar Usuario: {{ user.username }}</h2>
+    <button class="modal-close" onclick="closeModal()" aria-label="Cerrar">&times;</button>
+  </div>
+
+  {% if message %}
+  <div class="message {{ message_class }}">
+    <strong>{{ message }}</strong>
+    {% if message_detail %}<div class="muted">{{ message_detail }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <form hx-post="/ui/user/{{ user.id }}/update" hx-target="#tab-content" hx-swap="innerHTML" class="modal-body">
+    <div class="form-group">
+      <label for="edit-username">Usuario *</label>
+      <input type="text" id="edit-username" name="username" value="{{ user.username }}" required autocomplete="off" />
+    </div>
+
+    <div class="form-group">
+      <label for="edit-role">Rol *</label>
+      <select id="edit-role" name="role" required>
+        <option value="operator" {% if (user.role or '')|lower == 'operator' %}selected{% endif %}>Operador</option>
+        <option value="admin" {% if (user.role or '')|lower == 'admin' %}selected{% endif %}>Administrador</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="edit-business">Negocio</label>
+      <select id="edit-business" name="business_id">
+        <option value="">-- Sin negocio asignado --</option>
+        {% for b in businesses %}
+        <option value="{{ b.id }}" {% if user.business_id and user.business_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" name="is_active" value="true" {% if user.is_active %}checked{% endif %} />
+        Usuario activo
+      </label>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button type="submit" class="btn-primary">Guardar Cambios</button>
+    </div>
+  </form>
+</div>
