@@ -2,15 +2,6 @@
   <h2>Compra</h2>
 
   {% if user and (user.role or '')|lower == 'admin' %}
-  <button type="button" style="background:#b91c1c; margin-bottom:10px;"
-          hx-post="/ui/dev/reset-purchases-sales" hx-vals='{"panel":"purchase"}'
-          hx-target="#purchase-panel" hx-swap="outerHTML"
-          hx-confirm="Esto borrará TODAS las compras y ventas. ¿Continuar?">
-    Borrar todas las compras y ventas (DEV)
-  </button>
-  {% endif %}
-
-  {% if user and (user.role or '')|lower == 'admin' %}
   <h3 style="margin-top:0;">Importar compra desde factura (PDF)</h3>
   <form hx-post="/ui/purchase/from-invoice" hx-target="#purchase-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
     <div class="row">

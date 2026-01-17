@@ -34,9 +34,29 @@
 
       <form method="post" action="/ui/login">
         <div class="row"><label>Usuario</label><input name="username" autocomplete="username" required /></div>
-        <div class="row"><label>Contraseña</label><input name="password" type="password" autocomplete="current-password" required /></div>
+        <div class="row"><label>Contraseña</label><input id="login-password" name="password" type="password" autocomplete="current-password" required /></div>
+        <div class="row">
+          <label></label>
+          <div class="muted">
+            <label style="display:flex; gap:8px; align-items:center;">
+              <input id="login-show-password" type="checkbox" style="width:auto;" />
+              Mostrar contraseña
+            </label>
+          </div>
+        </div>
         <button type="submit">Entrar</button>
       </form>
+
+      <script>
+        (function () {
+          var cb = document.getElementById('login-show-password');
+          var pw = document.getElementById('login-password');
+          if (!cb || !pw) return;
+          cb.addEventListener('change', function () {
+            pw.type = cb.checked ? 'text' : 'password';
+          });
+        })();
+      </script>
     </div>
   </body>
 </html>
