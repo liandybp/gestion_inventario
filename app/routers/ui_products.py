@@ -11,7 +11,6 @@ from app.audit import log_event
 from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Product
-from app.routers.ui_common import ensure_admin, parse_optional_float, save_product_image, templates
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
 from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
@@ -20,7 +19,7 @@ from app.invoice_parsers import parse_autodoc_pdf
 from sqlalchemy import select
 
 from .ui_common import (
-    ensure_admin,
+    ensure_admin_or_owner,
     extract_sku,
     parse_optional_float,
     save_product_image,
@@ -46,7 +45,7 @@ def create_product(
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         image_url = save_product_image(image_file) if image_file is not None else None
         created = product_service.create(
             ProductCreate(
@@ -108,7 +107,7 @@ def product_delete(
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         product_service.delete(sku)
 
         user = get_current_user_from_session(db, request)
@@ -168,7 +167,7 @@ def product_edit_form(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
@@ -197,7 +196,7 @@ def product_update(
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         existing = product_service.get_by_sku(sku)
         image_url = save_product_image(image_file) if image_file is not None else existing.image_url
         updated = product_service.update(
@@ -260,7 +259,7 @@ def product_edit_form_inventory(
     location_code: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
@@ -300,7 +299,7 @@ def product_update_inventory(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         existing = product_service.get_by_sku(sku)
 
         loc = (location_code or "").strip() or None
@@ -425,8 +424,9 @@ def product_from_invoice(
     invoice_pdf: UploadFile = File(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    product_service = ProductService(db)
+    ensure_admin_or_owner(db, request)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
 
     if invoice_pdf is None or not invoice_pdf.filename:
         raise HTTPException(status_code=422, detail="invoice_pdf is required")

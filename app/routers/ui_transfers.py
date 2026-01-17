@@ -18,7 +18,7 @@ from app.services.product_service import ProductService
 from app.business_config import load_business_config
 from app.models import InventoryMovement, Product
 
-from .ui_common import dt_to_local_input, ensure_admin, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin_or_owner, parse_dt, templates
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ def transfer_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     out_id = service._transfer_out_id_for_movement_id(movement_id)
@@ -66,7 +66,7 @@ def transfer_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     config = load_business_config()
@@ -165,7 +165,7 @@ def transfer_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     config = load_business_config()
@@ -255,7 +255,7 @@ def transfer_delete(
 
 @router.post("/transfers", response_class=HTMLResponse)
 async def create_transfer(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
@@ -419,7 +419,7 @@ def transfer_product_options(
     db: Session = Depends(session_dep),
     from_location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     cfg = load_business_config()
@@ -446,7 +446,7 @@ async def get_transfer_stock(
     db: Session = Depends(session_dep),
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
@@ -471,7 +471,7 @@ def transfer_print(
     ref: str = "",
     movement_id: int = 0,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     cfg = load_business_config()

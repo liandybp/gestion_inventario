@@ -12,7 +12,7 @@ from app.deps import session_dep
 from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 
-from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
 router = APIRouter()
 
@@ -101,7 +101,7 @@ def expense_delete(
     service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         service.delete_expense(expense_id)
 
         user = get_current_user_from_session(db, request)

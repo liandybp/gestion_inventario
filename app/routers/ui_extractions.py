@@ -13,7 +13,7 @@ from app.deps import session_dep
 from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 
-from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ def extraction_create(
     start, end = month_range(now)
     config = load_business_config()
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         service.create_extraction(
             party=party,
             amount=amount,
@@ -96,7 +96,7 @@ def extraction_delete(
     start, end = month_range(now)
     config = load_business_config()
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         service.delete_extraction(extraction_id)
 
         user = get_current_user_from_session(db, request)
@@ -165,7 +165,7 @@ def extraction_edit_form(
     extraction_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     extraction = service.get_extraction(extraction_id)
@@ -197,7 +197,7 @@ def extraction_update(
     start, end = month_range(now)
     config = load_business_config()
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         service.update_extraction(
             extraction_id=extraction_id,
             party=party,

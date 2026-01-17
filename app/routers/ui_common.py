@@ -29,6 +29,13 @@ def ensure_admin(db: Session, request: Request) -> None:
         raise HTTPException(status_code=403, detail="Admin required")
 
 
+def ensure_admin_or_owner(db: Session, request: Request) -> None:
+    user = get_current_user_from_session(db, request)
+    role = (user.role or "").lower() if user is not None else ""
+    if user is None or role not in ("admin", "owner"):
+        raise HTTPException(status_code=403, detail="Admin required")
+
+
 def save_product_image(image_file: UploadFile) -> str:
     if image_file is None:
         raise HTTPException(status_code=422, detail="image_file is required")

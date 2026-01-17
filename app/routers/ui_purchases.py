@@ -20,7 +20,7 @@ from app.invoice_parsers import parse_autodoc_pdf
 from .ui_common import (
     _DEV_ACTIONS_ENABLED,
     dt_to_local_input,
-    ensure_admin,
+    ensure_admin_or_owner,
     extract_sku,
     parse_dt,
     parse_optional_float,
@@ -36,7 +36,7 @@ def purchase_from_invoice(
     invoice_pdf: UploadFile = File(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
@@ -231,7 +231,7 @@ def purchase(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
@@ -296,7 +296,7 @@ def purchase_label_print(
     copies: int = 1,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
@@ -321,7 +321,7 @@ def purchase_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
@@ -359,7 +359,7 @@ def purchase_update(
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     sku = extract_sku(product)
     try:
         result = service.update_purchase(
@@ -423,7 +423,7 @@ def purchase_delete(
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
     try:
-        ensure_admin(db, request)
+        ensure_admin_or_owner(db, request)
         service.delete_purchase_movement(movement_id)
 
         user = get_current_user_from_session(db, request)

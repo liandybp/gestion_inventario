@@ -22,6 +22,7 @@
       <label for="edit-role">Rol *</label>
       <select id="edit-role" name="role" required>
         <option value="operator" {% if (user.role or '')|lower == 'operator' %}selected{% endif %}>Operador</option>
+        <option value="owner" {% if (user.role or '')|lower == 'owner' %}selected{% endif %}>Dueño</option>
         <option value="admin" {% if (user.role or '')|lower == 'admin' %}selected{% endif %}>Administrador</option>
       </select>
     </div>

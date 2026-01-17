@@ -27,7 +27,8 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     if user is None:
         return None
 
-    if (user.role or "").lower() != "admin":
+    # Owner and operator are fixed to their business, only admin can switch
+    if not is_admin(user):
         return int(user.business_id) if user.business_id is not None else None
 
     session = getattr(request, "session", None) or {}
@@ -73,3 +74,40 @@ def require_admin_api(
     if (user.role or "").lower() != "admin":
         raise HTTPException(status_code=403, detail="Admin required")
     return user
+
+
+def is_admin(user: Optional[User]) -> bool:
+    if user is None:
+        return False
+    return (user.role or "").lower() == "admin"
+
+
+def is_owner(user: Optional[User]) -> bool:
+    if user is None:
+        return False
+    return (user.role or "").lower() == "owner"
+
+
+def is_operator(user: Optional[User]) -> bool:
+    if user is None:
+        return False
+    return (user.role or "").lower() == "operator"
+
+
+def can_manage_users(user: Optional[User]) -> bool:
+    return is_admin(user)
+
+
+def can_change_business(user: Optional[User]) -> bool:
+    return is_admin(user)
+
+
+def can_view_activity(user: Optional[User]) -> bool:
+    return is_admin(user)
+
+
+def can_access_full_dashboard(user: Optional[User]) -> bool:
+    if user is None:
+        return False
+    role = (user.role or "").lower()
+    return role in ("admin", "owner")

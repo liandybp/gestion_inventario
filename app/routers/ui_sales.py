@@ -37,7 +37,9 @@ def sale_product_options(
     location_code: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    user = get_current_user_from_session(db, request)
+    if user is None:
+        raise HTTPException(status_code=403, detail="Not authenticated")
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     config = load_business_config()

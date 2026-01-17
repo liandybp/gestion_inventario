@@ -27,7 +27,7 @@ from app.services.product_service import ProductService
 from app.business_config import load_business_config
 from app.schemas import SupplierReturnLotCreate
 
-from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin, ensure_admin_or_owner, month_range, parse_dt, templates
 
 router = APIRouter()
 
@@ -159,6 +159,8 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime, loc
         "monthly_chart_json": monthly_chart_json,
         "metrics_items": metrics_items,
     }
+
+
 def _home_locations_context() -> tuple[list[dict], str]:
     config = load_business_config()
     locations: list[dict] = [{"code": "", "name": "General"}]
@@ -218,6 +220,7 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     _ = get_current_user_from_session(db, request)
     bid = get_active_business_id(db, request)
     q = (query or "").strip()
@@ -245,7 +248,7 @@ def tab_home(
     ym: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
@@ -336,7 +339,7 @@ def home_charts(
     ym: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     now = _parse_ym(ym) or datetime.now(timezone.utc)
@@ -356,7 +359,7 @@ def home_charts(
 
 @router.get("/tabs/inventory", response_class=HTMLResponse)
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     config = load_business_config()
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
@@ -393,7 +396,7 @@ def tab_purchases(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
@@ -408,7 +411,7 @@ def tab_purchases(
         end_dt = end_dt + timedelta(days=1)
 
     date_range_active = (start_dt is not None) or (end_dt is not None)
-
+    
     # If a date range is provided, don't apply month/year filtering.
     if date_range_active:
         filter_month = None
@@ -433,7 +436,7 @@ def tab_purchases(
         filter_year = now.year
         display_month = filter_month
         display_year = filter_year
-    
+
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_purchases.html",
@@ -601,8 +604,10 @@ def tab_documents(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     _ = get_current_user_from_session(db, request)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
     config = load_business_config()
 
     pos_locations = [
@@ -626,6 +631,8 @@ def tab_documents(
         end_dt = end_dt + timedelta(days=1)
 
     doc_stmt = select(SalesDocument)
+    if bid is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.business_id == int(bid))
     if start_dt is not None:
         doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
     if end_dt is not None:
@@ -640,7 +647,10 @@ def tab_documents(
             if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
         ]
     recent_documents = recent_documents[:10]
-    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    cust_stmt = select(Customer)
+    if bid is not None:
+        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
 
     return templates.TemplateResponse(
         request=request,
@@ -674,7 +684,9 @@ def tab_expenses(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    inventory_service = InventoryService(db)
+    ensure_admin_or_owner(db, request)
+    bid = get_active_business_id(db, request)
+    inventory_service = InventoryService(db, business_id=bid)
     
     now = datetime.now(timezone.utc)
     
@@ -737,7 +749,7 @@ def tab_dividends(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
@@ -785,7 +797,7 @@ def tab_transfers(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
 
@@ -868,7 +880,7 @@ def tab_transfers(
 
 @router.get("/tabs/profit", response_class=HTMLResponse)
 def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     summary, items = inventory_service.monthly_profit_report()
@@ -890,7 +902,7 @@ def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResp
 
 @router.get("/tabs/profit-items", response_class=HTMLResponse)
 def tab_profit_items(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     summary, items = inventory_service.monthly_profit_items_report()
@@ -926,7 +938,7 @@ def stock_table(
     location_code: str = "",
     stock_filter: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
@@ -966,7 +978,7 @@ def stock_delete_product(
     location_code: str = Form(""),
     stock_filter: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     product_service = ProductService(db, business_id=bid)
@@ -1028,7 +1040,7 @@ def ui_supplier_return(
     note: str = Form(""),
     location_code: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     config = load_business_config()
@@ -1106,7 +1118,7 @@ def ui_supplier_return_lots(
     sku: str = "",
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
@@ -1141,7 +1153,7 @@ def ui_supplier_return_lots(
 
 @router.get("/restock-table", response_class=HTMLResponse)
 def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
@@ -1163,7 +1175,7 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
 
 @router.get("/restock-print", response_class=HTMLResponse)
 def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
@@ -1194,7 +1206,7 @@ def tab_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = get_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
 

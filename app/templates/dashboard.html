@@ -21,8 +21,9 @@
         <div class="sidebar-header">
           <h2>Dashboard</h2>
           {% if user %}
+            {% set user_role = (user.role or '')|lower %}
             <div class="sidebar-user">{{ user.username }} ({{ user.role }})</div>
-            {% if (user.role or '')|lower == 'admin' %}
+            {% if user_role == 'admin' %}
               <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
               <form method="post" action="/ui/active-business" style="margin-top:8px;">
                 <select name="business_id" onchange="this.form.submit()" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
@@ -31,13 +32,17 @@
                   {% endfor %}
                 </select>
               </form>
+            {% elif user_role in ('owner', 'operator') %}
+              <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
             {% endif %}
             <a href="/ui/logout" class="sidebar-logout">Cerrar sesión</a>
           {% endif %}
         </div>
         
         <nav class="sidebar-nav" role="navigation" aria-label="Secciones">
-          {% if not user or (user.role or '')|lower != 'operator' %}
+          {% set user_role = (user.role or '')|lower %}
+          
+          {% if user_role in ('admin', 'owner') %}
           <button class="sidebar-item" id="tab-home" aria-selected="true"
                   hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML">
             Inicio
@@ -46,24 +51,22 @@
                   hx-get="/ui/tabs/inventory" hx-target="#tab-content" hx-swap="innerHTML">
             Inventario
           </button>
-          {% if user and (user.role or '')|lower == 'admin' %}
           <button class="sidebar-item" id="tab-purchases" aria-selected="false"
                   hx-get="/ui/tabs/purchases" hx-target="#tab-content" hx-swap="innerHTML">
             Compras
           </button>
-          {% endif %}
-
           <button class="sidebar-item" id="tab-transfers" aria-selected="false"
                   hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML">
             Traspasos
           </button>
           {% endif %}
 
-          <button class="sidebar-item" id="tab-sales" aria-selected="{% if user and (user.role or '')|lower == 'operator' %}true{% else %}false{% endif %}"
+          <button class="sidebar-item" id="tab-sales" aria-selected="{% if user_role == 'operator' %}true{% else %}false{% endif %}"
                   hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML">
             Ventas
           </button>
 
+          {% if user_role in ('admin', 'owner') %}
           <button class="sidebar-item" id="tab-documents" aria-selected="false"
                   hx-get="/ui/tabs/documents" hx-target="#tab-content" hx-swap="innerHTML">
             Documentos
@@ -79,7 +82,6 @@
             Costos operativos
           </button>
 
-          {% if not user or (user.role or '')|lower != 'operator' %}
           <button class="sidebar-item" id="tab-profit-items" aria-selected="false"
                   hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML">
             Utilidades por artículo
@@ -99,8 +101,9 @@
                   hx-get="/ui/tabs/history" hx-target="#tab-content" hx-swap="innerHTML">
             Historial
           </button>
+          {% endif %}
 
-          {% if user and (user.role or '')|lower == 'admin' %}
+          {% if user_role == 'admin' %}
           <button class="sidebar-item" id="tab-users" aria-selected="false"
                   hx-get="/ui/tabs/users" hx-target="#tab-content" hx-swap="innerHTML">
             Usuarios
@@ -110,7 +113,6 @@
                   hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML">
             Actividad
           </button>
-          {% endif %}
           {% endif %}
         </nav>
       </aside>
