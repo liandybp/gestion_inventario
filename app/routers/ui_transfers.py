@@ -12,7 +12,7 @@ from sqlalchemy.sql import func
 from app.audit import log_event
 from app.deps import session_dep
 from app.schemas import TransferCreate, TransferLineCreate
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
@@ -30,10 +30,13 @@ def transfer_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     out_id = service._transfer_out_id_for_movement_id(movement_id)
     mv = db.get(InventoryMovement, out_id)
     if mv is None or mv.type != "transfer_out":
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+    if bid is not None and int(getattr(mv, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Transfer movement not found")
     product = db.get(Product, mv.product_id)
 
@@ -64,7 +67,8 @@ def transfer_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     config = load_business_config()
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -162,7 +166,8 @@ def transfer_delete(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     config = load_business_config()
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -251,7 +256,8 @@ def transfer_delete(
 @router.post("/transfers", response_class=HTMLResponse)
 async def create_transfer(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
 
     config = load_business_config()
     pos_locations = [
@@ -414,7 +420,8 @@ def transfer_product_options(
     from_location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     cfg = load_business_config()
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     options = [
@@ -440,8 +447,9 @@ async def get_transfer_stock(
     location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     
     try:
         product = product_service.get_by_sku(sku)
@@ -464,13 +472,16 @@ def transfer_print(
     movement_id: int = 0,
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     cfg = load_business_config()
 
     ref_clean = (ref or "").strip()
     if not ref_clean and movement_id:
         mv = db.get(InventoryMovement, int(movement_id))
         if mv is None:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        if bid is not None and int(getattr(mv, "business_id", 0) or 0) != int(bid):
             raise HTTPException(status_code=404, detail="Transfer not found")
         raw = str(mv.note or "")
         if "ref=" in raw:
@@ -492,6 +503,8 @@ def transfer_print(
             .order_by(InventoryMovement.movement_date.asc(), InventoryMovement.id.asc())
         )
     )
+    if bid is not None:
+        mvs = [m for m in mvs if int(getattr(m, "business_id", 0) or 0) == int(bid)]
     if not mvs:
         raise HTTPException(status_code=404, detail="Transfer not found")
 
@@ -502,7 +515,7 @@ def transfer_print(
     for loc in (cfg.locations.pos or []):
         code_to_name[str(loc.code)] = str(loc.name)
 
-    rows = db.execute(
+    stmt = (
         select(
             Product.sku,
             Product.name,
@@ -517,7 +530,10 @@ def transfer_print(
         )
         .group_by(Product.id)
         .order_by(Product.sku.asc())
-    ).all()
+    )
+    if bid is not None:
+        stmt = stmt.where(InventoryMovement.business_id == int(bid))
+    rows = db.execute(stmt).all()
 
     items: list[dict] = []
     for sku, name, qty, sale_price in rows:

@@ -27,8 +27,9 @@ def _query_match(query: str, sku: str, name: str) -> bool:
 
 
 class InventoryRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, business_id: Optional[int] = None):
         self._db = db
+        self._business_id = int(business_id) if business_id is not None else None
 
     def add_movement(self, movement: InventoryMovement) -> None:
         self._db.add(movement)
@@ -43,6 +44,8 @@ class InventoryRepository:
         stmt = select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0)).where(
             InventoryLot.product_id == product_id
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryLot.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryLot.location_id == location_id)
         total = self._db.scalar(stmt)
@@ -56,6 +59,8 @@ class InventoryRepository:
                 InventoryLot.qty_remaining > 0,
             )
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryLot.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryLot.location_id == location_id)
         return list(
@@ -75,6 +80,16 @@ class InventoryRepository:
             .correlate(Product)
             .scalar_subquery()
         )
+        if self._business_id is not None:
+            qty_subq = (
+                select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0))
+                .where(
+                    InventoryLot.product_id == Product.id,
+                    InventoryLot.business_id == self._business_id,
+                )
+                .correlate(Product)
+                .scalar_subquery()
+            )
         if location_id is not None:
             qty_subq = (
                 select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0))
@@ -85,6 +100,17 @@ class InventoryRepository:
                 .correlate(Product)
                 .scalar_subquery()
             )
+            if self._business_id is not None:
+                qty_subq = (
+                    select(func.coalesce(func.sum(InventoryLot.qty_remaining), 0))
+                    .where(
+                        InventoryLot.product_id == Product.id,
+                        InventoryLot.location_id == location_id,
+                        InventoryLot.business_id == self._business_id,
+                    )
+                    .correlate(Product)
+                    .scalar_subquery()
+                )
         min_purchase_cost_subq = (
             select(func.min(InventoryMovement.unit_cost))
             .where(
@@ -94,6 +120,17 @@ class InventoryRepository:
             .correlate(Product)
             .scalar_subquery()
         )
+        if self._business_id is not None:
+            min_purchase_cost_subq = (
+                select(func.min(InventoryMovement.unit_cost))
+                .where(
+                    InventoryMovement.product_id == Product.id,
+                    InventoryMovement.type == "purchase",
+                    InventoryMovement.business_id == self._business_id,
+                )
+                .correlate(Product)
+                .scalar_subquery()
+            )
 
         stmt = (
             select(
@@ -108,6 +145,8 @@ class InventoryRepository:
             )
             .select_from(Product)
         )
+        if self._business_id is not None:
+            stmt = stmt.where(Product.business_id == self._business_id)
         rows = self._db.execute(stmt.order_by(Product.name)).all()
         if q:
             rows = [
@@ -160,6 +199,8 @@ class InventoryRepository:
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(prefetch_limit)
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryMovement.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryMovement.location_id == location_id)
         if start_date:
@@ -215,6 +256,8 @@ class InventoryRepository:
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(prefetch_limit)
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryMovement.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryMovement.location_id == location_id)
         if start_date:
@@ -283,6 +326,9 @@ class InventoryRepository:
             .join(Product, Product.id == InventoryMovement.product_id)
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
         )
+
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryMovement.business_id == self._business_id)
 
         if sku:
             stmt = stmt.where(Product.sku == sku)

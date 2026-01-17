@@ -13,7 +13,7 @@ from app.deps import session_dep
 from app.models import Product
 from app.routers.ui_common import ensure_admin, parse_optional_float, save_product_image, templates
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -43,7 +43,8 @@ def create_product(
     default_sale_price: float = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin(db, request)
         image_url = save_product_image(image_file) if image_file is not None else None
@@ -104,7 +105,8 @@ def product_delete(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin(db, request)
         product_service.delete(sku)
@@ -167,7 +169,8 @@ def product_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(
         request=request,
@@ -191,7 +194,8 @@ def product_update(
     lead_time_days: Optional[int] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin(db, request)
         existing = product_service.get_by_sku(sku)
@@ -257,8 +261,9 @@ def product_edit_form_inventory(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    product_service = ProductService(db)
-    inventory_service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
+    inventory_service = InventoryService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
     loc = (location_code or "").strip() or None
     current_stock = inventory_service.stock(sku, location_code=loc).quantity
@@ -291,8 +296,9 @@ def product_update_inventory(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    product_service = ProductService(db)
-    inventory_service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
+    inventory_service = InventoryService(db, business_id=bid)
     try:
         ensure_admin(db, request)
         existing = product_service.get_by_sku(sku)
@@ -550,14 +556,13 @@ def product_from_invoice(
 
 
 @router.get("/product-defaults/purchase", response_class=HTMLResponse)
-def purchase_product_defaults(
-    product: str = "",
-    db: Session = Depends(session_dep),
-) -> HTMLResponse:
+def product_defaults_purchase(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
+    business_id = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=business_id)
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
-    p = ProductService(db).get_by_sku(sku)
+    p = product_service.get_by_sku(sku)
     uom = p.unit_of_measure or ""
     cost = "" if p.default_purchase_cost is None else str(float(p.default_purchase_cost))
     label = f"Cantidad ({uom})" if uom else "Cantidad"
@@ -568,14 +573,13 @@ def purchase_product_defaults(
 
 
 @router.get("/product-defaults/sale", response_class=HTMLResponse)
-def sale_product_defaults(
-    product: str = "",
-    db: Session = Depends(session_dep),
-) -> HTMLResponse:
+def product_defaults_sale(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
+    business_id = get_active_business_id(db, request)
+    product_service = ProductService(db, business_id=business_id)
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
-    p = ProductService(db).get_by_sku(sku)
+    p = product_service.get_by_sku(sku)
     uom = p.unit_of_measure or ""
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     label = f"Cantidad ({uom})" if uom else "Cantidad"

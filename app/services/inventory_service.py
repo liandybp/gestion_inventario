@@ -37,10 +37,11 @@ from app.utils import month_range as utils_month_range
 
 
 class InventoryService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, business_id: int | None = None):
         self._db = db
-        self._products = ProductRepository(db)
-        self._inventory = InventoryRepository(db)
+        self._business_id = int(business_id) if business_id is not None else None
+        self._products = ProductRepository(db, business_id=self._business_id)
+        self._inventory = InventoryRepository(db, business_id=self._business_id)
 
     @property
     def db(self) -> Session:
@@ -129,30 +130,45 @@ class InventoryService:
 
         central_loc_id = self._central_location_id()
 
+        lot_stmt = select(InventoryLot).where(InventoryLot.product_id == product.id)
+        if self._business_id is not None:
+            lot_stmt = lot_stmt.where(InventoryLot.business_id == self._business_id)
+
         existing_codes = {
             lot.movement_id: lot.lot_code
             for lot in self._db.scalars(
-                select(InventoryLot).where(InventoryLot.product_id == product.id)
+                lot_stmt
             )
         }
         existing_codes.update(overrides)
 
+        mv_id_stmt = select(InventoryMovement.id).where(InventoryMovement.product_id == product.id)
+        if self._business_id is not None:
+            mv_id_stmt = mv_id_stmt.where(InventoryMovement.business_id == self._business_id)
+
         self._db.execute(
             delete(MovementAllocation).where(
                 MovementAllocation.movement_id.in_(
-                    select(InventoryMovement.id).where(InventoryMovement.product_id == product.id)
+                    mv_id_stmt
                 )
             )
         )
-        self._db.execute(delete(InventoryLot).where(InventoryLot.product_id == product.id))
+        del_lot_stmt = delete(InventoryLot).where(InventoryLot.product_id == product.id)
+        if self._business_id is not None:
+            del_lot_stmt = del_lot_stmt.where(InventoryLot.business_id == self._business_id)
+        self._db.execute(del_lot_stmt)
         self._db.flush()
 
+        mv_stmt = (
+            select(InventoryMovement)
+            .where(InventoryMovement.product_id == product.id)
+            .order_by(InventoryMovement.movement_date, InventoryMovement.id)
+        )
+        if self._business_id is not None:
+            mv_stmt = mv_stmt.where(InventoryMovement.business_id == self._business_id)
+
         movements = list(
-            self._db.scalars(
-                select(InventoryMovement)
-                .where(InventoryMovement.product_id == product.id)
-                .order_by(InventoryMovement.movement_date, InventoryMovement.id)
-            )
+            self._db.scalars(mv_stmt)
         )
 
         fifo_lots_by_loc: dict[int, list[InventoryLot]] = {}
@@ -192,6 +208,7 @@ class InventoryService:
                 if mv.type == "adjustment" and (mv.note or "").startswith("Inventario inicial"):
                     received_at_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
                 lot = InventoryLot(
+                    business_id=self._business_id,
                     movement_id=mv.id,
                     product_id=product.id,
                     location_id=mv_loc_id,
@@ -273,6 +290,9 @@ class InventoryService:
             InventoryMovement.type.in_(("purchase", "sale"))
         )
         purchase_ids = select(InventoryMovement.id).where(InventoryMovement.type == "purchase")
+        if self._business_id is not None:
+            movement_ids = movement_ids.where(InventoryMovement.business_id == self._business_id)
+            purchase_ids = purchase_ids.where(InventoryMovement.business_id == self._business_id)
         purchase_lot_ids = select(InventoryLot.id).where(InventoryLot.movement_id.in_(purchase_ids))
 
         self._db.execute(
@@ -287,6 +307,7 @@ class InventoryService:
 
     def create_expense(self, amount: float, concept: str, expense_date: Optional[datetime]) -> None:
         exp = OperatingExpense(
+            business_id=self._business_id,
             amount=float(amount),
             concept=concept.strip(),
             expense_date=self._movement_datetime(expense_date),
@@ -302,6 +323,7 @@ class InventoryService:
         extraction_date: Optional[datetime],
     ) -> None:
         row = MoneyExtraction(
+            business_id=self._business_id,
             party=(party or "").strip(),
             amount=float(amount),
             concept=concept.strip(),
@@ -313,6 +335,8 @@ class InventoryService:
     def get_extraction(self, extraction_id: int) -> MoneyExtraction:
         row = self._db.get(MoneyExtraction, extraction_id)
         if row is None:
+            raise HTTPException(status_code=404, detail="Extraction not found")
+        if self._business_id is not None and int(getattr(row, "business_id", 0) or 0) != int(self._business_id):
             raise HTTPException(status_code=404, detail="Extraction not found")
         return row
 
@@ -343,6 +367,8 @@ class InventoryService:
         limit: int = 200,
     ) -> list[MoneyExtraction]:
         stmt = select(MoneyExtraction)
+        if self._business_id is not None:
+            stmt = stmt.where(MoneyExtraction.business_id == self._business_id)
         if start is not None:
             stmt = stmt.where(MoneyExtraction.extraction_date >= start)
         if end is not None:
@@ -412,6 +438,8 @@ class InventoryService:
         exp = self._db.get(OperatingExpense, expense_id)
         if exp is None:
             raise HTTPException(status_code=404, detail="Expense not found")
+        if self._business_id is not None and int(getattr(exp, "business_id", 0) or 0) != int(self._business_id):
+            raise HTTPException(status_code=404, detail="Expense not found")
         return exp
 
     def update_expense(
@@ -435,6 +463,8 @@ class InventoryService:
     def delete_purchase_movement(self, movement_id: int) -> None:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "purchase":
+            raise HTTPException(status_code=404, detail="Purchase movement not found")
+        if self._business_id is not None and int(getattr(mv, "business_id", 0) or 0) != int(self._business_id):
             raise HTTPException(status_code=404, detail="Purchase movement not found")
 
         product = self._db.get(Product, mv.product_id)
@@ -508,6 +538,8 @@ class InventoryService:
     def _transfer_out_id_for_movement_id(self, movement_id: int) -> int:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type not in ("transfer_in", "transfer_out"):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+        if self._business_id is not None and int(getattr(mv, "business_id", 0) or 0) != int(self._business_id):
             raise HTTPException(status_code=404, detail="Transfer movement not found")
         if mv.type == "transfer_out":
             return int(mv.id)
@@ -810,6 +842,7 @@ class InventoryService:
                     mv_in_note = mv_in_note + f"; {clean_note}"
 
                 mv_in = InventoryMovement(
+                    business_id=self._business_id,
                     product_id=product.id,
                     location_id=to_loc_id,
                     type="transfer_in",
@@ -825,6 +858,7 @@ class InventoryService:
                 base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{mv_dt:%y%m%d%H%M%S}-{mv_in.id}"
                 lot_code = self._unique_lot_code(base_code)
                 lot = InventoryLot(
+                    business_id=self._business_id,
                     movement_id=mv_in.id,
                     product_id=product.id,
                     location_id=to_loc_id,
@@ -922,6 +956,8 @@ class InventoryService:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "sale":
             raise HTTPException(status_code=404, detail="Sale movement not found")
+        if self._business_id is not None and int(getattr(mv, "business_id", 0) or 0) != int(self._business_id):
+            raise HTTPException(status_code=404, detail="Sale movement not found")
 
         product = self._db.get(Product, mv.product_id)
         if product is None:
@@ -944,6 +980,8 @@ class InventoryService:
         limit: int = 100,
     ) -> list[OperatingExpense]:
         stmt = select(OperatingExpense)
+        if self._business_id is not None:
+            stmt = stmt.where(OperatingExpense.business_id == self._business_id)
         if start is not None:
             stmt = stmt.where(OperatingExpense.expense_date >= start)
         if end is not None:
@@ -953,12 +991,13 @@ class InventoryService:
 
     def total_expenses(self, start: Optional[datetime] = None, end: Optional[datetime] = None) -> float:
         stmt = select(func.coalesce(func.sum(OperatingExpense.amount), 0))
+        if self._business_id is not None:
+            stmt = stmt.where(OperatingExpense.business_id == self._business_id)
         if start is not None:
             stmt = stmt.where(OperatingExpense.expense_date >= start)
         if end is not None:
             stmt = stmt.where(OperatingExpense.expense_date < end)
-        total = self._db.scalar(stmt)
-        return float(total or 0)
+        return float(self._db.scalar(stmt) or 0)
 
     def inventory_value_total(self, location_id: Optional[int] = None) -> float:
         stmt = (
@@ -1643,6 +1682,7 @@ class InventoryService:
         central_loc_id = self._central_location_id()
 
         movement = InventoryMovement(
+            business_id=self._business_id,
             product_id=product.id,
             location_id=central_loc_id,
             type="purchase",
@@ -1662,6 +1702,7 @@ class InventoryService:
             base = f"{product.sku}-{movement_dt:%y%m%d%H%M}"
             lot_code = self._unique_lot_code(base)
         lot = InventoryLot(
+            business_id=self._business_id,
             movement_id=movement.id,
             product_id=product.id,
             location_id=central_loc_id,
@@ -1714,6 +1755,7 @@ class InventoryService:
         note = f"{base_note} lot_code={lot.lot_code}"
 
         movement = InventoryMovement(
+            business_id=self._business_id,
             product_id=int(lot.product_id),
             location_id=lot_loc_id,
             type="return_supplier",
@@ -1809,6 +1851,7 @@ class InventoryService:
                     note = f"Transfer {from_code}->{to_code} ref={transfer_ref}"
 
                 mv_out = InventoryMovement(
+                    business_id=self._business_id,
                     product_id=product.id,
                     location_id=from_loc_id,
                     type="transfer_out",
@@ -1860,6 +1903,7 @@ class InventoryService:
                         mv_in_note = mv_in_note + f"; {payload.note}"
 
                     mv_in = InventoryMovement(
+                        business_id=self._business_id,
                         product_id=product.id,
                         location_id=to_loc_id,
                         type="transfer_in",
@@ -1875,6 +1919,7 @@ class InventoryService:
                     base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{movement_dt:%y%m%d%H%M%S}-{mv_in.id}"
                     lot_code = self._unique_lot_code(base_code)
                     lot = InventoryLot(
+                        business_id=self._business_id,
                         movement_id=mv_in.id,
                         product_id=product.id,
                         location_id=to_loc_id,
@@ -1941,6 +1986,7 @@ class InventoryService:
             )
 
         movement = InventoryMovement(
+            business_id=self._business_id,
             product_id=product.id,
             location_id=loc_id,
             type="sale",
@@ -1988,6 +2034,7 @@ class InventoryService:
                 raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
 
             movement = InventoryMovement(
+                business_id=self._business_id,
                 product_id=product.id,
                 location_id=loc_id,
                 type="adjustment",
@@ -2006,6 +2053,7 @@ class InventoryService:
             if is_initial_inventory:
                 received_at_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
             lot = InventoryLot(
+                business_id=self._business_id,
                 movement_id=movement.id,
                 product_id=product.id,
                 location_id=loc_id,
@@ -2029,6 +2077,7 @@ class InventoryService:
                 raise HTTPException(status_code=409, detail="Insufficient stock")
 
             movement = InventoryMovement(
+                business_id=self._business_id,
                 product_id=product.id,
                 location_id=loc_id,
                 type="adjustment",

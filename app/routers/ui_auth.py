@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.auth import authenticate
 from app.deps import session_dep
+from app.models import Business
 from app.security import get_current_user_from_session
 
-from .ui_common import templates
+from .ui_common import ensure_admin, templates
 
 router = APIRouter()
 
@@ -36,6 +38,13 @@ def login_submit(
         )
 
     request.session["username"] = user.username
+    if (user.role or "").lower() != "admin":
+        if user.business_id is not None:
+            request.session["active_business_id"] = int(user.business_id)
+    else:
+        default_id = db.scalar(select(Business.id).where(Business.code == "recambios"))
+        if default_id is not None:
+            request.session["active_business_id"] = int(default_id)
     log_event(
         db,
         user,
@@ -44,6 +53,25 @@ def login_submit(
         entity_id=user.username,
         detail={"role": user.role},
     )
+    return RedirectResponse(url="/ui/dashboard", status_code=302)
+
+
+@router.post("/active-business")
+def set_active_business(
+    request: Request,
+    business_id: int = Form(...),
+    db: Session = Depends(session_dep),
+) -> RedirectResponse:
+    ensure_admin(db, request)
+    bid = int(business_id)
+    if db.get(Business, bid) is None:
+        return RedirectResponse(url="/ui/dashboard", status_code=302)
+    request.session["active_business_id"] = bid
+    try:
+        request.session.pop("sales_doc_cart", None)
+        request.session.pop("sales_doc_draft", None)
+    except Exception:
+        pass
     return RedirectResponse(url="/ui/dashboard", status_code=302)
 
 

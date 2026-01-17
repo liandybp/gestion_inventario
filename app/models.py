@@ -9,14 +9,29 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
 
+class Business(Base):
+    __tablename__ = "businesses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="operator", server_default="operator")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
@@ -26,6 +41,9 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     client_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
     address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -42,6 +60,9 @@ class Location(Base):
     __tablename__ = "locations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
@@ -53,6 +74,9 @@ class SalesDocument(Base):
     __tablename__ = "sales_documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     location_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("locations.id"), nullable=True, index=True
     )
@@ -116,6 +140,9 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     sku: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     category: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
@@ -139,6 +166,9 @@ class InventoryMovement(Base):
     __tablename__ = "inventory_movements"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     location_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("locations.id"), nullable=True, index=True
@@ -164,6 +194,9 @@ class MoneyExtraction(Base):
     __tablename__ = "money_extractions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     extraction_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
@@ -179,6 +212,9 @@ class InventoryLot(Base):
     __tablename__ = "inventory_lots"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     movement_id: Mapped[int] = mapped_column(
         ForeignKey("inventory_movements.id"), index=True
     )
@@ -212,6 +248,9 @@ class OperatingExpense(Base):
     __tablename__ = "operating_expenses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
     expense_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

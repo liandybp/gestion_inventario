@@ -14,7 +14,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 
@@ -38,7 +38,8 @@ def sale_product_options(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     config = load_business_config()
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
@@ -59,6 +60,7 @@ def sale_product_options(
 
 def _sales_doc_context(db: Session, request: Request) -> dict:
     config = load_business_config()
+    bid = get_active_business_id(db, request)
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
@@ -66,14 +68,16 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
     draft = session.get("sales_doc_draft")
     if not isinstance(draft, dict):
         draft = {}
+    doc_stmt = select(SalesDocument)
+    if bid is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.business_id == int(bid))
     recent_documents = list(
-        db.scalars(
-            select(SalesDocument)
-            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
-            .limit(10)
-        )
+        db.scalars(doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(10))
     )
-    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    cust_stmt = select(Customer)
+    if bid is not None:
+        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     return {
         "sales_doc_config": config.sales_documents.model_dump(),
         "currency": config.currency.model_dump(),
@@ -96,8 +100,9 @@ def sale(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
     sku = extract_sku(product)
     config = load_business_config()
@@ -180,8 +185,9 @@ def sale_barcode(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     config = load_business_config()
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
@@ -275,11 +281,14 @@ def sale_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    bid = get_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "sale":
         raise HTTPException(status_code=404, detail="Sale movement not found")
+    if bid is not None and int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Sale movement not found")
     product = db.get(Product, mv.product_id)
-    product_service = ProductService(db)
+    product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
         name="partials/sale_edit_form.html",
@@ -303,8 +312,9 @@ def sale_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     sku = extract_sku(product)
     try:
         result = service.update_sale(
@@ -365,8 +375,9 @@ def sale_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     try:
         service.delete_sale_movement(movement_id)
 

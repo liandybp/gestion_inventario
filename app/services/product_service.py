@@ -11,9 +11,10 @@ from app.schemas import ProductCreate, ProductUpdate
 
 
 class ProductService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, business_id: int | None = None):
         self._db = db
-        self._products = ProductRepository(db)
+        self._business_id = int(business_id) if business_id is not None else None
+        self._products = ProductRepository(db, business_id=self._business_id)
 
     @property
     def db(self) -> Session:
@@ -59,6 +60,7 @@ class ProductService:
             sku = self._generate_sku()
 
         product = Product(
+            business_id=self._business_id,
             sku=sku,
             name=payload.name.strip(),
             category=payload.category.strip() if payload.category else None,
@@ -140,7 +142,10 @@ class ProductService:
         return self._products.search(query=query, limit=limit)
 
     def recent(self, limit: int = 20) -> list[Product]:
-        return list(self._db.scalars(select(Product).order_by(Product.id.desc()).limit(limit)))
+        stmt = select(Product)
+        if self._business_id is not None:
+            stmt = stmt.where(Product.business_id == self._business_id)
+        return list(self._db.scalars(stmt.order_by(Product.id.desc()).limit(limit)))
 
     def delete(self, sku: str) -> None:
         product = self.get_by_sku(sku)

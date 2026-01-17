@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import User
+from app.security import get_active_business_id
 from app.schemas import (
     AdjustmentCreate,
     MovementResult,
@@ -22,8 +23,9 @@ from app.services.inventory_service import InventoryService
 router = APIRouter(tags=["inventory"])
 
 
-def inventory_service_dep(db: Session = Depends(session_dep)) -> InventoryService:
-    return InventoryService(db)
+def inventory_service_dep(request: Request, db: Session = Depends(session_dep)) -> InventoryService:
+    bid = get_active_business_id(db, request)
+    return InventoryService(db, business_id=bid)
 
 
 @router.post("/movements/purchase", response_model=MovementResult)

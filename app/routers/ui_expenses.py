@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 
 from .ui_common import dt_to_local_input, ensure_admin, month_range, parse_dt, templates
@@ -25,7 +25,8 @@ def expense_create(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.create_expense(amount=amount, concept=concept, expense_date=parse_dt(expense_date))
@@ -77,7 +78,8 @@ def expense_edit_form(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     expense = service.get_expense(expense_id)
     return templates.TemplateResponse(
         request=request,
@@ -95,7 +97,8 @@ def expense_delete(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         ensure_admin(db, request)
@@ -167,7 +170,8 @@ def expense_update(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.update_expense(

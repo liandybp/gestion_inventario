@@ -22,6 +22,16 @@
           <h2>Dashboard</h2>
           {% if user %}
             <div class="sidebar-user">{{ user.username }} ({{ user.role }})</div>
+            {% if (user.role or '')|lower == 'admin' %}
+              <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
+              <form method="post" action="/ui/active-business" style="margin-top:8px;">
+                <select name="business_id" onchange="this.form.submit()" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
+                  {% for b in businesses %}
+                    <option value="{{ b.id }}" {% if active_business_id and (active_business_id|int) == (b.id|int) %}selected{% endif %}>{{ b.name }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+            {% endif %}
             <a href="/ui/logout" class="sidebar-logout">Cerrar sesión</a>
           {% endif %}
         </div>
@@ -91,6 +101,11 @@
           </button>
 
           {% if user and (user.role or '')|lower == 'admin' %}
+          <button class="sidebar-item" id="tab-users" aria-selected="false"
+                  hx-get="/ui/tabs/users" hx-target="#tab-content" hx-swap="innerHTML">
+            Usuarios
+          </button>
+
           <button class="sidebar-item" id="tab-activity" aria-selected="false"
                   hx-get="/ui/tabs/activity" hx-target="#tab-content" hx-swap="innerHTML">
             Actividad

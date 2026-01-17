@@ -18,20 +18,28 @@ def _normalize_text(text: str) -> str:
 
 
 class ProductRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, business_id: Optional[int] = None):
         self._db = db
+        self._business_id = int(business_id) if business_id is not None else None
 
     def get_by_sku(self, sku: str) -> Optional[Product]:
         sku = sku.strip()
-        return self._db.scalar(select(Product).where(Product.sku == sku))
+        stmt = select(Product).where(Product.sku == sku)
+        if self._business_id is not None:
+            stmt = stmt.where(Product.business_id == self._business_id)
+        return self._db.scalar(stmt)
 
     def list(self) -> list[Product]:
-        return list(self._db.scalars(select(Product).order_by(Product.id)))
+        stmt = select(Product)
+        if self._business_id is not None:
+            stmt = stmt.where(Product.business_id == self._business_id)
+        return list(self._db.scalars(stmt.order_by(Product.id)))
 
     def list_skus_starting_with(self, prefix: str) -> list[str]:
-        rows = self._db.execute(
-            select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
-        ).all()
+        stmt = select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
+        if self._business_id is not None:
+            stmt = stmt.where(Product.business_id == self._business_id)
+        rows = self._db.execute(stmt).all()
         return [sku for (sku,) in rows]
 
     def search(self, query: str, limit: int = 20) -> list[Product]:

@@ -12,7 +12,7 @@ from app.audit import log_event
 from app.deps import session_dep
 from app.models import InventoryLot, InventoryMovement, Product
 from app.schemas import PurchaseCreate
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -37,8 +37,9 @@ def purchase_from_invoice(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
 
     if invoice_pdf is None or not invoice_pdf.filename:
         raise HTTPException(status_code=422, detail="invoice_pdf is required")
@@ -120,9 +121,13 @@ def purchase_from_invoice(
             continue
 
         try:
-            product = db.scalar(select(Product).where(Product.sku == sku))
+            stmt = select(Product).where(Product.sku == sku)
+            if bid is not None:
+                stmt = stmt.where(Product.business_id == int(bid))
+            product = db.scalar(stmt)
             if product is None:
                 product = Product(
+                    business_id=int(bid) if bid is not None else None,
                     sku=sku,
                     name=name,
                     category=None,
@@ -227,8 +232,9 @@ def purchase(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     sku = extract_sku(product)
     try:
         result = service.purchase(
@@ -291,8 +297,11 @@ def purchase_label_print(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
+    bid = get_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
+        raise HTTPException(status_code=404, detail="Purchase movement not found")
+    if bid is not None and int(getattr(mv, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     product = db.get(Product, mv.product_id)
     if product is None:
@@ -313,12 +322,15 @@ def purchase_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
+    bid = get_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
+    if bid is not None and int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Purchase movement not found")
     product = db.get(Product, mv.product_id)
     lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
-    product_service = ProductService(db)
+    product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
         name="partials/purchase_edit_form.html",
@@ -344,8 +356,9 @@ def purchase_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     ensure_admin(db, request)
     sku = extract_sku(product)
     try:
@@ -406,8 +419,9 @@ def purchase_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    service = InventoryService(db)
-    product_service = ProductService(db)
+    bid = get_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin(db, request)
         service.delete_purchase_movement(movement_id)

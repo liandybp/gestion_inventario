@@ -24,7 +24,32 @@ from app.routers.health import router as health_router
 from app.routers.inventory import router as inventory_router
 from app.routers.products import router as products_router
 from app.routers.ui import router as ui_router
-from app.models import InventoryLot, InventoryMovement, Location, SalesDocument, User
+from app.routers import (
+    inventory,
+    products,
+    ui_auth,
+    ui_expenses,
+    ui_extractions,
+    ui_products,
+    ui_purchases,
+    ui_sales,
+    ui_sales_documents,
+    ui_tabs,
+    ui_transfers,
+    ui_users,
+)
+from app.models import (
+    Business,
+    Customer,
+    InventoryLot,
+    InventoryMovement,
+    Location,
+    MoneyExtraction,
+    OperatingExpense,
+    Product,
+    SalesDocument,
+    User,
+)
 from app.utils import get_session_secret
 
 
@@ -64,11 +89,35 @@ def _run_startup_tasks() -> None:
             user_cols = {
                 row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()
             }
+            if "business_id" not in user_cols:
+                conn.exec_driver_sql("ALTER TABLE users ADD COLUMN business_id INTEGER")
             if "role" not in user_cols:
                 conn.exec_driver_sql("ALTER TABLE users ADD COLUMN role VARCHAR(16)")
                 conn.exec_driver_sql(
                     "UPDATE users SET role='admin' WHERE role IS NULL OR role=''"
                 )
+            if "must_change_password" not in user_cols:
+                conn.exec_driver_sql("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT 0")
+
+            for tbl in [
+                "products",
+                "customers",
+                "locations",
+                "sales_documents",
+                "inventory_movements",
+                "inventory_lots",
+                "operating_expenses",
+                "money_extractions",
+            ]:
+                cols = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({tbl})").fetchall()}
+                if "business_id" not in cols:
+                    conn.exec_driver_sql(f"ALTER TABLE {tbl} ADD COLUMN business_id INTEGER")
+                try:
+                    conn.exec_driver_sql(
+                        f"CREATE INDEX IF NOT EXISTS ix_{tbl}_business_id ON {tbl}(business_id)"
+                    )
+                except SQLAlchemyError:
+                    pass
 
             cols = {
                 row[1]
@@ -165,6 +214,61 @@ def _run_startup_tasks() -> None:
 
             try:
                 exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='business_id'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_id INTEGER"
+                    )
+                    conn.exec_driver_sql(
+                        "CREATE INDEX IF NOT EXISTS ix_users_business_id ON users(business_id)"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna business_id en users."
+                ) from e
+
+            try:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='must_change_password'"
+                ).fetchone()
+                if exists is None:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+            except SQLAlchemyError as e:
+                raise RuntimeError(
+                    "No se pudo crear la columna must_change_password en users."
+                ) from e
+
+            for tbl in [
+                "products",
+                "customers",
+                "locations",
+                "sales_documents",
+                "inventory_movements",
+                "inventory_lots",
+                "operating_expenses",
+                "money_extractions",
+            ]:
+                try:
+                    exists = conn.exec_driver_sql(
+                        f"SELECT 1 FROM information_schema.columns WHERE table_name='{tbl}' AND column_name='business_id'"
+                    ).fetchone()
+                    if exists is None:
+                        conn.exec_driver_sql(
+                            f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS business_id INTEGER"
+                        )
+                        conn.exec_driver_sql(
+                            f"CREATE INDEX IF NOT EXISTS ix_{tbl}_business_id ON {tbl}(business_id)"
+                        )
+                except SQLAlchemyError as e:
+                    raise RuntimeError(
+                        f"No se pudo crear la columna business_id en {tbl}."
+                    ) from e
+
+            try:
+                exists = conn.exec_driver_sql(
                     "SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='lead_time_days'"
                 ).fetchone()
                 if exists is None:
@@ -241,6 +345,21 @@ def _run_startup_tasks() -> None:
     try:
         config = load_business_config()
 
+        def ensure_business(code: str, name: str) -> Business:
+            c = (code or "").strip()
+            n = (name or "").strip() or c
+            existing_b = db.scalar(select(Business).where(Business.code == c))
+            if existing_b is None:
+                existing_b = Business(code=c, name=n)
+                db.add(existing_b)
+                db.flush()
+            else:
+                existing_b.name = n
+            return existing_b
+
+        default_business = ensure_business("recambios", "Recambios")
+        ensure_business("ropa", "Ropa")
+
         users_to_ensure = [
             {
                 "username": os.getenv("ADMIN_USERNAME", "admin"),
@@ -268,11 +387,14 @@ def _run_startup_tasks() -> None:
                         password_hash=hash_password(str(spec.get("password") or "")),
                         role=str(spec.get("role") or "operator"),
                         is_active=bool(spec.get("is_active", True)),
+                        business_id=int(default_business.id),
                     )
                 )
             else:
                 existing.role = str(spec.get("role") or existing.role or "operator")
                 existing.is_active = bool(spec.get("is_active", True))
+                if existing.business_id is None:
+                    existing.business_id = int(default_business.id)
         db.commit()
 
         # Ensure locations from config
@@ -285,11 +407,13 @@ def _run_startup_tasks() -> None:
             n = (name or "").strip() or c
             existing_loc = db.scalar(select(Location).where(Location.code == c))
             if existing_loc is None:
-                existing_loc = Location(code=c, name=n)
+                existing_loc = Location(code=c, name=n, business_id=int(default_business.id))
                 db.add(existing_loc)
                 db.flush()
             else:
                 existing_loc.name = n
+                if existing_loc.business_id is None:
+                    existing_loc.business_id = int(default_business.id)
             return existing_loc
 
         central_loc = ensure_location(central.code, central.name)
@@ -307,6 +431,31 @@ def _run_startup_tasks() -> None:
             pos_locs[default_pos_code] = default_pos_loc
 
         # Backfill existing rows
+        db.query(Product).filter(Product.business_id.is_(None)).update(
+            {Product.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(Customer).filter(Customer.business_id.is_(None)).update(
+            {Customer.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(Location).filter(Location.business_id.is_(None)).update(
+            {Location.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(InventoryMovement).filter(InventoryMovement.business_id.is_(None)).update(
+            {InventoryMovement.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(InventoryLot).filter(InventoryLot.business_id.is_(None)).update(
+            {InventoryLot.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(SalesDocument).filter(SalesDocument.business_id.is_(None)).update(
+            {SalesDocument.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(OperatingExpense).filter(OperatingExpense.business_id.is_(None)).update(
+            {OperatingExpense.business_id: int(default_business.id)}, synchronize_session=False
+        )
+        db.query(MoneyExtraction).filter(MoneyExtraction.business_id.is_(None)).update(
+            {MoneyExtraction.business_id: int(default_business.id)}, synchronize_session=False
+        )
+
         db.query(InventoryMovement).filter(InventoryMovement.location_id.is_(None)).update(
             {InventoryMovement.location_id: central_loc.id}, synchronize_session=False
         )

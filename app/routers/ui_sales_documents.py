@@ -12,7 +12,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_current_user_from_session
+from app.security import get_active_business_id, get_current_user_from_session
 from app.services.product_service import ProductService
 
 from .ui_common import extract_sku, templates
@@ -20,10 +20,13 @@ from .ui_common import extract_sku, templates
 router = APIRouter()
 
 
-def _upsert_customer(db: Session, *, client_id: str, name: str, address: Optional[str]) -> Customer:
-    customer = db.scalar(select(Customer).where(Customer.client_id == client_id))
+def _upsert_customer(db: Session, *, client_id: str, name: str, address: Optional[str], business_id: Optional[int] = None) -> Customer:
+    stmt = select(Customer).where(Customer.client_id == client_id)
+    if business_id is not None:
+        stmt = stmt.where(Customer.business_id == int(business_id))
+    customer = db.scalar(stmt)
     if customer is None:
-        customer = Customer(client_id=client_id, name=name, address=address)
+        customer = Customer(client_id=client_id, name=name, address=address, business_id=int(business_id) if business_id is not None else None)
         db.add(customer)
         db.flush()
         return customer
@@ -126,10 +129,11 @@ def _clear_draft(request: Request) -> None:
         pass
 
 
-def _recent_documents(db: Session, limit: int = 10) -> list[SalesDocument]:
-    return list(
-        db.scalars(select(SalesDocument).order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(limit))
-    )
+def _recent_documents(db: Session, limit: int = 10, business_id: Optional[int] = None) -> list[SalesDocument]:
+    stmt = select(SalesDocument).order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(limit)
+    if business_id is not None:
+        stmt = stmt.where(SalesDocument.business_id == int(business_id))
+    return list(db.scalars(stmt))
 
 
 @router.post("/sales-doc/preview", response_class=HTMLResponse)
@@ -201,10 +205,13 @@ def sales_doc_preview(
 @router.post("/sales-doc/{doc_id}/delete", response_class=HTMLResponse)
 def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
+    bid = get_active_business_id(db, request)
     config = load_business_config()
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    if bid is not None and int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
     items = list(db.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
@@ -214,7 +221,10 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     db.commit()
 
     cart = _get_cart(request)
-    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    cust_stmt = select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)
+    if bid is not None:
+        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt))
     draft = _get_draft(request)
 
     pos_locations = [
@@ -234,7 +244,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
             "pos_locations": pos_locations,
             "default_doc_location_code": default_doc_location_code,
             "cart": cart,
-            "recent_documents": _recent_documents(db, limit=10),
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
             "customers": customers,
             "draft": draft,
             "message": "Documento eliminado",
@@ -250,8 +260,11 @@ def sales_doc_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
+    bid = get_active_business_id(db, request)
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    if bid is not None and int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     items = list(
         db.scalars(
@@ -277,10 +290,13 @@ async def sales_doc_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
+    bid = get_active_business_id(db, request)
     config = load_business_config()
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    if bid is not None and int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
     form = await request.form()
@@ -294,7 +310,7 @@ async def sales_doc_update(
     if not client_id:
         raise HTTPException(status_code=422, detail="client_id is required")
 
-    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address)
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
     doc.customer_id = customer.id
 
     items = list(
@@ -377,7 +393,10 @@ async def sales_doc_update(
         if getattr(loc, "code", None)
     ]
     default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
-    customers = list(db.scalars(select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    cust_stmt = select(Customer).order_by(Customer.name.asc(), Customer.id.asc()).limit(200)
+    if bid is not None:
+        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt))
     draft = _get_draft(request)
 
     return templates.TemplateResponse(
@@ -390,7 +409,7 @@ async def sales_doc_update(
             "pos_locations": pos_locations,
             "default_doc_location_code": default_doc_location_code,
             "cart": cart,
-            "recent_documents": _recent_documents(db, limit=10),
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
             "customers": customers,
             "draft": draft,
             "message": f"{doc_label} actualizada: {doc.code}",
@@ -402,13 +421,15 @@ async def sales_doc_update(
 
 @router.get("/sales-doc/product-defaults", response_class=HTMLResponse)
 def sales_doc_product_defaults(
+    request: Request,
     product: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    bid = get_active_business_id(db, request)
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
-    p = ProductService(db).get_by_sku(sku)
+    p = ProductService(db, business_id=bid).get_by_sku(sku)
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     return HTMLResponse(
         f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
@@ -416,7 +437,8 @@ def sales_doc_product_defaults(
 
 
 @router.get("/sales-doc/customer-defaults", response_class=HTMLResponse)
-def sales_doc_customer_defaults(client_name: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
+def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
+    bid = get_active_business_id(db, request)
     raw = (client_name or "").strip()
     if not raw:
         return HTMLResponse("")
@@ -429,12 +451,21 @@ def sales_doc_customer_defaults(client_name: str = "", db: Session = Depends(ses
 
     customer = None
     if extracted_id:
-        customer = db.scalar(select(Customer).where(Customer.client_id == extracted_id))
+        stmt = select(Customer).where(Customer.client_id == extracted_id)
+        if bid is not None:
+            stmt = stmt.where(Customer.business_id == int(bid))
+        customer = db.scalar(stmt)
     if customer is None:
-        customer = db.scalar(select(Customer).where(Customer.name.ilike(raw)).order_by(Customer.id.asc()).limit(1))
+        stmt = select(Customer).where(Customer.name.ilike(raw)).order_by(Customer.id.asc()).limit(1)
+        if bid is not None:
+            stmt = stmt.where(Customer.business_id == int(bid))
+        customer = db.scalar(stmt)
     if customer is None:
         like = f"%{raw}%"
-        customer = db.scalar(select(Customer).where(Customer.name.ilike(like)).order_by(Customer.id.asc()).limit(1))
+        stmt = select(Customer).where(Customer.name.ilike(like)).order_by(Customer.id.asc()).limit(1)
+        if bid is not None:
+            stmt = stmt.where(Customer.business_id == int(bid))
+        customer = db.scalar(stmt)
 
     if customer is None:
         return HTMLResponse("")
@@ -461,8 +492,9 @@ def sales_doc_cart_add(
     notes: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    bid = get_active_business_id(db, request)
     config = load_business_config()
-    product_service = ProductService(db)
+    product_service = ProductService(db, business_id=bid)
 
     try:
 
