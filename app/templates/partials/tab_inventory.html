@@ -22,14 +22,23 @@
       </select>
     </div>
     <div class="row">
+      <label>Categoría</label>
+      <select id="inventory_category" name="category">
+        <option value="" {% if not (selected_category or '') %}selected{% endif %}>Todas</option>
+        {% for c in categories or [] %}
+          <option value="{{ c }}" {% if (selected_category or '') == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row">
       <label>Buscar</label>
       <input id="inventory_query" name="query" placeholder="Buscar por SKU o nombre" />
     </div>
 
     <div id="stock-table"
          hx-get="/ui/stock-table"
-         hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, change from:#inventory_stock_filter, stockTableRefresh from:body"
-         hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter"
+         hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, change from:#inventory_stock_filter, change from:#inventory_category, stockTableRefresh from:body"
+         hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
          hx-swap="innerHTML">
     </div>
 

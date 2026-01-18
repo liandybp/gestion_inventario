@@ -13,7 +13,9 @@ from app.schemas import ProductCreate, ProductUpdate
 class ProductService:
     def __init__(self, db: Session, business_id: int | None = None):
         self._db = db
-        self._business_id = int(business_id) if business_id is not None else None
+        if business_id is None:
+            raise HTTPException(status_code=409, detail="business_id is required")
+        self._business_id = int(business_id)
         self._products = ProductRepository(db, business_id=self._business_id)
 
     @property

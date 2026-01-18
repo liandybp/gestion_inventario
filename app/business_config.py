@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import json
 import os
+import re
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -61,15 +62,13 @@ class BusinessConfig(BaseModel):
     locations: LocationsConfig = Field(default_factory=LocationsConfig)
 
 
-_cached_configs: dict[str, BusinessConfig] = {}
+_cached_configs: dict[str, tuple[BusinessConfig, str, float]] = {}
 
 
 def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     global _cached_configs
 
     key = (business_code or "").strip().lower()
-    if key in _cached_configs:
-        return _cached_configs[key]
 
     base_path = os.getenv("BUSINESS_CONFIG_PATH", "app/business_config.conf")
     base = Path(base_path)
@@ -103,15 +102,27 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         return base
 
     path = pick_path()
+    path_str = str(path)
+    mtime = 0.0
+    try:
+        mtime = float(path.stat().st_mtime)
+    except Exception:
+        mtime = 0.0
+
+    cached = _cached_configs.get(key)
+    if cached is not None:
+        cfg_cached, cached_path, cached_mtime = cached
+        if cached_path == path_str and float(cached_mtime or 0.0) == float(mtime or 0.0):
+            return cfg_cached
     if not path.exists():
         cfg0 = BusinessConfig()
-        _cached_configs[key] = cfg0
+        _cached_configs[key] = (cfg0, path_str, mtime)
         return cfg0
 
     if path.suffix.lower() == ".json":
         data = json.loads(path.read_text(encoding="utf-8"))
         cfg_json = BusinessConfig.model_validate(data)
-        _cached_configs[key] = cfg_json
+        _cached_configs[key] = (cfg_json, path_str, mtime)
         return cfg_json
 
     parser = configparser.ConfigParser()
@@ -152,7 +163,21 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
                             continue
                     return out
             except Exception:
-                return {}
+                # Tolerate pseudo-JSON with comma decimals like: {"Negocio": 605,04, "A": 1,23}
+                out3: dict[str, float] = {}
+                for m in re.finditer(r"\"([^\"]+)\"\s*:\s*([0-9]+(?:[\.,][0-9]+)?)", raw_str):
+                    k = (m.group(1) or "").strip()
+                    v_raw = (m.group(2) or "").strip()
+                    if not k or not v_raw:
+                        continue
+                    v_norm = v_raw.replace(",", ".")
+                    try:
+                        out3[k] = float(v_norm)
+                    except Exception:
+                        continue
+                if out3:
+                    return out3
+                # Fall back to alternate format parsing below.
 
         # Format: party:amount,party:amount
         out2: dict[str, float] = {}
@@ -252,5 +277,5 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     if cfg.locations.default_pos not in {p.code for p in cfg.locations.pos}:
         cfg.locations.default_pos = cfg.locations.pos[0].code
 
-    _cached_configs[key] = cfg
+    _cached_configs[key] = (cfg, path_str, mtime)
     return cfg

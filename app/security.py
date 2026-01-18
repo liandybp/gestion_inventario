@@ -65,6 +65,13 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     return int(default_id)
 
 
+def require_active_business_id(db: Session, request: Request) -> int:
+    bid = get_active_business_id(db, request)
+    if bid is None:
+        raise HTTPException(status_code=409, detail="Active business_id is required")
+    return int(bid)
+
+
 def require_user_api(
     request: Request,
     db: Session = Depends(session_dep),

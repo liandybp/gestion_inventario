@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session
 from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
-from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
+from app.security import (
+    get_active_business_code,
+    get_current_user_from_session,
+    require_active_business_id,
+)
 from app.utils import query_match
 
 from .ui_common import templates
@@ -20,12 +24,10 @@ from .ui_common import templates
 router = APIRouter()
 
 
-def _list_customers(db: Session, query: str, limit: int = 200, business_id: Optional[int] = None) -> list[Customer]:
+def _list_customers(db: Session, query: str, limit: int = 200, business_id: int = 0) -> list[Customer]:
     q = (query or "").strip()
     prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
-    stmt = select(Customer)
-    if business_id is not None:
-        stmt = stmt.where(Customer.business_id == int(business_id))
+    stmt = select(Customer).where(Customer.business_id == int(business_id))
     stmt = stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(prefetch_limit)
     rows = list(db.scalars(stmt))
     if q:
@@ -36,7 +38,7 @@ def _list_customers(db: Session, query: str, limit: int = 200, business_id: Opti
 @router.get("/customers/table", response_class=HTMLResponse)
 def customers_table(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     customers = _list_customers(db, query=query, business_id=bid)
     return templates.TemplateResponse(
         request=request,
@@ -59,7 +61,7 @@ def customer_create(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     client_id = (client_id or "").strip()
     name = (name or "").strip()
     if not client_id:
@@ -68,7 +70,7 @@ def customer_create(
         raise HTTPException(status_code=422, detail="name is required")
 
     customer = Customer(
-        business_id=int(bid) if bid is not None else None,
+        business_id=int(bid),
         client_id=client_id,
         name=name,
         address=(address or "").strip() or None,
@@ -98,18 +100,18 @@ def customer_create(
 @router.get("/customer/{customer_id}", response_class=HTMLResponse)
 def customer_detail(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    if bid is not None and int(getattr(customer, "business_id", 0) or 0) != int(bid):
+    if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     docs = list(
         db.scalars(
             select(SalesDocument)
             .where(SalesDocument.customer_id == customer.id)
-            .where(True if bid is None else (SalesDocument.business_id == int(bid)))
+            .where(SalesDocument.business_id == int(bid))
             .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
             .limit(200)
         )
@@ -120,7 +122,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
             select(func.coalesce(func.sum(SalesDocument.total), 0)).where(
                 (SalesDocument.customer_id == customer.id)
                 & (SalesDocument.doc_type == "F")
-                & (True if bid is None else (SalesDocument.business_id == int(bid)))
+                & (SalesDocument.business_id == int(bid))
             )
         )
         or 0
@@ -130,7 +132,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
             select(func.coalesce(func.sum(SalesDocument.total), 0)).where(
                 (SalesDocument.customer_id == customer.id)
                 & (SalesDocument.doc_type == "P")
-                & (True if bid is None else (SalesDocument.business_id == int(bid)))
+                & (SalesDocument.business_id == int(bid))
             )
         )
         or 0
@@ -140,7 +142,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
             select(func.count(SalesDocument.id)).where(
                 (SalesDocument.customer_id == customer.id)
                 & (SalesDocument.doc_type == "F")
-                & (True if bid is None else (SalesDocument.business_id == int(bid)))
+                & (SalesDocument.business_id == int(bid))
             )
         )
         or 0
@@ -149,7 +151,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
         select(func.max(SalesDocument.issue_date)).where(
             (SalesDocument.customer_id == customer.id)
             & (SalesDocument.doc_type == "F")
-            & (True if bid is None else (SalesDocument.business_id == int(bid)))
+            & (SalesDocument.business_id == int(bid))
         )
     )
     last_purchase = ""
@@ -168,7 +170,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
         .where(
             and_(
                 SalesDocument.customer_id == customer.id,
-                True if bid is None else (SalesDocument.business_id == int(bid)),
+                SalesDocument.business_id == int(bid),
             )
         )
         .group_by(SalesDocumentItem.description)
@@ -199,11 +201,11 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 @router.get("/customer/{customer_id}/edit", response_class=HTMLResponse)
 def customer_edit_form(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    if bid is not None and int(getattr(customer, "business_id", 0) or 0) != int(bid):
+    if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return templates.TemplateResponse(
         request=request,
@@ -226,11 +228,11 @@ def customer_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    if bid is not None and int(getattr(customer, "business_id", 0) or 0) != int(bid):
+    if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     client_id = (client_id or "").strip()
@@ -268,11 +270,11 @@ def customer_update(
 @router.post("/customer/{customer_id}/delete", response_class=HTMLResponse)
 def customer_delete(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    if bid is not None and int(getattr(customer, "business_id", 0) or 0) != int(bid):
+    if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     doc_count = int(
@@ -280,7 +282,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
             select(func.count(SalesDocument.id)).where(
                 and_(
                     SalesDocument.customer_id == customer.id,
-                    True if bid is None else (SalesDocument.business_id == int(bid)),
+                    SalesDocument.business_id == int(bid),
                 )
             )
         )

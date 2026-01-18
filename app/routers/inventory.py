@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import User
-from app.security import get_active_business_id
+from app.security import require_active_business_id
 from app.schemas import (
     AdjustmentCreate,
     MovementResult,
@@ -24,7 +24,7 @@ router = APIRouter(tags=["inventory"])
 
 
 def inventory_service_dep(request: Request, db: Session = Depends(session_dep)) -> InventoryService:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     return InventoryService(db, business_id=bid)
 
 

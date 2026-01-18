@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,23 +21,41 @@ from app.models import InventoryMovement
 from app.models import Location
 from app.models import Product
 from app.models import SalesDocument
-from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
+from app.security import (
+    get_active_business_code,
+    get_active_business_id,
+    get_current_user_from_session,
+    require_active_business_id,
+)
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
 from app.schemas import SupplierReturnLotCreate
 
-from .ui_common import dt_to_local_input, ensure_admin, ensure_admin_or_owner, month_range, parse_dt, templates
+from .ui_common import (
+    dt_to_local_input,
+    ensure_admin,
+    ensure_admin_or_owner,
+    extract_sku,
+    month_range,
+    parse_dt,
+    templates,
+)
 
 router = APIRouter()
 
 
-def _deletable_skus(db: Session, skus: list[str]) -> set[str]:
+def _deletable_skus(db: Session, skus: list[str], *, business_id: int) -> set[str]:
     clean = [str(s).strip() for s in (skus or []) if str(s).strip()]
     if not clean:
         return set()
 
-    rows = db.execute(select(Product.id, Product.sku).where(Product.sku.in_(clean))).all()
+    rows = db.execute(
+        select(Product.id, Product.sku).where(
+            Product.sku.in_(clean),
+            Product.business_id == int(business_id),
+        )
+    ).all()
     if not rows:
         return set()
 
@@ -48,6 +66,7 @@ def _deletable_skus(db: Session, skus: list[str]) -> set[str]:
         db.scalars(
             select(InventoryMovement.product_id)
             .where(InventoryMovement.product_id.in_(product_ids))
+            .where(InventoryMovement.business_id == int(business_id))
             .distinct()
         ).all()
     )
@@ -55,6 +74,7 @@ def _deletable_skus(db: Session, skus: list[str]) -> set[str]:
         db.scalars(
             select(InventoryLot.product_id)
             .where(InventoryLot.product_id.in_(product_ids))
+            .where(InventoryLot.business_id == int(business_id))
             .distinct()
         ).all()
     )
@@ -171,20 +191,18 @@ def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[d
     return locations, default_code
 
 
-def _location_id_for_code(db: Session, location_code: str, business_id: Optional[int] = None) -> Optional[int]:
+def _location_id_for_code(db: Session, location_code: str, business_id: int) -> Optional[int]:
     code = (location_code or "").strip()
     if not code:
         return None
-    stmt = select(Location.id).where(Location.code == code)
-    if business_id is not None:
-        stmt = stmt.where(Location.business_id == int(business_id))
-    row = db.execute(stmt).first()
+    row = db.execute(
+        select(Location.id).where(
+            Location.code == code,
+            Location.business_id == int(business_id),
+        )
+    ).first()
     if not row:
-        if business_id is None:
-            return None
-        row = db.execute(select(Location.id).where(Location.code == code)).first()
-        if not row:
-            return None
+        return None
     return int(row[0])
 
 
@@ -229,11 +247,10 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     q = (query or "").strip()
     stmt = select(Customer)
-    if bid is not None:
-        stmt = stmt.where(Customer.business_id == int(bid))
+    stmt = stmt.where(Customer.business_id == int(bid))
     if q:
         like = f"%{q}%"
         stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
@@ -257,7 +274,7 @@ def tab_home(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
@@ -348,7 +365,7 @@ def home_charts(
     location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     now = _parse_ym(ym) or datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
@@ -368,7 +385,7 @@ def home_charts(
 @router.get("/tabs/inventory", response_class=HTMLResponse)
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     config = load_business_config(get_active_business_code(db, request))
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     for loc in (config.locations.pos or []):
@@ -381,6 +398,18 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         product_options = ProductService(db, business_id=bid).search(query="", limit=200)
     except Exception:
         product_options = []
+
+    categories: list[str] = []
+    try:
+        rows = db.execute(
+            select(Product.category)
+            .where(Product.business_id == int(bid))
+            .distinct()
+            .order_by(Product.category.asc())
+        ).all()
+        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+    except Exception:
+        categories = []
     
     return templates.TemplateResponse(
         request=request,
@@ -389,6 +418,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
             "locations": locations,
             "default_location_code": config.locations.central.code,
             "product_options": product_options,
+            "categories": categories,
         },
     )
 
@@ -405,7 +435,7 @@ def tab_purchases(
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
@@ -482,7 +512,7 @@ def tab_sales(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
     
@@ -535,9 +565,7 @@ def tab_sales(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
-    doc_stmt = select(SalesDocument)
-    if bid is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.business_id == int(bid))
+    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
     if start_dt is not None:
         doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
     if end_dt is not None:
@@ -553,9 +581,7 @@ def tab_sales(
         ]
     recent_documents = recent_documents[:10]
 
-    cust_stmt = select(Customer)
-    if bid is not None:
-        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
     customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -614,7 +640,7 @@ def tab_documents(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     _ = get_current_user_from_session(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     config = load_business_config(get_active_business_code(db, request))
 
@@ -638,9 +664,7 @@ def tab_documents(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
-    doc_stmt = select(SalesDocument)
-    if bid is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.business_id == int(bid))
+    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
     if start_dt is not None:
         doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
     if end_dt is not None:
@@ -655,9 +679,7 @@ def tab_documents(
             if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
         ]
     recent_documents = recent_documents[:10]
-    cust_stmt = select(Customer)
-    if bid is not None:
-        cust_stmt = cust_stmt.where(Customer.business_id == int(bid))
+    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
     customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
 
     return templates.TemplateResponse(
@@ -693,7 +715,7 @@ def tab_expenses(
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     
     now = datetime.now(timezone.utc)
@@ -758,7 +780,7 @@ def tab_dividends(
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)
@@ -806,7 +828,7 @@ def tab_transfers(
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
 
     product_service = ProductService(db, business_id=bid)
@@ -889,7 +911,7 @@ def tab_transfers(
 @router.get("/tabs/profit", response_class=HTMLResponse)
 def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     summary, items = inventory_service.monthly_profit_report()
     expenses = inventory_service.list_expenses(
@@ -909,11 +931,171 @@ def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResp
 
 
 @router.get("/tabs/profit-items", response_class=HTMLResponse)
-def tab_profit_items(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
+def tab_profit_items(
+    request: Request,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@router.get("/tabs/profit-items/adjustment/{movement_id}/edit", response_class=HTMLResponse)
+def profit_items_adjustment_edit_form(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "adjustment":
+        raise HTTPException(status_code=404, detail="Adjustment movement not found")
+    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Adjustment movement not found")
+    product = db.get(Product, mv.product_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/profit_items_adjustment_edit_form.html",
+        context={
+            "movement": mv,
+            "product_label": f"{product.sku} - {product.name}" if product else "",
+            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
+        },
+    )
+
+
+@router.post("/tabs/profit-items/adjustment/{movement_id}/update", response_class=HTMLResponse)
+def profit_items_adjustment_update(
+    request: Request,
+    movement_id: int,
+    unit_cost: float = Form(...),
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+
+    service.update_adjustment_movement(movement_id=movement_id, unit_cost=float(unit_cost))
+
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(
+            db,
+            user,
+            action="profit_items_adjustment_update",
+            entity_type="movement",
+            entity_id=str(movement_id),
+            detail={"unit_cost": float(unit_cost)},
+        )
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+
+
+@router.get("/tabs/profit-items/transfer-in/{movement_id}/edit", response_class=HTMLResponse)
+def profit_items_transfer_in_edit_form(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "transfer_in":
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+    product = db.get(Product, mv.product_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/profit_items_transfer_in_edit_form.html",
+        context={
+            "movement": mv,
+            "product_label": f"{product.sku} - {product.name}" if product else "",
+            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
+        },
+    )
+
+
+@router.post("/tabs/profit-items/transfer-in/{movement_id}/update", response_class=HTMLResponse)
+def profit_items_transfer_in_update(
+    request: Request,
+    movement_id: int,
+    unit_cost: float = Form(...),
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "transfer_in":
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Transfer movement not found")
+
+    result = service.update_transfer_movement(
+        movement_id=movement_id,
+        quantity=float(mv.quantity or 0),
+        unit_cost=float(unit_cost),
+        movement_date=mv.movement_date,
+        note=mv.note,
+    )
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(
+            db,
+            user,
+            action="profit_items_transfer_in_update",
+            entity_type="movement",
+            entity_id=str(movement_id),
+            detail={"unit_cost": float(unit_cost)},
+        )
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+
+
+def _render_profit_items_tab(
+    *,
+    request: Request,
+    db: Session,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
-    summary, items = inventory_service.monthly_profit_items_report()
+
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    summary, items = inventory_service.monthly_profit_items_report(start=start_dt, end=end_dt)
     q = (query or "").strip()
     if q:
         def _field(row, key: str) -> str:
@@ -939,8 +1121,184 @@ def tab_profit_items(request: Request, db: Session = Depends(session_dep), query
             "summary": summary,
             "items": items,
             "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
         },
     )
+
+
+@router.get("/tabs/profit-items/sale/{movement_id}/edit", response_class=HTMLResponse)
+def profit_items_sale_edit_form(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "sale":
+        raise HTTPException(status_code=404, detail="Sale movement not found")
+    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Sale movement not found")
+    product = db.get(Product, mv.product_id)
+    product_service = ProductService(db, business_id=bid)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/profit_items_sale_edit_form.html",
+        context={
+            "movement": mv,
+            "product_label": f"{product.sku} - {product.name}" if product else "",
+            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "product_options": product_service.search(query="", limit=200),
+            "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
+        },
+    )
+
+
+@router.post("/tabs/profit-items/sale/{movement_id}/update", response_class=HTMLResponse)
+def profit_items_sale_update(
+    request: Request,
+    movement_id: int,
+    product: str = Form(...),
+    quantity: float = Form(...),
+    unit_price: float = Form(...),
+    movement_date: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    sku = extract_sku(product)
+    result = service.update_sale(
+        movement_id=movement_id,
+        sku=sku,
+        quantity=quantity,
+        unit_price=unit_price,
+        movement_date=parse_dt(movement_date),
+        note=note or None,
+    )
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(
+            db,
+            user,
+            action="profit_items_sale_update",
+            entity_type="movement",
+            entity_id=str(movement_id),
+            detail={"sku": sku, "quantity": float(quantity), "unit_price": float(unit_price)},
+        )
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+
+
+@router.post("/tabs/profit-items/sale/{movement_id}/delete", response_class=HTMLResponse)
+def profit_items_sale_delete(
+    request: Request,
+    movement_id: int,
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    service.delete_sale_movement(movement_id)
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(
+            db,
+            user,
+            action="profit_items_sale_delete",
+            entity_type="movement",
+            entity_id=str(movement_id),
+            detail={},
+        )
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+
+
+@router.get("/tabs/profit-items/purchase/{movement_id}/edit", response_class=HTMLResponse)
+def profit_items_purchase_edit_form(
+    request: Request,
+    movement_id: int,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    mv = db.get(InventoryMovement, movement_id)
+    if mv is None or mv.type != "purchase":
+        raise HTTPException(status_code=404, detail="Purchase movement not found")
+    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Purchase movement not found")
+    product = db.get(Product, mv.product_id)
+    lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
+    product_service = ProductService(db, business_id=bid)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/profit_items_purchase_edit_form.html",
+        context={
+            "movement": mv,
+            "product_label": f"{product.sku} - {product.name}" if product else "",
+            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "lot_code": lot.lot_code if lot else "",
+            "product_options": product_service.search(query="", limit=200),
+            "filter_query": query,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
+        },
+    )
+
+
+@router.post("/tabs/profit-items/purchase/{movement_id}/update", response_class=HTMLResponse)
+def profit_items_purchase_update(
+    request: Request,
+    movement_id: int,
+    product: str = Form(...),
+    quantity: float = Form(...),
+    unit_cost: float = Form(...),
+    movement_date: Optional[str] = Form(None),
+    lot_code: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    sku = extract_sku(product)
+    result = service.update_purchase(
+        movement_id=movement_id,
+        sku=sku,
+        quantity=quantity,
+        unit_cost=unit_cost,
+        movement_date=parse_dt(movement_date),
+        lot_code=lot_code or None,
+        note=note or None,
+    )
+    user = get_current_user_from_session(db, request)
+    if user is not None:
+        log_event(
+            db,
+            user,
+            action="profit_items_purchase_update",
+            entity_type="movement",
+            entity_id=str(movement_id),
+            detail={"sku": sku, "quantity": float(quantity), "unit_cost": float(unit_cost)},
+        )
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
 
 
 @router.get("/stock-table", response_class=HTMLResponse)
@@ -950,9 +1308,10 @@ def stock_table(
     query: str = "",
     location_code: str = "",
     stock_filter: str = "",
+    category: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
     config = load_business_config(get_active_business_code(db, request))
@@ -964,12 +1323,15 @@ def stock_table(
     effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
 
     items = service.stock_list(query=query, location_code=loc)
+    cat = (category or "").strip()
+    if cat:
+        items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]
     if effective_filter == "in_stock":
         items = [i for i in items if float(i.quantity or 0) > 0]
     elif effective_filter == "zero":
         items = [i for i in items if float(i.quantity or 0) <= 0]
 
-    deletable_skus = _deletable_skus(db, [i.sku for i in items])
+    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
     return templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
@@ -978,6 +1340,7 @@ def stock_table(
             "user": user,
             "deletable_skus": deletable_skus,
             "stock_filter": effective_filter,
+            "selected_category": cat,
         },
     )
 
@@ -990,9 +1353,10 @@ def stock_delete_product(
     query: str = Form(""),
     location_code: str = Form(""),
     stock_filter: str = Form(""),
+    category: str = Form(""),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
@@ -1020,12 +1384,15 @@ def stock_delete_product(
     effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
 
     items = inventory_service.stock_list(query=query, location_code=loc)
+    cat = (category or "").strip()
+    if cat:
+        items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]
     if effective_filter == "in_stock":
         items = [i for i in items if float(i.quantity or 0) > 0]
     elif effective_filter == "zero":
         items = [i for i in items if float(i.quantity or 0) <= 0]
 
-    deletable_skus = _deletable_skus(db, [i.sku for i in items])
+    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
     response = templates.TemplateResponse(
         request=request,
         name="partials/stock_table.html",
@@ -1034,6 +1401,7 @@ def stock_delete_product(
             "user": user,
             "deletable_skus": deletable_skus,
             "stock_filter": effective_filter,
+            "selected_category": cat,
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,
@@ -1054,7 +1422,7 @@ def ui_supplier_return(
     location_code: str = Form(""),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     config = load_business_config(get_active_business_code(db, request))
 
@@ -1132,7 +1500,7 @@ def ui_supplier_return_lots(
     location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
     sku_clean = (sku or "").strip()
@@ -1168,7 +1536,7 @@ def ui_supplier_return_lots(
 def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
     items = [
@@ -1191,7 +1559,7 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
 def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
     items = [
@@ -1222,7 +1590,7 @@ def tab_history(
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
 
     query_filter = (query or "").strip()

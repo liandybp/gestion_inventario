@@ -12,7 +12,7 @@ from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Product
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
-from app.security import get_active_business_code, get_active_business_id, get_current_user_from_session
+from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -42,7 +42,7 @@ def create_product(
     default_sale_price: float = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin_or_owner(db, request)
@@ -104,7 +104,7 @@ def product_delete(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin_or_owner(db, request)
@@ -168,7 +168,7 @@ def product_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(
@@ -193,7 +193,7 @@ def product_update(
     lead_time_days: Optional[int] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin_or_owner(db, request)
@@ -260,7 +260,7 @@ def product_edit_form_inventory(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
@@ -295,7 +295,7 @@ def product_update_inventory(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     try:
@@ -425,7 +425,7 @@ def product_from_invoice(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
-    bid = get_active_business_id(db, request)
+    bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
 
     if invoice_pdf is None or not invoice_pdf.filename:
@@ -557,7 +557,7 @@ def product_from_invoice(
 
 @router.get("/product-defaults/purchase", response_class=HTMLResponse)
 def product_defaults_purchase(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    business_id = get_active_business_id(db, request)
+    business_id = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=business_id)
     sku = extract_sku(product)
     if not sku:
@@ -574,7 +574,7 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
 
 @router.get("/product-defaults/sale", response_class=HTMLResponse)
 def product_defaults_sale(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    business_id = get_active_business_id(db, request)
+    business_id = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=business_id)
     sku = extract_sku(product)
     if not sku:

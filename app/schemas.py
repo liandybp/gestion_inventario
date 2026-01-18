@@ -152,6 +152,7 @@ class TransferResult(BaseModel):
 class StockRead(BaseModel):
     sku: str
     name: Optional[str] = None
+    category: Optional[str] = None
     unit_of_measure: Optional[str] = None
     quantity: float
     min_stock: float

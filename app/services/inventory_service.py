@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy import and_, case, delete, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models import (
     Business,
@@ -40,7 +40,9 @@ from app.utils import month_range as utils_month_range
 class InventoryService:
     def __init__(self, db: Session, business_id: int | None = None):
         self._db = db
-        self._business_id = int(business_id) if business_id is not None else None
+        if business_id is None:
+            raise HTTPException(status_code=409, detail="business_id is required")
+        self._business_id = int(business_id)
         self._business_code: Optional[str] = None
         self._products = ProductRepository(db, business_id=self._business_id)
         self._inventory = InventoryRepository(db, business_id=self._business_id)
@@ -61,21 +63,17 @@ class InventoryService:
     def _location_id_for_code(self, code: str) -> int:
         c = (code or "").strip()
         if not c:
-            raise HTTPException(status_code=422, detail="location_code is required")
-        loc_id = None
-        if self._business_id is not None:
-            loc_id = self._db.scalar(
-                select(Location.id).where(
-                    and_(
-                        Location.code == c,
-                        Location.business_id == self._business_id,
-                    )
+            raise HTTPException(status_code=409, detail="location_code is required")
+        loc_id = self._db.scalar(
+            select(Location.id).where(
+                and_(
+                    Location.code == c,
+                    Location.business_id == self._business_id,
                 )
             )
+        )
         if loc_id is None:
-            loc_id = self._db.scalar(select(Location.id).where(Location.code == c))
-        if loc_id is None:
-            raise HTTPException(status_code=409, detail=f"Unknown location_code: {c}")
+            raise HTTPException(status_code=409, detail=f"Unknown location_code for this business: {c}")
         return int(loc_id)
 
     def _config(self):
@@ -404,14 +402,17 @@ class InventoryService:
         return list(self._db.scalars(stmt))
 
     def total_extractions_by_party(self, start: datetime, end: datetime) -> dict[str, float]:
-        rows = self._db.execute(
+        stmt = (
             select(
                 MoneyExtraction.party,
                 func.coalesce(func.sum(MoneyExtraction.amount), 0).label("total"),
             )
             .where(and_(MoneyExtraction.extraction_date >= start, MoneyExtraction.extraction_date < end))
             .group_by(MoneyExtraction.party)
-        ).all()
+        )
+        if self._business_id is not None:
+            stmt = stmt.where(MoneyExtraction.business_id == self._business_id)
+        rows = self._db.execute(stmt).all()
         return {(party or ""): float(total or 0) for party, total in rows}
 
     def monthly_dividends_report(self, now: Optional[datetime] = None) -> dict:
@@ -562,6 +563,46 @@ class InventoryService:
             warning=warning,
         )
 
+    def update_adjustment_movement(
+        self,
+        movement_id: int,
+        unit_cost: float,
+    ) -> MovementResult:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "adjustment":
+            raise HTTPException(status_code=404, detail="Adjustment movement not found")
+        if self._business_id is not None and int(getattr(mv, "business_id", 0) or 0) != int(self._business_id):
+            raise HTTPException(status_code=404, detail="Adjustment movement not found")
+
+        if float(mv.quantity or 0) <= 0:
+            raise HTTPException(status_code=409, detail="Solo se puede editar el costo de un ajuste positivo")
+        if float(unit_cost) < 0:
+            raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        mv.unit_cost = float(unit_cost)
+
+        try:
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+
+        self._db.refresh(mv)
+        loc_id = int(getattr(mv, "location_id", None) or 0) or self._central_location_id()
+        stock_after = self._inventory.stock_for_product_id(product.id, location_id=loc_id)
+        warning = self._warning_if_restock_needed(product, stock_after)
+        return MovementResult(
+            movement=MovementRead.model_validate(mv),
+            stock_after=stock_after,
+            warning=warning,
+        )
+
     def _transfer_out_id_for_movement_id(self, movement_id: int) -> int:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type not in ("transfer_in", "transfer_out"):
@@ -678,6 +719,13 @@ class InventoryService:
                     func.abs(func.coalesce(InventoryLot.qty_received, 0) - qty_val) <= eps,
                     func.abs(func.coalesce(InventoryLot.unit_cost, 0) - cost_val) <= eps,
                 ]
+                if self._business_id is not None:
+                    where_filters.extend(
+                        [
+                            InventoryMovement.business_id == self._business_id,
+                            InventoryLot.business_id == self._business_id,
+                        ]
+                    )
                 if include_received_at:
                     where_filters.extend(
                         [
@@ -712,6 +760,8 @@ class InventoryService:
                     func.abs(func.coalesce(InventoryMovement.quantity, 0) - qty_val) <= eps,
                     func.abs(func.coalesce(InventoryMovement.unit_cost, 0) - cost_val) <= eps,
                 ]
+                if self._business_id is not None:
+                    where_filters.append(InventoryMovement.business_id == self._business_id)
                 if include_lot_hint and src_code:
                     where_filters.append(InventoryMovement.note.ilike(f"%lot={src_code}%"))
                 if include_note and note_filter is not None:
@@ -798,6 +848,7 @@ class InventoryService:
                 select(InventoryMovement.id).where(
                     InventoryMovement.type == "transfer_in",
                     InventoryMovement.note.ilike(f"%out_id={out_id}%"),
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                 )
             )
         )
@@ -932,6 +983,7 @@ class InventoryService:
                 select(InventoryMovement.id).where(
                     InventoryMovement.type == "transfer_in",
                     InventoryMovement.note.ilike(f"%out_id={out_id}%"),
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                 )
             )
         )
@@ -1415,16 +1467,31 @@ class InventoryService:
 
         return summary, items
 
-    def monthly_profit_items_report(self, now: Optional[datetime] = None) -> tuple[dict, list[dict]]:
+    def monthly_profit_items_report(
+        self,
+        now: Optional[datetime] = None,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> tuple[dict, list[dict]]:
         now_dt = now or datetime.now(timezone.utc)
-        start, end = self._month_range(now_dt)
+        if start is None or end is None:
+            month_start, month_end = self._month_range(now_dt)
+            start = month_start if start is None else start
+            end = month_end if end is None else end
+
+        src_mv = aliased(InventoryMovement)
 
         rows = self._db.execute(
             select(
+                InventoryMovement.id.label("sale_movement_id"),
                 InventoryMovement.movement_date,
                 Product.sku,
                 Product.name,
                 Product.category,
+                InventoryLot.id.label("lot_id"),
+                InventoryLot.movement_id.label("source_movement_id"),
+                src_mv.type.label("source_movement_type"),
                 InventoryLot.lot_code,
                 MovementAllocation.unit_cost,
                 InventoryMovement.unit_price,
@@ -1434,6 +1501,7 @@ class InventoryService:
             .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
             .join(Product, Product.id == InventoryMovement.product_id)
             .join(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
+            .join(src_mv, src_mv.id == InventoryLot.movement_id)
             .where(
                 and_(
                     InventoryMovement.type == "sale",
@@ -1451,7 +1519,7 @@ class InventoryService:
         cogs_total = 0.0
         profit_total = 0.0
 
-        for movement_date, sku, name, category, lot_code, unit_cost, unit_price, qty in rows:
+        for sale_movement_id, movement_date, sku, name, category, lot_id, source_movement_id, source_movement_type, lot_code, unit_cost, unit_price, qty in rows:
             qty_f = float(qty or 0)
             unit_price_f = float(unit_price or 0)
             unit_cost_f = float(unit_cost or 0)
@@ -1462,10 +1530,14 @@ class InventoryService:
 
             items.append(
                 {
+                    "sale_movement_id": int(sale_movement_id),
                     "movement_date": movement_date,
                     "sku": sku,
                     "name": name,
                     "category": category,
+                    "lot_id": int(lot_id) if lot_id is not None else None,
+                    "source_movement_id": int(source_movement_id) if source_movement_id is not None else None,
+                    "source_movement_type": str(source_movement_type or ""),
                     "lot_code": lot_code,
                     "unit_cost": unit_cost_f,
                     "unit_price": unit_price_f,
@@ -2209,7 +2281,7 @@ class InventoryService:
                 avg_daily_by_sku[str(sku)] = float(qty_sold or 0) / 30.0
 
         out: list[StockRead] = []
-        for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in base_rows:
+        for sku, name, category, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in base_rows:
             avg_daily = float(avg_daily_by_sku.get(str(sku), 0.0))
             reorder_in_days: Optional[int] = None
             if avg_daily > 0:
@@ -2220,6 +2292,7 @@ class InventoryService:
                 StockRead(
                     sku=sku,
                     name=name,
+                    category=category,
                     unit_of_measure=uom or None,
                     quantity=qty,
                     min_stock=min_stock,
