@@ -4,6 +4,13 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+## 0.3.0 (2026-01-18)
+
+- feat(auth): forzar cambio de contraseña en primer inicio de sesión / tras reset (must_change_password + modal)
+- feat(labels): impresión de etiquetas 60mm x 30mm + auto-apertura del diálogo de impresión
+- fix(ui): primer render del dashboard refresca correctamente (fallback de carga HTMX)
+- chore(db): migración/initialización más robusta con tabla schema_version y ejecución idempotente en SQLite/Postgres
+
 ## [0.2.1] - 2024-06-XX
 ### Cambios
 - Se corrigieron errores menores en la gestión de inventario.
