@@ -386,6 +386,8 @@ def home_charts(
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
+    print(f"[DEBUG] tab_inventory - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, user.business_id: {user.business_id if user else 'None'}, active bid: {bid}")
     config = load_business_config(get_active_business_code(db, request))
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     for loc in (config.locations.pos or []):
@@ -1304,25 +1306,26 @@ def profit_items_purchase_update(
 @router.get("/stock-table", response_class=HTMLResponse)
 def stock_table(
     request: Request,
-    db: Session = Depends(session_dep),
-    query: str = "",
     location_code: str = "",
-    stock_filter: str = "",
+    stock_filter: str = "all",
     category: str = "",
+    db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
+    print(f"[DEBUG] stock_table - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, bid: {bid}, location: {location_code}, category: {category}")
+    inventory_service = InventoryService(db, business_id=bid)
     config = load_business_config(get_active_business_code(db, request))
     central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
 
-    default_filter = "all" if effective_code == central_code else "in_stock"
+    # Always default to "all" to show products even with zero stock
+    default_filter = "all"
     effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
 
-    items = service.stock_list(query=query, location_code=loc)
+    items = inventory_service.stock_list(query="", location_code=loc)
     cat = (category or "").strip()
     if cat:
         items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]

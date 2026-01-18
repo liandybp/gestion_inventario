@@ -41,7 +41,9 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     
     # Owners and Operators always use their assigned business_id (cannot switch)
     if role in ("owner", "operator"):
-        return int(user.business_id) if user.business_id is not None else None
+        result = int(user.business_id) if user.business_id is not None else None
+        print(f"[DEBUG] get_active_business_id - User: {user.username}, Role: {role}, user.business_id: {user.business_id}, returning: {result}")
+        return result
     
     # Admins can use session to switch between businesses
     if role == "admin":
@@ -51,14 +53,28 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
             try:
                 bid = int(raw)
                 if db.get(Business, bid) is not None:
+                    print(f"[DEBUG] get_active_business_id - Admin {user.username} using session bid: {bid}")
                     return bid
             except Exception:
                 pass
         
         # Fallback: use admin's assigned business_id if available
         if user.business_id is not None:
+            print(f"[DEBUG] get_active_business_id - Admin {user.username} using user.business_id: {user.business_id}")
             return int(user.business_id)
+        
+        # Last resort for admins: use first available business
+        first_business = db.scalar(select(Business).order_by(Business.id.asc()).limit(1))
+        if first_business is not None:
+            bid = int(first_business.id)
+            try:
+                session["active_business_id"] = bid
+            except Exception:
+                pass
+            print(f"[DEBUG] get_active_business_id - Admin {user.username} using first business: {bid}")
+            return bid
     
+    print(f"[DEBUG] get_active_business_id - User: {user.username}, Role: {role}, returning None")
     return None
 
 

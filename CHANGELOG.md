@@ -15,10 +15,15 @@ Este archivo se genera a partir del historial de Git (`git log`).
   - 96 endpoints now enforce strict business isolation
   
 - fix(security): business switching permissions by role
-  - **Admin**: can switch between businesses using session
+  - **Admin**: can switch between businesses using session, fallback to first available business if no business_id assigned
   - **Owner**: locked to their assigned business_id (cannot switch)
   - **Operator**: locked to their assigned business_id (cannot switch)
-  - Removed automatic "recambios" default business creation to avoid conflicts
+  - Added comprehensive debug logging for business_id resolution
+  
+- fix(inventory): changed default stock filter to show all products
+  - Stock table now defaults to "all" filter instead of "in_stock"
+  - Products with zero stock are now visible by default
+  - Allows owners to see and manage all their products even without initial stock
 
 - feat(inventory): category filter and column in inventory tab
   - Added category dropdown filter in inventory tab
