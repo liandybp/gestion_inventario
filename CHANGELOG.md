@@ -4,6 +4,27 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+## 0.3.1 (2026-01-18)
+
+- feat(security): strict multi-business isolation enforcement
+  - Added `require_active_business_id()` helper that ensures business_id is always present (never NULL)
+  - Updated all UI routers (12 files) to use strict business_id validation
+  - ProductService and InventoryService now require business_id (raise error if None)
+  - ProductRepository and InventoryRepository always filter by business_id (no conditional logic)
+  - Removed legacy fallback logic that allowed business_id=None in queries
+  - 96 endpoints now enforce strict business isolation
+
+- feat(inventory): category filter and column in inventory tab
+  - Added category dropdown filter in inventory tab
+  - Added category column to stock table
+  - Category filter preserved across delete actions
+
+- feat(profit-items): improved UI consistency
+  - Renamed all cost edit buttons to "Edit buys" (purchase/transfer_in/adjustment)
+  - Renamed sale edit button to "Edit sale"
+  - All edit buttons now have consistent width (85px) and alignment
+  - Date range filters preserved across profit-items edit/delete actions
+
 ## 0.3.0 (2026-01-18)
 
 - feat(auth): forzar cambio de contraseña en primer inicio de sesión / tras reset (must_change_password + modal)
