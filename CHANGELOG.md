@@ -13,6 +13,12 @@ Este archivo se genera a partir del historial de Git (`git log`).
   - ProductRepository and InventoryRepository always filter by business_id (no conditional logic)
   - Removed legacy fallback logic that allowed business_id=None in queries
   - 96 endpoints now enforce strict business isolation
+  
+- fix(security): business switching permissions by role
+  - **Admin**: can switch between businesses using session
+  - **Owner**: locked to their assigned business_id (cannot switch)
+  - **Operator**: locked to their assigned business_id (cannot switch)
+  - Removed automatic "recambios" default business creation to avoid conflicts
 
 - feat(inventory): category filter and column in inventory tab
   - Added category dropdown filter in inventory tab

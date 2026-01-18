@@ -39,13 +39,10 @@ def login_submit(
         )
 
     request.session["username"] = user.username
-    if (user.role or "").lower() != "admin":
-        if user.business_id is not None:
-            request.session["active_business_id"] = int(user.business_id)
-    else:
-        default_id = db.scalar(select(Business.id).where(Business.code == "recambios"))
-        if default_id is not None:
-            request.session["active_business_id"] = int(default_id)
+    # Only set session business_id for admins (they can switch businesses)
+    # Owners and operators use their user.business_id directly (no switching)
+    if (user.role or "").lower() == "admin" and user.business_id is not None:
+        request.session["active_business_id"] = int(user.business_id)
     log_event(
         db,
         user,

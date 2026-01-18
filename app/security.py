@@ -37,32 +37,29 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     if user is None:
         return None
 
-    if not is_admin(user):
+    role = (user.role or "").lower()
+    
+    # Owners and Operators always use their assigned business_id (cannot switch)
+    if role in ("owner", "operator"):
         return int(user.business_id) if user.business_id is not None else None
-
-    session = getattr(request, "session", None) or {}
-    raw = session.get("active_business_id")
-    if raw is not None:
-        try:
-            bid = int(raw)
-            if db.get(Business, bid) is not None:
-                return bid
-        except Exception:
-            pass
-
-    default_id = db.scalar(select(Business.id).where(Business.code == "recambios"))
-    if default_id is None:
-        b = Business(code="recambios", name="Recambios")
-        db.add(b)
-        db.commit()
-        db.refresh(b)
-        default_id = int(b.id)
-
-    try:
-        session["active_business_id"] = int(default_id)
-    except Exception:
-        pass
-    return int(default_id)
+    
+    # Admins can use session to switch between businesses
+    if role == "admin":
+        session = getattr(request, "session", None) or {}
+        raw = session.get("active_business_id")
+        if raw is not None:
+            try:
+                bid = int(raw)
+                if db.get(Business, bid) is not None:
+                    return bid
+            except Exception:
+                pass
+        
+        # Fallback: use admin's assigned business_id if available
+        if user.business_id is not None:
+            return int(user.business_id)
+    
+    return None
 
 
 def require_active_business_id(db: Session, request: Request) -> int:
