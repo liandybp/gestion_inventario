@@ -5,7 +5,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.business_config import load_business_config
@@ -151,8 +152,39 @@ def _location_id_for_code(db: Session, *, location_code: str, business_id: int) 
     code = (location_code or "").strip()
     if not code:
         return None
-    stmt = select(Location.id).where(Location.code == code, Location.business_id == int(business_id))
-    return db.scalar(stmt)
+    bid = int(business_id)
+    stmt = select(Location.id).where(Location.code == code, Location.business_id == bid)
+    loc_id = db.scalar(stmt)
+    if loc_id is not None:
+        return int(loc_id)
+
+    business_code = db.scalar(select(Business.code).where(Business.id == bid))
+    prefix = "".join(ch if ch.isalnum() else "_" for ch in (str(business_code or "").strip().upper() or "BUSINESS"))
+    alt_code = code if code.startswith(f"{prefix}_") else f"{prefix}_{code}"
+
+    loc_id = db.scalar(select(Location.id).where(Location.code == alt_code, Location.business_id == bid))
+    if loc_id is not None:
+        return int(loc_id)
+
+    cfg = load_business_config(str(business_code or "").strip() or None)
+    name = code
+    try:
+        cfg_central = str(getattr(cfg.locations.central, "code", "") or "").strip()
+        if code == cfg_central or code.upper() == "CENTRAL":
+            name = str(getattr(cfg.locations.central, "name", "") or "").strip() or code
+        else:
+            for p in (getattr(cfg.locations, "pos", None) or []):
+                p_code = str(getattr(p, "code", "") or "").strip()
+                if p_code == code:
+                    name = str(getattr(p, "name", "") or "").strip() or code
+                    break
+        db.add(Location(business_id=bid, code=alt_code, name=name))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+    loc_id = db.scalar(select(Location.id).where(Location.code == alt_code, Location.business_id == bid))
+    return int(loc_id) if loc_id is not None else None
 
 
 @router.post("/sales-doc/preview", response_class=HTMLResponse)
