@@ -916,15 +916,20 @@ def tab_profit_items(request: Request, db: Session = Depends(session_dep), query
     summary, items = inventory_service.monthly_profit_items_report()
     q = (query or "").strip()
     if q:
+        def _field(row, key: str) -> str:
+            if isinstance(row, dict):
+                return str(row.get(key, "") or "")
+            return str(getattr(row, key, "") or "")
+
         items = [
             r
             for r in items
             if query_match(
                 q,
-                str(getattr(r, "sku", "") or ""),
-                str(getattr(r, "name", "") or ""),
-                str(getattr(r, "category", "") or ""),
-                str(getattr(r, "lot_code", "") or ""),
+                _field(r, "sku"),
+                _field(r, "name"),
+                _field(r, "category"),
+                _field(r, "lot_code"),
             )
         ]
     return templates.TemplateResponse(
