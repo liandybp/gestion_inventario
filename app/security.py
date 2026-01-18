@@ -12,12 +12,22 @@ from app.models import Business, User
 
 
 def get_current_user_from_session(db: Session, request: Request) -> Optional[User]:
-    session = getattr(request, "session", None) or {}
+    session = getattr(request, "session", None)
+    if not session:
+        return None
     username = session.get("username")
     if not username:
         return None
     user = get_user_by_username(db, str(username))
     if user is None or not user.is_active:
+        try:
+            session.clear()
+        except Exception:
+            try:
+                session.pop("username", None)
+                session.pop("active_business_id", None)
+            except Exception:
+                pass
         return None
     return user
 

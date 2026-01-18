@@ -302,7 +302,15 @@ class InventoryService:
                 remaining -= take
 
             if remaining > 0:
-                raise HTTPException(status_code=409, detail="Insufficient stock")
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Insufficient stock while rebuilding FIFO "
+                        f"(sku={product.sku}, movement_id={mv.id}, type={mv.type}, "
+                        f"location_id={mv_loc_id}, date={mv.movement_date.isoformat()}, "
+                        f"missing={remaining})"
+                    ),
+                )
 
     def reset_purchases_and_sales(self) -> None:
         movement_ids = select(InventoryMovement.id).where(
