@@ -2209,7 +2209,7 @@ class InventoryService:
                 avg_daily_by_sku[str(sku)] = float(qty_sold or 0) / 30.0
 
         out: list[StockRead] = []
-        for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in base_rows:
+        for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in base_rows:
             avg_daily = float(avg_daily_by_sku.get(str(sku), 0.0))
             reorder_in_days: Optional[int] = None
             if avg_daily > 0:
@@ -2228,6 +2228,7 @@ class InventoryService:
                     avg_daily_sales=avg_daily,
                     reorder_in_days=reorder_in_days,
                     min_purchase_cost=min_purchase_cost,
+                    default_purchase_cost=default_purchase_cost,
                     default_sale_price=default_sale_price,
                 )
             )

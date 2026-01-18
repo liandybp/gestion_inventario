@@ -91,6 +91,14 @@ def parse_optional_float(value: Optional[str]) -> Optional[float]:
     s = value.strip()
     if not s:
         return None
+    s = s.replace(" ", "")
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
     try:
         return float(s)
     except ValueError:

@@ -160,4 +160,5 @@ class StockRead(BaseModel):
     avg_daily_sales: float = 0
     reorder_in_days: Optional[int] = None
     min_purchase_cost: Optional[float] = None
+    default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None

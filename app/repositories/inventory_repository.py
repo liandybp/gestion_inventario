@@ -71,7 +71,7 @@ class InventoryRepository:
 
     def stock_list(
         self, query: str = "", location_id: Optional[int] = None
-    ) -> list[tuple[str, str, str, float, float, int, Optional[float], Optional[float]]]:
+    ) -> list[tuple[str, str, str, float, float, int, Optional[float], Optional[float], Optional[float]]]:
         q = query.strip()
 
         qty_subq = (
@@ -141,6 +141,7 @@ class InventoryRepository:
                 Product.min_stock,
                 Product.lead_time_days,
                 min_purchase_cost_subq.label("min_purchase_cost"),
+                Product.default_purchase_cost,
                 Product.default_sale_price,
             )
             .select_from(Product)
@@ -150,8 +151,8 @@ class InventoryRepository:
         rows = self._db.execute(stmt.order_by(Product.name)).all()
         if q:
             rows = [
-                (sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price)
-                for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in rows
+                (sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price)
+                for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in rows
                 if _query_match(q, str(sku or ""), str(name or ""))
             ]
         return [
@@ -163,9 +164,10 @@ class InventoryRepository:
                 float(min_stock or 0),
                 int(lead_time_days or 0),
                 float(min_purchase_cost) if min_purchase_cost is not None else None,
+                float(default_purchase_cost) if default_purchase_cost is not None else None,
                 float(default_sale_price) if default_sale_price is not None else None,
             )
-            for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_sale_price in rows
+            for sku, name, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in rows
         ]
 
     def recent_purchases(
