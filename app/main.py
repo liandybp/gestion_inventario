@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 if __name__ == "__main__" and __package__ is None:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -38,6 +38,7 @@ from app.routers import (
     ui_transfers,
     ui_users,
 )
+from app.migrations import run_startup_tasks
 from app.models import (
     Business,
     Customer,
@@ -53,12 +54,49 @@ from app.models import (
 from app.utils import get_session_secret
 
 
+_LATEST_SCHEMA_VERSION = 2
+
+
+def _ensure_schema_version_table(conn) -> None:
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT OR IGNORE INTO schema_version (id, version) VALUES (1, 0)"
+        )
+        return
+    conn.exec_driver_sql(
+        "CREATE TABLE IF NOT EXISTS schema_version (id INTEGER PRIMARY KEY, version INTEGER NOT NULL)"
+    )
+    conn.exec_driver_sql(
+        "INSERT INTO schema_version (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING"
+    )
+
+
+def _get_schema_version(conn) -> int:
+    row = conn.execute(text("SELECT version FROM schema_version WHERE id = 1")).fetchone()
+    return int(row[0]) if row else 0
+
+
+def _set_schema_version(conn, version: int) -> None:
+    conn.execute(text("UPDATE schema_version SET version = :v WHERE id = 1"), {"v": int(version)})
+
+
 def _run_startup_tasks() -> None:
     """Ejecuta tareas de inicialización de la base de datos."""
     Base.metadata.create_all(bind=engine)
 
+    schema_version = 0
+    with engine.begin() as conn:
+        _ensure_schema_version_table(conn)
+        schema_version = _get_schema_version(conn)
+
     if engine.dialect.name == "sqlite":
-        with engine.connect() as conn:
+        with engine.begin() as conn:
+            _ensure_schema_version_table(conn)
+            schema_version = _get_schema_version(conn)
             try:
                 conn.exec_driver_sql(
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_lots_lot_code ON inventory_lots(lot_code)"
@@ -194,8 +232,14 @@ def _run_startup_tasks() -> None:
                     "No se pudo crear el índice para inventory_lots.location_id."
                 ) from e
 
+            if schema_version < 1:
+                _set_schema_version(conn, 1)
+                schema_version = 1
+
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
+            _ensure_schema_version_table(conn)
+            schema_version = _get_schema_version(conn)
             try:
                 exists = conn.exec_driver_sql(
                     "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='role'"
@@ -341,6 +385,13 @@ def _run_startup_tasks() -> None:
                     "No se pudo crear la columna location_id en inventory_lots."
                 ) from e
 
+            if schema_version < 1:
+                _set_schema_version(conn, 1)
+                schema_version = 1
+
+    if schema_version >= 2:
+        return
+
     db = get_session()
     try:
         config = load_business_config("recambios")
@@ -469,11 +520,15 @@ def _run_startup_tasks() -> None:
     finally:
         db.close()
 
+    with engine.begin() as conn:
+        _ensure_schema_version_table(conn)
+        _set_schema_version(conn, _LATEST_SCHEMA_VERSION)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifecycle manager para FastAPI."""
-    _run_startup_tasks()
+    run_startup_tasks()
     yield
 
 
