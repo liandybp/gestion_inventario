@@ -62,7 +62,18 @@ class InventoryService:
         c = (code or "").strip()
         if not c:
             raise HTTPException(status_code=422, detail="location_code is required")
-        loc_id = self._db.scalar(select(Location.id).where(Location.code == c))
+        loc_id = None
+        if self._business_id is not None:
+            loc_id = self._db.scalar(
+                select(Location.id).where(
+                    and_(
+                        Location.code == c,
+                        Location.business_id == self._business_id,
+                    )
+                )
+            )
+        if loc_id is None:
+            loc_id = self._db.scalar(select(Location.id).where(Location.code == c))
         if loc_id is None:
             raise HTTPException(status_code=409, detail=f"Unknown location_code: {c}")
         return int(loc_id)
@@ -1020,6 +1031,8 @@ class InventoryService:
             )
             .select_from(InventoryLot)
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryLot.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryLot.location_id == location_id)
         total = self._db.scalar(stmt)
@@ -1039,6 +1052,8 @@ class InventoryService:
             .select_from(InventoryLot)
             .join(Product, Product.id == InventoryLot.product_id)
         )
+        if self._business_id is not None:
+            stmt = stmt.where(InventoryLot.business_id == self._business_id)
         if location_id is not None:
             stmt = stmt.where(InventoryLot.location_id == location_id)
         total = self._db.scalar(stmt)
@@ -1065,6 +1080,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1136,7 +1152,12 @@ class InventoryService:
                 func.coalesce(func.sum(func.coalesce(InventoryLot.qty_remaining, 0)), 0).label("stock_qty"),
             )
             .select_from(InventoryLot)
-            .where(True if location_id is None else (InventoryLot.location_id == location_id))
+            .where(
+                and_(
+                    True if self._business_id is None else (InventoryLot.business_id == self._business_id),
+                    True if location_id is None else (InventoryLot.location_id == location_id),
+                )
+            )
             .group_by(InventoryLot.product_id)
             .subquery()
         )
@@ -1162,6 +1183,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= range_start,
                     InventoryMovement.movement_date < range_end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1237,6 +1259,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1264,7 +1287,13 @@ class InventoryService:
                 OperatingExpense.concept,
                 func.coalesce(func.sum(OperatingExpense.amount), 0).label("total"),
             )
-            .where(and_(OperatingExpense.expense_date >= start, OperatingExpense.expense_date < end))
+            .where(
+                and_(
+                    OperatingExpense.expense_date >= start,
+                    OperatingExpense.expense_date < end,
+                    True if self._business_id is None else (OperatingExpense.business_id == self._business_id),
+                )
+            )
             .group_by(OperatingExpense.concept)
             .order_by(func.coalesce(func.sum(OperatingExpense.amount), 0).desc())
             .limit(1)
@@ -1301,6 +1330,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1322,6 +1352,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1400,6 +1431,7 @@ class InventoryService:
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                 )
             )
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
@@ -1478,6 +1510,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "purchase",
                     InventoryMovement.movement_date >= start,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1500,6 +1533,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -1525,6 +1559,7 @@ class InventoryService:
                 and_(
                     InventoryMovement.type == "sale",
                     InventoryMovement.movement_date >= start,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
@@ -2145,6 +2180,8 @@ class InventoryService:
                 InventoryMovement.movement_date >= start,
                 Product.sku.in_(skus),
             ]
+            if self._business_id is not None:
+                where_parts.append(InventoryMovement.business_id == self._business_id)
             if loc_id is not None:
                 where_parts.append(InventoryMovement.location_id == loc_id)
 

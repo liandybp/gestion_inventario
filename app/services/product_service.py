@@ -21,7 +21,8 @@ class ProductService:
         return self._db
 
     def _generate_sku(self, prefix: str = "SKU", width: int = 6) -> str:
-        existing = self._products.list_skus_starting_with(prefix)
+        rows = self._db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
+        existing = [str(sku or "") for (sku,) in rows]
         max_n = 0
         for sku in existing:
             suffix = sku[len(prefix) :]
@@ -55,34 +56,42 @@ class ProductService:
         if int(payload.lead_time_days or 0) < 0:
             raise HTTPException(status_code=422, detail="lead_time_days must be >= 0")
 
-        sku = payload.sku.strip() if payload.sku else ""
-        if not sku:
-            sku = self._generate_sku()
+        sku_raw = payload.sku.strip() if payload.sku else ""
+        auto_sku = not bool(sku_raw)
 
-        product = Product(
-            business_id=self._business_id,
-            sku=sku,
-            name=payload.name.strip(),
-            category=payload.category.strip() if payload.category else None,
-            min_stock=payload.min_stock,
-            unit_of_measure=payload.unit_of_measure.strip()
-            if payload.unit_of_measure and payload.unit_of_measure.strip()
-            else None,
-            default_purchase_cost=payload.default_purchase_cost,
-            default_sale_price=payload.default_sale_price,
-            lead_time_days=int(payload.lead_time_days or 0),
-            image_url=payload.image_url.strip()
-            if payload.image_url and payload.image_url.strip()
-            else None,
-        )
-        self._products.add(product)
-        try:
-            self._db.commit()
-        except IntegrityError:
-            self._db.rollback()
-            raise HTTPException(status_code=409, detail="SKU already exists")
-        self._db.refresh(product)
-        return product
+        attempts = 5 if auto_sku else 1
+        last_error: Exception | None = None
+        for _ in range(attempts):
+            sku = sku_raw or self._generate_sku()
+
+            product = Product(
+                business_id=self._business_id,
+                sku=sku,
+                name=payload.name.strip(),
+                category=payload.category.strip() if payload.category else None,
+                min_stock=payload.min_stock,
+                unit_of_measure=payload.unit_of_measure.strip()
+                if payload.unit_of_measure and payload.unit_of_measure.strip()
+                else None,
+                default_purchase_cost=payload.default_purchase_cost,
+                default_sale_price=payload.default_sale_price,
+                lead_time_days=int(payload.lead_time_days or 0),
+                image_url=payload.image_url.strip()
+                if payload.image_url and payload.image_url.strip()
+                else None,
+            )
+            self._products.add(product)
+            try:
+                self._db.commit()
+                self._db.refresh(product)
+                return product
+            except IntegrityError as e:
+                self._db.rollback()
+                last_error = e
+                if not auto_sku:
+                    break
+
+        raise HTTPException(status_code=409, detail="SKU already exists") from last_error
 
     def get_by_sku(self, sku: str) -> Product:
         product = self._products.get_by_sku(sku)

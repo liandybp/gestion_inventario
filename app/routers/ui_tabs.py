@@ -171,13 +171,20 @@ def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[d
     return locations, default_code
 
 
-def _location_id_for_code(db: Session, location_code: str) -> Optional[int]:
+def _location_id_for_code(db: Session, location_code: str, business_id: Optional[int] = None) -> Optional[int]:
     code = (location_code or "").strip()
     if not code:
         return None
-    row = db.execute(select(Location.id).where(Location.code == code)).first()
+    stmt = select(Location.id).where(Location.code == code)
+    if business_id is not None:
+        stmt = stmt.where(Location.business_id == int(business_id))
+    row = db.execute(stmt).first()
     if not row:
-        return None
+        if business_id is None:
+            return None
+        row = db.execute(select(Location.id).where(Location.code == code)).first()
+        if not row:
+            return None
     return int(row[0])
 
 
@@ -256,7 +263,7 @@ def tab_home(
 
     locations, _default_loc_code = _home_locations_context(business_code)
     selected_location_code = (location_code or "").strip()
-    selected_location_id = _location_id_for_code(db, selected_location_code)
+    selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
 
     products = product_service.list()
     stock_items = inventory_service.stock_list(location_code=selected_location_code or None)
@@ -345,7 +352,7 @@ def home_charts(
     inventory_service = InventoryService(db, business_id=bid)
     now = _parse_ym(ym) or datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
-    selected_location_id = _location_id_for_code(db, selected_location_code)
+    selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
     charts_ctx = _home_charts_context(inventory_service, now, location_id=selected_location_id)
     return templates.TemplateResponse(
         request=request,
