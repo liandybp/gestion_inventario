@@ -98,12 +98,12 @@
               <button type="button" class="ml-8"
                       hx-get="/ui/tabs/profit-items/transfer-in/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
                       hx-target="body"
-                      hx-swap="beforeend">Editar costo (traspaso)</button>
+                      hx-swap="beforeend">Edit buys</button>
             {% elif r.source_movement_type == 'adjustment' %}
               <button type="button" class="ml-8"
                       hx-get="/ui/tabs/profit-items/adjustment/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
                       hx-target="body"
-                      hx-swap="beforeend">Editar costo (ajuste)</button>
+                      hx-swap="beforeend">Edit buys</button>
             {% else %}
               <span class="muted ml-8">-</span>
             {% endif %}
