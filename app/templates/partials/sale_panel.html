@@ -4,7 +4,7 @@
   <div class="grid" style="grid-template-columns: 1fr 1fr; gap:12px; align-items:stretch;">
     <div class="card" style="height:100%; display:flex; flex-direction:column;">
       <h3 style="margin-top:0;">Venta por escáner</h3>
-      <p class="muted" style="margin-top:-6px;">Escanea el código y presiona Enter.</p>
+      <p class="muted" style="margin-top:-6px;">Escanea el código. Luego ajusta cantidad/precio y presiona Registrar venta.</p>
       <form hx-post="/ui/sale/barcode" hx-target="#sale-panel" hx-swap="outerHTML">
         <div class="row">
           <label>Ubicación</label>
@@ -18,7 +18,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="row"><label>Barcode</label><input name="barcode" placeholder="Escanea aquí" autocomplete="off" autofocus required /></div>
+        <div class="row"><label>Barcode</label><input name="barcode" placeholder="Escanea aquí" autocomplete="off" autofocus required onkeydown="if(event.key==='Enter'){event.preventDefault(); const q=this.form.querySelector('input[name=quantity]'); if(q){q.focus(); q.select && q.select();}}" /></div>
         <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
         <div class="row"><label>Precio unitario</label><input name="unit_price" type="number" step="0.0001" min="0" /></div>
         <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" value="{{ movement_date_default or '' }}" /></div>
