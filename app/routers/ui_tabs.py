@@ -1309,6 +1309,7 @@ def stock_table(
     location_code: str = "",
     stock_filter: str = "all",
     category: str = "",
+    query: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
@@ -1325,7 +1326,7 @@ def stock_table(
     default_filter = "all"
     effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
 
-    items = inventory_service.stock_list(query="", location_code=loc)
+    items = inventory_service.stock_list(query=query, location_code=loc)
     cat = (category or "").strip()
     if cat:
         items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]
