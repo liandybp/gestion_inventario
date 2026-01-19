@@ -1,7 +1,7 @@
 <div class="card" id="purchase-panel">
   <h2>Compra</h2>
 
-  {% if user and (user.role or '')|lower == 'admin' %}
+  {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
   <h3 style="margin-top:0;">Importar compra desde factura (PDF)</h3>
   <form hx-post="/ui/purchase/from-invoice" hx-target="#purchase-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
     <div class="row">

@@ -41,50 +41,51 @@ def purchase_from_invoice(
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
+    def _render_error(message: str, detail: str) -> HTMLResponse:
+        user = get_current_user_from_session(db, request)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "user": user,
+                "message": message,
+                "message_detail": detail,
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=200,
+        )
+
     if invoice_pdf is None or not invoice_pdf.filename:
-        raise HTTPException(status_code=422, detail="invoice_pdf is required")
+        return _render_error("No se pudo importar la factura", "Debes adjuntar un PDF.")
 
     content_type = (invoice_pdf.content_type or "").lower()
     if ("pdf" not in content_type) and (not invoice_pdf.filename.lower().endswith(".pdf")):
-        raise HTTPException(status_code=422, detail="Invalid file type. Please upload a PDF")
+        return _render_error(
+            "No se pudo importar la factura",
+            "Tipo de archivo inválido. Debes subir un archivo .pdf.",
+        )
 
     try:
         parsed = parse_autodoc_pdf(invoice_pdf.file)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"No se pudo leer el PDF: {e}") from e
+        return _render_error(
+            "No se pudo importar la factura",
+            f"No se pudo leer el PDF: {e}",
+        )
 
     if parsed.invoice_date is None:
-        user = get_current_user_from_session(db, request)
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/purchase_panel.html",
-            context={
-                "user": user,
-                "message": "No se pudo importar la factura",
-                "message_detail": "No se encontró la fecha de factura en el PDF.",
-                "message_class": "error",
-                "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
-            },
-            status_code=400,
+        return _render_error(
+            "No se pudo importar la factura",
+            "No se encontró la fecha de factura en el PDF. Verifica que sea una factura AUTODOC y que el PDF tenga texto (no escaneado como imagen).",
         )
 
     if not parsed.lines:
-        user = get_current_user_from_session(db, request)
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/purchase_panel.html",
-            context={
-                "user": user,
-                "message": "No se pudo importar la factura",
-                "message_detail": "No se encontraron líneas de productos en el PDF.",
-                "message_class": "error",
-                "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
-            },
-            status_code=400,
+        return _render_error(
+            "No se pudo importar la factura",
+            "No se encontraron líneas de productos en el PDF. Verifica que sea una factura AUTODOC y que el PDF tenga texto (no escaneado como imagen).",
         )
 
     user = get_current_user_from_session(db, request)
@@ -193,7 +194,7 @@ def purchase_from_invoice(
         message = "No se pudo importar la factura"
         detail = "No se pudo crear ninguna compra. " + ("; ".join(errors) if errors else "")
         message_class = "error"
-        status = 400
+        status = 200
     else:
         message = "Factura importada"
         detail = f"Se registraron {created_movements} línea(s) de compra."
