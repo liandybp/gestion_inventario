@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
+import pdfplumber
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,7 +17,7 @@ from app.schemas import PurchaseCreate
 from app.security import get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
-from app.invoice_parsers import parse_autodoc_pdf
+from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
     _DEV_ACTIONS_ENABLED,
@@ -69,38 +71,65 @@ def purchase_from_invoice(
         )
 
     try:
-        parsed = parse_autodoc_pdf(invoice_pdf.file)
+        parsed = parse_invoice_pdf(invoice_pdf.file)
     except Exception as e:
         return _render_error(
             "No se pudo importar la factura",
             f"No se pudo leer el PDF: {e}",
         )
 
+    def _zara_pdf_diagnostics() -> Optional[str]:
+        try:
+            invoice_pdf.file.seek(0)
+        except Exception:
+            return None
+
+        try:
+            with pdfplumber.open(invoice_pdf.file) as pdf:
+                ref_re = re.compile(r"\b\d+/\d{3,5}/\d{3}\b")
+                per_page: list[str] = []
+                for idx, page in enumerate(pdf.pages, 1):
+                    text = page.extract_text() or ""
+                    refs_text = ref_re.findall(text)
+                    words = page.extract_words(use_text_flow=True) or []
+                    word_texts = [(w.get("text") or "").strip() for w in words]
+                    refs_words = [t for t in word_texts if ref_re.fullmatch(t or "")]
+                    per_page.append(
+                        f"p{idx}: refs_text={len(refs_text)} refs_words={len(refs_words)} words={len(words)}"
+                    )
+                return " | ".join(per_page)
+        except Exception:
+            return None
+        finally:
+            try:
+                invoice_pdf.file.seek(0)
+            except Exception:
+                pass
+
     if parsed.invoice_date is None:
         return _render_error(
             "No se pudo importar la factura",
-            "No se encontró la fecha de factura en el PDF. Verifica que sea una factura AUTODOC y que el PDF tenga texto (no escaneado como imagen).",
+            "No se encontró la fecha de factura en el PDF. Verifica que sea una factura AUTODOC, ZARA o H&M y que el PDF tenga texto (no escaneado como imagen).",
         )
 
     if not parsed.lines:
+        inv = parsed.invoice_number or "(sin número)"
+        fdt = parsed.invoice_date.strftime("%Y-%m-%d") if parsed.invoice_date else "(sin fecha)"
+        diag = _zara_pdf_diagnostics()
+        diag_txt = f" Diagnóstico ZARA: {diag}." if diag else ""
         return _render_error(
             "No se pudo importar la factura",
-            "No se encontraron líneas de productos en el PDF. Verifica que sea una factura AUTODOC y que el PDF tenga texto (no escaneado como imagen).",
+            "No se encontraron líneas de productos en el PDF. "
+            f"Detectado: factura {inv}, fecha {fdt}. "
+            "Verifica que sea una factura AUTODOC, ZARA o H&M y que el PDF tenga texto (no escaneado como imagen)."
+            + diag_txt,
         )
 
     user = get_current_user_from_session(db, request)
 
-    now = datetime.now(timezone.utc)
-    invoice_movement_dt = parsed.invoice_date.replace(
-        hour=now.hour,
-        minute=now.minute,
-        second=now.second,
-        microsecond=0,
-    )
+    invoice_movement_dt = parsed.invoice_date
 
-    invoice_tag = (
-        f"Factura AUTODOC {parsed.invoice_number}" if parsed.invoice_number else "Factura AUTODOC"
-    )
+    invoice_tag = f"Factura {parsed.invoice_number}" if parsed.invoice_number else "Factura"
 
     created_products: list[dict[str, str]] = []
     created_movements = 0
@@ -200,6 +229,10 @@ def purchase_from_invoice(
         detail = f"Se registraron {created_movements} línea(s) de compra."
         if errors:
             detail = detail + " Errores: " + "; ".join(errors[:5])
+        if created_movements <= 3:
+            diag = _zara_pdf_diagnostics()
+            if diag:
+                detail = detail + f" Diagnóstico ZARA: {diag}."
         message_class = "ok" if not errors else "warn"
         status = 200
 

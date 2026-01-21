@@ -12,7 +12,7 @@
         <th>Costo</th>
         <th>Lote</th>
         <th>Barcode</th>
-        {% if user and (user.role or '')|lower == 'admin' %}
+        {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
         <th>Acciones</th>
         {% endif %}
       </tr>
@@ -43,7 +43,7 @@
               </div>
             {% endif %}
           </td>
-          {% if user and (user.role or '')|lower == 'admin' %}
+          {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
           <td>
             <button type="button"
                     hx-get="/ui/movement/purchase/{{ id }}/edit"
