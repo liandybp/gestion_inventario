@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -143,20 +144,27 @@ class InventoryService:
             return "Needs restock"
         return None
 
-    def _unique_lot_code(self, base_code: str) -> str:
-        candidate = base_code
+    def _unique_lot_code(self, base_code: str, *, max_len: int = 64) -> str:
+        base = self._compact_lot_code(base_code, max_len=int(max_len))
+        candidate = base
         i = 0
-        while (
-            self._db.scalar(select(InventoryLot.id).where(InventoryLot.lot_code == candidate))
-            is not None
-        ):
+        while self._db.scalar(select(InventoryLot.id).where(InventoryLot.lot_code == candidate)) is not None:
             suffix = chr(ord("A") + (i % 26))
             n = i // 26
             if n > 0:
                 suffix = (chr(ord("A") + ((n - 1) % 26))) + suffix
-            candidate = f"{base_code}-{suffix}"
+            candidate = f"{base}-{suffix}"
+            candidate = self._compact_lot_code(candidate, max_len=int(max_len))
             i += 1
         return candidate
+
+    def _compact_lot_code(self, base: str, *, max_len: int = 64) -> str:
+        b = (base or "").strip()
+        if len(b) <= int(max_len):
+            return b
+        h = hashlib.sha1(b.encode("utf-8")).hexdigest()[:8]
+        cut = max(1, int(max_len) - 9)
+        return f"{b[:cut]}-{h}"
 
     def _consume_fifo(self, product_id: int, location_id: int, movement_id: int, quantity: float) -> None:
         if quantity <= 0:
@@ -209,9 +217,8 @@ class InventoryService:
 
         self._db.execute(
             delete(MovementAllocation).where(
-                MovementAllocation.movement_id.in_(
-                    mv_id_stmt
-                )
+                (MovementAllocation.movement_id.in_(mv_id_stmt))
+                | (MovementAllocation.lot_id.in_(select(InventoryLot.id).where(InventoryLot.product_id == product.id)))
             )
         )
         del_lot_stmt = delete(InventoryLot).where(InventoryLot.product_id == product.id)
@@ -912,7 +919,8 @@ class InventoryService:
                 ),
             )
 
-        effective_ref = (ref or "").strip() or f"TP-{from_code}-{to_code}-{mv_dt:%y%m%d%H%M%S}"
+        effective_ref = (ref or "").strip() or f"TP-{from_code}-{to_code}-{mv_dt:%y%m%d%H%M%S}"  # stable grouping key
+
         clean_note = (note or "").strip()
         base_note = f"Transfer {from_code}->{to_code} ref={effective_ref}"
         mv_out.note = f"{base_note}: {clean_note}" if clean_note else base_note
@@ -978,7 +986,7 @@ class InventoryService:
                 self._db.flush()
 
                 base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{mv_dt:%y%m%d%H%M%S}-{mv_in.id}"
-                lot_code = self._unique_lot_code(base_code)
+                lot_code = self._unique_lot_code(self._compact_lot_code(base_code))
                 lot = InventoryLot(
                     business_id=self._business_id,
                     movement_id=mv_in.id,
@@ -1213,7 +1221,7 @@ class InventoryService:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
         now_dt = now_dt.astimezone(timezone.utc)
 
-        month_start, month_end = self._month_range(now_dt)
+        month_start, _ = self._month_range(now_dt)
 
         range_start = month_start
         for _ in range(max(months - 1, 0)):
@@ -1222,13 +1230,13 @@ class InventoryService:
             else:
                 range_start = range_start.replace(month=range_start.month - 1)
 
-        range_end = month_end
+        range_end = month_start
         range_days = max(1, int((range_end - range_start).days))
 
         qty_month_expr = func.sum(
             case(
                 (
-                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < month_end),
+                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < range_end),
                     func.abs(InventoryMovement.quantity),
                 ),
                 else_=0,
@@ -1238,7 +1246,7 @@ class InventoryService:
         sales_month_expr = func.sum(
             case(
                 (
-                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < month_end),
+                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < range_end),
                     func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0),
                 ),
                 else_=0,
@@ -1614,12 +1622,16 @@ class InventoryService:
         now_dt = now_dt.astimezone(timezone.utc)
 
         month_start, _ = self._month_range(now_dt)
-        start = month_start
+
+        range_start = month_start
         for _ in range(max(months - 1, 0)):
-            if start.month == 1:
-                start = start.replace(year=start.year - 1, month=12)
+            if range_start.month == 1:
+                range_start = range_start.replace(year=range_start.year - 1, month=12)
             else:
-                start = start.replace(month=start.month - 1)
+                range_start = range_start.replace(month=range_start.month - 1)
+
+        range_end = month_start
+        range_days = max(1, int((range_end - range_start).days))
 
         purchases_by: dict[str, float] = {}
         sales_by: dict[str, float] = {}
@@ -1633,7 +1645,7 @@ class InventoryService:
             ).where(
                 and_(
                     InventoryMovement.type == "purchase",
-                    InventoryMovement.movement_date >= start,
+                    InventoryMovement.movement_date >= range_start,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
@@ -1656,7 +1668,7 @@ class InventoryService:
             ).where(
                 and_(
                     InventoryMovement.type == "sale",
-                    InventoryMovement.movement_date >= start,
+                    InventoryMovement.movement_date >= range_start,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
@@ -1682,7 +1694,7 @@ class InventoryService:
             .where(
                 and_(
                     InventoryMovement.type == "sale",
-                    InventoryMovement.movement_date >= start,
+                    InventoryMovement.movement_date >= range_start,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
@@ -1698,7 +1710,7 @@ class InventoryService:
             cogs_by[key] = cogs_by.get(key, 0.0) + float(qty or 0) * float(unit_cost or 0)
 
         series: list[dict] = []
-        cursor = start
+        cursor = range_start
         for _ in range(months):
             key = cursor.strftime("%Y-%m")
             sales = float(sales_by.get(key, 0))
@@ -2084,7 +2096,7 @@ class InventoryService:
                     self._db.flush()
 
                     base_code = f"TR-{src_lot_code or product.sku}-{to_code}-{movement_dt:%y%m%d%H%M%S}-{mv_in.id}"
-                    lot_code = self._unique_lot_code(base_code)
+                    lot_code = self._unique_lot_code(self._compact_lot_code(base_code))
                     lot = InventoryLot(
                         business_id=self._business_id,
                         movement_id=mv_in.id,

@@ -4,45 +4,6 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
-## 0.3.1 (2026-01-18)
-
-- feat(security): strict multi-business isolation enforcement
-  - Added `require_active_business_id()` helper that ensures business_id is always present (never NULL)
-  - Updated all UI routers (12 files) to use strict business_id validation
-  - ProductService and InventoryService now require business_id (raise error if None)
-  - ProductRepository and InventoryRepository always filter by business_id (no conditional logic)
-  - Removed legacy fallback logic that allowed business_id=None in queries
-  - 96 endpoints now enforce strict business isolation
-  
-- fix(security): business switching permissions by role
-  - **Admin**: can switch between businesses using session, fallback to first available business if no business_id assigned
-  - **Owner**: locked to their assigned business_id (cannot switch)
-  - **Operator**: locked to their assigned business_id (cannot switch)
-  - Added comprehensive debug logging for business_id resolution
-  
-- fix(inventory): changed default stock filter to show all products
-  - Stock table now defaults to "all" filter instead of "in_stock"
-  - Products with zero stock are now visible by default
-  - Allows owners to see and manage all their products even without initial stock
-
-- feat(inventory): category filter and column in inventory tab
-  - Added category dropdown filter in inventory tab
-  - Added category column to stock table
-  - Category filter preserved across delete actions
-
-- feat(profit-items): improved UI consistency
-  - Renamed all cost edit buttons to "Edit buys" (purchase/transfer_in/adjustment)
-  - Renamed sale edit button to "Edit sale"
-  - All edit buttons now have consistent width (85px) and alignment
-  - Date range filters preserved across profit-items edit/delete actions
-
-## 0.3.0 (2026-01-18)
-
-- feat(auth): forzar cambio de contraseña en primer inicio de sesión / tras reset (must_change_password + modal)
-- feat(labels): impresión de etiquetas 60mm x 30mm + auto-apertura del diálogo de impresión
-- fix(ui): primer render del dashboard refresca correctamente (fallback de carga HTMX)
-- chore(db): migración/initialización más robusta con tabla schema_version y ejecución idempotente en SQLite/Postgres
-
 ## [0.2.1] - 2024-06-XX
 ### Cambios
 - Se corrigieron errores menores en la gestión de inventario.
