@@ -82,7 +82,7 @@
 
     <datalist id="transfer-products-list">
       {% for p in product_options %}
-        <option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>
+        <option value="{{ p.sku }} - {{ p.name }}"></option>
       {% endfor %}
     </datalist>
 

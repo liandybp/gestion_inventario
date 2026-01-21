@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import escape
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -435,7 +436,8 @@ def transfer_product_options(
         name = str(getattr(p, "name", "") or "")
         if not sku:
             continue
-        parts.append(f'<option value="{sku}">{sku} - {name}</option>')
+        label = f"{sku} - {name}" if name else sku
+        parts.append(f'<option value="{escape(label)}"></option>')
     return HTMLResponse("\n".join(parts))
 
 
