@@ -165,7 +165,7 @@
           <th style="width:28%;">Producto</th>
           <th style="width:10%;" class="text-right">Cantidad</th>
           <th style="width:18%;">Nota</th>
-          <th style="width:10%;">Acciones</th>
+          <th style="width:10%;" class="sticky-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -183,7 +183,7 @@
           <td class="text-left">{{ name }}</td>
           <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
-          <td class="text-left nowrap">
+          <td class="text-left nowrap sticky-actions">
             {% if can_manage %}
               {% set ref = '' %}
               {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
@@ -223,7 +223,7 @@
           <th style="width:28%;">Producto</th>
           <th style="width:10%;" class="text-right">Cantidad</th>
           <th style="width:18%;">Nota</th>
-          <th style="width:10%;">Acciones</th>
+          <th style="width:10%;" class="sticky-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -241,7 +241,7 @@
           <td class="text-left">{{ name }}</td>
           <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
-          <td class="text-left nowrap">
+          <td class="text-left nowrap sticky-actions">
             {% if can_manage %}
               {% set ref = '' %}
               {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}

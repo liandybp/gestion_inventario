@@ -248,6 +248,24 @@ tbody tr:hover td { background: var(--row-hover); }
 
 thead th { background: var(--brand-navy); color: #ffffff; }
 
+ .sticky-actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+ }
+
+ thead th.sticky-actions {
+  z-index: 3;
+ }
+
+ tbody tr:nth-child(odd) td.sticky-actions { background: var(--row-odd); }
+ tbody tr:nth-child(even) td.sticky-actions { background: var(--row-even); }
+ tbody tr:hover td.sticky-actions { background: var(--row-hover); }
+
+ td.sticky-actions, th.sticky-actions {
+  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.25);
+ }
+
 .muted { color: var(--brand-muted); font-size: 13px; }
 .warn { background: #fff7ed; }
 .error { background: #fef2f2; }
