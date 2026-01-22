@@ -14,6 +14,7 @@ class InvoiceLine:
     name: str
     quantity: float
     net_unit_price: float
+    category: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -292,72 +293,104 @@ def _parse_hm_row(row: str) -> Optional[InvoiceLine]:
 
     rest = s[msku.end() :].strip()
     rest_no_pct = re.sub(r"\d+(?:[\.,]\d+)?\s*%", " ", rest)
+
     money_tokens = list(re.finditer(r"-?\d[\d\.,]*\d", rest_no_pct))
-    if len(money_tokens) < 2:
+    decimal_money_tokens = list(re.finditer(r"-?\d[\d\.]*,\d{2}|-?\d[\d,]*\.\d{2}", rest_no_pct))
+    money_tokens_eff = decimal_money_tokens if len(decimal_money_tokens) >= 2 else money_tokens
+    if len(money_tokens_eff) < 2:
         return None
 
-    total_match = money_tokens[-1]
+    total_match = money_tokens_eff[-1]
 
-    qty_match_obj: Optional[re.Match[str]] = None
-    if mperc:
-        cutoff = mperc[-1].start()
-        before_pct = s[:cutoff]
-        before_pct_rest = before_pct[msku.end() :]
-        qty_candidates = list(re.finditer(r"\d+(?:[\.,]\d+)?", before_pct_rest))
-        for cand in reversed(qty_candidates):
+    first_money_start = money_tokens_eff[0].start() if money_tokens_eff else 0
+    before_money = rest_no_pct[:first_money_start].strip()
+    before_tokens = before_money.split() if before_money else []
+    if not before_tokens:
+        return None
+
+    size_re = re.compile(r"^(?:\d{2,3}(?:/\d{2,3})?|\d{2,3}\(\d{1,2}-\d{1,2}Y\)|XS|S|M|L|XL|XXL|XXXL)$", flags=re.IGNORECASE)
+    size_idx = None
+    for i, tok in enumerate(before_tokens):
+        if size_re.match(tok):
+            size_idx = i
+            break
+
+    qty_tok = None
+    qty_start_idx = (size_idx + 1) if size_idx is not None else 0
+    for tok in before_tokens[qty_start_idx:]:
+        if not re.fullmatch(r"\d+(?:[\.,]\d+)?", tok):
+            continue
+        try:
+            qv = _parse_spanish_number(tok)
+        except Exception:
+            continue
+        if qv <= 0 or qv > 1000:
+            continue
+        txt = tok
+        if "," in txt or "." in txt:
+            frac = txt.split(",", 1)[1] if "," in txt else txt.split(".", 1)[1]
+            if frac not in ("0", "00", "000"):
+                continue
+        qty_tok = tok
+        break
+
+    if qty_tok is None:
+        for tok in reversed(before_tokens):
+            if not re.fullmatch(r"\d+(?:[\.,]\d+)?", tok):
+                continue
             try:
-                qv = _parse_spanish_number(cand.group(0))
+                qv = _parse_spanish_number(tok)
             except Exception:
                 continue
             if qv <= 0 or qv > 1000:
                 continue
-            txt = cand.group(0)
+            txt = tok
             if "," in txt or "." in txt:
                 frac = txt.split(",", 1)[1] if "," in txt else txt.split(".", 1)[1]
                 if frac not in ("0", "00", "000"):
                     continue
-            qty_match_obj = cand
+            qty_tok = tok
             break
 
-    if qty_match_obj is None:
-        for cand in reversed(money_tokens[:-1]):
-            try:
-                qv = _parse_spanish_number(cand.group(0))
-            except Exception:
-                continue
-            if qv <= 0 or qv > 1000:
-                continue
-            txt = cand.group(0)
-            if "," in txt or "." in txt:
-                frac = txt.split(",", 1)[1] if "," in txt else txt.split(".", 1)[1]
-                if frac not in ("0", "00", "000"):
-                    continue
-            qty_match_obj = cand
-            break
-
-    if qty_match_obj is None:
+    if qty_tok is None:
         return None
 
-    qty_abs_start = msku.end() + qty_match_obj.start()
-    prefix = s[:qty_abs_start].strip()
-    qty_str = qty_match_obj.group(0)
     try:
-        quantity = _parse_spanish_number(qty_str)
-        total_gross = _parse_spanish_number(total_match.group(0))
+        quantity = _parse_spanish_number(qty_tok)
+        last_gross = _parse_spanish_number(total_match.group(0))
     except Exception:
         return None
 
-    if quantity <= 0 or total_gross <= 0:
+    if quantity <= 0 or last_gross <= 0:
         return None
 
-    name_span = prefix
-    if name_span.startswith(sku):
-        name_span = name_span[len(sku) :].strip()
-    name_span = re.sub(r"\s+" + re.escape(qty_str) + r"\s*$", "", name_span).strip()
+    name_tokens = before_tokens
+    if size_idx is not None and size_idx > 0:
+        name_tokens = before_tokens[:size_idx]
+    else:
+        try:
+            q_idx = before_tokens.index(qty_tok)
+            if q_idx > 0:
+                name_tokens = before_tokens[:q_idx]
+        except Exception:
+            pass
+
+    name_span = " ".join(name_tokens).strip()
     if not name_span:
         return None
 
-    net_unit_price = (float(total_gross) / float(quantity)) / (1.0 + float(perc))
+    gross_unit_price = float(last_gross)
+    if quantity > 1:
+        try:
+            first_price = _parse_spanish_number(money_tokens_eff[0].group(0))
+            if first_price > 0:
+                # If last column is already unit price, it should be close to the first unit price column.
+                # Otherwise, assume last column is total price and divide by quantity.
+                if abs(float(last_gross) - float(first_price)) / float(first_price) > 0.25:
+                    gross_unit_price = float(last_gross) / float(quantity)
+        except Exception:
+            gross_unit_price = float(last_gross) / float(quantity)
+    net_unit_price = float(gross_unit_price) / (1.0 + float(perc))
     if net_unit_price <= 0:
         return None
 
@@ -541,20 +574,56 @@ def parse_zara_pdf(file_obj: IO[bytes]) -> ParsedInvoice:
 
         try:
             qty = _parse_spanish_number(qty_tok)
-            gross_total = _parse_spanish_number(imp_tok)
         except Exception:
             return None
 
-        if qty <= 0 or gross_total <= 0:
+        if qty <= 0:
             return None
 
-        # name up to first money token (net unit usually)
         first_money_idx = None
         for i, tok in enumerate(row_tokens[1:], start=1):
             if money_re.match(tok):
                 first_money_idx = i
                 break
-        name_tokens = row_tokens[1:first_money_idx] if first_money_idx is not None else row_tokens[1:]
+        if first_money_idx is None:
+            return None
+
+        pre_price_tokens = row_tokens[1:first_money_idx]
+        size_token_re = re.compile(r"^(?:\d{1,4}(?:/\d{1,4})?|XS|S|M|L|XL|XXL|XXXL)$", flags=re.IGNORECASE)
+
+        # Zara: [COLOR..., SIZE..., DESCRIPTION...]
+        # SIZE can be like "5 años (110 cm)" or "32 (20,3 cm)".
+        size_start = None
+        for i, tok in enumerate(pre_price_tokens):
+            if size_token_re.match(tok):
+                size_start = i
+                break
+        if size_start is None and len(pre_price_tokens) >= 2:
+            size_start = 1
+
+        category = None
+        name_tokens = pre_price_tokens[1:] if len(pre_price_tokens) >= 2 else pre_price_tokens
+        if size_start is not None and 0 <= size_start < len(pre_price_tokens):
+            j = size_start + 1
+            cat_parts = [pre_price_tokens[size_start]]
+
+            # include "años" / "año" if present
+            if j < len(pre_price_tokens) and pre_price_tokens[j].lower() in ("año", "años", "mes", "meses"):
+                cat_parts.append(pre_price_tokens[j])
+                j += 1
+
+            # include parenthesized measures, may be split across tokens
+            if j < len(pre_price_tokens) and pre_price_tokens[j].startswith("("):
+                while j < len(pre_price_tokens):
+                    cat_parts.append(pre_price_tokens[j])
+                    if ")" in pre_price_tokens[j]:
+                        j += 1
+                        break
+                    j += 1
+
+            category = " ".join(cat_parts).strip() or None
+            name_tokens = pre_price_tokens[j:]
+
         name = " ".join(name_tokens).strip()
         if not name:
             name = sku
@@ -562,11 +631,20 @@ def parse_zara_pdf(file_obj: IO[bytes]) -> ParsedInvoice:
         if "ENVÍO" in name.upper() or "MANIPULACI" in name.upper():
             return None
 
-        net_unit_price = (float(gross_total) / float(qty)) / (1.0 + float(perc))
+        try:
+            net_unit_price = _parse_spanish_number(row_tokens[first_money_idx])
+        except Exception:
+            return None
         if net_unit_price <= 0:
             return None
 
-        return InvoiceLine(sku=sku, name=name, quantity=float(qty), net_unit_price=float(net_unit_price))
+        return InvoiceLine(
+            sku=sku,
+            name=name,
+            quantity=float(qty),
+            net_unit_price=float(net_unit_price),
+            category=category,
+        )
 
     lines: list[InvoiceLine] = []
     try:
@@ -605,7 +683,28 @@ def parse_zara_pdf(file_obj: IO[bytes]) -> ParsedInvoice:
             match_obj = m or mf
             prefix = row[: match_obj.start()].strip()
             sku = prefix.split()[0] if prefix else ""
-            name = prefix[len(sku) :].strip() if sku else ""
+            tail = prefix[len(sku) :].strip() if sku else ""
+            toks = tail.split() if tail else []
+            category = None
+            name = ""
+            if len(toks) >= 3:
+                # Zara columns: COLOR (ignore), SIZE -> category, DESCRIPTION -> name
+                j = 2
+                cat_parts = [toks[1]]
+                if j < len(toks) and toks[j].lower() in ("año", "años", "mes", "meses"):
+                    cat_parts.append(toks[j])
+                    j += 1
+                if j < len(toks) and toks[j].startswith("("):
+                    while j < len(toks):
+                        cat_parts.append(toks[j])
+                        if ")" in toks[j]:
+                            j += 1
+                            break
+                        j += 1
+                category = " ".join(cat_parts).strip() or None
+                name = " ".join(toks[j:]).strip()
+            else:
+                name = tail
             if not sku or sku.upper() == "SHIPPING":
                 return
             if "ENVÍO" in name.upper() or "MANIPULACI" in name.upper():
@@ -622,7 +721,15 @@ def parse_zara_pdf(file_obj: IO[bytes]) -> ParsedInvoice:
                 return
 
             if qty > 0 and net_price > 0 and name:
-                lines.append(InvoiceLine(sku=sku, name=name, quantity=float(qty), net_unit_price=float(net_price)))
+                lines.append(
+                    InvoiceLine(
+                        sku=sku,
+                        name=name,
+                        quantity=float(qty),
+                        net_unit_price=float(net_price),
+                        category=category,
+                    )
+                )
 
         current = ""
         for ln in raw_lines[table_start:]:

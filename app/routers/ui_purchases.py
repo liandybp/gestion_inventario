@@ -144,6 +144,30 @@ def purchase_from_invoice(
         if not name:
             name = sku
 
+        def _looks_like_color(w: str) -> bool:
+            colors = {
+                "blanco",
+                "negro",
+                "rojo",
+                "verde",
+                "azul",
+                "azulon",
+                "azulón",
+                "amarillo",
+                "beige",
+                "gris",
+                "marron",
+                "marrón",
+                "naranja",
+                "rosa",
+                "lila",
+                "cava",
+                "crudo",
+                "plata",
+                "dorado",
+            }
+            return (w or "").strip().lower() in colors
+
         try:
             unit_cost_vat = round(float(line.net_unit_price) * 1.21, 4)
         except Exception:
@@ -155,11 +179,12 @@ def purchase_from_invoice(
             stmt = stmt.where(Product.business_id == int(bid))
             product = db.scalar(stmt)
             if product is None:
+                category = getattr(line, "category", None)
                 product = Product(
                     business_id=int(bid),
                     sku=sku,
                     name=name,
-                    category=None,
+                    category=(category or None),
                     min_stock=0,
                     unit_of_measure=None,
                     default_purchase_cost=unit_cost_vat,
@@ -186,6 +211,20 @@ def purchase_from_invoice(
                             "invoice_date": invoice_movement_dt.isoformat() if invoice_movement_dt else None,
                         },
                     )
+            else:
+                category = getattr(line, "category", None)
+                if category and not (product.category or "").strip():
+                    product.category = category
+                    db.commit()
+
+                # If product name was previously saved as "COLOR ..." and we now have a clean description,
+                # update it to remove the color prefix.
+                old_name = (product.name or "").strip()
+                old_first = (old_name.split(" ", 1)[0] if old_name else "")
+                new_first = (name.split(" ", 1)[0] if name else "")
+                if old_name and name and old_name != name and _looks_like_color(old_first) and not _looks_like_color(new_first):
+                    product.name = name
+                    db.commit()
 
             result = service.purchase(
                 PurchaseCreate(
@@ -512,4 +551,89 @@ def purchase_delete(
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             },
             status_code=400,
+        )
+
+
+@router.post("/movement/purchase/delete-selected", response_class=HTMLResponse)
+def purchase_delete_selected(
+    request: Request,
+    movement_ids: list[int] = Form([]),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
+    user = get_current_user_from_session(db, request)
+
+    try:
+        ensure_admin_or_owner(db, request)
+        ids = [int(x) for x in (movement_ids or []) if int(x) > 0]
+        if not ids:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/purchase_panel.html",
+                context={
+                    "user": user,
+                    "message": "No se seleccionó ninguna compra",
+                    "message_class": "warn",
+                    "purchases": service.recent_purchases(limit=20),
+                    "product_options": product_service.search(query="", limit=200),
+                    "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                },
+                status_code=200,
+            )
+
+        deleted = 0
+        errors: list[str] = []
+        for mid in ids:
+            try:
+                service.delete_purchase_movement(mid)
+                deleted += 1
+                if user is not None:
+                    log_event(
+                        db,
+                        user,
+                        action="purchase_delete",
+                        entity_type="movement",
+                        entity_id=str(mid),
+                        detail={"bulk": True},
+                    )
+            except HTTPException as e:
+                errors.append(f"{mid}: {e.detail}")
+            except Exception as e:
+                errors.append(f"{mid}: {e}")
+
+        msg = "Compras eliminadas" if deleted > 0 else "No se pudo eliminar"
+        detail = f"Se eliminaron {deleted} compra(s)."
+        if errors:
+            detail = detail + " Errores: " + "; ".join(errors[:5])
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "user": user,
+                "message": msg,
+                "message_detail": detail,
+                "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=200,
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/purchase_panel.html",
+            context={
+                "user": user,
+                "message": "Error al eliminar compras",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "purchases": service.recent_purchases(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            },
+            status_code=200,
         )

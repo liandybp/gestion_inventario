@@ -532,6 +532,16 @@
     debugReturnLots(root);
   }
 
+  let __pendingScrollRestore = null;
+  function _shouldPreserveScrollForElt(elt) {
+    if (!elt || typeof elt.closest !== 'function') return false;
+    const panel = elt.closest('#purchase-panel');
+    if (panel) return true;
+    const salePanel = elt.closest('#sale-panel');
+    if (salePanel) return true;
+    return false;
+  }
+
   restoreActiveTab();
 
   document.addEventListener('click', onTabClick);
@@ -543,6 +553,12 @@
   document.addEventListener('click', onTransferToggleEdit);
   document.addEventListener('change', onTransferProductChange);
 
+  document.addEventListener('htmx:beforeRequest', (evt) => {
+    const elt = evt.detail && evt.detail.elt;
+    if (!_shouldPreserveScrollForElt(elt)) return;
+    __pendingScrollRestore = window.scrollY;
+  });
+
   document.addEventListener('htmx:afterSwap', (evt) => {
     const target = evt.target;
     requestAnimationFrame(() => {
@@ -553,6 +569,14 @@
         try { if (window.__monthlyChart && window.__monthlyChart.resize) window.__monthlyChart.resize(); } catch (e) {}
       });
     });
+
+    if (__pendingScrollRestore !== null && target && (target.id === 'purchase-panel' || target.id === 'sale-panel')) {
+      const y = __pendingScrollRestore;
+      __pendingScrollRestore = null;
+      requestAnimationFrame(() => {
+        try { window.scrollTo({ top: y, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, y); }
+      });
+    }
   });
 
   document.addEventListener('htmx:afterRequest', (evt) => {

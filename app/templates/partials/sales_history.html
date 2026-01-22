@@ -1,7 +1,23 @@
+{% set can_manage = user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+{% if can_manage %}
+<form hx-post="/ui/movement/sale/delete-selected"
+      hx-target="#sale-panel"
+      hx-swap="outerHTML">
+  <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+    <button type="submit" class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?">Eliminar seleccionados</button>
+  </div>
+{% endif %}
+
 <div class="table-wrapper">
 <table>
   <thead>
     <tr>
+      {% if can_manage %}
+      <th>
+        <input type="checkbox" aria-label="Seleccionar todo"
+               onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=sale_ids]').forEach(cb=>cb.checked=this.checked);" />
+      </th>
+      {% endif %}
       <th>Fecha</th>
       <th>Img</th>
       <th>SKU</th>
@@ -16,6 +32,11 @@
   <tbody>
     {% for id, d, sku, name, uom, image_url, qty, unit_price, lot_codes in sales %}
       <tr>
+        {% if can_manage %}
+        <td>
+          <input type="checkbox" name="sale_ids" value="{{ id }}" aria-label="Seleccionar venta {{ id }}" />
+        </td>
+        {% endif %}
         <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
         <td>
           {% if image_url %}
@@ -43,15 +64,13 @@
                   hx-get="/ui/movement/sale/{{ id }}/edit"
                   hx-target="body"
                   hx-swap="beforeend">Edit</button>
-
-          <button type="button" style="margin-left:8px;background: var(--brand-red);"
-                  hx-post="/ui/movement/sale/{{ id }}/delete"
-                  hx-target="#sale-panel"
-                  hx-swap="outerHTML"
-                  hx-confirm="¿Eliminar esta venta?">Del</button>
         </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+
+{% if can_manage %}
+</form>
+{% endif %}

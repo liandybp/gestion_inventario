@@ -22,6 +22,7 @@ from .ui_common import (
     barcode_to_sku,
     dt_to_local_input,
     ensure_admin,
+    ensure_admin_or_owner,
     extract_sku,
     parse_dt,
     parse_optional_float,
@@ -435,4 +436,92 @@ def sale_delete(
                 **_sales_doc_context(db, request),
             },
             status_code=400,
+        )
+
+
+@router.post("/movement/sale/delete-selected", response_class=HTMLResponse)
+def sale_delete_selected(
+    request: Request,
+    sale_ids: list[int] = Form([]),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    product_service = ProductService(db, business_id=bid)
+    user = get_current_user_from_session(db, request)
+
+    try:
+        ensure_admin_or_owner(db, request)
+        ids = [int(x) for x in (sale_ids or []) if int(x) > 0]
+        if not ids:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/sale_panel.html",
+                context={
+                    "user": user,
+                    "message": "No se seleccionó ninguna venta",
+                    "message_class": "warn",
+                    "sales": service.recent_sales(limit=20),
+                    "product_options": product_service.search(query="", limit=200),
+                    "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                    **_sales_doc_context(db, request),
+                },
+                status_code=200,
+            )
+
+        deleted = 0
+        errors: list[str] = []
+        for mid in ids:
+            try:
+                service.delete_sale_movement(mid)
+                deleted += 1
+                if user is not None:
+                    log_event(
+                        db,
+                        user,
+                        action="sale_delete",
+                        entity_type="movement",
+                        entity_id=str(mid),
+                        detail={"bulk": True},
+                    )
+            except HTTPException as e:
+                errors.append(f"{mid}: {e.detail}")
+            except Exception as e:
+                errors.append(f"{mid}: {e}")
+
+        msg = "Ventas eliminadas" if deleted > 0 else "No se pudo eliminar"
+        detail = f"Se eliminaron {deleted} venta(s)."
+        if errors:
+            detail = detail + " Errores: " + "; ".join(errors[:5])
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "user": user,
+                "message": msg,
+                "message_detail": detail,
+                "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
+            },
+            status_code=200,
+        )
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/sale_panel.html",
+            context={
+                "user": user,
+                "message": "Error al eliminar ventas",
+                "message_detail": str(e.detail),
+                "message_class": "error",
+                "sales": service.recent_sales(limit=20),
+                "product_options": product_service.search(query="", limit=200),
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                **_sales_doc_context(db, request),
+            },
+            status_code=200,
         )

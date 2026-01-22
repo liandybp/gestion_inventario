@@ -1,8 +1,23 @@
 <div id="purchases-history">
+  {% set can_manage = user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+  {% if can_manage %}
+  <form hx-post="/ui/movement/purchase/delete-selected"
+        hx-target="#purchase-panel"
+        hx-swap="outerHTML">
+    <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+      <button type="submit" class="mb-0" hx-confirm="¿Eliminar las compras seleccionadas?">Eliminar seleccionados</button>
+    </div>
+  {% endif %}
   <div class="table-wrapper">
   <table>
     <thead>
       <tr>
+        {% if can_manage %}
+        <th>
+          <input type="checkbox" aria-label="Seleccionar todo"
+                 onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
+        </th>
+        {% endif %}
         <th>Fecha</th>
         <th>Img</th>
         <th>SKU</th>
@@ -12,7 +27,7 @@
         <th>Costo</th>
         <th>Lote</th>
         <th>Barcode</th>
-        {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+        {% if can_manage %}
         <th>Acciones</th>
         {% endif %}
       </tr>
@@ -20,6 +35,11 @@
     <tbody>
       {% for id, d, sku, name, uom, image_url, qty, unit_cost, lot_code in purchases %}
         <tr>
+          {% if can_manage %}
+          <td>
+            <input type="checkbox" name="movement_ids" value="{{ id }}" aria-label="Seleccionar compra {{ id }}" />
+          </td>
+          {% endif %}
           <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
           <td>
             {% if image_url %}
@@ -43,18 +63,12 @@
               </div>
             {% endif %}
           </td>
-          {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+          {% if can_manage %}
           <td>
             <button type="button"
                     hx-get="/ui/movement/purchase/{{ id }}/edit"
                     hx-target="body"
                     hx-swap="beforeend">Edit</button>
-
-            <button type="button" style="margin-left:8px;background: var(--brand-red);"
-                    hx-post="/ui/movement/purchase/{{ id }}/delete"
-                    hx-target="#purchase-panel"
-                    hx-swap="outerHTML"
-                    hx-confirm="¿Eliminar esta compra?">Del</button>
           </td>
           {% endif %}
         </tr>
@@ -62,4 +76,7 @@
     </tbody>
   </table>
   </div>
+  {% if can_manage %}
+  </form>
+  {% endif %}
 </div>

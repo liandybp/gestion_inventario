@@ -98,7 +98,7 @@ def create_product(
         )
 
 
-@router.post("/product/{sku}/delete", response_class=HTMLResponse)
+@router.post("/product/{sku:path}/delete", response_class=HTMLResponse)
 def product_delete(
     request: Request,
     sku: str,
@@ -161,7 +161,7 @@ def product_delete(
         )
 
 
-@router.get("/product/{sku}/edit", response_class=HTMLResponse)
+@router.get("/product/{sku:path}/edit", response_class=HTMLResponse)
 def product_edit_form(
     request: Request,
     sku: str,
@@ -178,7 +178,7 @@ def product_edit_form(
     )
 
 
-@router.post("/product/{sku}/update", response_class=HTMLResponse)
+@router.post("/product/{sku:path}/update", response_class=HTMLResponse)
 def product_update(
     request: Request,
     sku: str,
@@ -252,7 +252,7 @@ def product_update(
         )
 
 
-@router.get("/product/{sku}/edit-inventory", response_class=HTMLResponse)
+@router.get("/product/{sku:path}/edit-inventory", response_class=HTMLResponse)
 def product_edit_form_inventory(
     request: Request,
     sku: str,
@@ -277,7 +277,7 @@ def product_edit_form_inventory(
     )
 
 
-@router.post("/product/{sku}/update-inventory", response_class=HTMLResponse)
+@router.post("/product/{sku:path}/update-inventory", response_class=HTMLResponse)
 def product_update_inventory(
     request: Request,
     sku: str,
