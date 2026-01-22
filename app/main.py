@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
@@ -53,6 +54,23 @@ async def ui_auth_middleware(request, call_next):
         return await call_next(request)
     if path.startswith("/ui") and path not in ("/ui/login", "/ui/logout"):
         session = getattr(request, "session", None) or {}
+        if session.get("username"):
+            now = int(time.time())
+            last_activity = session.get("last_activity")
+            try:
+                last_activity = int(last_activity) if last_activity is not None else None
+            except (TypeError, ValueError):
+                last_activity = None
+
+            if last_activity is not None and (now - last_activity) > (60 * 60):
+                session.clear()
+                if request.headers.get("HX-Request") == "true":
+                    resp = RedirectResponse(url="/ui/login", status_code=302)
+                    resp.headers["HX-Redirect"] = "/ui/login"
+                    return resp
+                return RedirectResponse(url="/ui/login", status_code=302)
+
+            session["last_activity"] = now
         if not session.get("username"):
             if request.headers.get("HX-Request") == "true":
                 resp = RedirectResponse(url="/ui/login", status_code=302)
@@ -66,7 +84,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=get_session_secret(),
     session_cookie="inventario_session",
-    max_age=60 * 60 * 24 * 7,
+    max_age=60 * 60 * 24,
     same_site="lax",
     https_only=os.getenv("SESSION_HTTPS_ONLY", "0") == "1",
 )
