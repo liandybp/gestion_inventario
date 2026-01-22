@@ -137,11 +137,27 @@
     </div>
   </form>
 
+  {% set can_manage = user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+  {% if can_manage %}
+  <form hx-post="/ui/movement/transfer/delete-selected"
+        hx-target="#tab-content"
+        hx-swap="innerHTML">
+    <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+      <button type="submit" class="mb-0" hx-confirm="¿Eliminar los traspasos seleccionados?">Eliminar seleccionados</button>
+    </div>
+  {% endif %}
+
   <h3>Últimos traspasos (salida)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
     <table class="w-full table-compact" style="min-width: 980px;">
       <thead>
         <tr>
+          {% if can_manage %}
+          <th style="width:3%;">
+            <input type="checkbox" aria-label="Seleccionar todo"
+                   onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
+          </th>
+          {% endif %}
           <th style="width:16%;">Fecha</th>
           <th style="width:9%;">Tipo</th>
           <th style="width:10%;">Usuario</th>
@@ -155,6 +171,11 @@
       <tbody>
         {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_out %}
         <tr>
+          {% if can_manage %}
+          <td>
+            <input type="checkbox" name="movement_ids" value="{{ id }}" aria-label="Seleccionar traspaso {{ id }}" />
+          </td>
+          {% endif %}
           <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
           <td class="text-left">Traspaso (salida)</td>
           <td class="text-left muted">{{ username or '' }}</td>
@@ -163,7 +184,7 @@
           <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
           <td class="text-left nowrap">
-            {% if user and (user.role or '')|lower == 'admin' %}
+            {% if can_manage %}
               {% set ref = '' %}
               {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
               {% if ref %}
@@ -175,18 +196,12 @@
                       hx-get="/ui/movement/transfer/{{ id }}/edit"
                       hx-target="body"
                       hx-swap="beforeend">Edit</button>
-
-              <button type="button" style="margin-left:8px;background: var(--brand-red);"
-                      hx-post="/ui/movement/transfer/{{ id }}/delete"
-                      hx-target="#tab-content"
-                      hx-swap="innerHTML"
-                      hx-confirm="¿Eliminar este traspaso?">Del</button>
             {% endif %}
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted text-center">No hay traspasos registrados.</td>
+          <td colspan="{{ 9 if can_manage else 8 }}" class="muted text-center">No hay traspasos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -198,6 +213,9 @@
     <table class="w-full table-compact" style="min-width: 980px;">
       <thead>
         <tr>
+          {% if can_manage %}
+          <th style="width:3%;"></th>
+          {% endif %}
           <th style="width:16%;">Fecha</th>
           <th style="width:9%;">Tipo</th>
           <th style="width:10%;">Usuario</th>
@@ -211,6 +229,11 @@
       <tbody>
         {% for id, d, type, location_id, sku, name, uom, qty, unit_cost, unit_price, note, username in recent_transfer_in %}
         <tr>
+          {% if can_manage %}
+          <td>
+            <input type="checkbox" name="movement_ids" value="{{ id }}" aria-label="Seleccionar traspaso {{ id }}" />
+          </td>
+          {% endif %}
           <td class="text-left nowrap">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
           <td class="text-left">Traspaso (entrada)</td>
           <td class="text-left muted">{{ username or '' }}</td>
@@ -219,7 +242,7 @@
           <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
           <td class="text-left muted truncate" title="{{ note or '' }}">{{ note or '' }}</td>
           <td class="text-left nowrap">
-            {% if user and (user.role or '')|lower == 'admin' %}
+            {% if can_manage %}
               {% set ref = '' %}
               {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
               {% if ref %}
@@ -231,23 +254,21 @@
                       hx-get="/ui/movement/transfer/{{ id }}/edit"
                       hx-target="body"
                       hx-swap="beforeend">Edit</button>
-
-              <button type="button" style="margin-left:8px;background: var(--brand-red);"
-                      hx-post="/ui/movement/transfer/{{ id }}/delete"
-                      hx-target="#tab-content"
-                      hx-swap="innerHTML"
-                      hx-confirm="¿Eliminar este traspaso?">Del</button>
             {% endif %}
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted text-center">No hay traspasos registrados.</td>
+          <td colspan="{{ 9 if can_manage else 8 }}" class="muted text-center">No hay traspasos registrados.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {% if can_manage %}
+  </form>
+  {% endif %}
 
   <div id="transfer-edit" style="margin-top:12px;"></div>
 </div>

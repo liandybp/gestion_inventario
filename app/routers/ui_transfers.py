@@ -160,6 +160,119 @@ def transfer_update(
         return response
 
 
+@router.post("/movement/transfer/delete-selected", response_class=HTMLResponse)
+def transfer_delete_selected(
+    request: Request,
+    movement_ids: list[int] = Form([]),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+
+    config = load_business_config(get_active_business_code(db, request))
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
+    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+
+    from_code = default_from_location_code
+    to_code = default_to_location_code
+
+    user = get_current_user_from_session(db, request)
+    if not movement_ids:
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "No hay traspasos seleccionados",
+                "message_detail": "Selecciona uno o varios traspasos para eliminarlos.",
+                "message_class": "warn",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": [
+                    p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
+                ],
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+
+    out_ids: set[int] = set()
+    for mid in movement_ids:
+        try:
+            out_ids.add(int(service._transfer_out_id_for_movement_id(int(mid))))
+        except Exception:
+            continue
+
+    deleted = 0
+    errors: list[str] = []
+    for out_id in sorted(out_ids):
+        try:
+            service.delete_transfer_shipment(int(out_id))
+            deleted += 1
+            if user is not None:
+                log_event(
+                    db,
+                    user,
+                    action="transfer_delete",
+                    entity_type="movement",
+                    entity_id=str(out_id),
+                    detail={"bulk": True},
+                )
+        except HTTPException as e:
+            errors.append(str(e.detail))
+        except Exception as e:
+            errors.append(str(e))
+
+    recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+    recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+
+    msg = "Traspasos eliminados" if deleted > 0 else "No se pudieron eliminar traspasos"
+    detail = f"Se eliminaron {deleted} traspaso(s)." if deleted > 0 else "No se eliminó ningún traspaso."
+    if errors:
+        detail = detail + " Errores: " + "; ".join(errors[:5])
+    msg_class = "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_transfers.html",
+        context={
+            "user": user,
+            "message": msg,
+            "message_detail": detail,
+            "message_class": msg_class,
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "product_options": [
+                p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
+            ],
+            "all_locations": all_locations,
+            "from_location_code": from_code,
+            "to_location_code": to_code,
+            "default_from_location_code": default_from_location_code,
+            "default_to_location_code": default_to_location_code,
+            "note_value": "",
+            "rows_count": 12,
+            "recent_transfer_out": recent_transfer_out,
+            "recent_transfer_in": recent_transfer_in,
+        },
+    )
+
+
 @router.post("/movement/transfer/{movement_id}/delete", response_class=HTMLResponse)
 def transfer_delete(
     request: Request,
