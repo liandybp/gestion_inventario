@@ -196,6 +196,11 @@ table {
   min-width: 600px;
 }
 
+ table.transfer-table {
+  width: max-content;
+  display: inline-table;
+ }
+
 .table-wrapper {
   overflow-x: auto;
   overflow-y: hidden;
@@ -261,10 +266,6 @@ thead th { background: var(--brand-navy); color: #ffffff; }
  tbody tr:nth-child(odd) td.sticky-actions { background: var(--row-odd); }
  tbody tr:nth-child(even) td.sticky-actions { background: var(--row-even); }
  tbody tr:hover td.sticky-actions { background: var(--row-hover); }
-
- td.sticky-actions, th.sticky-actions {
-  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.25);
- }
 
 .muted { color: var(--brand-muted); font-size: 13px; }
 .warn { background: #fff7ed; }

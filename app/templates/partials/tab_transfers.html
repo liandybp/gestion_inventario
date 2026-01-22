@@ -149,7 +149,7 @@
 
   <h3>Últimos traspasos (salida)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-    <table class="w-full table-compact" style="min-width: 980px;">
+    <table class="table-compact transfer-table" style="min-width: 980px;">
       <thead>
         <tr>
           {% if can_manage %}
@@ -158,14 +158,14 @@
                    onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
           </th>
           {% endif %}
-          <th style="width:16%;">Fecha</th>
-          <th style="width:9%;">Tipo</th>
-          <th style="width:10%;">Usuario</th>
-          <th style="width:9%;">SKU</th>
-          <th style="width:28%;">Producto</th>
-          <th style="width:10%;" class="text-right">Cantidad</th>
-          <th style="width:18%;">Nota</th>
-          <th style="width:10%;" class="sticky-actions">Acciones</th>
+          <th style="width: 160px;">Fecha</th>
+          <th style="width: 120px;">Tipo</th>
+          <th style="width: 140px;">Usuario</th>
+          <th style="width: 140px;">SKU</th>
+          <th>Producto</th>
+          <th style="width: 110px;" class="text-right">Cantidad</th>
+          <th>Nota</th>
+          <th style="width: 140px;" class="sticky-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -210,20 +210,20 @@
 
   <h3>Últimos traspasos (entrada)</h3>
   <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-    <table class="w-full table-compact" style="min-width: 980px;">
+    <table class="table-compact transfer-table" style="min-width: 980px;">
       <thead>
         <tr>
           {% if can_manage %}
           <th style="width:3%;"></th>
           {% endif %}
-          <th style="width:16%;">Fecha</th>
-          <th style="width:9%;">Tipo</th>
-          <th style="width:10%;">Usuario</th>
-          <th style="width:9%;">SKU</th>
-          <th style="width:28%;">Producto</th>
-          <th style="width:10%;" class="text-right">Cantidad</th>
-          <th style="width:18%;">Nota</th>
-          <th style="width:10%;" class="sticky-actions">Acciones</th>
+          <th style="width: 160px;">Fecha</th>
+          <th style="width: 120px;">Tipo</th>
+          <th style="width: 140px;">Usuario</th>
+          <th style="width: 140px;">SKU</th>
+          <th>Producto</th>
+          <th style="width: 110px;" class="text-right">Cantidad</th>
+          <th>Nota</th>
+          <th style="width: 140px;" class="sticky-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
