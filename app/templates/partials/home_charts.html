@@ -3,6 +3,10 @@
 <form class="home-charts-filter" hx-get="/ui/home-charts" hx-target="#home-charts" hx-swap="innerHTML" hx-trigger="change">
   <label class="home-charts-filter-label">Mes</label>
   <input class="home-charts-filter-input" type="month" name="ym" value="{{ selected_ym }}" />
+  <label class="home-charts-filter-label">Desde</label>
+  <input class="home-charts-filter-input" type="date" name="metrics_start_date" value="{{ metrics_start_date_value or '' }}" />
+  <label class="home-charts-filter-label">Hasta</label>
+  <input class="home-charts-filter-input" type="date" name="metrics_end_date" value="{{ metrics_end_date_value or '' }}" />
   <input type="hidden" name="location_code" value="{{ selected_location_code or '' }}" />
 </form>
 
@@ -34,7 +38,7 @@
 {% endcall %}
 
 <div class="card mt-16">
-  <h3>Artículos (ordenados por venta del mes)</h3>
+  <h3>Artículos (ordenados por venta del periodo)</h3>
   <p class="muted">Incluye métricas automáticas para planificación (se ampliará con más campos).</p>
   <div class="table-wrapper">
     <table>
@@ -42,8 +46,8 @@
         <tr>
           <th>SKU</th>
           <th>Nombre</th>
-          <th class="text-right">Venta mes (€)</th>
-          <th class="text-right">Unidades mes</th>
+          <th class="text-right">Venta periodo (€)</th>
+          <th class="text-right">Unidades periodo</th>
           <th class="text-right">Promedio unidades/mes (12m)</th>
           <th class="text-right">Frecuencia venta (días)</th>
           <th class="text-right">Stock actual</th>
@@ -57,8 +61,8 @@
           <tr>
             <td><code>{{ it.sku }}</code></td>
             <td>{{ it.name }}</td>
-            <td class="text-right">{{ '%.2f'|format(it.sales_month or 0) }}</td>
-            <td class="text-right">{{ '%.2f'|format(it.qty_month or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.sales_period or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.qty_period or 0) }}</td>
             <td class="text-right">{{ '%.2f'|format(it.avg_month_units or 0) }}</td>
             <td class="text-right">{% if it.freq_days is not none %}{{ '%.1f'|format(it.freq_days) }}{% else %}-{% endif %}</td>
             <td class="text-right">{{ '%.2f'|format(it.stock_qty or 0) }}</td>

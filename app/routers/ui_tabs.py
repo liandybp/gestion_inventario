@@ -120,7 +120,13 @@ def _parse_ym(ym: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _home_charts_context(inventory_service: InventoryService, now: datetime, location_id: Optional[int] = None) -> dict:
+def _home_charts_context(
+    inventory_service: InventoryService,
+    now: datetime,
+    location_id: Optional[int] = None,
+    start_dt: Optional[datetime] = None,
+    end_dt: Optional[datetime] = None,
+) -> dict:
     start, end = month_range(now)
     _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=location_id)
 
@@ -170,7 +176,13 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime, loc
         }
     )
 
-    metrics_items = inventory_service.sales_metrics_table(now=now, months=12, location_id=location_id)
+    metrics_items = inventory_service.sales_metrics_table(
+        now=now,
+        months=12,
+        location_id=location_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
 
     return {
         "month_label": month_label,
@@ -178,6 +190,8 @@ def _home_charts_context(inventory_service: InventoryService, now: datetime, loc
         "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
         "monthly_chart_json": monthly_chart_json,
         "metrics_items": metrics_items,
+        "metrics_start_date_value": dt_to_local_input(start_dt)[:10] if start_dt else "",
+        "metrics_end_date_value": dt_to_local_input((end_dt - timedelta(seconds=1)))[:10] if end_dt else "",
     }
 
 
@@ -271,6 +285,8 @@ def tab_home(
     db: Session = Depends(session_dep),
     ym: Optional[str] = None,
     location_code: str = "",
+    metrics_start_date: Optional[str] = None,
+    metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
@@ -330,7 +346,18 @@ def tab_home(
     if not selected_location_code:
         top_expense = inventory_service.top_expense_concept(start=start, end=end)
 
-    charts_ctx = _home_charts_context(inventory_service, now, location_id=selected_location_id)
+    start_dt = parse_dt(metrics_start_date) if metrics_start_date else None
+    end_dt = parse_dt(metrics_end_date) if metrics_end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    charts_ctx = _home_charts_context(
+        inventory_service,
+        now,
+        location_id=selected_location_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
     selected_ym = now.strftime("%Y-%m")
 
     return templates.TemplateResponse(
@@ -363,6 +390,8 @@ def home_charts(
     db: Session = Depends(session_dep),
     ym: Optional[str] = None,
     location_code: str = "",
+    metrics_start_date: Optional[str] = None,
+    metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
@@ -371,7 +400,19 @@ def home_charts(
     now = _parse_ym(ym) or datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
-    charts_ctx = _home_charts_context(inventory_service, now, location_id=selected_location_id)
+
+    start_dt = parse_dt(metrics_start_date) if metrics_start_date else None
+    end_dt = parse_dt(metrics_end_date) if metrics_end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    charts_ctx = _home_charts_context(
+        inventory_service,
+        now,
+        location_id=selected_location_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
     return templates.TemplateResponse(
         request=request,
         name="partials/home_charts.html",
@@ -1491,6 +1532,88 @@ def stock_delete_product(
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,
+        },
+    )
+    response.headers["HX-Trigger"] = "stockTableRefresh"
+    return response
+
+
+@router.post("/stock/delete-selected", response_class=HTMLResponse)
+def stock_delete_selected(
+    request: Request,
+    skus: list[str] = Form([]),
+    db: Session = Depends(session_dep),
+    query: str = Form(""),
+    location_code: str = Form(""),
+    stock_filter: str = Form(""),
+    category: str = Form(""),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
+    product_service = ProductService(db, business_id=bid)
+    inventory_service = InventoryService(db, business_id=bid)
+
+    config = load_business_config(get_active_business_code(db, request))
+    central_code = str(config.locations.central.code).strip()
+
+    clean_skus: list[str] = []
+    seen: set[str] = set()
+    for raw in (skus or []):
+        s = str(raw or "").strip()
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        clean_skus.append(s)
+
+    deleted = 0
+    errors: list[str] = []
+    if not clean_skus:
+        errors.append("No se seleccionó ningún artículo")
+    else:
+        for sku in clean_skus:
+            try:
+                product_service.delete(sku)
+                deleted += 1
+            except HTTPException as e:
+                errors.append(f"{sku}: {e.detail}")
+            except Exception as e:
+                errors.append(f"{sku}: {e}")
+
+    loc = (location_code or "").strip() or None
+    effective_code = (loc or central_code).strip()
+
+    default_filter = "all" if effective_code == central_code else "in_stock"
+    effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
+
+    items = inventory_service.stock_list(query=query, location_code=loc)
+    cat = (category or "").strip()
+    if cat:
+        items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]
+    if effective_filter == "in_stock":
+        items = [i for i in items if float(i.quantity or 0) > 0]
+    elif effective_filter == "zero":
+        items = [i for i in items if float(i.quantity or 0) <= 0]
+
+    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
+
+    message = "Artículos eliminados" if deleted > 0 else "No se pudo eliminar"
+    detail = f"Se eliminaron {deleted} artículo(s)."
+    if errors:
+        detail = detail + " Errores: " + "; ".join(errors[:6])
+
+    response = templates.TemplateResponse(
+        request=request,
+        name="partials/stock_table.html",
+        context={
+            "items": items,
+            "user": user,
+            "deletable_skus": deletable_skus,
+            "stock_filter": effective_filter,
+            "selected_category": cat,
+            "message": message,
+            "message_detail": detail,
+            "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
         },
     )
     response.headers["HX-Trigger"] = "stockTableRefresh"

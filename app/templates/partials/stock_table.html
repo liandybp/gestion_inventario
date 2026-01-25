@@ -2,63 +2,132 @@
 {{ flash(message, message_class or '', message_detail) }}
 
 <div class="table-wrapper">
-<table>
-  <thead>
-    <tr>
-      <th>SKU</th>
-      <th>Nombre</th>
-      <th>Categoría</th>
-      <th>Unidad</th>
-      <th>Stock</th>
-      <th>Mínimo</th>
-      <th>Costo</th>
-      <th>Precio venta</th>
-      <th>Reponer</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for item in items %}
-      <tr class="{% if item.needs_restock %}warn{% endif %}">
-        <td>{{ item.sku }}</td>
-        <td>{{ item.name or '' }}</td>
-        <td>{{ item.category or '' }}</td>
-        <td>{{ item.unit_of_measure or '' }}</td>
-        <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
-        <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
-        <td>
-          {% if item.default_purchase_cost is not none %}
-            {{ '%.2f'|format(item.default_purchase_cost) }}
-          {% elif item.min_purchase_cost is not none %}
-            {{ '%.2f'|format(item.min_purchase_cost) }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td>{% if item.default_sale_price is not none %}{{ '%.2f'|format(item.default_sale_price) }}{% else %}-{% endif %}</td>
-        <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
-        <td>
-          <button type="button"
-                  hx-get="/ui/product/{{ item.sku }}/edit-inventory"
-                  hx-target="body"
-                  hx-swap="beforeend"
-                  hx-include="#inventory_location_code">Edit</button>
+{% set can_bulk_delete = user and (user.role or '')|lower == 'admin' %}
 
-          {% if user and (user.role or '')|lower == 'admin' %}
-            {% if deletable_skus and (item.sku in deletable_skus) %}
-          <button type="button" class="ml-8 btn-danger"
-                  hx-post="/ui/stock/{{ item.sku }}/delete"
-                  hx-target="#stock-table"
-                  hx-swap="innerHTML"
-                  hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
-                  hx-confirm="¿Eliminar este artículo? (Solo se permite si no tiene movimientos/lotes)">Del</button>
-            {% else %}
-          <button type="button" class="ml-8 btn-danger" disabled title="No se puede eliminar porque tiene movimientos/lotes registrados.">Del</button>
-            {% endif %}
-          {% endif %}
-        </td>
+{% if can_bulk_delete %}
+  <form hx-post="/ui/stock/delete-selected"
+        hx-target="#stock-table"
+        hx-swap="innerHTML"
+        hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
+        class="mb-10">
+    <div class="flex gap-12 items-center flex-wrap">
+      <button type="submit" class="mb-0" hx-confirm="¿Eliminar los artículos seleccionados? (Solo se permite si no tienen movimientos/lotes)">Eliminar seleccionados</button>
+      <span class="muted text-sm">Solo se eliminarán los artículos que no tengan movimientos/lotes.</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:3%;">
+            <input type="checkbox" aria-label="Seleccionar todo"
+                   onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=skus]').forEach(cb=>cb.checked=this.checked);" />
+          </th>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th>Categoría</th>
+          <th>Unidad</th>
+          <th>Stock</th>
+          <th>Mínimo</th>
+          <th>Costo</th>
+          <th>Precio venta</th>
+          <th>Reponer</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr class="{% if item.needs_restock %}warn{% endif %}">
+            <td>
+              {% if deletable_skus and (item.sku in deletable_skus) %}
+                <input type="checkbox" name="skus" value="{{ item.sku }}" aria-label="Seleccionar {{ item.sku }}" />
+              {% endif %}
+            </td>
+            <td>{{ item.sku }}</td>
+            <td>{{ item.name or '' }}</td>
+            <td>{{ item.category or '' }}</td>
+            <td>{{ item.unit_of_measure or '' }}</td>
+            <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
+            <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
+            <td>
+              {% if item.default_purchase_cost is not none %}
+                {{ '%.2f'|format(item.default_purchase_cost) }}
+              {% elif item.min_purchase_cost is not none %}
+                {{ '%.2f'|format(item.min_purchase_cost) }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{% if item.default_sale_price is not none %}{{ '%.2f'|format(item.default_sale_price) }}{% else %}-{% endif %}</td>
+            <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
+            <td>
+              <button type="button"
+                      hx-get="/ui/product/{{ item.sku }}/edit-inventory"
+                      hx-target="body"
+                      hx-swap="beforeend"
+                      hx-include="#inventory_location_code">Edit</button>
+
+              {% if deletable_skus and (item.sku in deletable_skus) %}
+                <button type="button" class="ml-8 btn-danger"
+                        hx-post="/ui/stock/{{ item.sku }}/delete"
+                        hx-target="#stock-table"
+                        hx-swap="innerHTML"
+                        hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
+                        hx-confirm="¿Eliminar este artículo? (Solo se permite si no tiene movimientos/lotes)">Del</button>
+              {% else %}
+                <button type="button" class="ml-8 btn-danger" disabled title="No se puede eliminar porque tiene movimientos/lotes registrados.">Del</button>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+{% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>SKU</th>
+        <th>Nombre</th>
+        <th>Categoría</th>
+        <th>Unidad</th>
+        <th>Stock</th>
+        <th>Mínimo</th>
+        <th>Costo</th>
+        <th>Precio venta</th>
+        <th>Reponer</th>
+        <th>Acciones</th>
       </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr class="{% if item.needs_restock %}warn{% endif %}">
+          <td>{{ item.sku }}</td>
+          <td>{{ item.name or '' }}</td>
+          <td>{{ item.category or '' }}</td>
+          <td>{{ item.unit_of_measure or '' }}</td>
+          <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
+          <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
+          <td>
+            {% if item.default_purchase_cost is not none %}
+              {{ '%.2f'|format(item.default_purchase_cost) }}
+            {% elif item.min_purchase_cost is not none %}
+              {{ '%.2f'|format(item.min_purchase_cost) }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{% if item.default_sale_price is not none %}{{ '%.2f'|format(item.default_sale_price) }}{% else %}-{% endif %}</td>
+          <td>{% if item.needs_restock %}sí{% else %}no{% endif %}</td>
+          <td>
+            <button type="button"
+                    hx-get="/ui/product/{{ item.sku }}/edit-inventory"
+                    hx-target="body"
+                    hx-swap="beforeend"
+                    hx-include="#inventory_location_code">Edit</button>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
 </div>

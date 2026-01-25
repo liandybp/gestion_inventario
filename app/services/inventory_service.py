@@ -1369,13 +1369,22 @@ class InventoryService:
             )
         return total_sales, items
 
-    def sales_metrics_table(self, now: datetime, months: int = 12, location_id: Optional[int] = None) -> list[dict]:
+    def sales_metrics_table(
+        self,
+        now: datetime,
+        months: int = 12,
+        location_id: Optional[int] = None,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None,
+    ) -> list[dict]:
         now_dt = now
         if now_dt.tzinfo is None:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
         now_dt = now_dt.astimezone(timezone.utc)
 
-        month_start, month_end = self._month_range(now_dt)
+        # Planning window (e.g. last 12 months) is anchored to end_dt (if provided) or `now`.
+        anchor_dt = (end_dt - timedelta(seconds=1)) if end_dt is not None else now_dt
+        month_start, month_end = self._month_range(anchor_dt)
 
         range_start = month_start
         for _ in range(max(months - 1, 0)):
@@ -1387,30 +1396,58 @@ class InventoryService:
         range_end = month_end
         range_days = max(1, int((range_end - range_start).days))
 
-        qty_month_expr = func.sum(
+        # Period totals (cumulative by default).
+        period_conds = []
+        if start_dt is not None:
+            period_conds.append(InventoryMovement.movement_date >= start_dt)
+        if end_dt is not None:
+            period_conds.append(InventoryMovement.movement_date < end_dt)
+        period_cond = and_(*period_conds) if period_conds else None
+
+        if period_cond is None:
+            qty_period_expr = func.sum(func.abs(InventoryMovement.quantity))
+            sales_period_expr = func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0))
+        else:
+            qty_period_expr = func.sum(
+                case(
+                    (
+                        period_cond,
+                        func.abs(InventoryMovement.quantity),
+                    ),
+                    else_=0,
+                )
+            )
+            sales_period_expr = func.sum(
+                case(
+                    (
+                        period_cond,
+                        func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0),
+                    ),
+                    else_=0,
+                )
+            )
+
+        # Rolling window totals for planning (e.g. last 12 months).
+        window_cond = and_(InventoryMovement.movement_date >= range_start, InventoryMovement.movement_date < range_end)
+        qty_range_expr = func.sum(
             case(
                 (
-                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < range_end),
+                    window_cond,
                     func.abs(InventoryMovement.quantity),
                 ),
                 else_=0,
             )
         )
-
-        sales_month_expr = func.sum(
+        sales_range_expr = func.sum(
             case(
                 (
-                    and_(InventoryMovement.movement_date >= month_start, InventoryMovement.movement_date < range_end),
+                    window_cond,
                     func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0),
                 ),
                 else_=0,
             )
         )
-
-        qty_range_expr = func.sum(func.abs(InventoryMovement.quantity))
-        sales_range_expr = func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0))
-
-        sale_days_expr = func.count(func.distinct(func.date(InventoryMovement.movement_date)))
+        sale_days_expr = func.count(func.distinct(case((window_cond, func.date(InventoryMovement.movement_date)), else_=None)))
 
         stock_sq = (
             select(
@@ -1428,12 +1465,23 @@ class InventoryService:
             .subquery()
         )
 
+        # For performance, narrow scan when a period filter is provided.
+        date_filters = []
+        if period_cond is not None:
+            min_start = range_start
+            if start_dt is not None and start_dt < min_start:
+                min_start = start_dt
+            max_end = range_end
+            if end_dt is not None and end_dt > max_end:
+                max_end = end_dt
+            date_filters = [InventoryMovement.movement_date >= min_start, InventoryMovement.movement_date < max_end]
+
         rows = self._db.execute(
             select(
                 Product.sku,
                 Product.name,
-                func.coalesce(qty_month_expr, 0).label("qty_month"),
-                func.coalesce(sales_month_expr, 0).label("sales_month"),
+                func.coalesce(qty_period_expr, 0).label("qty_period"),
+                func.coalesce(sales_period_expr, 0).label("sales_period"),
                 func.coalesce(qty_range_expr, 0).label("qty_range"),
                 func.coalesce(sales_range_expr, 0).label("sales_range"),
                 func.coalesce(sale_days_expr, 0).label("sale_days"),
@@ -1447,10 +1495,9 @@ class InventoryService:
             .where(
                 and_(
                     InventoryMovement.type == "sale",
-                    InventoryMovement.movement_date >= range_start,
-                    InventoryMovement.movement_date < range_end,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
+                    *date_filters,
                 )
             )
             .group_by(
@@ -1461,13 +1508,13 @@ class InventoryService:
                 Product.lead_time_days,
                 stock_sq.c.stock_qty,
             )
-            .order_by(func.coalesce(sales_month_expr, 0).desc())
+            .order_by(func.coalesce(sales_period_expr, 0).desc())
         ).all()
 
         out: list[dict] = []
-        for sku, name, qty_month, sales_month, qty_range, sales_range, sale_days, min_stock, lead_time_days, stock_qty in rows:
-            qty_m = float(qty_month or 0)
-            sales_m = float(sales_month or 0)
+        for sku, name, qty_period, sales_period, qty_range, sales_range, sale_days, min_stock, lead_time_days, stock_qty in rows:
+            qty_p = float(qty_period or 0)
+            sales_p = float(sales_period or 0)
             qty_r = float(qty_range or 0)
             sales_r = float(sales_range or 0)
             sale_days_i = int(sale_days or 0)
@@ -1490,8 +1537,8 @@ class InventoryService:
                 {
                     "sku": str(sku),
                     "name": str(name or ""),
-                    "qty_month": qty_m,
-                    "sales_month": sales_m,
+                    "qty_period": qty_p,
+                    "sales_period": sales_p,
                     "qty_range": qty_r,
                     "sales_range": sales_r,
                     "avg_month_units": float(avg_month_units),

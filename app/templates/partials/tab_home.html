@@ -11,6 +11,8 @@
       {% endfor %}
     </select>
     <input type="hidden" name="ym" value="{{ selected_ym }}" />
+    <input type="hidden" name="metrics_start_date" value="{{ metrics_start_date_value or '' }}" />
+    <input type="hidden" name="metrics_end_date" value="{{ metrics_end_date_value or '' }}" />
   </form>
 
   <div class="grid-3">
