@@ -567,14 +567,60 @@ def purchase_delete_selected(
 
     try:
         ensure_admin_or_owner(db, request)
-        ids = [int(x) for x in (movement_ids or []) if int(x) > 0]
+        raw_ids = [int(x) for x in (movement_ids or []) if int(x) > 0]
+
+        skipped: list[str] = []
+
+        def _resolve_purchase_movement_id(candidate_id: int) -> Optional[int]:
+            mv = db.get(InventoryMovement, int(candidate_id))
+            if mv is not None:
+                if mv.type == "purchase" and int(getattr(mv, "business_id", 0) or 0) == int(bid):
+                    return int(mv.id)
+                skipped.append(f"{candidate_id}: no es compra o es de otro negocio")
+                return None
+
+            lot = db.get(InventoryLot, int(candidate_id))
+            if lot is None:
+                skipped.append(f"{candidate_id}: no existe")
+                return None
+            if int(getattr(lot, "business_id", 0) or 0) != int(bid):
+                skipped.append(f"{candidate_id}: lote de otro negocio")
+                return None
+            mv2 = db.get(InventoryMovement, int(getattr(lot, "movement_id", 0) or 0))
+            if mv2 is None:
+                skipped.append(f"{candidate_id}: lote sin movimiento")
+                return None
+            if mv2.type != "purchase":
+                skipped.append(f"{candidate_id}: lote no pertenece a compra")
+                return None
+            if int(getattr(mv2, "business_id", 0) or 0) != int(bid):
+                skipped.append(f"{candidate_id}: compra de otro negocio")
+                return None
+            return int(mv2.id)
+
+        ids: list[int] = []
+        seen: set[int] = set()
+        for rid in raw_ids:
+            resolved = _resolve_purchase_movement_id(rid)
+            if resolved is None:
+                continue
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            ids.append(resolved)
         if not ids:
+            detail = "No se pudo resolver ninguna compra para eliminar."
+            if raw_ids:
+                detail = detail + f" Recibidos: {len(raw_ids)}."
+            if skipped:
+                detail = detail + " Detalle: " + "; ".join(skipped[:6])
             return templates.TemplateResponse(
                 request=request,
                 name="partials/purchase_panel.html",
                 context={
                     "user": user,
-                    "message": "No se seleccionó ninguna compra",
+                    "message": "No se pudo eliminar",
+                    "message_detail": detail,
                     "message_class": "warn",
                     "purchases": service.recent_purchases(limit=20),
                     "product_options": product_service.search(query="", limit=200),
@@ -607,7 +653,8 @@ def purchase_delete_selected(
         detail = f"Se eliminaron {deleted} compra(s)."
         if errors:
             detail = detail + " Errores: " + "; ".join(errors[:5])
-
+        if skipped:
+            detail = detail + f" Ignorados: {len(skipped)} (" + "; ".join(skipped[:3]) + ")"
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",

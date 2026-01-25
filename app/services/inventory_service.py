@@ -1221,7 +1221,7 @@ class InventoryService:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
         now_dt = now_dt.astimezone(timezone.utc)
 
-        month_start, _ = self._month_range(now_dt)
+        month_start, month_end = self._month_range(now_dt)
 
         range_start = month_start
         for _ in range(max(months - 1, 0)):
@@ -1230,7 +1230,7 @@ class InventoryService:
             else:
                 range_start = range_start.replace(month=range_start.month - 1)
 
-        range_end = month_start
+        range_end = month_end
         range_days = max(1, int((range_end - range_start).days))
 
         qty_month_expr = func.sum(

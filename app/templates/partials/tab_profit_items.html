@@ -1,5 +1,6 @@
 <div id="profit-items-tab" hx-get="/ui/tabs/profit-items" hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end" hx-include="#profit-items-query, #profit-items-start, #profit-items-end" hx-swap="innerHTML">
   {% from 'components/ui.html' import metric %}
+  {% set can_manage = user and ((user.role or '')|lower == 'admin') %}
   <h2>Utilidades por artículo</h2>
   <p class="muted">Detalle del mes corriente por artículo vendido (FIFO por lote).</p>
 
@@ -45,10 +46,35 @@
     </div>
   </div>
 
+  {% if can_manage %}
+  <form hx-post="/ui/tabs/profit-items/sale/delete-selected"
+        hx-target="#tab-content"
+        hx-swap="innerHTML">
+    <input type="hidden" name="query" value="{{ filter_query or '' }}" />
+    <input type="hidden" name="start_date" value="{{ filter_start_date or '' }}" />
+    <input type="hidden" name="end_date" value="{{ filter_end_date or '' }}" />
+    <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+      <button type="submit" class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?">Eliminar seleccionados</button>
+    </div>
+  {% endif %}
+
+  {% if message %}
+    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
+      <strong>{{ message }}</strong>
+      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
+    </div>
+  {% endif %}
+
   <div class="table-wrapper">
   <table>
     <thead>
       <tr>
+        {% if can_manage %}
+        <th>
+          <input type="checkbox" aria-label="Seleccionar todo"
+                 onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=sale_ids]').forEach(cb=>cb.checked=this.checked);" />
+        </th>
+        {% endif %}
         <th>Fecha</th>
         <th>Código</th>
         <th>Item</th>
@@ -59,12 +85,19 @@
         <th>Cant. Vend</th>
         <th>Utilidades</th>
         <th>% Utilidad</th>
+        {% if can_manage %}
         <th>Acciones</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
       {% for r in items %}
         <tr>
+          {% if can_manage %}
+          <td>
+            <input type="checkbox" name="sale_ids" value="{{ r.sale_movement_id }}" aria-label="Seleccionar venta {{ r.sale_movement_id }}" />
+          </td>
+          {% endif %}
           <td>{{ r.movement_date.strftime('%Y-%m-%d %H:%M') if r.movement_date else '' }}</td>
           <td>{{ r.sku }}</td>
           <td>{{ r.name }}</td>
@@ -76,18 +109,12 @@
           <td>{{ '%.0f'|format(r.qty or 0) }}</td>
           <td>{{ '%.2f'|format(r.profit or 0) }}</td>
           <td>{{ '%.2f'|format(r.margin_pct or 0) }}%</td>
+          {% if can_manage %}
           <td>
             <button type="button" style="min-width: 85px;"
                     hx-get="/ui/tabs/profit-items/sale/{{ r.sale_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
                     hx-target="body"
                     hx-swap="beforeend">Edit sale</button>
-
-            <button type="button" class="ml-8 btn-danger" style="min-width: 85px;"
-                    hx-post="/ui/tabs/profit-items/sale/{{ r.sale_movement_id }}/delete"
-                    hx-vals='{"query":"{{ filter_query or "" }}","start_date":"{{ filter_start_date or "" }}","end_date":"{{ filter_end_date or "" }}"}'
-                    hx-target="#tab-content"
-                    hx-swap="innerHTML"
-                    hx-confirm="¿Eliminar esta venta?">Del venta</button>
 
             {% if r.source_movement_type == 'purchase' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
@@ -108,17 +135,21 @@
               <span class="muted ml-8" style="display: inline-block; min-width: 85px;">-</span>
             {% endif %}
           </td>
+          {% endif %}
         </tr>
       {% endfor %}
 
       <tr>
-        <td colspan="7" class="text-right font-bold">Total</td>
+        <td colspan="{{ 8 if can_manage else 7 }}" class="text-right font-bold">Total</td>
         <td class="font-bold">{{ '%.0f'|format(summary.qty_total or 0) }}</td>
         <td class="font-bold">{{ '%.2f'|format(summary.profit_total or 0) }}</td>
         <td class="font-bold">{{ '%.2f'|format(summary.margin_pct or 0) }}%</td>
-        <td></td>
+        {% if can_manage %}<td></td>{% endif %}
       </tr>
     </tbody>
   </table>
   </div>
+  {% if can_manage %}
+  </form>
+  {% endif %}
 </div>

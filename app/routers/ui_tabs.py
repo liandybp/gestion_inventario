@@ -781,7 +781,7 @@ def tab_dividends(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
@@ -959,7 +959,7 @@ def profit_items_adjustment_edit_form(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "adjustment":
@@ -991,7 +991,7 @@ def profit_items_adjustment_update(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
@@ -1019,7 +1019,7 @@ def profit_items_transfer_in_edit_form(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "transfer_in":
@@ -1051,7 +1051,7 @@ def profit_items_transfer_in_update(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
 
@@ -1088,8 +1088,12 @@ def _render_profit_items_tab(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    message: Optional[str] = None,
+    message_detail: Optional[str] = None,
+    message_class: Optional[str] = None,
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
 
     start_dt = parse_dt(start_date) if start_date else None
@@ -1120,6 +1124,10 @@ def _render_profit_items_tab(
         request=request,
         name="partials/tab_profit_items.html",
         context={
+            "user": user,
+            "message": message,
+            "message_detail": message_detail,
+            "message_class": message_class,
             "summary": summary,
             "items": items,
             "filter_query": query,
@@ -1138,7 +1146,7 @@ def profit_items_sale_edit_form(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "sale":
@@ -1176,7 +1184,7 @@ def profit_items_sale_update(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)
@@ -1210,7 +1218,7 @@ def profit_items_sale_delete(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     service.delete_sale_movement(movement_id)
@@ -1227,6 +1235,79 @@ def profit_items_sale_delete(
     return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
 
 
+@router.post("/tabs/profit-items/sale/delete-selected", response_class=HTMLResponse)
+def profit_items_sale_delete_selected(
+    request: Request,
+    sale_ids: list[int] = Form([]),
+    query: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    user = get_current_user_from_session(db, request)
+
+    ids: list[int] = []
+    seen: set[int] = set()
+    for raw in (sale_ids or []):
+        try:
+            mid = int(raw)
+        except Exception:
+            continue
+        if mid <= 0 or mid in seen:
+            continue
+        seen.add(mid)
+        ids.append(mid)
+
+    if not ids:
+        return _render_profit_items_tab(
+            request=request,
+            db=db,
+            query=query,
+            start_date=start_date,
+            end_date=end_date,
+            message="No se seleccionó ninguna venta",
+            message_class="warn",
+        )
+
+    deleted = 0
+    errors: list[str] = []
+    for mid in ids:
+        try:
+            service.delete_sale_movement(mid)
+            deleted += 1
+            if user is not None:
+                log_event(
+                    db,
+                    user,
+                    action="profit_items_sale_delete",
+                    entity_type="movement",
+                    entity_id=str(mid),
+                    detail={"bulk": True},
+                )
+        except HTTPException as e:
+            errors.append(f"{mid}: {e.detail}")
+        except Exception as e:
+            errors.append(f"{mid}: {e}")
+
+    msg = "Ventas eliminadas" if deleted > 0 else "No se pudo eliminar"
+    detail = f"Se eliminaron {deleted} venta(s)."
+    if errors:
+        detail = detail + " Errores: " + "; ".join(errors[:5])
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+        message=msg,
+        message_detail=detail,
+        message_class="ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
+    )
+
+
 @router.get("/tabs/profit-items/purchase/{movement_id}/edit", response_class=HTMLResponse)
 def profit_items_purchase_edit_form(
     request: Request,
@@ -1236,7 +1317,7 @@ def profit_items_purchase_edit_form(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
@@ -1277,7 +1358,7 @@ def profit_items_purchase_update(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)

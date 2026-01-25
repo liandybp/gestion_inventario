@@ -33,16 +33,6 @@
   <div id="monthly-sales-pie-debug" class="muted mt-8"></div>
 {% endcall %}
 
-<div class="card mt-16" id="restock"
-     hx-get="/ui/restock-table?location_code={{ selected_location_code or '' }}" hx-trigger="load, every 5s" hx-swap="innerHTML">
-</div>
-
-{% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
-  <canvas id="monthly-chart" height="120"></canvas>
-  <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
-  <div id="monthly-chart-debug" class="muted mt-8"></div>
-{% endcall %}
-
 <div class="card mt-16">
   <h3>Artículos (ordenados por venta del mes)</h3>
   <p class="muted">Incluye métricas automáticas para planificación (se ampliará con más campos).</p>
@@ -83,4 +73,14 @@
       </tbody>
     </table>
   </div>
+</div>
+
+{% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
+  <canvas id="monthly-chart" height="120"></canvas>
+  <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
+  <div id="monthly-chart-debug" class="muted mt-8"></div>
+{% endcall %}
+
+<div class="card mt-16" id="restock"
+     hx-get="/ui/restock-table?location_code={{ selected_location_code or '' }}" hx-trigger="load, every 5s" hx-swap="innerHTML">
 </div>
