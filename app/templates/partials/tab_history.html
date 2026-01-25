@@ -38,10 +38,29 @@
     </div>
   </form>
 
+  {% set can_manage = user and ((user.role or '')|lower in ['admin','owner']) %}
+  {% if can_manage %}
+  <form hx-post="/ui/tabs/history/adjustments/delete-selected" hx-target="#tab-content" hx-swap="innerHTML" class="mb-12">
+    <input type="hidden" name="query" value="{{ filter_query or '' }}" />
+    <input type="hidden" name="movement_type" value="{{ type_filter or '' }}" />
+    <input type="hidden" name="start_date" value="{{ start_date_value or '' }}" />
+    <input type="hidden" name="end_date" value="{{ end_date_value or '' }}" />
+    <div class="flex gap-12 items-center flex-wrap">
+      <button type="submit" class="mb-0" hx-confirm="¿Eliminar los ajustes seleccionados?">Eliminar seleccionados</button>
+      <span class="muted text-sm">Solo afecta movimientos tipo Ajuste.</span>
+    </div>
+  {% endif %}
+
   <div class="overflow-x-auto">
     <table class="w-full table-fixed">
       <thead>
         <tr>
+          {% if can_manage %}
+          <th style="width:3%;">
+            <input type="checkbox" aria-label="Seleccionar todo"
+                   onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
+          </th>
+          {% endif %}
           <th style="width:12%;">Fecha</th>
           <th style="width:8%;">Tipo</th>
           <th style="width:10%;">Usuario</th>
@@ -57,6 +76,13 @@
       <tbody>
         {% for mv in movements %}
         <tr>
+          {% if can_manage %}
+          <td>
+            {% if mv.type == 'adjustment' %}
+              <input type="checkbox" name="movement_ids" value="{{ mv.id }}" aria-label="Seleccionar ajuste {{ mv.id }}" />
+            {% endif %}
+          </td>
+          {% endif %}
           <td class="text-left nowrap">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
           <td class="text-left">
             {% if mv.type == 'purchase' %}
@@ -92,12 +118,16 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="10" class="muted text-center">No hay movimientos con los filtros seleccionados.</td>
+          <td colspan="{{ 11 if can_manage else 10 }}" class="muted text-center">No hay movimientos con los filtros seleccionados.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {% if can_manage %}
+  </form>
+  {% endif %}
 
   <p class="muted mt-12">Mostrando {{ movements|length }} movimiento(s).</p>
 </div>

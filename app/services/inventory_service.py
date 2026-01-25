@@ -550,7 +550,62 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        lot_ids = [
+            int(lid)
+            for (lid,) in self._db.execute(
+                select(InventoryLot.id).where(InventoryLot.movement_id == mv.id)
+            ).all()
+            if int(lid or 0) > 0
+        ]
+
+        if lot_ids:
+            blockers = self._db.execute(
+                select(
+                    InventoryMovement.id,
+                    InventoryMovement.type,
+                    InventoryMovement.movement_date,
+                    InventoryMovement.note,
+                )
+                .select_from(MovementAllocation)
+                .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+                .where(
+                    and_(
+                        MovementAllocation.lot_id.in_(lot_ids),
+                        InventoryMovement.id != mv.id,
+                        True
+                        if self._business_id is None
+                        else (InventoryMovement.business_id == self._business_id),
+                    )
+                )
+                .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
+                .limit(5)
+            ).all()
+            if blockers:
+                detail_parts: list[str] = []
+                for mid, mtype, mdate, note in blockers:
+                    dt_s = ""
+                    try:
+                        dt_s = mdate.isoformat() if mdate else ""
+                    except Exception:
+                        dt_s = str(mdate or "")
+                    note_s = (str(note or "").strip() or "-")
+                    detail_parts.append(f"{int(mid)} ({str(mtype)} {dt_s}) note={note_s}")
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "No se puede eliminar la compra porque su lote fue consumido por otros movimientos "
+                        "(por ejemplo: ajuste/venta/traspaso). Elimina primero esos movimientos. "
+                        "Dependencias: "
+                        + "; ".join(detail_parts)
+                    ),
+                )
+
         try:
+            if lot_ids:
+                self._db.execute(delete(MovementAllocation).where(MovementAllocation.lot_id.in_(lot_ids)))
+                self._db.execute(delete(InventoryLot).where(InventoryLot.id.in_(lot_ids)))
+
             self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv.id))
             self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id == mv.id))
             self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
@@ -558,6 +613,18 @@ class InventoryService:
             self._rebuild_product_fifo(product)
             self._db.commit()
         except HTTPException:
+            self._db.rollback()
+            raise
+        except IntegrityError as e:
+            self._db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "No se pudo eliminar la compra porque está relacionada con otros movimientos/stock. "
+                    "Revisa si existe un ajuste o una venta posterior para este producto y elimínalo primero."
+                ),
+            ) from e
+        except Exception:
             self._db.rollback()
             raise
 
@@ -1101,6 +1168,93 @@ class InventoryService:
             self._rebuild_product_fifo(product)
             self._db.commit()
         except HTTPException:
+            self._db.rollback()
+            raise
+
+    def delete_adjustment_movement(self, movement_id: int) -> None:
+        mv = self._db.get(InventoryMovement, movement_id)
+        if mv is None or mv.type != "adjustment":
+            raise HTTPException(status_code=404, detail="Adjustment movement not found")
+        if self._business_id is not None and int(getattr(mv, "business_id", 0) or 0) != int(self._business_id):
+            raise HTTPException(status_code=404, detail="Adjustment movement not found")
+
+        product = self._db.get(Product, mv.product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        lot_ids = [
+            int(lid)
+            for (lid,) in self._db.execute(
+                select(InventoryLot.id).where(InventoryLot.movement_id == mv.id)
+            ).all()
+            if int(lid or 0) > 0
+        ]
+
+        if lot_ids:
+            blockers = self._db.execute(
+                select(
+                    InventoryMovement.id,
+                    InventoryMovement.type,
+                    InventoryMovement.movement_date,
+                    InventoryMovement.note,
+                )
+                .select_from(MovementAllocation)
+                .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+                .where(
+                    and_(
+                        MovementAllocation.lot_id.in_(lot_ids),
+                        InventoryMovement.id != mv.id,
+                        True
+                        if self._business_id is None
+                        else (InventoryMovement.business_id == self._business_id),
+                    )
+                )
+                .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
+                .limit(5)
+            ).all()
+            if blockers:
+                detail_parts: list[str] = []
+                for mid, mtype, mdate, note in blockers:
+                    dt_s = ""
+                    try:
+                        dt_s = mdate.isoformat() if mdate else ""
+                    except Exception:
+                        dt_s = str(mdate or "")
+                    note_s = (str(note or "").strip() or "-")
+                    detail_parts.append(f"{int(mid)} ({str(mtype)} {dt_s}) note={note_s}")
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "No se puede eliminar el ajuste porque su lote fue consumido por otros movimientos. "
+                        "Elimina primero esos movimientos. Dependencias: "
+                        + "; ".join(detail_parts)
+                    ),
+                )
+
+        try:
+            self._db.execute(delete(MovementAllocation).where(MovementAllocation.movement_id == mv.id))
+            if lot_ids:
+                self._db.execute(delete(MovementAllocation).where(MovementAllocation.lot_id.in_(lot_ids)))
+                self._db.execute(delete(InventoryLot).where(InventoryLot.id.in_(lot_ids)))
+            self._db.execute(delete(InventoryLot).where(InventoryLot.movement_id == mv.id))
+            self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
+            self._db.flush()
+            self._rebuild_product_fifo(product)
+            self._db.commit()
+        except HTTPException:
+            self._db.rollback()
+            raise
+        except IntegrityError as e:
+            self._db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "No se pudo eliminar el ajuste porque está relacionado con otros movimientos/stock. "
+                    "Revisa si existe una venta/ajuste posterior para este producto y elimínalo primero."
+                ),
+            ) from e
+        except Exception:
             self._db.rollback()
             raise
 
