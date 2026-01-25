@@ -101,25 +101,6 @@ def _month_label_es(dt: datetime) -> str:
     return f"{month_names[int(dt.month) - 1].title()} {dt.year}"
 
 
-def _parse_ym(ym: Optional[str]) -> Optional[datetime]:
-    if not ym:
-        return None
-    s = ym.strip()
-    if not s:
-        return None
-    try:
-        parts = s.split("-")
-        if len(parts) != 2:
-            return None
-        year = int(parts[0])
-        month = int(parts[1])
-        if month < 1 or month > 12:
-            return None
-        return datetime(year, month, 1, tzinfo=timezone.utc)
-    except Exception:
-        return None
-
-
 def _home_charts_context(
     inventory_service: InventoryService,
     now: datetime,
@@ -127,10 +108,40 @@ def _home_charts_context(
     start_dt: Optional[datetime] = None,
     end_dt: Optional[datetime] = None,
 ) -> dict:
-    start, end = month_range(now)
-    _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=location_id)
+    # Charts default to current month unless a date window is provided.
+    chart_start: datetime
+    chart_end: datetime
+    profit_items: list[dict]
+    if start_dt is None and end_dt is None:
+        chart_start, chart_end = month_range(now)
+        _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=location_id)
+        month_label = _month_label_es(now)
+    else:
+        now_dt = now
+        if now_dt.tzinfo is None:
+            now_dt = now_dt.replace(tzinfo=timezone.utc)
+        now_dt = now_dt.astimezone(timezone.utc)
 
-    month_label = _month_label_es(now)
+        chart_end = end_dt or (now_dt + timedelta(days=1))
+        anchor_dt = chart_end - timedelta(seconds=1)
+        chart_start = start_dt or month_range(anchor_dt)[0]
+
+        total_sales, items = inventory_service.sales_by_product(
+            start=chart_start,
+            end=chart_end,
+            location_id=location_id,
+        )
+        _ = total_sales
+        profit_items = items
+
+        label_parts: list[str] = []
+        if start_dt is not None:
+            label_parts.append(f"{chart_start.date().isoformat()}")
+        else:
+            label_parts.append("-")
+        label_parts.append("a")
+        label_parts.append((chart_end - timedelta(days=1)).date().isoformat() if chart_end else "-")
+        month_label = " ".join(label_parts)
 
     pie_labels: list[str] = []
     pie_values: list[float] = []
@@ -158,7 +169,7 @@ def _home_charts_context(
 
     monthly_sales_pie_json = json.dumps({"labels": pie_labels, "values": pie_values, "qtys": pie_qtys})
 
-    daily = inventory_service.daily_sales_series(start=start, end=end, location_id=location_id)
+    daily = inventory_service.daily_sales_series(start=chart_start, end=chart_end, location_id=location_id)
     monthly_sales_daily_line_json = json.dumps(
         {
             "labels": [d.get("day") for d in daily],
@@ -166,7 +177,21 @@ def _home_charts_context(
         }
     )
 
-    monthly = inventory_service.monthly_overview(months=12, now=now, location_id=location_id)
+    if start_dt is None and end_dt is None:
+        monthly = inventory_service.monthly_overview(months=12, now=now, location_id=location_id)
+    else:
+        end_anchor = (chart_end - timedelta(seconds=1)) if chart_end is not None else now
+        start_month = datetime(chart_start.year, chart_start.month, 1, tzinfo=timezone.utc)
+        end_month = datetime(end_anchor.year, end_anchor.month, 1, tzinfo=timezone.utc)
+        months = (end_month.year - start_month.year) * 12 + (end_month.month - start_month.month) + 1
+        months = max(1, int(months))
+        monthly = inventory_service.monthly_overview(
+            months=months,
+            now=end_anchor,
+            location_id=location_id,
+            start_dt=chart_start,
+            end_dt=chart_end,
+        )
     monthly_chart_json = json.dumps(
         {
             "labels": [m.get("month") for m in monthly],
@@ -283,7 +308,6 @@ def tab_customers(request: Request, db: Session = Depends(session_dep), query: s
 def tab_home(
     request: Request,
     db: Session = Depends(session_dep),
-    ym: Optional[str] = None,
     location_code: str = "",
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
@@ -312,7 +336,7 @@ def tab_home(
         "to_restock": len(restock_items),
     }
 
-    now = _parse_ym(ym) or datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
     start, end = month_range(now)
     _summary, profit_items = inventory_service.monthly_profit_report(now=now, location_id=selected_location_id)
 
@@ -358,7 +382,6 @@ def tab_home(
         start_dt=start_dt,
         end_dt=end_dt,
     )
-    selected_ym = now.strftime("%Y-%m")
 
     return templates.TemplateResponse(
         request=request,
@@ -378,7 +401,6 @@ def tab_home(
             "inventory_value_total": inventory_value_total,
             "inventory_sale_value_total": inventory_sale_value_total,
             "top_expense": top_expense,
-            "selected_ym": selected_ym,
             **charts_ctx,
         },
     )
@@ -388,7 +410,6 @@ def tab_home(
 def home_charts(
     request: Request,
     db: Session = Depends(session_dep),
-    ym: Optional[str] = None,
     location_code: str = "",
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
@@ -397,7 +418,7 @@ def home_charts(
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
-    now = _parse_ym(ym) or datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
 
@@ -417,7 +438,6 @@ def home_charts(
         request=request,
         name="partials/home_charts.html",
         context={
-            "selected_ym": now.strftime("%Y-%m"),
             "selected_location_code": selected_location_code,
             **charts_ctx,
         },

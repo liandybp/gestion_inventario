@@ -1,8 +1,6 @@
 {% from 'components/ui.html' import chart_card %}
 
 <form class="home-charts-filter" hx-get="/ui/home-charts" hx-target="#home-charts" hx-swap="innerHTML" hx-trigger="change">
-  <label class="home-charts-filter-label">Mes</label>
-  <input class="home-charts-filter-input" type="month" name="ym" value="{{ selected_ym }}" />
   <label class="home-charts-filter-label">Desde</label>
   <input class="home-charts-filter-input" type="date" name="metrics_start_date" value="{{ metrics_start_date_value or '' }}" />
   <label class="home-charts-filter-label">Hasta</label>

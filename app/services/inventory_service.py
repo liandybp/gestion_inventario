@@ -1816,7 +1816,14 @@ class InventoryService:
 
         return summary, items
 
-    def monthly_overview(self, months: int = 12, now: Optional[datetime] = None, location_id: Optional[int] = None) -> list[dict]:
+    def monthly_overview(
+        self,
+        months: int = 12,
+        now: Optional[datetime] = None,
+        location_id: Optional[int] = None,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None,
+    ) -> list[dict]:
         now_dt = now or datetime.now(timezone.utc)
         if now_dt.tzinfo is None:
             now_dt = now_dt.replace(tzinfo=timezone.utc)
@@ -1831,8 +1838,12 @@ class InventoryService:
             else:
                 range_start = range_start.replace(month=range_start.month - 1)
 
-        range_end = month_start
-        range_days = max(1, int((range_end - range_start).days))
+        _month_start, month_end = self._month_range(now_dt)
+        range_end = month_end
+        _range_days = max(1, int((range_end - range_start).days))
+
+        date_start = start_dt if start_dt is not None else range_start
+        date_end = end_dt if end_dt is not None else range_end
 
         purchases_by: dict[str, float] = {}
         sales_by: dict[str, float] = {}
@@ -1846,7 +1857,8 @@ class InventoryService:
             ).where(
                 and_(
                     InventoryMovement.type == "purchase",
-                    InventoryMovement.movement_date >= range_start,
+                    InventoryMovement.movement_date >= date_start,
+                    InventoryMovement.movement_date < date_end,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
@@ -1869,7 +1881,8 @@ class InventoryService:
             ).where(
                 and_(
                     InventoryMovement.type == "sale",
-                    InventoryMovement.movement_date >= range_start,
+                    InventoryMovement.movement_date >= date_start,
+                    InventoryMovement.movement_date < date_end,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
@@ -1895,7 +1908,8 @@ class InventoryService:
             .where(
                 and_(
                     InventoryMovement.type == "sale",
-                    InventoryMovement.movement_date >= range_start,
+                    InventoryMovement.movement_date >= date_start,
+                    InventoryMovement.movement_date < date_end,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
                     True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
