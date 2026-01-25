@@ -65,17 +65,6 @@
                       hx-target="body"
                       hx-swap="beforeend"
                       hx-include="#inventory_location_code">Edit</button>
-
-              {% if deletable_skus and (item.sku in deletable_skus) %}
-                <button type="button" class="ml-8 btn-danger"
-                        hx-post="/ui/stock/{{ item.sku }}/delete"
-                        hx-target="#stock-table"
-                        hx-swap="innerHTML"
-                        hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
-                        hx-confirm="¿Eliminar este artículo? (Solo se permite si no tiene movimientos/lotes)">Del</button>
-              {% else %}
-                <button type="button" class="ml-8 btn-danger" disabled title="No se puede eliminar porque tiene movimientos/lotes registrados.">Del</button>
-              {% endif %}
             </td>
           </tr>
         {% endfor %}
