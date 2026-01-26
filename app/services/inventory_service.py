@@ -1795,6 +1795,8 @@ class InventoryService:
                     "unit_cost": unit_cost_f,
                     "unit_price": unit_price_f,
                     "qty": qty_f,
+                    "cogs": cogs,
+                    "sales": sales,
                     "profit": profit,
                     "margin_pct": margin_pct,
                 }

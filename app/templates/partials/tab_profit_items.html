@@ -80,9 +80,9 @@
         <th>Item</th>
         <th>Categoría</th>
         <th>Lote</th>
-        <th>Costo unit</th>
-        <th>Precio Vent</th>
         <th>Cant. Vend</th>
+        <th>Costo total</th>
+        <th>Precio total</th>
         <th>Utilidades</th>
         <th>% Utilidad</th>
         {% if can_manage %}
@@ -104,9 +104,9 @@
           <td>{{ r.category or '' }}</td>
           {% set lot_disp = (r.lot_code[:-5] if r.lot_code and r.lot_code.endswith('00000') else r.lot_code) %}
           <td>{{ lot_disp or '' }}</td>
-          <td>{{ '%.2f'|format(r.unit_cost or 0) }}</td>
-          <td>{{ '%.2f'|format(r.unit_price or 0) }}</td>
           <td>{{ '%.0f'|format(r.qty or 0) }}</td>
+          <td>{{ '%.2f'|format(r.cogs or 0) }}</td>
+          <td>{{ '%.2f'|format(r.sales or 0) }}</td>
           <td>{{ '%.2f'|format(r.profit or 0) }}</td>
           <td>{{ '%.2f'|format(r.margin_pct or 0) }}%</td>
           {% if can_manage %}
@@ -140,8 +140,10 @@
       {% endfor %}
 
       <tr>
-        <td colspan="{{ 8 if can_manage else 7 }}" class="text-right font-bold">Total</td>
+        <td colspan="{{ 6 if can_manage else 5 }}" class="text-right font-bold">Total</td>
         <td class="font-bold">{{ '%.0f'|format(summary.qty_total or 0) }}</td>
+        <td class="font-bold">{{ '%.2f'|format(summary.cogs_total or 0) }}</td>
+        <td class="font-bold">{{ '%.2f'|format(summary.sales_total or 0) }}</td>
         <td class="font-bold">{{ '%.2f'|format(summary.profit_total or 0) }}</td>
         <td class="font-bold">{{ '%.2f'|format(summary.margin_pct or 0) }}%</td>
         {% if can_manage %}<td></td>{% endif %}

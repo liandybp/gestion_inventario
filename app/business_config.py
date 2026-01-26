@@ -5,7 +5,9 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Dict, List, Optional, Tuple
+
+from typing_extensions import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,15 +30,15 @@ class CurrencyConfig(BaseModel):
 
 class SalesDocumentsConfig(BaseModel):
     default_type: Literal["F", "P"] = "F"
-    enabled_types: list[Literal["F", "P"]] = Field(default_factory=lambda: ["F", "P"])
+    enabled_types: List[Literal["F", "P"]] = Field(default_factory=lambda: ["F", "P"])
     invoice_label: str = "Factura"
     quote_label: str = "Presupuesto"
 
 
 class DividendsConfig(BaseModel):
     business_label: str = "Negocio"
-    partners: list[str] = Field(default_factory=lambda: ["Liandy", "Randy"])
-    opening_pending: dict[str, float] = Field(default_factory=dict)
+    partners: List[str] = Field(default_factory=lambda: ["Liandy", "Randy"])
+    opening_pending: Dict[str, float] = Field(default_factory=dict)
 
 
 class LocationSpec(BaseModel):
@@ -48,7 +50,7 @@ class LocationsConfig(BaseModel):
     central: LocationSpec = Field(
         default_factory=lambda: LocationSpec(code="CENTRAL", name="Almacén Central")
     )
-    pos: list[LocationSpec] = Field(
+    pos: List[LocationSpec] = Field(
         default_factory=lambda: [LocationSpec(code="POS1", name="Punto de venta 1")]
     )
     default_pos: str = "POS1"
@@ -62,7 +64,7 @@ class BusinessConfig(BaseModel):
     locations: LocationsConfig = Field(default_factory=LocationsConfig)
 
 
-_cached_configs: dict[str, tuple[BusinessConfig, str, float]] = {}
+_cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
 
 
 def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
@@ -121,7 +123,10 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
 
     if path.suffix.lower() == ".json":
         data = json.loads(path.read_text(encoding="utf-8"))
-        cfg_json = BusinessConfig.model_validate(data)
+        if hasattr(BusinessConfig, "model_validate"):
+            cfg_json = BusinessConfig.model_validate(data)
+        else:
+            cfg_json = BusinessConfig.parse_obj(data)
         _cached_configs[key] = (cfg_json, path_str, mtime)
         return cfg_json
 
@@ -134,14 +139,14 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         except Exception:
             return (default or "").strip()
 
-    def get_list(section: str, key: str) -> list[str]:
+    def get_list(section: str, key: str) -> List[str]:
         raw = get(section, key, "")
         if not raw:
             return []
         parts = [p.strip() for p in raw.split(",")]
         return [p for p in parts if p]
 
-    def get_opening_pending() -> dict[str, float]:
+    def get_opening_pending() -> Dict[str, float]:
         raw = get("dividends", "opening_pending", "")
         if not raw:
             return {}
@@ -152,7 +157,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             try:
                 data = json.loads(raw_str)
                 if isinstance(data, dict):
-                    out: dict[str, float] = {}
+                    out: Dict[str, float] = {}
                     for k, v in data.items():
                         key = (str(k) or "").strip()
                         if not key:
@@ -164,7 +169,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
                     return out
             except Exception:
                 # Tolerate pseudo-JSON with comma decimals like: {"Negocio": 605,04, "A": 1,23}
-                out3: dict[str, float] = {}
+                out3: Dict[str, float] = {}
                 for m in re.finditer(r"\"([^\"]+)\"\s*:\s*([0-9]+(?:[\.,][0-9]+)?)", raw_str):
                     k = (m.group(1) or "").strip()
                     v_raw = (m.group(2) or "").strip()
@@ -180,7 +185,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
                 # Fall back to alternate format parsing below.
 
         # Format: party:amount,party:amount
-        out2: dict[str, float] = {}
+        out2: Dict[str, float] = {}
         for part in [p.strip() for p in raw_str.split(",") if p.strip()]:
             if ":" not in part:
                 continue
@@ -205,8 +210,8 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             return LocationSpec(code=code, name=name)
         return LocationSpec(code=raw2, name=fallback_name)
 
-    def parse_location_list(raw_list: list[str]) -> list[LocationSpec]:
-        out: list[LocationSpec] = []
+    def parse_location_list(raw_list: List[str]) -> List[LocationSpec]:
+        out: List[LocationSpec] = []
         for part in raw_list:
             p = (part or "").strip()
             if not p:

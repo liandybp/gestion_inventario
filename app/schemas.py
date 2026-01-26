@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
+
+try:
+    from pydantic import field_validator as _field_validator
+except Exception:  # pragma: no cover
+    from pydantic import validator as _field_validator
 
 
 class ProductCreate(BaseModel):
@@ -54,8 +59,7 @@ class PurchaseCreate(BaseModel):
     note: Optional[str] = None
     location_code: Optional[str] = None
 
-    @field_validator("quantity")
-    @classmethod
+    @_field_validator("quantity")
     def quantity_must_be_positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("quantity must be greater than 0")
@@ -69,8 +73,7 @@ class SupplierReturnLotCreate(BaseModel):
     note: Optional[str] = None
     location_code: Optional[str] = None
 
-    @field_validator("quantity")
-    @classmethod
+    @_field_validator("quantity")
     def quantity_must_be_positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("quantity must be greater than 0")
@@ -85,8 +88,7 @@ class SaleCreate(BaseModel):
     note: Optional[str] = None
     location_code: Optional[str] = None
 
-    @field_validator("quantity")
-    @classmethod
+    @_field_validator("quantity")
     def quantity_must_be_positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("quantity must be greater than 0")
