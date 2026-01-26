@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse
 import pdfplumber
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
@@ -295,7 +296,8 @@ def purchase_from_invoice(
 @router.post("/purchase", response_class=HTMLResponse)
 def purchase(
     request: Request,
-    product: str = Form(...),
+    product: str = Form(""),
+    product_name: str = Form(""),
     quantity: float = Form(...),
     unit_cost: str = Form(""),
     movement_date: Optional[str] = Form(None),
@@ -307,8 +309,95 @@ def purchase(
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
+
+    def _generate_auto_sku(prefix: str = "SKU", width: int = 6) -> str:
+        rows = db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
+        existing = [str(sku or "") for (sku,) in rows]
+        max_n = 0
+        for s in existing:
+            suffix = s[len(prefix) :]
+            if suffix.isdigit():
+                max_n = max(max_n, int(suffix))
+        return f"{prefix}{str(max_n + 1).zfill(width)}"
+
     sku = extract_sku(product)
     try:
+        created_product = None
+
+        if not sku:
+            name_only = (product_name or "").strip()
+            if not name_only:
+                raise HTTPException(status_code=422, detail="Debes ingresar 'Artículo' (SKU) o 'Nombre (si es nuevo)'")
+
+            parsed_cost = parse_optional_float(unit_cost)
+            last_error: Exception | None = None
+            for _ in range(5):
+                auto_sku = _generate_auto_sku()
+                created_product = Product(
+                    business_id=int(bid),
+                    sku=auto_sku,
+                    name=name_only,
+                    category=None,
+                    min_stock=0,
+                    unit_of_measure=None,
+                    default_purchase_cost=parsed_cost,
+                    default_sale_price=0,
+                    lead_time_days=0,
+                    image_url=None,
+                )
+                db.add(created_product)
+                try:
+                    db.commit()
+                    db.refresh(created_product)
+                    sku = created_product.sku
+                    break
+                except IntegrityError as e:
+                    db.rollback()
+                    last_error = e
+                    created_product = None
+            if not sku:
+                raise HTTPException(status_code=409, detail="No se pudo generar un SKU automáticamente") from last_error
+
+        try:
+            stmt = select(Product).where(Product.sku == sku)
+            stmt = stmt.where(Product.business_id == int(bid))
+            existing_product = db.scalar(stmt)
+        except Exception:
+            existing_product = None
+
+        if existing_product is None and created_product is None:
+            name = (product_name or "").strip() or sku
+            parsed_cost = parse_optional_float(unit_cost)
+            created_product = Product(
+                business_id=int(bid),
+                sku=sku,
+                name=name,
+                category=None,
+                min_stock=0,
+                unit_of_measure=None,
+                default_purchase_cost=parsed_cost,
+                default_sale_price=0,
+                lead_time_days=0,
+                image_url=None,
+            )
+            db.add(created_product)
+            db.commit()
+            db.refresh(created_product)
+
+            user = get_current_user_from_session(db, request)
+            if user is not None:
+                log_event(
+                    db,
+                    user,
+                    action="product_create",
+                    entity_type="product",
+                    entity_id=created_product.sku,
+                    detail={
+                        "name": created_product.name,
+                        "source": "manual_purchase",
+                    },
+                )
+
         result = service.purchase(
             PurchaseCreate(
                 sku=sku,
@@ -330,13 +419,19 @@ def purchase(
                 entity_id=str(result.movement.id),
                 detail={"sku": sku, "quantity": quantity, "unit_cost": parse_optional_float(unit_cost)},
             )
+        message_detail = f"Stock después: {result.stock_after}"
+        if created_product is not None:
+            message_detail = (
+                f"Producto creado: {created_product.sku} - {created_product.name}. " + message_detail
+            )
+
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra registrada",
-                "message_detail": f"Stock después: {result.stock_after}",
+                "message_detail": message_detail,
                 "message_class": "ok" if not result.warning else "warn",
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
