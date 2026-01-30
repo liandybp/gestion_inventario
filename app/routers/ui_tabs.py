@@ -540,7 +540,7 @@ def tab_purchases(
     
     # Determine filter values
     now = datetime.now(timezone.utc)
-    
+
     start_dt = parse_dt(start_date) if start_date else None
     end_dt = parse_dt(end_date) if end_date else None
     if end_dt is not None:
@@ -943,7 +943,6 @@ def tab_transfers(
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
 
-    product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     business_code = get_active_business_code(db, request)
     config = load_business_config(business_code)
@@ -978,22 +977,26 @@ def tab_transfers(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
-    recent_transfer_out = inventory_service.movement_history(
-        movement_type="transfer_out",
-        query=query,
-        location_id=history_from_id,
-        start_date=start_dt,
-        end_date=end_dt,
-        limit=50,
-    )
-    recent_transfer_in = inventory_service.movement_history(
-        movement_type="transfer_in",
-        query=query,
-        location_id=history_to_id,
-        start_date=start_dt,
-        end_date=end_dt,
-        limit=50,
-    )
+    try:
+        recent_transfer_out = inventory_service.movement_history(
+            movement_type="transfer_out",
+            query=query,
+            location_id=history_from_id,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=50,
+        )
+        recent_transfer_in = inventory_service.movement_history(
+            movement_type="transfer_in",
+            query=query,
+            location_id=history_to_id,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=50,
+        )
+    except Exception:
+        recent_transfer_out = []
+        recent_transfer_in = []
 
     if history_to_code:
         pat = re.compile(r"Transfer\s+[^\s:;]+->" + re.escape(history_to_code) + r"\b")
@@ -1007,16 +1010,24 @@ def tab_transfers(
     message_detail = None
     message_class = None
     show_only_in = False
-    
     if success == 1:
         message = "Traspaso registrado"
         message_detail = "El traspaso se ha creado correctamente"
         message_class = "ok"
         show_only_in = True
 
-    product_options = [
-        p for p in inventory_service.stock_list(query="", location_code=selected_from_code) if float(p.quantity or 0) > 0
-    ]
+    product_options = []
+    try:
+        product_options = [
+            p
+            for p in inventory_service.stock_list(query="", location_code=selected_from_code)
+            if float(p.quantity or 0) > 0
+        ]
+    except Exception as e:
+        if message is None:
+            message = "Error al cargar traspasos"
+            message_detail = str(getattr(e, "detail", e))
+            message_class = "error"
 
     return templates.TemplateResponse(
         request=request,

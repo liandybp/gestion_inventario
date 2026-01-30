@@ -84,7 +84,7 @@
           </td>
           {% endif %}
           <td class="text-left nowrap">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
-          <td class="text-left">
+          <td class="text-left truncate" title="{{ mv.type or '' }}">
             {% if mv.type == 'purchase' %}
               <span class="color-purchase">Compra</span>
             {% elif mv.type == 'sale' %}
@@ -114,7 +114,7 @@
           </td>
           <td class="text-right nowrap">{% if mv.unit_cost %}${{ "%.2f"|format(mv.unit_cost) }}{% endif %}</td>
           <td class="text-right nowrap">{% if mv.unit_price %}${{ "%.2f"|format(mv.unit_price) }}{% endif %}</td>
-          <td class="text-left muted">{{ mv.note or '' }}</td>
+          <td class="text-left muted truncate" title="{{ mv.note or '' }}">{{ mv.note or '' }}</td>
         </tr>
         {% else %}
         <tr>
