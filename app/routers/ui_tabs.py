@@ -977,6 +977,11 @@ def tab_transfers(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
+    message = None
+    message_detail = None
+    message_class = None
+    show_only_in = False
+
     try:
         recent_transfer_out = inventory_service.movement_history(
             movement_type="transfer_out",
@@ -994,9 +999,12 @@ def tab_transfers(
             end_date=end_dt,
             limit=50,
         )
-    except Exception:
+    except Exception as e:
         recent_transfer_out = []
         recent_transfer_in = []
+        message = "Error al cargar historial de traspasos"
+        message_detail = str(getattr(e, "detail", e))
+        message_class = "error"
 
     if history_to_code:
         pat = re.compile(r"Transfer\s+[^\s:;]+->" + re.escape(history_to_code) + r"\b")
@@ -1006,10 +1014,6 @@ def tab_transfers(
         needle = f"Transfer in from {history_from_code}".lower()
         recent_transfer_in = [r for r in recent_transfer_in if needle in str(r[10] or "").lower()]
 
-    message = None
-    message_detail = None
-    message_class = None
-    show_only_in = False
     if success == 1:
         message = "Traspaso registrado"
         message_detail = "El traspaso se ha creado correctamente"

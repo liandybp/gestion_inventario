@@ -51,7 +51,7 @@
     </div>
   {% endif %}
 
-  <div class="overflow-x-auto">
+  <div class="table-wrapper">
     <table class="w-full table-fixed">
       <thead>
         <tr>
@@ -61,16 +61,16 @@
                    onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
           </th>
           {% endif %}
-          <th style="width:12%;">Fecha</th>
+          <th style="width:14%;">Fecha</th>
           <th style="width:8%;">Tipo</th>
-          <th style="width:10%;">Usuario</th>
-          <th style="width:8%;">SKU</th>
-          <th style="width:25%;">Producto</th>
-          <th style="width:7%;" class="text-center">Unidad</th>
-          <th style="width:8%;" class="text-right">Cantidad</th>
-          <th style="width:10%;" class="text-right">Costo Unit.</th>
-          <th style="width:10%;" class="text-right">Precio Unit.</th>
-          <th style="width:12%;">Nota</th>
+          <th style="width:9%;">Usuario</th>
+          <th style="width:9%;">SKU</th>
+          <th style="width:23%;">Producto</th>
+          <th style="width:6%;" class="text-center">Unidad</th>
+          <th style="width:7%;" class="text-right">Cantidad</th>
+          <th style="width:8%;" class="text-right">Costo Unit.</th>
+          <th style="width:8%;" class="text-right">Precio Unit.</th>
+          <th style="width:5%;">Nota</th>
         </tr>
       </thead>
       <tbody>
@@ -83,8 +83,11 @@
             {% endif %}
           </td>
           {% endif %}
-          <td class="text-left nowrap">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
-          <td class="text-left truncate" title="{{ mv.type or '' }}">
+          <td class="text-left">
+            <div class="truncate" title="{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</div>
+          </td>
+          <td class="text-left">
+            <div class="truncate" title="{{ mv.type or '' }}">
             {% if mv.type == 'purchase' %}
               <span class="color-purchase">Compra</span>
             {% elif mv.type == 'sale' %}
@@ -100,6 +103,7 @@
             {% else %}
               {{ mv.type }}
             {% endif %}
+            </div>
           </td>
           <td class="text-left muted">{{ mv.username or '' }}</td>
           <td class="text-left"><code>{{ mv.sku }}</code></td>
@@ -114,7 +118,9 @@
           </td>
           <td class="text-right nowrap">{% if mv.unit_cost %}${{ "%.2f"|format(mv.unit_cost) }}{% endif %}</td>
           <td class="text-right nowrap">{% if mv.unit_price %}${{ "%.2f"|format(mv.unit_price) }}{% endif %}</td>
-          <td class="text-left muted truncate" title="{{ mv.note or '' }}">{{ mv.note or '' }}</td>
+          <td class="text-left muted">
+            <div class="truncate" title="{{ mv.note or '' }}">{{ mv.note or '' }}</div>
+          </td>
         </tr>
         {% else %}
         <tr>
