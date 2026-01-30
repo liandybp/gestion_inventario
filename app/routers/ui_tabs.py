@@ -230,13 +230,34 @@ def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[d
     return locations, default_code
 
 
-def _location_id_for_code(db: Session, location_code: str, business_id: int) -> Optional[int]:
+def _location_id_for_code(
+    db: Session,
+    location_code: str,
+    business_id: int,
+    business_code: Optional[str] = None,
+) -> Optional[int]:
     code = (location_code or "").strip()
     if not code:
         return None
+
     row = db.execute(
         select(Location.id).where(
             Location.code == code,
+            Location.business_id == int(business_id),
+        )
+    ).first()
+    if row:
+        return int(row[0])
+
+    bcode = (business_code or "").strip()
+    if not bcode:
+        return None
+
+    prefix = "".join(ch if ch.isalnum() else "_" for ch in (bcode.upper() or "BUSINESS"))
+    alt_code = code if code.startswith(f"{prefix}_") else f"{prefix}_{code}"
+    row = db.execute(
+        select(Location.id).where(
+            Location.code == alt_code,
             Location.business_id == int(business_id),
         )
     ).first()
@@ -320,7 +341,12 @@ def tab_home(
 
     locations, _default_loc_code = _home_locations_context(business_code)
     selected_location_code = (location_code or "").strip()
-    selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
 
     products = product_service.list()
     stock_items = inventory_service.stock_list(location_code=selected_location_code or None)
@@ -415,12 +441,18 @@ def home_charts(
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
+    business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
-    selected_location_id = _location_id_for_code(db, selected_location_code, business_id=bid)
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
 
     start_dt = parse_dt(metrics_start_date) if metrics_start_date else None
     end_dt = parse_dt(metrics_end_date) if metrics_end_date else None
@@ -450,7 +482,8 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     print(f"[DEBUG] tab_inventory - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, user.business_id: {user.business_id if user else 'None'}, active bid: {bid}")
-    config = load_business_config(get_active_business_code(db, request))
+    business_code = get_active_business_code(db, request)
+    config = load_business_config(business_code)
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
@@ -571,6 +604,7 @@ def tab_sales(
     month: Optional[str] = None,
     year: Optional[int] = None,
     show_all: Optional[str] = None,
+    location_code: str = "",
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -654,6 +688,14 @@ def tab_sales(
     ]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
 
+    selected_filter_location_code = (location_code or "").strip()
+    selected_filter_location_id = _location_id_for_code(
+        db,
+        selected_filter_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+
     product_options = [
         p
         for p in inventory_service.stock_list(query="", location_code=default_sale_location_code)
@@ -671,6 +713,7 @@ def tab_sales(
                 end_date=end_dt,
                 month=filter_month,
                 year=filter_year,
+                location_id=selected_filter_location_id,
             ),
             "filter_month": display_month,
             "filter_year": display_year,
@@ -678,6 +721,7 @@ def tab_sales(
             "filter_start_date": start_date or "",
             "filter_end_date": end_date or "",
             "filter_show_all": bool(show_all),
+            "filter_location_code": selected_filter_location_code,
             "product_options": product_options,
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
             "pos_locations": pos_locations,

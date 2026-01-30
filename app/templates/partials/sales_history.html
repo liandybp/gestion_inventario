@@ -25,12 +25,12 @@
       <th>Unidad</th>
       <th>Cant.</th>
       <th>Precio</th>
-      <th>Lote</th>
+      <th>Punto de venta</th>
       <th>Acciones</th>
     </tr>
   </thead>
   <tbody>
-    {% for id, d, sku, name, uom, image_url, qty, unit_price, lot_codes in sales %}
+    {% for id, d, sku, name, uom, image_url, qty, unit_price, pos_name, lot_codes in sales %}
       <tr>
         {% if can_manage %}
         <td>
@@ -49,15 +49,7 @@
         <td>{{ '%.0f'|format(qty or 0) }}</td>
         <td>{{ '%.2f'|format(unit_price or 0) }}</td>
         <td>
-          {% if lot_codes %}
-            {% set lot_list = lot_codes.split(',') %}
-            {% set lot_disp_list = [] %}
-            {% for lc in lot_list %}
-              {% set lc_trim = (lc[:-5] if lc.endswith('00000') else lc) %}
-              {% set _ = lot_disp_list.append(lc_trim) %}
-            {% endfor %}
-            <span title="{{ lot_codes }}">{{ lot_disp_list|join(', ') }}</span>
-          {% endif %}
+          {{ pos_name or '' }}
         </td>
         <td>
           <button type="button"

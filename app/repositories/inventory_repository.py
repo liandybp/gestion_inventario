@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, InventoryLot, InventoryMovement, MovementAllocation, Product
+from app.models import AuditLog, InventoryLot, InventoryMovement, Location, MovementAllocation, Product
 
 
 def _normalize_text(text: str) -> str:
@@ -220,14 +220,16 @@ class InventoryRepository:
                 Product.image_url,
                 func.abs(InventoryMovement.quantity),
                 InventoryMovement.unit_price,
+                Location.name,
                 lot_codes_expr,
             )
             .select_from(InventoryMovement)
             .join(Product, Product.id == InventoryMovement.product_id)
+            .outerjoin(Location, Location.id == InventoryMovement.location_id)
             .outerjoin(MovementAllocation, MovementAllocation.movement_id == InventoryMovement.id)
             .outerjoin(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
             .where(InventoryMovement.type == "sale")
-            .group_by(InventoryMovement.id, Product.id)
+            .group_by(InventoryMovement.id, Product.id, Location.id)
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
             .limit(prefetch_limit)
         )
