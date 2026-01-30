@@ -71,7 +71,7 @@
 
   <h3 style="margin-top:16px;">Historial de ventas</h3>
   
-  <form hx-get="/ui/tabs/sales" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12"
+  <form hx-get="/ui/tabs/sales" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="card mb-12"
         hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-show-all">
     <div class="flex gap-12 items-center flex-wrap">
       <div>
@@ -100,11 +100,13 @@
         <label for="sales-filter-show-all" class="filter-label" style="margin:0;">Ver todos</label>
       </div>
       <button type="submit" class="mb-0">Filtrar</button>
-      <a href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Ver todos</a>
+      <a href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="text-sm">Ver todos</a>
     </div>
   </form>
   
-  {% include 'partials/sales_history.html' %}
+  <div id="sales-history">
+    {% include 'partials/sales_history.html' %}
+  </div>
 
   <div id="sale-edit" style="margin-top:12px;"></div>
 </div>
