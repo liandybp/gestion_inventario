@@ -18,7 +18,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="row"><label>Barcode</label><input name="barcode" placeholder="Escanea aquí" autocomplete="off" autofocus required onkeydown="if(event.key==='Enter'){event.preventDefault(); const q=this.form.querySelector('input[name=quantity]'); if(q){q.focus(); q.select && q.select();}}" /></div>
+        <div class="row"><label>Barcode</label><input name="barcode" placeholder="Escanea aquí" autocomplete="off" required onkeydown="if(event.key==='Enter'){event.preventDefault(); const q=this.form.querySelector('input[name=quantity]'); if(q){q.focus(); q.select && q.select();}}" /></div>
         <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
         <div class="row"><label>Precio unitario</label><input name="unit_price" type="number" step="0.0001" min="0" /></div>
         <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" value="{{ movement_date_default or '' }}" /></div>
@@ -76,7 +76,7 @@
     <div class="flex gap-12 items-center flex-wrap">
       <div>
         <label class="filter-label">Buscar artículo</label>
-        <input id="sales-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" />
+        <input id="sales-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" hx-preserve="true" />
       </div>
       <div>
         <label class="filter-label">Punto de venta</label>
