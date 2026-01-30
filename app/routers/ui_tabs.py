@@ -888,7 +888,7 @@ def tab_dividends(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
