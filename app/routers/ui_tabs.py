@@ -649,7 +649,8 @@ def tab_sales(
         display_month = filter_month
         display_year = filter_year
 
-    config = load_business_config(get_active_business_code(db, request))
+    business_code = get_active_business_code(db, request)
+    config = load_business_config(business_code)
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
