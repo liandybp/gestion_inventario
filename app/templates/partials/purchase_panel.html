@@ -70,7 +70,7 @@
         <input id="purchases-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
       </div>
       <button type="submit" class="mb-0">Filtrar</button>
-      <a href="/ui/tabs/purchases?show_all=1" hx-get="/ui/tabs/purchases?show_all=1" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Ver todos</a>
+      <a href="/ui/tabs/purchases?show_all=1" hx-get="/ui/tabs/purchases?show_all=1" hx-target="#purchases-history" hx-select="#purchases-history" hx-swap="outerHTML" class="text-sm">Ver todos</a>
     </div>
   </form>
   

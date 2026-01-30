@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -932,6 +933,8 @@ def tab_transfers(
     success: int = 0,
     from_location_code: str = "",
     to_location_code: str = "",
+    filter_from_location_code: str = "",
+    filter_to_location_code: str = "",
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -942,7 +945,8 @@ def tab_transfers(
 
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
-    config = load_business_config(get_active_business_code(db, request))
+    business_code = get_active_business_code(db, request)
+    config = load_business_config(business_code)
 
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -956,6 +960,19 @@ def tab_transfers(
     selected_from_code = (from_location_code or "").strip() or default_from_location_code
     selected_to_code = (to_location_code or "").strip() or default_to_location_code
 
+    history_from_code = (filter_from_location_code or "").strip()
+    history_to_code = (filter_to_location_code or "").strip()
+    history_from_id = (
+        _location_id_for_code(db, history_from_code, business_id=bid, business_code=business_code)
+        if history_from_code
+        else None
+    )
+    history_to_id = (
+        _location_id_for_code(db, history_to_code, business_id=bid, business_code=business_code)
+        if history_to_code
+        else None
+    )
+
     start_dt = parse_dt(start_date) if start_date else None
     end_dt = parse_dt(end_date) if end_date else None
     if end_dt is not None:
@@ -964,6 +981,7 @@ def tab_transfers(
     recent_transfer_out = inventory_service.movement_history(
         movement_type="transfer_out",
         query=query,
+        location_id=history_from_id,
         start_date=start_dt,
         end_date=end_dt,
         limit=50,
@@ -971,10 +989,19 @@ def tab_transfers(
     recent_transfer_in = inventory_service.movement_history(
         movement_type="transfer_in",
         query=query,
+        location_id=history_to_id,
         start_date=start_dt,
         end_date=end_dt,
         limit=50,
     )
+
+    if history_to_code:
+        pat = re.compile(r"Transfer\s+[^\s:;]+->" + re.escape(history_to_code) + r"\b")
+        recent_transfer_out = [r for r in recent_transfer_out if pat.search(str(r[10] or ""))]
+
+    if history_from_code:
+        needle = f"Transfer in from {history_from_code}".lower()
+        recent_transfer_in = [r for r in recent_transfer_in if needle in str(r[10] or "").lower()]
 
     message = None
     message_detail = None
@@ -1010,6 +1037,8 @@ def tab_transfers(
             "message_detail": message_detail,
             "message_class": message_class,
             "show_only_in": show_only_in,
+            "filter_from_location_code": history_from_code,
+            "filter_to_location_code": history_to_code,
             "filter_query": query,
             "filter_start_date": start_date or "",
             "filter_end_date": end_date or "",

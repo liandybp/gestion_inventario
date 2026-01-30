@@ -20,8 +20,8 @@
 
     {{ metric('Total de costos operativos (mes)', '%.2f'|format(expenses_total or 0)) }}
   </div>
-
-  <form hx-get="/ui/tabs/expenses" hx-target="#tab-content" hx-swap="innerHTML" class="card mb-12"
+  
+  <form hx-get="/ui/tabs/expenses" hx-target="#expenses-history" hx-select="#expenses-history" hx-swap="outerHTML" class="card mb-12"
         hx-trigger="submit, keyup changed delay:300ms from:#expenses-filter-query, change from:#expenses-filter-start, change from:#expenses-filter-end">
     {% if filter_show_all %}<input type="hidden" name="show_all" value="1" />{% endif %}
     <div class="flex gap-12 items-center flex-wrap">
@@ -38,11 +38,11 @@
         <input id="expenses-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
       </div>
       <button type="submit" class="mb-0">Filtrar</button>
-      <a href="/ui/tabs/expenses?show_all=1" hx-get="/ui/tabs/expenses?show_all=1" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Ver todos</a>
+      <a href="/ui/tabs/expenses?show_all=1" hx-get="/ui/tabs/expenses?show_all=1" hx-target="#expenses-history" hx-select="#expenses-history" hx-swap="outerHTML" class="text-sm">Ver todos</a>
     </div>
   </form>
 
-  <div class="card mt-16">
+  <div id="expenses-history" class="card mt-16">
     <h3>Costos operativos</h3>
     <div class="table-wrapper">
     <table>

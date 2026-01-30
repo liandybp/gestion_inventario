@@ -1,4 +1,4 @@
-<div id="profit-items-tab" hx-get="/ui/tabs/profit-items" hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end" hx-include="#profit-items-query, #profit-items-start, #profit-items-end" hx-swap="innerHTML">
+<div id="profit-items-tab">
   {% from 'components/ui.html' import metric %}
   {% set can_manage = user and ((user.role or '')|lower == 'admin') %}
   <h2>Utilidades por artículo</h2>
@@ -24,6 +24,13 @@
       <a href="/ui/tabs/profit-items" hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
     </div>
   </div>
+
+  <div id="profit-items-results"
+       hx-get="/ui/tabs/profit-items"
+       hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end"
+       hx-include="#profit-items-query, #profit-items-start, #profit-items-end"
+       hx-select="#profit-items-results"
+       hx-swap="outerHTML">
 
   <div class="card mb-12">
     <div class="grid-4">
@@ -154,4 +161,5 @@
   {% if can_manage %}
   </form>
   {% endif %}
+</div>
 </div>
