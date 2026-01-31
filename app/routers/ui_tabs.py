@@ -541,10 +541,14 @@ def tab_purchases(
     # Determine filter values
     now = datetime.now(timezone.utc)
 
-    start_dt = parse_dt(start_date) if start_date else None
-    end_dt = parse_dt(end_date) if end_date else None
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
 
     date_range_active = (start_dt is not None) or (end_dt is not None)
     
@@ -972,10 +976,14 @@ def tab_transfers(
         else None
     )
 
-    start_dt = parse_dt(start_date) if start_date else None
-    end_dt = parse_dt(end_date) if end_date else None
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
 
     message = None
     message_detail = None
@@ -1247,10 +1255,14 @@ def _render_profit_items_tab(
     user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
 
-    start_dt = parse_dt(start_date) if start_date else None
-    end_dt = parse_dt(end_date) if end_date else None
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
 
     summary, items = inventory_service.monthly_profit_items_report(start=start_dt, end=end_dt)
     q = (query or "").strip()
@@ -2050,10 +2062,14 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
     role_filter: str = (request.query_params.get("role") or "").strip().lower()
     start_date = (request.query_params.get("start_date") or "").strip()
     end_date = (request.query_params.get("end_date") or "").strip()
-    start_dt = parse_dt(start_date) if start_date else None
-    end_dt = parse_dt(end_date) if end_date else None
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
 
     stmt = (
         select(AuditLog)
