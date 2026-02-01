@@ -43,6 +43,11 @@ def login_submit(
     # Owners and operators use their user.business_id directly (no switching)
     if (user.role or "").lower() == "admin" and user.business_id is not None:
         request.session["active_business_id"] = int(user.business_id)
+    else:
+        try:
+            request.session.pop("active_business_id", None)
+        except Exception:
+            pass
     log_event(
         db,
         user,
@@ -119,6 +124,11 @@ def must_change_password_submit(
     db.commit()
     db.refresh(row)
     request.session["username"] = row.username
+    if (row.role or "").lower() != "admin":
+        try:
+            request.session.pop("active_business_id", None)
+        except Exception:
+            pass
 
     log_event(
         db,
