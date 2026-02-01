@@ -39,6 +39,7 @@ class DividendsConfig(BaseModel):
     business_label: str = "Negocio"
     partners: List[str] = Field(default_factory=lambda: ["Liandy", "Randy"])
     opening_pending: Dict[str, float] = Field(default_factory=dict)
+    opening_pending_as_of: str = ""
 
 
 class LocationSpec(BaseModel):
@@ -199,6 +200,9 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
                 continue
         return out2
 
+    def get_opening_pending_as_of() -> str:
+        return get("dividends", "opening_pending_as_of", "")
+
     def parse_location_spec(raw: str, fallback_code: str, fallback_name: str) -> LocationSpec:
         raw2 = (raw or "").strip()
         if not raw2:
@@ -264,6 +268,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             business_label=get("dividends", "business_label", "Negocio"),
             partners=get_list("dividends", "partners"),
             opening_pending=get_opening_pending(),
+            opening_pending_as_of=get_opening_pending_as_of(),
         ),
         locations=LocationsConfig(
             central=central_spec,

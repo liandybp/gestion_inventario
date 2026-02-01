@@ -452,59 +452,183 @@ class InventoryService:
         stmt = stmt.order_by(MoneyExtraction.extraction_date.desc(), MoneyExtraction.id.desc()).limit(limit)
         return list(self._db.scalars(stmt))
 
-    def total_extractions_by_party(self, start: datetime, end: datetime) -> dict[str, float]:
-        stmt = (
-            select(
-                MoneyExtraction.party,
-                func.coalesce(func.sum(MoneyExtraction.amount), 0).label("total"),
-            )
-            .where(and_(MoneyExtraction.extraction_date >= start, MoneyExtraction.extraction_date < end))
-            .group_by(MoneyExtraction.party)
-        )
+    def total_extractions_by_party(
+        self,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> dict[str, float]:
+        stmt = select(
+            MoneyExtraction.party,
+            func.coalesce(func.sum(MoneyExtraction.amount), 0).label("total"),
+        ).group_by(MoneyExtraction.party)
         if self._business_id is not None:
             stmt = stmt.where(MoneyExtraction.business_id == self._business_id)
+        if start is not None:
+            stmt = stmt.where(MoneyExtraction.extraction_date >= start)
+        if end is not None:
+            stmt = stmt.where(MoneyExtraction.extraction_date < end)
         rows = self._db.execute(stmt).all()
         return {(party or ""): float(total or 0) for party, total in rows}
 
-    def monthly_dividends_report(self, now: Optional[datetime] = None) -> dict:
+    def monthly_dividends_report(
+        self,
+        now: Optional[datetime] = None,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> dict:
         now_dt = now or datetime.now(timezone.utc)
-        start, end = self._month_range(now_dt)
-        summary, _items = self.monthly_profit_report(now=now_dt)
-        extraction_totals = self.total_extractions_by_party(start=start, end=end)
+        if now_dt.tzinfo is None:
+            now_dt = now_dt.replace(tzinfo=timezone.utc)
+        now_dt = now_dt.astimezone(timezone.utc)
+        period_start: datetime
+        period_end: datetime
+        if start is None or end is None:
+            month_start, month_end = self._month_range(now_dt)
+            period_start = month_start if start is None else start
+            period_end = month_end if end is None else end
+        else:
+            period_start = start
+            period_end = end
 
         config = self._config()
         business_label = (config.dividends.business_label or "Negocio").strip() or "Negocio"
         partners = [p.strip() for p in (config.dividends.partners or []) if (p or "").strip()]
 
-        cogs_total = float(summary.get("cogs_total", 0) or 0)
-        expenses_total = float(summary.get("expenses_total", 0) or 0)
-        net_total = float(summary.get("net_total", 0) or 0)
+        opening_as_of_raw = str(getattr(config.dividends, "opening_pending_as_of", "") or "").strip()
+        opening_as_of_dt: Optional[datetime] = None
+        if opening_as_of_raw:
+            try:
+                opening_as_of_dt = datetime.fromisoformat(opening_as_of_raw)
+                if opening_as_of_dt.tzinfo is None:
+                    opening_as_of_dt = opening_as_of_dt.replace(tzinfo=timezone.utc)
+                opening_as_of_dt = opening_as_of_dt.astimezone(timezone.utc)
+            except Exception:
+                opening_as_of_dt = None
+
+        # Period metrics (month by default, or user-provided range).
+        sales_total = float(
+            self._db.scalar(
+                select(
+                    func.coalesce(
+                        func.sum(
+                            func.abs(InventoryMovement.quantity)
+                            * func.coalesce(InventoryMovement.unit_price, 0)
+                        ),
+                        0,
+                    )
+                ).where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= period_start,
+                        InventoryMovement.movement_date < period_end,
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                    )
+                )
+            )
+            or 0
+        )
+        cogs_total = float(
+            self._db.scalar(
+                select(func.coalesce(func.sum(MovementAllocation.quantity * MovementAllocation.unit_cost), 0))
+                .select_from(MovementAllocation)
+                .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= period_start,
+                        InventoryMovement.movement_date < period_end,
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                    )
+                )
+            )
+            or 0
+        )
+        expenses_total = float(self.total_expenses(start=period_start, end=period_end) or 0)
+        gross_total = float(sales_total - cogs_total)
+        net_total = float(gross_total - expenses_total)
         share_each = (net_total / float(len(partners))) if partners else 0.0
 
-        business_ext = float(extraction_totals.get(business_label, 0) or 0)
-        extractions: dict[str, float] = {business_label: business_ext}
-        pending: dict[str, float] = {business_label: (cogs_total + expenses_total) - business_ext}
+        extraction_totals_period = self.total_extractions_by_party(start=period_start, end=period_end)
 
-        for p in partners:
-            p_ext = float(extraction_totals.get(p, 0) or 0)
-            extractions[p] = p_ext
-            pending[p] = share_each - p_ext
+        # Accumulated pending: opening_pending + totals since opening_pending_as_of (or all time if not set).
+        cum_filters = [
+            InventoryMovement.type == "sale",
+            InventoryMovement.movement_date < now_dt,
+            True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+        ]
+        if opening_as_of_dt is not None:
+            cum_filters.append(InventoryMovement.movement_date >= opening_as_of_dt)
 
-        opening = getattr(config.dividends, "opening_pending", None) or {}
-        if isinstance(opening, dict):
-            for k, v in opening.items():
+        cum_sales_total = float(
+            self._db.scalar(
+                select(
+                    func.coalesce(
+                        func.sum(
+                            func.abs(InventoryMovement.quantity)
+                            * func.coalesce(InventoryMovement.unit_price, 0)
+                        ),
+                        0,
+                    )
+                ).where(and_(*cum_filters))
+            )
+            or 0
+        )
+
+        cum_cogs_filters = [
+            InventoryMovement.type == "sale",
+            InventoryMovement.movement_date < now_dt,
+            True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+        ]
+        if opening_as_of_dt is not None:
+            cum_cogs_filters.append(InventoryMovement.movement_date >= opening_as_of_dt)
+
+        cum_cogs_total = float(
+            self._db.scalar(
+                select(func.coalesce(func.sum(MovementAllocation.quantity * MovementAllocation.unit_cost), 0))
+                .select_from(MovementAllocation)
+                .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+                .where(
+                    and_(*cum_cogs_filters)
+                )
+            )
+            or 0
+        )
+
+        cum_expenses_start = opening_as_of_dt
+        cum_expenses_total = float(self.total_expenses(start=cum_expenses_start, end=now_dt) or 0)
+        cum_net_total = float((cum_sales_total - cum_cogs_total) - cum_expenses_total)
+        cum_share_each = (cum_net_total / float(len(partners))) if partners else 0.0
+
+        extraction_totals_all = self.total_extractions_by_party(start=opening_as_of_dt, end=now_dt)
+
+        opening_pending = getattr(config.dividends, "opening_pending", None) or {}
+        opening_map: dict[str, float] = {}
+        if isinstance(opening_pending, dict):
+            for k, v in opening_pending.items():
                 key = (str(k) or "").strip()
                 if not key:
                     continue
                 try:
-                    add = float(v)
+                    opening_map[key] = float(v)
                 except Exception:
                     continue
-                pending[key] = float(pending.get(key, 0) or 0) + add
+
+        extractions: dict[str, float] = {business_label: float(extraction_totals_period.get(business_label, 0) or 0)}
+        pending: dict[str, float] = {}
+        business_ext_all = float(extraction_totals_all.get(business_label, 0) or 0)
+        pending[business_label] = float(opening_map.get(business_label, 0) or 0) + float(
+            (cum_cogs_total + cum_expenses_total) - business_ext_all
+        )
+
+        for p in partners:
+            extractions[p] = float(extraction_totals_period.get(p, 0) or 0)
+            p_ext_all = float(extraction_totals_all.get(p, 0) or 0)
+            pending[p] = float(opening_map.get(p, 0) or 0) + float(cum_share_each - p_ext_all)
 
         return {
-            "month_start": start,
-            "month_end": end,
+            "month_start": period_start,
+            "month_end": period_end,
             "cogs_total": cogs_total,
             "expenses_total": expenses_total,
             "net_total": net_total,

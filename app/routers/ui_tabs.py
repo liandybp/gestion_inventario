@@ -899,12 +899,20 @@ def tab_dividends(
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)
     config = load_business_config(get_active_business_code(db, request))
-    summary = service.monthly_dividends_report(now=now)
 
-    start_dt = parse_dt(start_date) if start_date else month_start
-    end_dt = parse_dt(end_date) if end_date else month_end
-    if end_dt is not None:
-        end_dt = end_dt + timedelta(days=1)
+    if not start_date and not end_date:
+        start_dt, end_dt = month_start, month_end
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
+        if start_dt is None:
+            start_dt = month_start
+        if end_dt is None:
+            end_dt = month_end
+
+    summary = service.monthly_dividends_report(now=now, start=start_dt, end=end_dt)
 
     extractions = service.list_extractions(start=start_dt, end=end_dt, limit=500)
     q = (query or "").strip()
