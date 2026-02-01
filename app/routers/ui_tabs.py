@@ -1078,11 +1078,37 @@ def tab_transfers(
 
 
 @router.get("/tabs/profit", response_class=HTMLResponse)
-def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+def tab_profit(
+    request: Request,
+    db: Session = Depends(session_dep),
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    location_code: str = "",
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
-    summary, items = inventory_service.monthly_profit_report()
+    business_code = get_active_business_code(db, request)
+
+    locations, default_loc_code = _home_locations_context(business_code)
+    selected_location_code = (location_code or "").strip() or (default_loc_code or "")
+    location_id = (
+        _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
+        if selected_location_code
+        else None
+    )
+
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
+
+    summary, items = inventory_service.monthly_profit_report(start=start_dt, end=end_dt, location_id=location_id)
     expenses = inventory_service.list_expenses(
         start=summary["month_start"],
         end=summary["month_end"],
@@ -1092,9 +1118,14 @@ def tab_profit(request: Request, db: Session = Depends(session_dep)) -> HTMLResp
         request=request,
         name="partials/tab_profit.html",
         context={
+            "user": user,
             "summary": summary,
             "items": items,
             "expenses": expenses,
+            "locations": locations,
+            "location_code": selected_location_code,
+            "filter_start_date": (start_date or "")[:10],
+            "filter_end_date": (end_date or "")[:10],
         },
     )
 
@@ -1106,6 +1137,7 @@ def tab_profit_items(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     return _render_profit_items_tab(
@@ -1114,6 +1146,7 @@ def tab_profit_items(
         query=query,
         start_date=start_date,
         end_date=end_date,
+        location_code=location_code,
     )
 
 
@@ -1125,6 +1158,7 @@ def profit_items_adjustment_edit_form(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     bid = require_active_business_id(db, request)
@@ -1144,6 +1178,7 @@ def profit_items_adjustment_edit_form(
             "filter_query": query,
             "filter_start_date": (start_date or "")[:10],
             "filter_end_date": (end_date or "")[:10],
+            "filter_location_code": (location_code or "").strip(),
         },
     )
 
@@ -1156,6 +1191,7 @@ def profit_items_adjustment_update(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1174,7 +1210,14 @@ def profit_items_adjustment_update(
             entity_id=str(movement_id),
             detail={"unit_cost": float(unit_cost)},
         )
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+        location_code=location_code,
+    )
 
 
 @router.get("/tabs/profit-items/transfer-in/{movement_id}/edit", response_class=HTMLResponse)
@@ -1185,6 +1228,7 @@ def profit_items_transfer_in_edit_form(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     bid = require_active_business_id(db, request)
@@ -1204,6 +1248,7 @@ def profit_items_transfer_in_edit_form(
             "filter_query": query,
             "filter_start_date": (start_date or "")[:10],
             "filter_end_date": (end_date or "")[:10],
+            "filter_location_code": (location_code or "").strip(),
         },
     )
 
@@ -1216,6 +1261,7 @@ def profit_items_transfer_in_update(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1245,7 +1291,14 @@ def profit_items_transfer_in_update(
             entity_id=str(movement_id),
             detail={"unit_cost": float(unit_cost)},
         )
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+        location_code=location_code,
+    )
 
 
 def _render_profit_items_tab(
@@ -1255,6 +1308,7 @@ def _render_profit_items_tab(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
     message: Optional[str] = None,
     message_detail: Optional[str] = None,
     message_class: Optional[str] = None,
@@ -1262,6 +1316,15 @@ def _render_profit_items_tab(
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     inventory_service = InventoryService(db, business_id=bid)
+
+    business_code = get_active_business_code(db, request)
+    locations, default_loc_code = _home_locations_context(business_code)
+    selected_location_code = (location_code or "").strip() or (default_loc_code or "")
+    location_id = (
+        _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
+        if selected_location_code
+        else None
+    )
 
     if not start_date and not end_date:
         now = datetime.now(timezone.utc)
@@ -1272,7 +1335,7 @@ def _render_profit_items_tab(
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
 
-    summary, items = inventory_service.monthly_profit_items_report(start=start_dt, end=end_dt)
+    summary, items = inventory_service.monthly_profit_items_report(start=start_dt, end=end_dt, location_id=location_id)
     q = (query or "").strip()
     if q:
         def _field(row, key: str) -> str:
@@ -1301,6 +1364,8 @@ def _render_profit_items_tab(
             "message_class": message_class,
             "summary": summary,
             "items": items,
+            "locations": locations,
+            "location_code": selected_location_code,
             "filter_query": query,
             "filter_start_date": (start_date or "")[:10],
             "filter_end_date": (end_date or "")[:10],
@@ -1316,6 +1381,7 @@ def profit_items_sale_edit_form(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     bid = require_active_business_id(db, request)
@@ -1337,6 +1403,7 @@ def profit_items_sale_edit_form(
             "filter_query": query,
             "filter_start_date": (start_date or "")[:10],
             "filter_end_date": (end_date or "")[:10],
+            "filter_location_code": (location_code or "").strip(),
         },
     )
 
@@ -1353,6 +1420,7 @@ def profit_items_sale_update(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1377,7 +1445,14 @@ def profit_items_sale_update(
             entity_id=str(movement_id),
             detail={"sku": sku, "quantity": float(quantity), "unit_price": float(unit_price)},
         )
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+        location_code=location_code,
+    )
 
 
 @router.post("/tabs/profit-items/sale/{movement_id}/delete", response_class=HTMLResponse)
@@ -1387,6 +1462,7 @@ def profit_items_sale_delete(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1403,7 +1479,7 @@ def profit_items_sale_delete(
             entity_id=str(movement_id),
             detail={},
         )
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
 
 
 @router.post("/tabs/profit-items/sale/delete-selected", response_class=HTMLResponse)
@@ -1413,6 +1489,7 @@ def profit_items_sale_delete_selected(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1439,6 +1516,7 @@ def profit_items_sale_delete_selected(
             query=query,
             start_date=start_date,
             end_date=end_date,
+            location_code=location_code,
             message="No se seleccionó ninguna venta",
             message_class="warn",
         )
@@ -1473,6 +1551,7 @@ def profit_items_sale_delete_selected(
         query=query,
         start_date=start_date,
         end_date=end_date,
+        location_code=location_code,
         message=msg,
         message_detail=detail,
         message_class="ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
@@ -1487,6 +1566,7 @@ def profit_items_purchase_edit_form(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    location_code: str = "",
 ) -> HTMLResponse:
     ensure_admin(db, request)
     bid = require_active_business_id(db, request)
@@ -1510,6 +1590,7 @@ def profit_items_purchase_edit_form(
             "filter_query": query,
             "filter_start_date": (start_date or "")[:10],
             "filter_end_date": (end_date or "")[:10],
+            "filter_location_code": (location_code or "").strip(),
         },
     )
 
@@ -1527,6 +1608,7 @@ def profit_items_purchase_update(
     query: str = Form(""),
     start_date: str = Form(""),
     end_date: str = Form(""),
+    location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
@@ -1552,7 +1634,14 @@ def profit_items_purchase_update(
             entity_id=str(movement_id),
             detail={"sku": sku, "quantity": float(quantity), "unit_cost": float(unit_cost)},
         )
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date)
+    return _render_profit_items_tab(
+        request=request,
+        db=db,
+        query=query,
+        start_date=start_date,
+        end_date=end_date,
+        location_code=location_code,
+    )
 
 
 @router.get("/stock-table", response_class=HTMLResponse)

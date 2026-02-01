@@ -21,14 +21,22 @@
         <label class="filter-label">Hasta</label>
         <input id="profit-items-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
       </div>
+      <div>
+        <label class="filter-label">Punto de venta</label>
+        <select id="profit-items-location" name="location_code">
+          {% for loc in locations or [] %}
+            <option value="{{ loc.code }}" {% if (location_code or '') == (loc.code or '') %}selected{% endif %}>{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <a href="/ui/tabs/profit-items" hx-get="/ui/tabs/profit-items" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
     </div>
   </div>
 
   <div id="profit-items-results"
        hx-get="/ui/tabs/profit-items"
-       hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end"
-       hx-include="#profit-items-query, #profit-items-start, #profit-items-end"
+       hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end, change from:#profit-items-location"
+       hx-include="#profit-items-query, #profit-items-start, #profit-items-end, #profit-items-location"
        hx-select="#profit-items-results"
        hx-swap="outerHTML">
 
@@ -60,6 +68,7 @@
     <input type="hidden" name="query" value="{{ filter_query or '' }}" />
     <input type="hidden" name="start_date" value="{{ filter_start_date or '' }}" />
     <input type="hidden" name="end_date" value="{{ filter_end_date or '' }}" />
+    <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
     <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
       <button type="submit" class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?">Eliminar seleccionados</button>
     </div>
@@ -83,10 +92,10 @@
         </th>
         {% endif %}
         <th>Fecha</th>
+        <th>Punto de venta</th>
         <th>Código</th>
         <th>Item</th>
         <th>Categoría</th>
-        <th>Lote</th>
         <th>Cant. Vend</th>
         <th>Costo total</th>
         <th>Precio total</th>
@@ -106,11 +115,10 @@
           </td>
           {% endif %}
           <td>{{ r.movement_date.strftime('%Y-%m-%d %H:%M') if r.movement_date else '' }}</td>
+          <td>{{ (r.location_name or r.location_code) or '' }}</td>
           <td>{{ r.sku }}</td>
           <td>{{ r.name }}</td>
           <td>{{ r.category or '' }}</td>
-          {% set lot_disp = (r.lot_code[:-5] if r.lot_code and r.lot_code.endswith('00000') else r.lot_code) %}
-          <td>{{ lot_disp or '' }}</td>
           <td>{{ '%.0f'|format(r.qty or 0) }}</td>
           <td>{{ '%.2f'|format(r.cogs or 0) }}</td>
           <td>{{ '%.2f'|format(r.sales or 0) }}</td>
@@ -119,23 +127,23 @@
           {% if can_manage %}
           <td>
             <button type="button" style="min-width: 85px;"
-                    hx-get="/ui/tabs/profit-items/sale/{{ r.sale_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
+                    hx-get="/ui/tabs/profit-items/sale/{{ r.sale_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
                     hx-target="body"
                     hx-swap="beforeend">Edit sale</button>
 
             {% if r.source_movement_type == 'purchase' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
-                      hx-get="/ui/tabs/profit-items/purchase/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
+                      hx-get="/ui/tabs/profit-items/purchase/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% elif r.source_movement_type == 'transfer_in' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
-                      hx-get="/ui/tabs/profit-items/transfer-in/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}"
+                      hx-get="/ui/tabs/profit-items/transfer-in/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% elif r.source_movement_type == 'adjustment' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
-                      hx-get="/ui/tabs/profit-items/adjustment/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date="{{ (filter_end_date or '')|urlencode }}"
+                      hx-get="/ui/tabs/profit-items/adjustment/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% else %}

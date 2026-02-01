@@ -3,6 +3,35 @@
   <h2>Utilidades</h2>
   <p class="muted">Cálculo del mes corriente (ventas, costo FIFO, utilidad bruta y utilidad neta).</p>
 
+  <div class="card mb-12">
+    <div class="flex gap-12 items-center flex-wrap">
+      <div>
+        <label class="filter-label">Desde</label>
+        <input id="profit-start" type="date" name="start_date" value="{{ filter_start_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Hasta</label>
+        <input id="profit-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Punto de venta</label>
+        <select id="profit-location" name="location_code">
+          {% for loc in locations or [] %}
+            <option value="{{ loc.code }}" {% if (location_code or '') == (loc.code or '') %}selected{% endif %}>{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <a href="/ui/tabs/profit" hx-get="/ui/tabs/profit" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
+    </div>
+  </div>
+
+  <div id="profit-results"
+       hx-get="/ui/tabs/profit"
+       hx-trigger="change from:#profit-start, change from:#profit-end, change from:#profit-location"
+       hx-include="#profit-start, #profit-end, #profit-location"
+       hx-select="#profit-results"
+       hx-swap="outerHTML">
+
   <div class="grid-4">
     {{ metric('Ventas', '%.2f'|format(summary.sales_total or 0)) }}
     {{ metric('(-) Costo de ventas', '%.2f'|format(summary.cogs_total or 0)) }}
@@ -59,6 +88,7 @@
       </div>
     </div>
   </div>
+</div>
 </div>
 </div>
 </div>

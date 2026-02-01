@@ -1752,9 +1752,19 @@ class InventoryService:
         concept, total = row
         return {"concept": concept, "total": float(total or 0)}
 
-    def monthly_profit_report(self, now: Optional[datetime] = None, location_id: Optional[int] = None) -> tuple[dict, list[dict]]:
+    def monthly_profit_report(
+        self,
+        now: Optional[datetime] = None,
+        location_id: Optional[int] = None,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> tuple[dict, list[dict]]:
         now_dt = now or datetime.now(timezone.utc)
-        start, end = self._month_range(now_dt)
+        if start is None or end is None:
+            month_start, month_end = self._month_range(now_dt)
+            start = month_start if start is None else start
+            end = month_end if end is None else end
 
         sales_rows = self._db.execute(
             select(
@@ -1860,6 +1870,7 @@ class InventoryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        location_id: Optional[int] = None,
     ) -> tuple[dict, list[dict]]:
         now_dt = now or datetime.now(timezone.utc)
         if start is None or end is None:
@@ -1868,11 +1879,14 @@ class InventoryService:
             end = month_end if end is None else end
 
         src_mv = aliased(InventoryMovement)
+        loc = aliased(Location)
 
         rows = self._db.execute(
             select(
                 InventoryMovement.id.label("sale_movement_id"),
                 InventoryMovement.movement_date,
+                loc.code.label("location_code"),
+                loc.name.label("location_name"),
                 Product.sku,
                 Product.name,
                 Product.category,
@@ -1886,6 +1900,7 @@ class InventoryService:
             )
             .select_from(MovementAllocation)
             .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+            .outerjoin(loc, loc.id == InventoryMovement.location_id)
             .join(Product, Product.id == InventoryMovement.product_id)
             .join(InventoryLot, InventoryLot.id == MovementAllocation.lot_id)
             .join(src_mv, src_mv.id == InventoryLot.movement_id)
@@ -1895,6 +1910,7 @@ class InventoryService:
                     InventoryMovement.movement_date >= start,
                     InventoryMovement.movement_date < end,
                     True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                    True if location_id is None else (InventoryMovement.location_id == location_id),
                 )
             )
             .order_by(InventoryMovement.movement_date.desc(), InventoryMovement.id.desc())
@@ -1906,7 +1922,22 @@ class InventoryService:
         cogs_total = 0.0
         profit_total = 0.0
 
-        for sale_movement_id, movement_date, sku, name, category, lot_id, source_movement_id, source_movement_type, lot_code, unit_cost, unit_price, qty in rows:
+        for (
+            sale_movement_id,
+            movement_date,
+            location_code,
+            location_name,
+            sku,
+            name,
+            category,
+            lot_id,
+            source_movement_id,
+            source_movement_type,
+            lot_code,
+            unit_cost,
+            unit_price,
+            qty,
+        ) in rows:
             qty_f = float(qty or 0)
             unit_price_f = float(unit_price or 0)
             unit_cost_f = float(unit_cost or 0)
@@ -1919,6 +1950,8 @@ class InventoryService:
                 {
                     "sale_movement_id": int(sale_movement_id),
                     "movement_date": movement_date,
+                    "location_code": (str(location_code or "").strip() or ""),
+                    "location_name": (str(location_name or "").strip() or ""),
                     "sku": sku,
                     "name": name,
                     "category": category,
