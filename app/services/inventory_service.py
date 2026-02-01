@@ -491,6 +491,16 @@ class InventoryService:
             period_start = start
             period_end = end
 
+        # The accumulated pending should be calculated as-of the period end when
+        # the user is looking at a past month/range; for the current month/range
+        # it should reflect up to "now".
+        as_of_dt = period_end
+        if as_of_dt.tzinfo is None:
+            as_of_dt = as_of_dt.replace(tzinfo=timezone.utc)
+        as_of_dt = as_of_dt.astimezone(timezone.utc)
+        if as_of_dt > now_dt:
+            as_of_dt = now_dt
+
         config = self._config()
         business_label = (config.dividends.business_label or "Negocio").strip() or "Negocio"
         partners = [p.strip() for p in (config.dividends.partners or []) if (p or "").strip()]
@@ -554,7 +564,7 @@ class InventoryService:
         # Accumulated pending: opening_pending + totals since opening_pending_as_of (or all time if not set).
         cum_filters = [
             InventoryMovement.type == "sale",
-            InventoryMovement.movement_date < now_dt,
+            InventoryMovement.movement_date < as_of_dt,
             True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
         ]
         if opening_as_of_dt is not None:
@@ -577,7 +587,7 @@ class InventoryService:
 
         cum_cogs_filters = [
             InventoryMovement.type == "sale",
-            InventoryMovement.movement_date < now_dt,
+            InventoryMovement.movement_date < as_of_dt,
             True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
         ]
         if opening_as_of_dt is not None:
@@ -596,11 +606,11 @@ class InventoryService:
         )
 
         cum_expenses_start = opening_as_of_dt
-        cum_expenses_total = float(self.total_expenses(start=cum_expenses_start, end=now_dt) or 0)
+        cum_expenses_total = float(self.total_expenses(start=cum_expenses_start, end=as_of_dt) or 0)
         cum_net_total = float((cum_sales_total - cum_cogs_total) - cum_expenses_total)
         cum_share_each = (cum_net_total / float(len(partners))) if partners else 0.0
 
-        extraction_totals_all = self.total_extractions_by_party(start=opening_as_of_dt, end=now_dt)
+        extraction_totals_all = self.total_extractions_by_party(start=opening_as_of_dt, end=as_of_dt)
 
         opening_pending = getattr(config.dividends, "opening_pending", None) or {}
         opening_map: dict[str, float] = {}

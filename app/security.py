@@ -41,6 +41,12 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     
     # Owners and Operators always use their assigned business_id (cannot switch)
     if role in ("owner", "operator"):
+        session = getattr(request, "session", None)
+        if session is not None:
+            try:
+                session.pop("active_business_id", None)
+            except Exception:
+                pass
         result = int(user.business_id) if user.business_id is not None else None
         print(f"[DEBUG] get_active_business_id - User: {user.username}, Role: {role}, user.business_id: {user.business_id}, returning: {result}")
         return result
