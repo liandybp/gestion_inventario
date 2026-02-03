@@ -259,6 +259,23 @@ thead th { background: var(--brand-navy); color: #ffffff; }
   z-index: 2;
  }
 
+ .transfer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+ }
+
+ td.sticky-actions button {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+ }
+
+ td.sticky-actions {
+  min-width: 120px;
+ }
+
  thead th.sticky-actions {
   z-index: 3;
  }

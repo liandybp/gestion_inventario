@@ -211,8 +211,9 @@
             {% endif %}
             <td class="text-left muted nowrap">{{ from_code }}</td>
             <td class="text-left muted nowrap">{{ to_code }}</td>
-            <td class="text-left nowrap sticky-actions">
+            <td class="text-left sticky-actions">
               {% if can_manage %}
+                <div class="transfer-actions">
                 {% set ref = '' %}
                 {% if note and 'ref=' in note %}{% set ref = note.split('ref=', 1)[1].split()[0] %}{% endif %}
                 {% if ref %}
@@ -224,6 +225,7 @@
                         hx-get="/ui/movement/transfer/{{ id }}/edit"
                         hx-target="body"
                         hx-swap="beforeend">Edit</button>
+                </div>
               {% endif %}
             </td>
           </tr>
@@ -285,8 +287,9 @@
             {% endif %}
             <td class="text-left muted nowrap">{{ from_code }}</td>
             <td class="text-left muted nowrap">{{ to_code }}</td>
-            <td class="text-left nowrap sticky-actions">
+            <td class="text-left sticky-actions">
               {% if can_manage %}
+                <div class="transfer-actions">
                 {% if ref %}
                   <a href="/ui/transfers/print?ref={{ ref }}" target="_blank" style="text-decoration:none;">
                     <button type="button">Print</button>
@@ -296,6 +299,7 @@
                         hx-get="/ui/movement/transfer/{{ id }}/edit"
                         hx-target="body"
                         hx-swap="beforeend">Edit</button>
+                </div>
               {% endif %}
             </td>
           </tr>
