@@ -197,8 +197,8 @@ table {
 }
 
  table.transfer-table {
-  width: max-content;
-  display: inline-table;
+  width: 100%;
+  display: table;
  }
 
 .table-wrapper {
@@ -274,6 +274,20 @@ thead th { background: var(--brand-navy); color: #ffffff; }
 
  td.sticky-actions {
   min-width: 120px;
+ }
+
+ .transfer-actions-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+ }
+
+ .btn-small {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  line-height: 1.1;
  }
 
  thead th.sticky-actions {
