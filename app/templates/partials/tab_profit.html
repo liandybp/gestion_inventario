@@ -67,7 +67,7 @@
       <table>
         <thead>
           <tr>
-            <th>Fecha</th>
+            <th class="col-date">Fecha</th>
             <th>Cantidad</th>
             <th>Concepto</th>
           </tr>
@@ -75,7 +75,7 @@
         <tbody>
           {% for e in expenses %}
             <tr>
-              <td>{{ e.expense_date.strftime('%Y-%m-%d %H:%M') if e.expense_date else '' }}</td>
+              <td class="col-date">{{ e.expense_date.strftime('%Y-%m-%d %H:%M') if e.expense_date else '' }}</td>
               <td>{{ '%.2f'|format(e.amount or 0) }}</td>
               <td>{{ e.concept }}</td>
             </tr>

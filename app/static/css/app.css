@@ -217,6 +217,14 @@ th, td {
   text-align: left;
 }
 
+ th.col-date,
+ td.col-date {
+  width: 120px;
+  max-width: 120px;
+  white-space: normal;
+  line-height: 1.15;
+ }
+
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 .text-left { text-align: left; }

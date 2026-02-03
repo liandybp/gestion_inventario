@@ -18,7 +18,7 @@
                onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=sale_ids]').forEach(cb=>cb.checked=this.checked);" />
       </th>
       {% endif %}
-      <th>Fecha</th>
+      <th class="col-date">Fecha</th>
       <th>Img</th>
       <th>SKU</th>
       <th>Nombre</th>
@@ -37,7 +37,7 @@
           <input type="checkbox" name="sale_ids" value="{{ id }}" aria-label="Seleccionar venta {{ id }}" />
         </td>
         {% endif %}
-        <td>{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+        <td class="col-date">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
         <td>
           {% if image_url %}
             <img src="{{ image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />

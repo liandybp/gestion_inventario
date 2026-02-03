@@ -91,7 +91,7 @@
                  onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=sale_ids]').forEach(cb=>cb.checked=this.checked);" />
         </th>
         {% endif %}
-        <th>Fecha</th>
+        <th class="col-date">Fecha</th>
         <th>Punto de venta</th>
         <th>Código</th>
         <th>Item</th>
@@ -114,7 +114,7 @@
             <input type="checkbox" name="sale_ids" value="{{ r.sale_movement_id }}" aria-label="Seleccionar venta {{ r.sale_movement_id }}" />
           </td>
           {% endif %}
-          <td>{{ r.movement_date.strftime('%Y-%m-%d %H:%M') if r.movement_date else '' }}</td>
+          <td class="col-date">{{ r.movement_date.strftime('%Y-%m-%d %H:%M') if r.movement_date else '' }}</td>
           <td>{{ (r.location_name or r.location_code) or '' }}</td>
           <td>{{ r.sku }}</td>
           <td>{{ r.name }}</td>

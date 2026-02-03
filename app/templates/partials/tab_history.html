@@ -61,7 +61,7 @@
                    onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
           </th>
           {% endif %}
-          <th style="width:14%;">Fecha</th>
+          <th class="col-date">Fecha</th>
           <th style="width:8%;">Tipo</th>
           <th style="width:9%;">Usuario</th>
           <th style="width:9%;">SKU</th>
@@ -83,9 +83,7 @@
             {% endif %}
           </td>
           {% endif %}
-          <td class="text-left">
-            <div class="truncate" title="{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</div>
-          </td>
+          <td class="text-left col-date" title="{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}">{{ mv.movement_date.strftime('%Y-%m-%d %H:%M') if mv.movement_date else '' }}</td>
           <td class="text-left">
             <div class="truncate" title="{{ mv.type or '' }}">
             {% if mv.type == 'purchase' %}

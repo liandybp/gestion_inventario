@@ -351,7 +351,7 @@ def product_update_inventory(
                 if initial_inventory and delta > 0:
                     note = "Inventario inicial (ajuste por edición manual de stock)"
 
-                inventory_service.adjustment(
+                result = inventory_service.adjustment(
                     AdjustmentCreate(
                         sku=updated.sku,
                         quantity_delta=float(delta),
@@ -361,6 +361,22 @@ def product_update_inventory(
                         location_code=loc,
                     )
                 )
+
+                user = get_current_user_from_session(db, request)
+                if user is not None:
+                    log_event(
+                        db,
+                        user,
+                        action="adjustment_create",
+                        entity_type="movement",
+                        entity_id=str(result.movement.id),
+                        detail={
+                            "sku": updated.sku,
+                            "quantity_delta": float(delta),
+                            "unit_cost": float(unit_cost) if unit_cost is not None else None,
+                            "note": note,
+                        },
+                    )
 
         config = load_business_config(get_active_business_code(db, request))
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
