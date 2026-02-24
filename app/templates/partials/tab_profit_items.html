@@ -128,22 +128,26 @@
           <td>
             <button type="button" style="min-width: 85px;"
                     hx-get="/ui/tabs/profit-items/sale/{{ r.sale_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
+                    hx-select=".modal-overlay"
                     hx-target="body"
                     hx-swap="beforeend">Edit sale</button>
 
             {% if r.source_movement_type == 'purchase' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
                       hx-get="/ui/tabs/profit-items/purchase/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
+                      hx-select=".modal-overlay"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% elif r.source_movement_type == 'transfer_in' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
                       hx-get="/ui/tabs/profit-items/transfer-in/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
+                      hx-select=".modal-overlay"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% elif r.source_movement_type == 'adjustment' %}
               <button type="button" class="ml-8" style="min-width: 85px;"
                       hx-get="/ui/tabs/profit-items/adjustment/{{ r.source_movement_id }}/edit?query={{ (filter_query or '')|urlencode }}&start_date={{ (filter_start_date or '')|urlencode }}&end_date={{ (filter_end_date or '')|urlencode }}&location_code={{ (location_code or '')|urlencode }}"
+                      hx-select=".modal-overlay"
                       hx-target="body"
                       hx-swap="beforeend">Edit buys</button>
             {% else %}
