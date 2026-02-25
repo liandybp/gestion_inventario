@@ -56,6 +56,7 @@ async def ui_auth_middleware(request, call_next):
         session = getattr(request, "session", None) or {}
         if session.get("username"):
             now = int(time.time())
+            now_ms = int(time.time() * 1000)
             last_activity = session.get("last_activity")
             try:
                 last_activity = int(last_activity) if last_activity is not None else None
@@ -70,7 +71,24 @@ async def ui_auth_middleware(request, call_next):
                     return resp
                 return RedirectResponse(url="/ui/login", status_code=302)
 
-            session["last_activity"] = now
+            should_bump_activity = True
+            if request.headers.get("HX-Request") == "true":
+                # HTMX can fire background polling requests (every Xm) that should NOT keep the session alive.
+                # app.js attaches X-User-Activity (ms timestamp of last real user interaction).
+                raw_ts = request.headers.get("X-User-Activity")
+                if raw_ts is not None:
+                    try:
+                        ts = int(raw_ts)
+                        # Only count as "activity" if the user interacted recently.
+                        if ts > 0 and (now_ms - ts) > (30 * 1000):
+                            should_bump_activity = False
+                    except (TypeError, ValueError):
+                        pass
+
+            if last_activity is None:
+                session["last_activity"] = now
+            elif should_bump_activity:
+                session["last_activity"] = now
         if not session.get("username"):
             if request.headers.get("HX-Request") == "true":
                 resp = RedirectResponse(url="/ui/login", status_code=302)

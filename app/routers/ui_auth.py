@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -39,6 +41,7 @@ def login_submit(
         )
 
     request.session["username"] = user.username
+    request.session["last_activity"] = int(time.time())
     # Only set session business_id for admins (they can switch businesses)
     # Owners and operators use their user.business_id directly (no switching)
     if (user.role or "").lower() == "admin" and user.business_id is not None:

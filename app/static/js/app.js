@@ -1,6 +1,15 @@
 (function () {
   const ACTIVE_TAB_KEY = 'active_tab_v1';
 
+  let __lastUserActivity = Date.now();
+  let __lastUserActivityWrite = 0;
+  function markUserActivity() {
+    const now = Date.now();
+    if ((now - __lastUserActivityWrite) < 1000) return;
+    __lastUserActivityWrite = now;
+    __lastUserActivity = now;
+  }
+
   function saveActiveTab(tabEl) {
     if (!tabEl) return;
     const tabId = tabEl.id || '';
@@ -544,6 +553,13 @@
 
   restoreActiveTab();
 
+  // Track user interaction to support server-side inactivity timeout without being kept alive by background HTMX polls.
+  document.addEventListener('click', markUserActivity, { passive: true, capture: true });
+  document.addEventListener('keydown', markUserActivity, { passive: true, capture: true });
+  document.addEventListener('scroll', markUserActivity, { passive: true, capture: true });
+  document.addEventListener('touchstart', markUserActivity, { passive: true, capture: true });
+  document.addEventListener('mousemove', markUserActivity, { passive: true, capture: true });
+
   document.addEventListener('click', onTabClick);
   document.addEventListener('click', onClearClick);
   document.addEventListener('click', onModalClose);
@@ -557,6 +573,14 @@
     const elt = evt.detail && evt.detail.elt;
     if (!_shouldPreserveScrollForElt(elt)) return;
     __pendingScrollRestore = window.scrollY;
+  });
+
+  document.addEventListener('htmx:configRequest', (evt) => {
+    try {
+      if (evt.detail && evt.detail.headers) {
+        evt.detail.headers['X-User-Activity'] = String(__lastUserActivity || '');
+      }
+    } catch (e) {}
   });
 
   document.addEventListener('htmx:afterSwap', (evt) => {
