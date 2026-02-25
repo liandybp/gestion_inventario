@@ -4,16 +4,47 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
-## [0.2.1] - 2024-06-XX
-### Cambios
-- Se corrigieron errores menores en la gestión de inventario.
-- Se mejoró la exportación de datos a Excel, ahora incluye nuevas columnas y formato ajustado.
-- Se optimizó el rendimiento de la carga de archivos grandes.
-- Se actualizó la documentación de uso en el README.
-- Se agregaron pruebas unitarias para las funciones principales.
-- Se refactorizó el código para mejorar la legibilidad y el mantenimiento.
-- Se solucionó un problema con la validación de datos de entrada.
-- Se mejoró la interfaz de usuario para una experiencia más intuitiva.
+## 0.3.3 (2026-02-25)
+
+- fix(ui): utilidades por artículo: botones de edición (venta/compra) ahora abren el modal correctamente (override de `hx-select` para evitar herencia desde el contenedor de resultados).
+- fix(security): cierre de sesión por inactividad (1h) vuelve a funcionar sin que el polling de HTMX mantenga viva la sesión.
+
+## 0.3.2 (2026-02-01)
+
+- feat(ui): utilidad por artículo: eliminación masiva de ventas + edición/eliminación masiva de compras/traspasos/ajustes.
+- feat(security): cierre de sesión por inactividad (1h) con auto-logout.
+- feat(ui): filtros por ubicación y rangos de fechas en métricas/tablas (historial, ventas, overview).
+- fix(ui): mejoras de UX en transferencias (acciones sticky, tablas responsivas, prevención de doble submit).
+
+## 0.3.1 (2026-01-18)
+
+- feat(security): aislamiento por negocio y permisos (incluye permitir owner en tabs admin donde aplique).
+- feat(ui): mejoras de consistencia en Utilidades por artículo e Inventario.
+- feat(ui): inventario: filtros mejorados + campos adicionales (categoría, costo compra por defecto).
+
+## 0.3.0 (2026-01-18)
+
+- feat(security): roles ampliados (incluye owner) y controles de acceso.
+- feat(security): usuarios: gestión completa (crear/editar/actualizar/eliminar) + flujo de “debe cambiar contraseña”.
+- feat(core): configuración y aislamiento por negocio + mejoras de caching.
+- feat(db): versionado de esquema y tareas de migración en el arranque.
+
+## 0.2.1 (2026-01-17)
+
+- feat(ui): impresión de reposición (restock) + tabla con detalles de ubicación.
+- feat(ui): análisis de utilidad: aumentar top items de 10 a 30.
+- feat(ui): métricas de inventario: conteo de productos por ubicación seleccionada.
+
+## 0.2.0 (2026-01-14)
+
+- feat(ui): home charts: selector de ubicación + mejoras en métricas de inventario.
+
+## 0.1.9 (2026-01-13)
+
+- feat(ui): transferencias: selector de ubicación + opción de impresión.
+- feat(ui): historial inventario/ventas: rango de fechas + búsqueda.
+- feat(ui): persistencia de pestaña activa + mejoras en matching de movimientos.
+- feat(ui): inventario: filtro de stock.
 
 ## 0.1.8 (2026-01-07)
 

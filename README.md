@@ -2,7 +2,7 @@
 
 Aplicación web para gestionar inventario, compras, ventas, documentos (facturas/presupuestos) y clientes.
 
-Versión actual: `0.1.8` (ver `VERSION`).
+Versión actual: `0.3.3` (ver `VERSION`).
 
 ## Características
 
@@ -47,6 +47,8 @@ Versión actual: `0.1.8` (ver `VERSION`).
   - Eliminación de cliente (bloqueada si tiene documentos asociados).
 - **Autenticación por sesión**
   - Roles `admin` y `operator`.
+  - Cierre automático por inactividad (1h) en la UI.
+  - Las peticiones automáticas (polling HTMX) no extienden la sesión sin interacción real del usuario.
 
 ## Stack
 
