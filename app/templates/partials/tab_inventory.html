@@ -8,8 +8,9 @@
     <div class="row">
       <label>Ubicación</label>
       <select id="inventory_location_code" name="location_code">
+        {% set _sel_loc = (selected_location_code if selected_location_code is defined else default_location_code) %}
         {% for loc in locations or [] %}
-          <option value="{{ loc['code'] }}" {% if (selected_location_code or default_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+          <option value="{{ loc['code'] }}" {% if (_sel_loc|string) == (loc['code']|string) %}selected{% endif %}>{{ loc['name'] }}</option>
         {% endfor %}
       </select>
     </div>

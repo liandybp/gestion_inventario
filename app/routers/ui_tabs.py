@@ -223,7 +223,11 @@ def _home_charts_context(
 
 def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[dict], str]:
     config = load_business_config(business_code)
-    locations: list[dict] = [{"code": "", "name": "General"}]
+    locations: list[dict] = [{"code": "", "name": "Vista General"}]
+    if getattr(getattr(config, "locations", None), "central", None) is not None:
+        central_code = str(getattr(config.locations.central, "code", "") or "").strip()
+        if central_code:
+            locations.append({"code": central_code, "name": "Almacén central"})
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
             locations.append({"code": loc.code, "name": loc.name})
@@ -485,7 +489,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     print(f"[DEBUG] tab_inventory - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, user.business_id: {user.business_id if user else 'None'}, active bid: {bid}")
     business_code = get_active_business_code(db, request)
     config = load_business_config(business_code)
-    locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
+    locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
             locations.append({"code": loc.code, "name": loc.name})
@@ -514,7 +518,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         name="partials/tab_inventory.html",
         context={
             "locations": locations,
-            "default_location_code": config.locations.central.code,
+            "default_location_code": "",
             "product_options": product_options,
             "categories": categories,
         },
