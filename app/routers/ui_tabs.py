@@ -1975,6 +1975,7 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
         for i in inventory_service.stock_list(location_code=selected_location_code or None)
         if i.needs_restock
     ]
+    items.sort(key=lambda r: float(getattr(r, "reorder_shortage", 0) or 0), reverse=True)
     return templates.TemplateResponse(
         request=request,
         name="partials/restock_table.html",

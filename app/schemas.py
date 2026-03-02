@@ -162,6 +162,11 @@ class StockRead(BaseModel):
     lead_time_days: int = 0
     avg_daily_sales: float = 0
     reorder_in_days: Optional[int] = None
+    avg_weekly_sales: float = 0
+    std_weekly_sales: float = 0
+    safety_stock: float = 0
+    reorder_point: float = 0
+    reorder_shortage: float = 0
     min_purchase_cost: Optional[float] = None
     default_purchase_cost: Optional[float] = None
     default_sale_price: Optional[float] = None

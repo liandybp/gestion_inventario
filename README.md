@@ -18,6 +18,12 @@ Versión actual: `0.3.3` (ver `VERSION`).
   - Ajuste de **stock actual** desde el modal de edición (genera movimiento `adjustment` para trazabilidad).
   - Opción **Inventario inicial** al ajustar stock para que ese lote se consuma primero en FIFO.
   - **Devolución a proveedor (por lote)**: permite seleccionar el lote específico a devolver para preservar el costo de adquisición.
+  - **Reposición (SS/ROP)**:
+    - Stock de seguridad (90%) y punto de reorden (ROP) calculados con demanda **semanal**.
+    - La demanda se calcula usando solo movimientos `sale` (ventas).
+    - Ventana móvil: hasta completar 12 meses usa todo el historial disponible; luego usa los últimos 12 meses.
+    - Vista principal: `Home → Artículos (ordenados por venta del periodo)` muestra columnas **SS (90%)**, **ROP** y **Falta**.
+    - La tabla `Home → Artículos a reponer` se basa en `stock <= ROP` y ordena por faltante (desc).
   - Eliminación de producto protegida: se bloquea si el producto tiene movimientos/lotes.
   - Tabla de inventario con:
     - **Costo**: mínimo histórico de compras.
@@ -204,6 +210,38 @@ Uploads persistentes:
 - **Clientes**:
   - Crea/edita clientes.
   - Consulta su historial y métricas.
+
+## Reposición (Stock de seguridad / ROP)
+
+Este proyecto calcula automáticamente:
+
+- **SS (Stock de Seguridad)** (objetivo 90%).
+- **ROP (Reorder Point / Punto de reorden)**.
+- **Falta**: `max(0, ROP - stock_actual)`.
+
+Parámetros actuales:
+
+- Servicio: 90% → `Z = 1.2816`.
+- Lead time fijo: 25 días → `Lw = 25/7` semanas.
+- Demanda: **semanal** y solo movimientos `sale`.
+- Ventana: hasta tener 12 meses de datos se usa todo el historial; después, últimos 12 meses.
+
+Fórmulas (lead time fijo):
+
+- `SS = Z * sqrt(Lw) * σw`
+- `ROP = μw * Lw + SS`
+
+Donde `μw` y `σw` son promedio y desviación estándar de la demanda semanal (incluyendo semanas con 0 ventas).
+
+Reglas de borde:
+
+- Si la serie tiene menos de 4 semanas: se usa `σw = max(σw, μw)` para evitar subestimar SS.
+- Si `μw > 0`: `SS >= 1`.
+
+Notas de ubicación:
+
+- En “Vista General” (sin ubicación), el stock y la demanda se calculan a nivel **sistema**.
+- Si se selecciona una ubicación específica, el cálculo se limita a esa ubicación.
 
 ## Estructura del proyecto (resumen)
 

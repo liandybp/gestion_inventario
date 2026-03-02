@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -1645,6 +1646,104 @@ class InventoryService:
             .order_by(func.coalesce(sales_period_expr, 0).desc())
         ).all()
 
+        # Weekly demand stats + safety stock / reorder point (system-wide, per user requirements).
+        service_z = 1.2816  # 90%
+        lead_time_days_fixed = 25.0
+        lead_time_weeks = lead_time_days_fixed / 7.0
+
+        skus = [str(sku) for sku, *_ in rows if sku]
+        weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
+        if skus:
+            one_year_ago = anchor_dt - timedelta(days=365)
+            earliest_sale = self._db.scalar(
+                select(func.min(InventoryMovement.movement_date))
+                .select_from(InventoryMovement)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                        True if location_id is None else (InventoryMovement.location_id == location_id),
+                    )
+                )
+            )
+            if earliest_sale is not None:
+                try:
+                    earliest_sale = earliest_sale.astimezone(timezone.utc)
+                except Exception:
+                    pass
+            start_window = earliest_sale if earliest_sale and earliest_sale > one_year_ago else one_year_ago
+
+            daily_rows = self._db.execute(
+                select(
+                    Product.sku,
+                    func.date(InventoryMovement.movement_date).label("day"),
+                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                )
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= start_window,
+                        InventoryMovement.movement_date < anchor_dt,
+                        Product.sku.in_(skus),
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                        True if location_id is None else (InventoryMovement.location_id == location_id),
+                    )
+                )
+                .group_by(Product.sku, func.date(InventoryMovement.movement_date))
+            ).all()
+
+            weekly_by_sku: dict[str, dict[datetime, float]] = {}
+            for sku, day_raw, qty in daily_rows:
+                sku_s = str(sku)
+                try:
+                    if hasattr(day_raw, "year"):
+                        day_d = day_raw
+                    else:
+                        day_d = datetime.fromisoformat(str(day_raw)).date()
+                except Exception:
+                    continue
+                week_start_date = day_d - timedelta(days=int(day_d.weekday()))
+                week_start_dt = datetime(
+                    week_start_date.year,
+                    week_start_date.month,
+                    week_start_date.day,
+                    tzinfo=timezone.utc,
+                )
+                m = weekly_by_sku.setdefault(sku_s, {})
+                m[week_start_dt] = float(m.get(week_start_dt, 0.0)) + float(qty or 0)
+
+            try:
+                start_date = start_window.date()
+            except Exception:
+                start_date = one_year_ago.date()
+            start_week_date = start_date - timedelta(days=int(start_date.weekday()))
+            end_date = (anchor_dt - timedelta(days=1)).date() if anchor_dt else start_date
+            end_week_date = end_date - timedelta(days=int(end_date.weekday()))
+
+            week_starts: list[datetime] = []
+            cur = datetime(start_week_date.year, start_week_date.month, start_week_date.day, tzinfo=timezone.utc)
+            end_dt_week = datetime(end_week_date.year, end_week_date.month, end_week_date.day, tzinfo=timezone.utc)
+            while cur <= end_dt_week:
+                week_starts.append(cur)
+                cur = cur + timedelta(days=7)
+
+            for sku_s in skus:
+                wmap = weekly_by_sku.get(sku_s, {})
+                series = [float(wmap.get(ws, 0.0)) for ws in week_starts]
+                n_weeks = len(series)
+                if n_weeks <= 0:
+                    weekly_stats_by_sku[sku_s] = (0.0, 0.0, 0)
+                    continue
+                mean_w = float(sum(series)) / float(n_weeks)
+                if n_weeks <= 1:
+                    std_w = 0.0
+                else:
+                    var = float(sum((x - mean_w) ** 2 for x in series)) / float(n_weeks)
+                    std_w = float(math.sqrt(var))
+                weekly_stats_by_sku[sku_s] = (mean_w, std_w, int(n_weeks))
+
         out: list[dict] = []
         for sku, name, qty_period, sales_period, qty_range, sales_range, sale_days, min_stock, lead_time_days, stock_qty in rows:
             qty_p = float(qty_period or 0)
@@ -1667,6 +1766,20 @@ class InventoryService:
             target_stock = max(min_stock_f, avg_daily_units * float(target_days))
             qty_to_order = max(0.0, float(target_stock) - stock_qty_f)
 
+            sku_s = str(sku)
+            mean_w, std_w, n_weeks = weekly_stats_by_sku.get(sku_s, (0.0, 0.0, 0))
+            safety_stock = 0.0
+            reorder_point = 0.0
+            reorder_shortage = 0.0
+            if float(mean_w) > 0:
+                std_eff = float(std_w)
+                if int(n_weeks) < 4:
+                    std_eff = float(max(std_eff, float(mean_w)))
+                safety_stock_calc = float(service_z) * float(math.sqrt(lead_time_weeks)) * float(std_eff)
+                safety_stock = float(max(1.0, float(math.ceil(safety_stock_calc))))
+                reorder_point = float((float(mean_w) * float(lead_time_weeks)) + float(safety_stock))
+                reorder_shortage = float(max(0.0, float(reorder_point) - float(stock_qty_f)))
+
             out.append(
                 {
                     "sku": str(sku),
@@ -1683,6 +1796,11 @@ class InventoryService:
                     "target_days": int(target_days),
                     "target_stock": float(target_stock),
                     "qty_to_order": float(qty_to_order),
+                    "avg_weekly_sales": float(mean_w),
+                    "std_weekly_sales": float(std_w),
+                    "safety_stock": float(safety_stock),
+                    "reorder_point": float(reorder_point),
+                    "reorder_shortage": float(reorder_shortage),
                 }
             )
 
@@ -2691,9 +2809,112 @@ class InventoryService:
         base_rows = list(self._inventory.stock_list(query=query, location_id=loc_id))
         skus = [sku for sku, *_ in base_rows if sku]
 
+        # Safety stock / reorder point configuration (system-wide, per user requirements).
+        service_z = 1.2816  # 90%
+        lead_time_days_fixed = 25.0
+        lead_time_weeks = lead_time_days_fixed / 7.0
+
         avg_daily_by_sku: dict[str, float] = {}
+        weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
         if skus:
             now_dt = datetime.now(timezone.utc)
+
+            # Rolling window: use all sales history until it reaches 1 year; after that, last 12 months.
+            one_year_ago = now_dt - timedelta(days=365)
+            earliest_sale_filters = [
+                InventoryMovement.type == "sale",
+                Product.sku.in_(skus),
+                True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+            ]
+            if loc_id is not None:
+                earliest_sale_filters.append(InventoryMovement.location_id == loc_id)
+            earliest_sale = self._db.scalar(
+                select(func.min(InventoryMovement.movement_date))
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(and_(*earliest_sale_filters))
+            )
+            if earliest_sale is not None:
+                try:
+                    earliest_sale = earliest_sale.astimezone(timezone.utc)
+                except Exception:
+                    pass
+            start_window = earliest_sale if earliest_sale and earliest_sale > one_year_ago else one_year_ago
+
+            # Aggregate daily sales and bucket to weeks in Python (dialect-safe for sqlite/postgres).
+            daily_rows = self._db.execute(
+                select(
+                    Product.sku,
+                    func.date(InventoryMovement.movement_date).label("day"),
+                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                )
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= start_window,
+                        InventoryMovement.movement_date < now_dt,
+                        Product.sku.in_(skus),
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                        True if loc_id is None else (InventoryMovement.location_id == loc_id),
+                    )
+                )
+                .group_by(Product.sku, func.date(InventoryMovement.movement_date))
+            ).all()
+
+            weekly_by_sku: dict[str, dict[datetime, float]] = {}
+            for sku, day_raw, qty in daily_rows:
+                sku_s = str(sku)
+                try:
+                    # day_raw might be a string (sqlite) or date (postgres). Normalize to date.
+                    if hasattr(day_raw, "year"):
+                        day_d = day_raw
+                    else:
+                        day_d = datetime.fromisoformat(str(day_raw)).date()
+                except Exception:
+                    continue
+                week_start_date = day_d - timedelta(days=int(day_d.weekday()))
+                week_start_dt = datetime(
+                    week_start_date.year,
+                    week_start_date.month,
+                    week_start_date.day,
+                    tzinfo=timezone.utc,
+                )
+                m = weekly_by_sku.setdefault(sku_s, {})
+                m[week_start_dt] = float(m.get(week_start_dt, 0.0)) + float(qty or 0)
+
+            # Build weekly series (including zero weeks) and compute mean/std per SKU.
+            try:
+                start_date = start_window.date()
+            except Exception:
+                start_date = one_year_ago.date()
+            start_week_date = start_date - timedelta(days=int(start_date.weekday()))
+            end_date = (now_dt - timedelta(days=1)).date() if now_dt else start_date
+            end_week_date = end_date - timedelta(days=int(end_date.weekday()))
+
+            week_starts: list[datetime] = []
+            cur = datetime(start_week_date.year, start_week_date.month, start_week_date.day, tzinfo=timezone.utc)
+            end_dt_week = datetime(end_week_date.year, end_week_date.month, end_week_date.day, tzinfo=timezone.utc)
+            while cur <= end_dt_week:
+                week_starts.append(cur)
+                cur = cur + timedelta(days=7)
+
+            for sku_s in skus:
+                wmap = weekly_by_sku.get(str(sku_s), {})
+                series = [float(wmap.get(ws, 0.0)) for ws in week_starts]
+                n_weeks = len(series)
+                if n_weeks <= 0:
+                    weekly_stats_by_sku[str(sku_s)] = (0.0, 0.0, 0)
+                    continue
+                mean_w = float(sum(series)) / float(n_weeks)
+                if n_weeks <= 1:
+                    std_w = 0.0
+                else:
+                    var = float(sum((x - mean_w) ** 2 for x in series)) / float(n_weeks)
+                    std_w = float(math.sqrt(var))
+                weekly_stats_by_sku[str(sku_s)] = (mean_w, std_w, int(n_weeks))
+
             start = now_dt - timedelta(days=30)
             where_parts = [
                 InventoryMovement.type == "sale",
@@ -2728,6 +2949,19 @@ class InventoryService:
                 days_cover = float(qty or 0) / avg_daily
                 reorder_in_days = max(0, int(days_cover - float(lead_time_days or 0)))
 
+            mean_w, std_w, n_weeks = weekly_stats_by_sku.get(str(sku), (0.0, 0.0, 0))
+            safety_stock = 0.0
+            reorder_point = 0.0
+            reorder_shortage = 0.0
+            if mean_w > 0:
+                std_eff = float(std_w)
+                if int(n_weeks) < 4:
+                    std_eff = float(max(std_eff, float(mean_w)))
+                safety_stock_calc = float(service_z) * float(math.sqrt(lead_time_weeks)) * float(std_eff)
+                safety_stock = float(max(1.0, float(math.ceil(safety_stock_calc))))
+                reorder_point = float((float(mean_w) * float(lead_time_weeks)) + float(safety_stock))
+                reorder_shortage = float(max(0.0, float(reorder_point) - float(qty or 0)))
+
             out.append(
                 StockRead(
                     sku=sku,
@@ -2736,10 +2970,15 @@ class InventoryService:
                     unit_of_measure=uom or None,
                     quantity=qty,
                     min_stock=min_stock,
-                    needs_restock=min_stock > 0 and qty < min_stock,
+                    needs_restock=reorder_shortage > 0,
                     lead_time_days=int(lead_time_days or 0),
                     avg_daily_sales=avg_daily,
                     reorder_in_days=reorder_in_days,
+                    avg_weekly_sales=float(mean_w),
+                    std_weekly_sales=float(std_w),
+                    safety_stock=float(safety_stock),
+                    reorder_point=float(reorder_point),
+                    reorder_shortage=float(reorder_shortage),
                     min_purchase_cost=min_purchase_cost,
                     default_purchase_cost=default_purchase_cost,
                     default_sale_price=default_sale_price,

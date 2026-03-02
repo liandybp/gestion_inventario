@@ -1,7 +1,7 @@
 <div style="display:flex; gap:12px; align-items:baseline; justify-content:space-between;">
   <div>
     <h3>Artículos a reponer{% if selected_location_name %} ({{ selected_location_name }}){% endif %}</h3>
-    <p class="muted">Stock actual por debajo del stock mínimo.</p>
+    <p class="muted">Stock actual por debajo del punto de reorden (ROP).</p>
   </div>
   {% if not print_mode %}
     <a href="/ui/restock-print?location_code={{ selected_location_code or '' }}" target="_blank" rel="noopener noreferrer">
@@ -18,7 +18,8 @@
       <th>Nombre</th>
       <th>Unidad</th>
       <th>Stock</th>
-      <th>Mínimo</th>
+      <th>SS</th>
+      <th>ROP</th>
       <th>Falta</th>
     </tr>
   </thead>
@@ -29,13 +30,14 @@
         <td>{{ item.name or '' }}</td>
         <td>{{ item.unit_of_measure or '' }}</td>
         <td>{{ '%.0f'|format(item.quantity or 0) }}</td>
-        <td>{{ '%.0f'|format(item.min_stock or 0) }}</td>
-        <td>{{ '%.0f'|format((item.min_stock or 0) - (item.quantity or 0)) }}</td>
+        <td>{{ '%.0f'|format(item.safety_stock or 0) }}</td>
+        <td>{{ '%.0f'|format(item.reorder_point or 0) }}</td>
+        <td>{{ '%.0f'|format(item.reorder_shortage or 0) }}</td>
       </tr>
     {% endfor %}
     {% if items|length == 0 %}
       <tr>
-        <td colspan="6" class="muted">Sin alertas por ahora.</td>
+        <td colspan="7" class="muted">Sin alertas por ahora.</td>
       </tr>
     {% endif %}
   </tbody>

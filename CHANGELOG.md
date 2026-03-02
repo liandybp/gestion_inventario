@@ -4,6 +4,9 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+- feat(inventory): reposición por SS/ROP (90%) con demanda semanal (solo `sale`), ventana móvil (histórico hasta 12m, luego últimos 12m) y lead time fijo 25 días.
+- feat(ui): Home → tabla de artículos muestra columnas SS/ROP/Falta; tabla de reposición se basa en `stock <= ROP` y ordena por faltante (desc).
+
 ## 0.3.3 (2026-02-25)
 
 - fix(ui): utilidades por artículo: botones de edición (venta/compra) ahora abren el modal correctamente (override de `hx-select` para evitar herencia desde el contenedor de resultados).

@@ -50,6 +50,9 @@
           <th class="text-right">Frecuencia venta (días)</th>
           <th class="text-right">Stock actual</th>
           <th class="text-right">Stock mín</th>
+          <th class="text-right">SS (90%)</th>
+          <th class="text-right">ROP</th>
+          <th class="text-right">Falta</th>
           <th class="text-right">Objetivo (LT+15 días)</th>
           <th class="text-right">Sugerido a pedir</th>
         </tr>
@@ -65,12 +68,15 @@
             <td class="text-right">{% if it.freq_days is not none %}{{ '%.1f'|format(it.freq_days) }}{% else %}-{% endif %}</td>
             <td class="text-right">{{ '%.2f'|format(it.stock_qty or 0) }}</td>
             <td class="text-right">{{ '%.2f'|format(it.min_stock or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.safety_stock or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.reorder_point or 0) }}</td>
+            <td class="text-right">{{ '%.2f'|format(it.reorder_shortage or 0) }}</td>
             <td class="text-right">{{ '%.2f'|format(it.target_stock or 0) }} ({{ it.target_days }}d)</td>
             <td class="text-right font-bold">{{ '%.2f'|format(it.qty_to_order or 0) }}</td>
           </tr>
         {% endfor %}
         {% if not metrics_items %}
-          <tr><td colspan="10" class="muted">Sin ventas en el periodo.</td></tr>
+          <tr><td colspan="13" class="muted">Sin ventas en el periodo.</td></tr>
         {% endif %}
       </tbody>
     </table>
