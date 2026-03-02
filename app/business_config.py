@@ -57,12 +57,17 @@ class LocationsConfig(BaseModel):
     default_pos: str = "POS1"
 
 
+class InventoryConfig(BaseModel):
+    replenishment_lead_time_days: float = 25.0
+
+
 class BusinessConfig(BaseModel):
     issuer: IssuerConfig = Field(default_factory=IssuerConfig)
     currency: CurrencyConfig = Field(default_factory=CurrencyConfig)
     sales_documents: SalesDocumentsConfig = Field(default_factory=SalesDocumentsConfig)
     dividends: DividendsConfig = Field(default_factory=DividendsConfig)
     locations: LocationsConfig = Field(default_factory=LocationsConfig)
+    inventory: InventoryConfig = Field(default_factory=InventoryConfig)
 
 
 _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
@@ -146,6 +151,15 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             return []
         parts = [p.strip() for p in raw.split(",")]
         return [p for p in parts if p]
+
+    def get_float(section: str, key: str, default: float = 0.0) -> float:
+        raw = get(section, key, "")
+        if not raw:
+            return float(default or 0.0)
+        try:
+            return float(str(raw).strip().replace(",", "."))
+        except Exception:
+            return float(default or 0.0)
 
     def get_opening_pending() -> Dict[str, float]:
         raw = get("dividends", "opening_pending", "")
@@ -274,6 +288,9 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             central=central_spec,
             pos=pos_list,
             default_pos=default_pos,
+        ),
+        inventory=InventoryConfig(
+            replenishment_lead_time_days=get_float("inventory", "replenishment_lead_time_days", 25.0),
         ),
     )
 

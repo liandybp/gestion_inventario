@@ -222,7 +222,7 @@ Este proyecto calcula automáticamente:
 Parámetros actuales:
 
 - Servicio: 90% → `Z = 1.2816`.
-- Lead time fijo: 25 días → `Lw = 25/7` semanas.
+- Lead time: configurable por negocio (`[inventory] replenishment_lead_time_days`), por defecto 25 días → `Lw = lead_time_days/7` semanas.
 - Demanda: **semanal** y solo movimientos `sale`.
 - Ventana: hasta tener 12 meses de datos se usa todo el historial; después, últimos 12 meses.
 
@@ -230,6 +230,11 @@ Fórmulas (lead time fijo):
 
 - `SS = Z * sqrt(Lw) * σw`
 - `ROP = μw * Lw + SS`
+
+ROP efectivo:
+
+- `ROP_efectivo = max(ROP, stock_mínimo)`
+- La columna **ROP** en la UI corresponde a `ROP_efectivo`.
 
 Donde `μw` y `σw` son promedio y desviación estándar de la demanda semanal (incluyendo semanas con 0 ventas).
 

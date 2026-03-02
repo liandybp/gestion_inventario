@@ -145,6 +145,26 @@ class InventoryService:
             return "Needs restock"
         return None
 
+    def _sync_default_purchase_cost_from_history(self, product: Product) -> None:
+        min_cost = self._db.scalar(
+            select(func.min(InventoryMovement.unit_cost)).where(
+                and_(
+                    InventoryMovement.type == "purchase",
+                    InventoryMovement.product_id == product.id,
+                    True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                )
+            )
+        )
+        if min_cost is None:
+            product.default_purchase_cost = None
+            return
+
+        val = float(min_cost or 0)
+        uom = (str(getattr(product, "unit_of_measure", "") or "").strip().lower())
+        if uom == "par":
+            val = val * 2.0
+        product.default_purchase_cost = float(val)
+
     def _unique_lot_code(self, base_code: str, *, max_len: int = 64) -> str:
         base = self._compact_lot_code(base_code, max_len=int(max_len))
         candidate = base
@@ -746,6 +766,7 @@ class InventoryService:
             self._db.execute(delete(InventoryMovement).where(InventoryMovement.id == mv.id))
             self._db.flush()
             self._rebuild_product_fifo(product)
+            self._sync_default_purchase_cost_from_history(product)
             self._db.commit()
         except HTTPException:
             self._db.rollback()
@@ -1646,10 +1667,11 @@ class InventoryService:
             .order_by(func.coalesce(sales_period_expr, 0).desc())
         ).all()
 
-        # Weekly demand stats + safety stock / reorder point (system-wide, per user requirements).
+        # Weekly demand stats + safety stock / reorder point.
         service_z = 1.2816  # 90%
-        lead_time_days_fixed = 25.0
-        lead_time_weeks = lead_time_days_fixed / 7.0
+        cfg = self._config()
+        lead_time_days_cfg = float(getattr(getattr(cfg, "inventory", None), "replenishment_lead_time_days", 25.0) or 25.0)
+        lead_time_weeks = float(lead_time_days_cfg) / 7.0
 
         skus = [str(sku) for sku, *_ in rows if sku]
         weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
@@ -1755,17 +1777,6 @@ class InventoryService:
             stock_qty_f = float(stock_qty or 0)
             min_stock_f = float(min_stock or 0)
 
-            avg_month_units = qty_r / float(max(months, 1))
-            freq_days = (float(range_days) / float(sale_days_i)) if sale_days_i > 0 else None
-
-            lead_time_i = int(lead_time_days or 0)
-            min_replenishment_days = max(30, lead_time_i)
-
-            avg_daily_units = float(avg_month_units) / 30.0
-            target_days = max(0, lead_time_i + 15)
-            target_stock = max(min_stock_f, avg_daily_units * float(target_days))
-            qty_to_order = max(0.0, float(target_stock) - stock_qty_f)
-
             sku_s = str(sku)
             mean_w, std_w, n_weeks = weekly_stats_by_sku.get(sku_s, (0.0, 0.0, 0))
             safety_stock = 0.0
@@ -1778,7 +1789,10 @@ class InventoryService:
                 safety_stock_calc = float(service_z) * float(math.sqrt(lead_time_weeks)) * float(std_eff)
                 safety_stock = float(max(1.0, float(math.ceil(safety_stock_calc))))
                 reorder_point = float((float(mean_w) * float(lead_time_weeks)) + float(safety_stock))
-                reorder_shortage = float(max(0.0, float(reorder_point) - float(stock_qty_f)))
+
+            # Effective ROP uses product.min_stock as a floor.
+            reorder_point = float(max(float(reorder_point or 0.0), float(min_stock_f or 0.0)))
+            reorder_shortage = float(max(0.0, float(reorder_point) - float(stock_qty_f)))
 
             out.append(
                 {
@@ -1786,16 +1800,8 @@ class InventoryService:
                     "name": str(name or ""),
                     "qty_period": qty_p,
                     "sales_period": sales_p,
-                    "qty_range": qty_r,
-                    "sales_range": sales_r,
-                    "avg_month_units": float(avg_month_units),
-                    "freq_days": float(freq_days) if freq_days is not None else None,
                     "stock_qty": float(stock_qty_f),
                     "min_stock": float(min_stock_f),
-                    "min_replenishment_days": int(min_replenishment_days),
-                    "target_days": int(target_days),
-                    "target_stock": float(target_stock),
-                    "qty_to_order": float(qty_to_order),
                     "avg_weekly_sales": float(mean_w),
                     "std_weekly_sales": float(std_w),
                     "safety_stock": float(safety_stock),
@@ -2274,6 +2280,7 @@ class InventoryService:
                 if prod is None:
                     continue
                 self._rebuild_product_fifo(prod, lot_code_overrides=overrides if pid == product.id else None)
+                self._sync_default_purchase_cost_from_history(prod)
             self._db.commit()
         except HTTPException:
             self._db.rollback()
@@ -2394,6 +2401,8 @@ class InventoryService:
             qty_remaining=payload.quantity,
         )
         self._inventory.add_lot(lot)
+
+        self._sync_default_purchase_cost_from_history(product)
         try:
             self._db.commit()
         except IntegrityError as e:
@@ -2809,10 +2818,11 @@ class InventoryService:
         base_rows = list(self._inventory.stock_list(query=query, location_id=loc_id))
         skus = [sku for sku, *_ in base_rows if sku]
 
-        # Safety stock / reorder point configuration (system-wide, per user requirements).
+        # Safety stock / reorder point configuration.
         service_z = 1.2816  # 90%
-        lead_time_days_fixed = 25.0
-        lead_time_weeks = lead_time_days_fixed / 7.0
+        cfg = self._config()
+        lead_time_days_cfg = float(getattr(getattr(cfg, "inventory", None), "replenishment_lead_time_days", 25.0) or 25.0)
+        lead_time_weeks = float(lead_time_days_cfg) / 7.0
 
         avg_daily_by_sku: dict[str, float] = {}
         weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
@@ -2960,7 +2970,10 @@ class InventoryService:
                 safety_stock_calc = float(service_z) * float(math.sqrt(lead_time_weeks)) * float(std_eff)
                 safety_stock = float(max(1.0, float(math.ceil(safety_stock_calc))))
                 reorder_point = float((float(mean_w) * float(lead_time_weeks)) + float(safety_stock))
-                reorder_shortage = float(max(0.0, float(reorder_point) - float(qty or 0)))
+
+            min_stock_f = float(min_stock or 0)
+            reorder_point = float(max(float(reorder_point or 0.0), float(min_stock_f or 0.0)))
+            reorder_shortage = float(max(0.0, float(reorder_point) - float(qty or 0)))
 
             out.append(
                 StockRead(

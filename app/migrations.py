@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -500,6 +500,39 @@ def _run_seed_and_backfill() -> None:
         db.query(SalesDocument).filter(SalesDocument.location_id.is_(None)).update(
             {SalesDocument.location_id: default_pos_loc.id}, synchronize_session=False
         )
+        db.commit()
+
+        # Backfill default_purchase_cost: keep it synced to historical minimum purchase cost.
+        # Special case: unit_of_measure == 'par' => default_purchase_cost = 2 * min_purchase_cost.
+        product_rows = db.execute(
+            select(
+                Product.id,
+                Product.unit_of_measure,
+                func.min(InventoryMovement.unit_cost).label("min_cost"),
+            )
+            .select_from(Product)
+            .join(
+                InventoryMovement,
+                and_(
+                    InventoryMovement.product_id == Product.id,
+                    InventoryMovement.type == "purchase",
+                ),
+                isouter=True,
+            )
+            .group_by(Product.id, Product.unit_of_measure)
+        ).all()
+        for pid, uom, min_cost in product_rows:
+            prod = db.get(Product, int(pid))
+            if prod is None:
+                continue
+            if min_cost is None:
+                prod.default_purchase_cost = None
+                continue
+            val = float(min_cost or 0)
+            uom_s = (str(uom or "").strip().lower())
+            if uom_s == "par":
+                val = val * 2.0
+            prod.default_purchase_cost = float(val)
         db.commit()
     finally:
         db.close()
