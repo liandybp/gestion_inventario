@@ -258,10 +258,10 @@ class InventoryRepository:
         location_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100,
+        limit: Optional[int] = 100,
     ) -> list[tuple]:
         q = (query or "").strip()
-        prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
+        prefetch_limit = None if limit is None else (max(int(limit or 0) * 10, 500) if q else int(limit or 0))
         username_sq = (
             select(AuditLog.username)
             .where(
@@ -320,8 +320,11 @@ class InventoryRepository:
         if end_date:
             stmt = stmt.where(InventoryMovement.movement_date < end_date)
 
-        stmt = stmt.limit(prefetch_limit)
+        if prefetch_limit is not None:
+            stmt = stmt.limit(prefetch_limit)
         rows = list(self._db.execute(stmt).all())
         if q:
             rows = [r for r in rows if _query_match(q, str(r[4] or ""), str(r[5] or ""))]
+        if limit is None:
+            return rows
         return rows[: int(limit or 0)]

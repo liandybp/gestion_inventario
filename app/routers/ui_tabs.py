@@ -997,6 +997,8 @@ def tab_transfers(
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
 
+    history_limit = None if (start_date or end_date) else 50
+
     message = None
     message_detail = None
     message_class = None
@@ -1009,7 +1011,7 @@ def tab_transfers(
             location_id=history_from_id,
             start_date=start_dt,
             end_date=end_dt,
-            limit=50,
+            limit=history_limit,
         )
         recent_transfer_in = inventory_service.movement_history(
             movement_type="transfer_in",
@@ -1017,7 +1019,7 @@ def tab_transfers(
             location_id=history_to_id,
             start_date=start_dt,
             end_date=end_dt,
-            limit=50,
+            limit=history_limit,
         )
     except Exception as e:
         recent_transfer_out = []

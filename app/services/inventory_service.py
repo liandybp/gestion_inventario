@@ -3048,7 +3048,7 @@ class InventoryService:
         location_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100,
+        limit: Optional[int] = 100,
     ) -> list[tuple]:
         return self._inventory.movement_history(
             sku=sku,
