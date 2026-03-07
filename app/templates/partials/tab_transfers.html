@@ -156,7 +156,8 @@
   </form>
 
   <div id="transfers-history">
-    {% set can_manage = user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+    {% set _role = ((user.role or '')|trim|lower) if user else '' %}
+    {% set can_manage = user and (_role == 'admin' or _role == 'owner') %}
     {% if can_manage %}
     <form hx-post="/ui/movement/transfer/delete-selected"
           hx-target="#tab-content"

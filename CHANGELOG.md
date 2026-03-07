@@ -4,6 +4,9 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+- chore(ui): se elimina del tab de inventario el bloque temporal de traspaso general CENTRAL -> POS.
+- fix(security/ui): normalización de rol (`trim + lower`) para reconocer correctamente `owner` en permisos y acciones de traspasos.
+
 ## 0.3.4 (2026-03-07)
 
 - feat(inventory): reposición por SS/ROP (90%) con demanda semanal (solo `sale`), ventana móvil (histórico hasta 12m, luego últimos 12m) y lead time fijo 25 días.

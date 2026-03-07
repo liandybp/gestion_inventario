@@ -486,7 +486,6 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
-    print(f"[DEBUG] tab_inventory - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, user.business_id: {user.business_id if user else 'None'}, active bid: {bid}")
     business_code = get_active_business_code(db, request)
     config = load_business_config(business_code)
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
@@ -521,144 +520,11 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         context={
             "locations": locations,
             "pos_locations": pos_locations,
-            "can_bulk_transfer": bool(user and str(getattr(user, "role", "")).lower() == "admin"),
             "default_location_code": "",
             "product_options": product_options,
             "categories": categories,
         },
     )
-    return response
-
-
-@router.post("/movements/transfer-central-bulk", response_class=HTMLResponse)
-def ui_transfer_central_bulk(
-    request: Request,
-    db: Session = Depends(session_dep),
-    to_location_code: str = Form(""),
-    note: str = Form(""),
-    location_code: str = Form(""),
-) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
-    business_code = get_active_business_code(db, request)
-    config = load_business_config(business_code)
-
-    central_code = str(config.locations.central.code).strip()
-    locations = [{"code": "", "name": "Vista General"}, {"code": central_code, "name": "Almacén central"}]
-    pos_locations: list[dict[str, str]] = []
-    for loc in (config.locations.pos or []):
-        if getattr(loc, "code", None):
-            code = str(loc.code)
-            name = str(loc.name)
-            locations.append({"code": code, "name": name})
-            pos_locations.append({"code": code, "name": name})
-
-    selected_location_code = (location_code or "").strip()
-
-    product_options = []
-    try:
-        from app.services.product_service import ProductService
-
-        product_options = ProductService(db, business_id=bid).search(query="", limit=200)
-    except Exception:
-        product_options = []
-
-    categories: list[str] = []
-    try:
-        rows = db.execute(
-            select(Product.category)
-            .where(Product.business_id == int(bid))
-            .distinct()
-            .order_by(Product.category.asc())
-        ).all()
-        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
-    except Exception:
-        categories = []
-
-    selected_to_code = (to_location_code or "").strip()
-    valid_pos_codes = {str(loc["code"]) for loc in pos_locations}
-
-    message = None
-    message_detail = None
-    message_class = None
-
-    try:
-        if not selected_to_code:
-            raise HTTPException(status_code=422, detail="Selecciona el punto de venta destino")
-        if selected_to_code not in valid_pos_codes:
-            raise HTTPException(status_code=422, detail="Destino inválido para traspaso general")
-
-        service = InventoryService(db, business_id=bid)
-        rows = service.stock_list(query="", location_code=central_code)
-        lines: list[TransferLineCreate] = []
-        for r in rows:
-            sku = str(getattr(r, "sku", "") or "").strip()
-            qty = float(getattr(r, "quantity", 0) or 0)
-            if not sku or qty <= 0:
-                continue
-            lines.append(TransferLineCreate(sku=sku, quantity=qty))
-
-        if not lines:
-            raise HTTPException(status_code=409, detail="No hay inventario disponible en almacén central para traspasar")
-
-        base_note = (note or "").strip() or "Traspaso general temporal desde inventario"
-        result = service.transfer(
-            TransferCreate(
-                from_location_code=central_code,
-                to_location_code=selected_to_code,
-                lines=lines,
-                note=base_note,
-            )
-        )
-
-        if user is not None:
-            for line in result.lines:
-                for mv_id in (line.movements_out or []) + (line.movements_in or []):
-                    log_event(
-                        db,
-                        user,
-                        action="transfer_bulk_central_to_pos",
-                        entity_type="movement",
-                        entity_id=str(mv_id),
-                        detail={
-                            "sku": line.sku,
-                            "quantity": float(line.quantity),
-                            "from_location_code": result.from_location_code,
-                            "to_location_code": result.to_location_code,
-                            "transfer_ref": result.transfer_ref,
-                        },
-                    )
-
-        message = "Traspaso general completado"
-        message_detail = (
-            f"Destino: {result.to_location_code}. "
-            f"Artículos transferidos: {len(result.lines)}. "
-            f"Ref: {result.transfer_ref}"
-        )
-        message_class = "ok"
-    except Exception as e:
-        message = "No se pudo ejecutar el traspaso general"
-        message_detail = str(getattr(e, "detail", e))
-        message_class = "error"
-
-    response = templates.TemplateResponse(
-        request=request,
-        name="partials/tab_inventory.html",
-        context={
-            "locations": locations,
-            "pos_locations": pos_locations,
-            "can_bulk_transfer": True,
-            "default_location_code": "",
-            "selected_location_code": selected_location_code,
-            "product_options": product_options,
-            "categories": categories,
-            "message": message,
-            "message_detail": message_detail,
-            "message_class": message_class,
-        },
-    )
-    response.headers["HX-Trigger"] = "stockTableRefresh"
     return response
 
 
@@ -2069,7 +1935,6 @@ def ui_supplier_return(
         context={
             "locations": locations,
             "pos_locations": pos_locations,
-            "can_bulk_transfer": bool(user and str(getattr(user, "role", "")).lower() == "admin"),
             "default_location_code": config.locations.central.code,
             "selected_location_code": selected_location_code,
             "product_options": product_options,

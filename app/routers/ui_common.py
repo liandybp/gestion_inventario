@@ -32,7 +32,7 @@ def ensure_admin(db: Session, request: Request) -> None:
 
 def ensure_admin_or_owner(db: Session, request: Request) -> None:
     user = get_current_user_from_session(db, request)
-    role = (user.role or "").lower() if user is not None else ""
+    role = (user.role or "").strip().lower() if user is not None else ""
     if user is None or role not in ("admin", "owner"):
         raise HTTPException(status_code=403, detail="Admin required")
 
