@@ -185,7 +185,6 @@
             <th style="width: 110px;" class="text-right">Cantidad</th>
             <th style="width: 110px;">Origen</th>
             <th style="width: 110px;">Destino</th>
-            <th style="width: 130px;">Lote</th>
             <th style="width: 110px;">Acciones</th>
           </tr>
         </thead>
@@ -212,7 +211,6 @@
             {% endif %}
             <td class="text-left muted nowrap">{{ from_code }}</td>
             <td class="text-left muted nowrap">{{ to_code }}</td>
-            <td class="text-left muted nowrap">-</td>
             <td class="text-left">
               {% if can_manage %}
                 <div class="transfer-actions-inline">
@@ -233,7 +231,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="{{ 11 if can_manage else 10 }}" class="muted text-center">No hay traspasos registrados.</td>
+            <td colspan="{{ 10 if can_manage else 9 }}" class="muted text-center">No hay traspasos registrados.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -256,7 +254,6 @@
             <th style="width: 110px;" class="text-right">Cantidad</th>
             <th style="width: 110px;">Origen</th>
             <th style="width: 110px;">Destino</th>
-            <th style="width: 130px;">Lote</th>
             <th style="width: 110px;">Acciones</th>
           </tr>
         </thead>
@@ -288,13 +285,8 @@
                 {% set to_code = ref_parts[2] %}
               {% endif %}
             {% endif %}
-            {% set lot_code = '-' %}
-            {% if note and ' lot=' in note %}
-              {% set lot_code = note.split(' lot=', 1)[1].split()[0] %}
-            {% endif %}
             <td class="text-left muted nowrap">{{ from_code }}</td>
             <td class="text-left muted nowrap">{{ to_code }}</td>
-            <td class="text-left muted nowrap">{{ lot_code }}</td>
             <td class="text-left">
               {% if can_manage %}
                 <div class="transfer-actions-inline">
@@ -313,7 +305,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="{{ 11 if can_manage else 10 }}" class="muted text-center">No hay traspasos registrados.</td>
+            <td colspan="{{ 10 if can_manage else 9 }}" class="muted text-center">No hay traspasos registrados.</td>
           </tr>
           {% endfor %}
         </tbody>

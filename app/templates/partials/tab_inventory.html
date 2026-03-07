@@ -44,6 +44,34 @@
     </div>
 
     <div class="mt-12">
+      <h3 class="m-0">Traspaso general temporal</h3>
+      <p class="muted" style="margin-top:6px;">Mueve todo el inventario disponible del almacén central hacia un punto de venta.</p>
+      <form class="mt-10"
+            hx-post="/ui/movements/transfer-central-bulk"
+            hx-target="#tab-content"
+            hx-swap="innerHTML"
+            hx-include="#inventory_location_code"
+            hx-confirm="Esto creará un traspaso masivo desde almacén central al POS seleccionado. ¿Continuar?">
+        <div class="grid grid-3">
+          <div class="row">
+            <label>Destino (POS)</label>
+            <select name="to_location_code" required>
+              <option value="">Selecciona destino</option>
+              {% for loc in pos_locations or [] %}
+                <option value="{{ loc['code'] }}">{{ loc['name'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row">
+            <label>Nota (opcional)</label>
+            <input name="note" placeholder="Ej: carga inicial de tienda" />
+          </div>
+        </div>
+        <button type="submit">Ejecutar traspaso general (temporal)</button>
+      </form>
+    </div>
+
+    <div class="mt-12">
       <h3 class="m-0">Devolución a proveedor</h3>
       <form class="mt-10" hx-post="/ui/movements/return-supplier" hx-target="#tab-content" hx-swap="innerHTML" hx-include="#inventory_location_code">
         <div class="grid grid-3">
