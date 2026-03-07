@@ -4,8 +4,15 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## Unreleased
 
+## 0.3.4 (2026-03-07)
+
 - feat(inventory): reposición por SS/ROP (90%) con demanda semanal (solo `sale`), ventana móvil (histórico hasta 12m, luego últimos 12m) y lead time fijo 25 días.
 - feat(ui): Home → tabla de artículos muestra columnas SS/ROP/Falta; tabla de reposición se basa en `stock <= ROP` y ordena por faltante (desc).
+- feat(ui): inventario agrega acción temporal de traspaso general CENTRAL -> POS seleccionado.
+- feat(security): acción temporal de traspaso general visible/ejecutable solo para rol `admin`.
+- fix(ui): vista de traspasos elimina columna de lote en listados de salida/entrada.
+- fix(transfers): edición/guardado de traspasos robustecida para evitar pantalla negra en errores y diferencias por negocio activo.
+- feat(sales): resolución de barcode soporta formatos SPP adicionales (`spp=`, `SPP:`, `SPP|SKU`, etc.) manteniendo compatibilidad con formatos previos.
 
 ## 0.3.3 (2026-02-25)
 
