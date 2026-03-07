@@ -310,7 +310,7 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
     q = (query or "").strip()
@@ -338,7 +338,7 @@ def tab_home(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
@@ -445,7 +445,7 @@ def home_charts(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
@@ -521,11 +521,13 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         context={
             "locations": locations,
             "pos_locations": pos_locations,
+            "can_bulk_transfer": bool(user and str(getattr(user, "role", "")).lower() == "admin"),
             "default_location_code": "",
             "product_options": product_options,
             "categories": categories,
         },
     )
+    return response
 
 
 @router.post("/movements/transfer-central-bulk", response_class=HTMLResponse)
@@ -536,7 +538,7 @@ def ui_transfer_central_bulk(
     note: str = Form(""),
     location_code: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     business_code = get_active_business_code(db, request)
@@ -640,12 +642,13 @@ def ui_transfer_central_bulk(
         message_detail = str(getattr(e, "detail", e))
         message_class = "error"
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="partials/tab_inventory.html",
         context={
             "locations": locations,
             "pos_locations": pos_locations,
+            "can_bulk_transfer": True,
             "default_location_code": "",
             "selected_location_code": selected_location_code,
             "product_options": product_options,
@@ -2066,6 +2069,7 @@ def ui_supplier_return(
         context={
             "locations": locations,
             "pos_locations": pos_locations,
+            "can_bulk_transfer": bool(user and str(getattr(user, "role", "")).lower() == "admin"),
             "default_location_code": config.locations.central.code,
             "selected_location_code": selected_location_code,
             "product_options": product_options,

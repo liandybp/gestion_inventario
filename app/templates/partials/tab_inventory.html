@@ -43,6 +43,7 @@
          hx-swap="innerHTML">
     </div>
 
+    {% if can_bulk_transfer %}
     <div class="mt-12">
       <h3 class="m-0">Traspaso general temporal</h3>
       <p class="muted" style="margin-top:6px;">Mueve todo el inventario disponible del almacén central hacia un punto de venta.</p>
@@ -70,6 +71,7 @@
         <button type="submit">Ejecutar traspaso general (temporal)</button>
       </form>
     </div>
+    {% endif %}
 
     <div class="mt-12">
       <h3 class="m-0">Devolución a proveedor</h3>
