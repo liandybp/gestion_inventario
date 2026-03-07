@@ -104,9 +104,66 @@ def transfer_update(
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
     default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    from_code = default_from_location_code
+    to_code = default_to_location_code
 
-    out_id = service._transfer_out_id_for_movement_id(movement_id)
-    mv_out = db.get(InventoryMovement, out_id)
+    mv_out: Optional[InventoryMovement] = None
+
+    def _safe_product_options(code: str) -> list:
+        try:
+            return [
+                p for p in service.stock_list(query="", location_code=code) if float(p.quantity or 0) > 0
+            ]
+        except Exception:
+            return []
+
+    def _tab_error(detail: str) -> HTMLResponse:
+        user = get_current_user_from_session(db, request)
+        try:
+            recent_transfer_out = service.movement_history(
+                movement_type="transfer_out", start_date=None, end_date=None, limit=50
+            )
+            recent_transfer_in = service.movement_history(
+                movement_type="transfer_in", start_date=None, end_date=None, limit=50
+            )
+        except Exception:
+            recent_transfer_out = []
+            recent_transfer_in = []
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Error al actualizar traspaso",
+                "message_detail": detail,
+                "message_class": "error",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": _safe_product_options(from_code),
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
+                "default_to_location_code": default_to_location_code,
+                "note_value": note or "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+
+    try:
+        out_id = service._transfer_out_id_for_movement_id(movement_id)
+        mv_out = db.get(InventoryMovement, out_id)
+        if mv_out is None or mv_out.type != "transfer_out":
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+        if int(getattr(mv_out, "business_id", 0) or 0) != int(bid):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+    except HTTPException as e:
+        return _tab_error(str(e.detail))
+    except Exception as e:
+        return _tab_error(str(e))
+
     from_code = default_from_location_code
     to_code = default_to_location_code
     try:
@@ -116,15 +173,10 @@ def transfer_update(
         from_code = default_from_location_code
         to_code = default_to_location_code
 
-    try:
-        product_options = [
-            p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
-        ]
-    except Exception:
+    product_options = _safe_product_options(from_code)
+    if not product_options and from_code != default_from_location_code:
         from_code = default_from_location_code
-        product_options = [
-            p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
-        ]
+        product_options = _safe_product_options(from_code)
 
     try:
         result = service.update_transfer_shipment(
@@ -168,46 +220,9 @@ def transfer_update(
             },
         )
     except HTTPException as e:
-        mv = mv_out
-        product = db.get(Product, mv.product_id) if mv else None
-
-        response = templates.TemplateResponse(
-            request=request,
-            name="partials/transfer_edit_form.html",
-            context={
-                "movement": mv,
-                "product_label": f"{product.sku} - {product.name}" if product else "",
-                "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
-                "quantity_value": float(quantity or 0),
-                "note_value": note or "",
-                "message": "Error al actualizar traspaso",
-                "message_detail": str(e.detail),
-                "message_class": "error",
-            },
-        )
-        response.headers["X-Modal-Keep"] = "1"
-        return response
+        return _tab_error(str(e.detail))
     except Exception as e:
-        mv = mv_out
-        product = db.get(Product, mv.product_id) if mv else None
-
-        response = templates.TemplateResponse(
-            request=request,
-            name="partials/transfer_edit_form.html",
-            context={
-                "movement": mv,
-                "product_label": f"{product.sku} - {product.name}" if product else "",
-                "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
-                "quantity_value": float(quantity or 0),
-                "note_value": note or "",
-                "message": "Error al actualizar traspaso",
-                "message_detail": str(e),
-                "message_class": "error",
-            },
-            status_code=200,
-        )
-        response.headers["X-Modal-Keep"] = "1"
-        return response
+        return _tab_error(str(e))
 
 
 @router.post("/movement/transfer/delete-selected", response_class=HTMLResponse)
