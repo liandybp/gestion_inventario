@@ -15,13 +15,37 @@ from app.deps import session_dep
 from app.schemas import TransferCreate, TransferLineCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
 from app.business_config import load_business_config
 from app.models import InventoryMovement, Product
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, parse_dt, templates
 
 router = APIRouter()
+
+
+def _resolve_transfer_sku(db: Session, business_id: int, product_input: str) -> str:
+    value = (product_input or "").strip()
+    if not value:
+        raise HTTPException(status_code=422, detail="product is required")
+
+    extracted = extract_sku(value)
+    for candidate in (extracted, value):
+        cand = (candidate or "").strip()
+        if not cand:
+            continue
+        p = db.scalar(select(Product).where(Product.business_id == int(business_id), Product.sku == cand))
+        if p is not None:
+            return str(p.sku)
+
+    by_name = db.scalar(
+        select(Product)
+        .where(Product.business_id == int(business_id), Product.name.ilike(value))
+        .order_by(Product.id.asc())
+    )
+    if by_name is not None:
+        return str(by_name.sku)
+
+    raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 
 @router.get("/movement/transfer/{movement_id}/edit", response_class=HTMLResponse)
@@ -138,8 +162,7 @@ def transfer_update(
             },
         )
     except HTTPException as e:
-        out_id = service._transfer_out_id_for_movement_id(movement_id)
-        mv = db.get(InventoryMovement, out_id)
+        mv = mv_out
         product = db.get(Product, mv.product_id) if mv else None
 
         response = templates.TemplateResponse(
@@ -155,6 +178,27 @@ def transfer_update(
                 "message_detail": str(e.detail),
                 "message_class": "error",
             },
+        )
+        response.headers["X-Modal-Keep"] = "1"
+        return response
+    except Exception as e:
+        mv = mv_out
+        product = db.get(Product, mv.product_id) if mv else None
+
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/transfer_edit_form.html",
+            context={
+                "movement": mv,
+                "product_label": f"{product.sku} - {product.name}" if product else "",
+                "movement_date_value": dt_to_local_input(mv.movement_date) if mv else "",
+                "quantity_value": float(quantity or 0),
+                "note_value": note or "",
+                "message": "Error al actualizar traspaso",
+                "message_detail": str(e),
+                "message_class": "error",
+            },
+            status_code=200,
         )
         response.headers["X-Modal-Keep"] = "1"
         return response
@@ -551,6 +595,9 @@ def transfer_product_options(
             continue
         label = f"{sku} - {name}" if name else sku
         parts.append(f'<option value="{escape(label)}"></option>')
+        parts.append(f'<option value="{escape(sku)}"></option>')
+        if name:
+            parts.append(f'<option value="{escape(name)}"></option>')
     return HTMLResponse("\n".join(parts))
 
 
@@ -564,17 +611,13 @@ async def get_transfer_stock(
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
-    
+
     try:
-        product = product_service.get_by_sku(sku)
-        if not product:
-            return HTMLResponse("0")
-        
+        resolved_sku = _resolve_transfer_sku(db, business_id=bid, product_input=sku)
         config = load_business_config(get_active_business_code(db, request))
         effective_code = (location_code or "").strip() or str(config.locations.central.code)
-        stock = service.stock_for_location(sku, location_code=effective_code)
-        return HTMLResponse(str(int(stock)))
+        stock = service.stock_for_location(resolved_sku, location_code=effective_code)
+        return HTMLResponse(f"{float(stock or 0):g}")
     except Exception:
         return HTMLResponse("0")
 

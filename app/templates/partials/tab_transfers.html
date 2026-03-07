@@ -201,7 +201,7 @@
             <td class="text-left muted">{{ username or '' }}</td>
             <td class="text-left"><code>{{ sku }}</code></td>
             <td class="text-left">{{ name }}</td>
-            <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
+            <td class="text-right nowrap">{{ "%.4f"|format(qty) }}</td>
             {% set from_code = '-' %}
             {% set to_code = '-' %}
             {% if note and 'Transfer ' in note and '->' in note %}
@@ -270,7 +270,7 @@
             <td class="text-left muted">{{ username or '' }}</td>
             <td class="text-left"><code>{{ sku }}</code></td>
             <td class="text-left">{{ name }}</td>
-            <td class="text-right nowrap">{{ "%.2f"|format(qty) }}</td>
+            <td class="text-right nowrap">{{ "%.4f"|format(qty) }}</td>
             {% set from_code = '-' %}
             {% set to_code = '-' %}
             {% if note and 'Transfer in from ' in note %}
