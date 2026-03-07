@@ -58,6 +58,8 @@ def sale_product_options(
         sku = html.escape(str(getattr(p, "sku", "") or ""))
         name = html.escape(str(getattr(p, "name", "") or ""))
         parts.append(f'<option value="{sku} - {name}"></option>')
+        parts.append(f'<option value="{sku}"></option>')
+        parts.append(f'<option value="{name}"></option>')
     return HTMLResponse("".join(parts))
 
 
@@ -88,6 +90,41 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
     }
 
 
+def _resolve_sale_sku(db: Session, business_id: int, product_input: str) -> str:
+    value = (product_input or "").strip()
+    if not value:
+        raise HTTPException(status_code=422, detail="product is required")
+
+    extracted = extract_sku(value)
+    for candidate in (extracted, value):
+        cand = (candidate or "").strip()
+        if not cand:
+            continue
+        by_sku = db.scalar(
+            select(Product).where(Product.business_id == int(business_id), Product.sku == cand)
+        )
+        if by_sku is not None:
+            return str(by_sku.sku)
+
+    by_name = db.scalar(
+        select(Product)
+        .where(Product.business_id == int(business_id), Product.name.ilike(value))
+        .order_by(Product.id.asc())
+    )
+    if by_name is not None:
+        return str(by_name.sku)
+
+    try:
+        return barcode_to_sku(db, value, business_id=business_id)
+    except HTTPException:
+        pass
+
+    raise HTTPException(
+        status_code=404,
+        detail="Producto no encontrado. Usa SKU, nombre exacto o código de barras válido.",
+    )
+
+
 @router.post("/sale", response_class=HTMLResponse)
 def sale(
     request: Request,
@@ -101,9 +138,7 @@ def sale(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
-    sku = extract_sku(product)
     config = load_business_config(get_active_business_code(db, request))
     pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
@@ -115,6 +150,7 @@ def sale(
         if float(p.quantity or 0) > 0
     ]
     try:
+        sku = _resolve_sale_sku(db, business_id=bid, product_input=product)
         result = service.sale(
             SaleCreate(
                 sku=sku,
@@ -198,7 +234,7 @@ def sale_barcode(
         if float(p.quantity or 0) > 0
     ]
     try:
-        sku = barcode_to_sku(db, barcode)
+        sku = barcode_to_sku(db, barcode, business_id=bid)
         result = service.sale(
             SaleCreate(
                 sku=sku,
