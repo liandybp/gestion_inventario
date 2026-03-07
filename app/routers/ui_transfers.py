@@ -116,9 +116,15 @@ def transfer_update(
         from_code = default_from_location_code
         to_code = default_to_location_code
 
-    product_options = [
-        p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
-    ]
+    try:
+        product_options = [
+            p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
+        ]
+    except Exception:
+        from_code = default_from_location_code
+        product_options = [
+            p for p in service.stock_list(query="", location_code=from_code) if float(p.quantity or 0) > 0
+        ]
 
     try:
         result = service.update_transfer_shipment(
