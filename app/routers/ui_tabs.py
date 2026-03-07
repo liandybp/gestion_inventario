@@ -1775,7 +1775,7 @@ def stock_delete_selected(
     stock_filter: str = Form(""),
     category: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     product_service = ProductService(db, business_id=bid)

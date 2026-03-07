@@ -6,6 +6,7 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 - chore(ui): se elimina del tab de inventario el bloque temporal de traspaso general CENTRAL -> POS.
 - fix(security/ui): normalización de rol (`trim + lower`) para reconocer correctamente `owner` en permisos y acciones de traspasos.
+- fix(inventory/security): `owner` puede eliminar artículos seleccionados en Inventario (igual que `admin`) y se normaliza rol en UI.
 
 ## 0.3.4 (2026-03-07)
 
