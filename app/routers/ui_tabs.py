@@ -338,7 +338,7 @@ def tab_home(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
@@ -445,7 +445,7 @@ def home_charts(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
