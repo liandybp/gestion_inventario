@@ -32,6 +32,22 @@ from .ui_common import (
 router = APIRouter()
 
 
+def _sale_pos_context(db: Session, request: Request, location_code: str = "") -> tuple[list[dict[str, str]], str, str]:
+    config = load_business_config(get_active_business_code(db, request))
+    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
+    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_sale_location_code
+    return pos_locations, default_sale_location_code, selected_location_code
+
+
+def _sale_product_options(service: InventoryService, location_code: str) -> list:
+    return [
+        p
+        for p in service.stock_list(query="", location_code=location_code)
+        if float(p.quantity or 0) > 0
+    ]
+
+
 @router.get("/sale/product-options", response_class=HTMLResponse)
 def sale_product_options(
     request: Request,
@@ -43,15 +59,12 @@ def sale_product_options(
         raise HTTPException(status_code=403, detail="Not authenticated")
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    config = load_business_config(get_active_business_code(db, request))
-    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
-    selected_location_code = (location_code or "").strip() or default_sale_location_code
-
-    items = [
-        p
-        for p in service.stock_list(query="", location_code=selected_location_code)
-        if float(p.quantity or 0) > 0
-    ]
+    _pos_locations, _default_sale_location_code, selected_location_code = _sale_pos_context(
+        db,
+        request,
+        location_code,
+    )
+    items = _sale_product_options(service, location_code=selected_location_code)
 
     parts: list[str] = []
     for p in items:
@@ -139,16 +152,12 @@ def sale(
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
-    config = load_business_config(get_active_business_code(db, request))
-    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
-    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
-    selected_location_code = (location_code or "").strip() or default_sale_location_code
-
-    product_options = [
-        p
-        for p in service.stock_list(query="", location_code=selected_location_code)
-        if float(p.quantity or 0) > 0
-    ]
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
+        db,
+        request,
+        location_code,
+    )
+    product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         sku = _resolve_sale_sku(db, business_id=bid, product_input=product)
         result = service.sale(
@@ -222,17 +231,12 @@ def sale_barcode(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
-    config = load_business_config(get_active_business_code(db, request))
-    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
-    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
-    selected_location_code = (location_code or "").strip() or default_sale_location_code
-
-    product_options = [
-        p
-        for p in service.stock_list(query="", location_code=selected_location_code)
-        if float(p.quantity or 0) > 0
-    ]
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
+        db,
+        request,
+        location_code,
+    )
+    product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         sku = barcode_to_sku(db, barcode, business_id=bid)
         result = service.sale(
@@ -304,6 +308,9 @@ def sale_barcode(
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=400,
@@ -349,7 +356,8 @@ def sale_update(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    product_options = _sale_product_options(service, location_code=selected_location_code)
     sku = extract_sku(product)
     try:
         result = service.update_sale(
@@ -380,8 +388,11 @@ def sale_update(
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
         )
@@ -396,8 +407,11 @@ def sale_update(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
@@ -412,7 +426,8 @@ def sale_delete(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         service.delete_sale_movement(movement_id)
 
@@ -434,8 +449,11 @@ def sale_delete(
                 "message": "Venta eliminada",
                 "message_class": "ok",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
         )
@@ -450,8 +468,11 @@ def sale_delete(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=e.status_code,
@@ -467,8 +488,11 @@ def sale_delete(
                 "message_detail": str(e),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=400,
@@ -483,7 +507,8 @@ def sale_delete_selected(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    product_options = _sale_product_options(service, location_code=selected_location_code)
     user = get_current_user_from_session(db, request)
 
     try:
@@ -498,8 +523,11 @@ def sale_delete_selected(
                     "message": "No se seleccionó ninguna venta",
                     "message_class": "warn",
                     "sales": service.recent_sales(limit=20),
-                    "product_options": product_service.search(query="", limit=200),
+                    "product_options": product_options,
                     "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                    "pos_locations": pos_locations,
+                    "default_sale_location_code": default_sale_location_code,
+                    "sale_location_code": selected_location_code,
                     **_sales_doc_context(db, request),
                 },
                 status_code=200,
@@ -539,8 +567,11 @@ def sale_delete_selected(
                 "message_detail": detail,
                 "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=200,
@@ -555,8 +586,11 @@ def sale_delete_selected(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
-                "product_options": product_service.search(query="", limit=200),
+                "product_options": product_options,
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "pos_locations": pos_locations,
+                "default_sale_location_code": default_sale_location_code,
+                "sale_location_code": selected_location_code,
                 **_sales_doc_context(db, request),
             },
             status_code=200,
