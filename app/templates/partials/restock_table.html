@@ -16,6 +16,7 @@
     hx-get="/ui/restock-table"
     hx-target="#restock"
     hx-swap="innerHTML"
+    hx-include="[name='location_code'], [name='restock_scope']"
     hx-trigger="change, every 5s"
   >
     <input type="hidden" name="location_code" value="{{ selected_location_code or '' }}" />
