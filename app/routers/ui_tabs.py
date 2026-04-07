@@ -281,6 +281,46 @@ def _location_name_for_code(location_code: str, business_code: Optional[str] = N
     return code or "General"
 
 
+def _normalize_restock_scope(restock_scope: str) -> str:
+    return "all" if (restock_scope or "").strip().lower() == "all" else "with_history"
+
+
+def _restock_items_with_location_history(
+    db: Session,
+    items: list,
+    *,
+    business_id: int,
+    location_id: Optional[int],
+) -> list:
+    if location_id is None or not items:
+        return items
+
+    skus = [str(getattr(i, "sku", "") or "").strip() for i in items]
+    skus = [sku for sku in skus if sku]
+    if not skus:
+        return items
+
+    history_skus = {
+        str(sku).strip()
+        for sku in db.scalars(
+            select(Product.sku)
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(
+                InventoryMovement.business_id == int(business_id),
+                InventoryMovement.location_id == int(location_id),
+                Product.sku.in_(skus),
+            )
+            .distinct()
+        ).all()
+        if str(sku or "").strip()
+    }
+    if not history_skus:
+        return []
+
+    return [i for i in items if str(getattr(i, "sku", "") or "").strip() in history_skus]
+
+
 @router.get("/", response_class=HTMLResponse)
 def ui_root() -> RedirectResponse:
     return RedirectResponse(url="/ui/dashboard", status_code=302)
@@ -1987,17 +2027,36 @@ def ui_supplier_return_lots(
 
 
 @router.get("/restock-table", response_class=HTMLResponse)
-def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
+def restock_table(
+    request: Request,
+    db: Session = Depends(session_dep),
+    location_code: str = "",
+    restock_scope: str = "with_history",
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+    selected_scope = _normalize_restock_scope(restock_scope)
     items = [
         i
         for i in inventory_service.stock_list(location_code=selected_location_code or None)
         if i.needs_restock
     ]
+    if selected_scope == "with_history":
+        items = _restock_items_with_location_history(
+            db,
+            items,
+            business_id=bid,
+            location_id=selected_location_id,
+        )
     items.sort(key=lambda r: float(getattr(r, "reorder_shortage", 0) or 0), reverse=True)
     return templates.TemplateResponse(
         request=request,
@@ -2006,22 +2065,42 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
             "items": items,
             "selected_location_code": selected_location_code,
             "selected_location_name": _location_name_for_code(selected_location_code, business_code),
+            "restock_scope": selected_scope,
         },
     )
 
 
 @router.get("/restock-print", response_class=HTMLResponse)
-def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
+def restock_print(
+    request: Request,
+    db: Session = Depends(session_dep),
+    location_code: str = "",
+    restock_scope: str = "with_history",
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+    selected_scope = _normalize_restock_scope(restock_scope)
     items = [
         i
         for i in inventory_service.stock_list(location_code=selected_location_code or None)
         if i.needs_restock
     ]
+    if selected_scope == "with_history":
+        items = _restock_items_with_location_history(
+            db,
+            items,
+            business_id=bid,
+            location_id=selected_location_id,
+        )
     return templates.TemplateResponse(
         request=request,
         name="restock_print.html",
