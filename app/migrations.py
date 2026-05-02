@@ -72,6 +72,11 @@ def run_startup_tasks() -> None:
     with engine.begin() as conn:
         _ensure_schema_version_table(conn)
         _set_schema_version(conn, _LATEST_SCHEMA_VERSION)
+    
+    # Sincronizar ubicaciones desde config SIEMPRE (en cada startup)
+    # Esto asegura que nuevos POS agregados en business_config.*.conf
+    # se creen automáticamente en la BD al deployar
+    _sync_all_locations_from_config()
 
 
 def _run_sqlite_schema_migrations() -> int:
@@ -377,6 +382,65 @@ def _run_postgresql_schema_migrations() -> int:
         return schema_version
 
 
+def _sync_all_locations_from_config() -> None:
+    """
+    Sincroniza ubicaciones para TODOS los negocios desde business_config.*.conf.
+    Se ejecuta en CADA startup de la app.
+    Asegura que nuevos POS agregados en config se creen automáticamente en BD.
+    """
+    db = get_session()
+    try:
+        business_codes = ["recambios", "ropa"]  # Negocios conocidos
+        
+        for bcode in business_codes:
+            business = db.scalar(select(Business).where(Business.code == bcode))
+            if business is None:
+                continue  # Si el negocio no existe, skip
+            
+            _sync_locations_from_config(db, business)
+    except Exception as e:
+        print(f"⚠️  Advertencia al sincronizar ubicaciones: {e}")
+        # No fallar el startup por esto
+    finally:
+        db.close()
+
+
+def _sync_locations_from_config(db: "Session", business: Business) -> None:
+    """
+    Sincroniza ubicaciones (CENTRAL + POS) desde business_config.*.conf a la BD.
+    Se ejecuta siempre, no solo en seed inicial.
+    Crea/actualiza ubicaciones según lo definido en config.
+    """
+    config = load_business_config(business.code)
+    central = config.locations.central
+    pos_list = list(config.locations.pos or [])
+    
+    def ensure_location(code: str, name: str) -> Location:
+        c = (code or "").strip()
+        n = (name or "").strip() or c
+        existing_loc = db.scalar(select(Location).where(
+            and_(Location.code == c, Location.business_id == business.id)
+        ))
+        if existing_loc is None:
+            existing_loc = Location(code=c, name=n, business_id=int(business.id))
+            db.add(existing_loc)
+            db.flush()
+        else:
+            existing_loc.name = n
+            if existing_loc.business_id is None:
+                existing_loc.business_id = int(business.id)
+        return existing_loc
+    
+    # Sincronizar CENTRAL
+    ensure_location(central.code, central.name)
+    
+    # Sincronizar POS list
+    for p in pos_list:
+        ensure_location(p.code, p.name)
+    
+    db.commit()
+
+
 def _run_seed_and_backfill() -> None:
     db = get_session()
     try:
@@ -434,37 +498,27 @@ def _run_seed_and_backfill() -> None:
                     existing.business_id = int(default_business.id)
         db.commit()
 
+        # Sincronizar ubicaciones desde config
+        _sync_locations_from_config(db, default_business)
+        
+        # Obtener referencias a ubicaciones para el resto del seed
         central = config.locations.central
         pos_list = list(config.locations.pos or [])
         default_pos_code = str(config.locations.default_pos or "POS1").strip() or "POS1"
-
-        def ensure_location(code: str, name: str) -> Location:
-            c = (code or "").strip()
-            n = (name or "").strip() or c
-            existing_loc = db.scalar(select(Location).where(Location.code == c))
-            if existing_loc is None:
-                existing_loc = Location(code=c, name=n, business_id=int(default_business.id))
-                db.add(existing_loc)
-                db.flush()
-            else:
-                existing_loc.name = n
-                if existing_loc.business_id is None:
-                    existing_loc.business_id = int(default_business.id)
-            return existing_loc
-
-        central_loc = ensure_location(central.code, central.name)
-        pos_locs: dict[str, Location] = {}
-        for p in pos_list:
-            pos_locs[p.code] = ensure_location(p.code, p.name)
-        if default_pos_code not in pos_locs:
-            first = pos_list[0] if pos_list else None
-            if first is not None:
-                default_pos_code = first.code
-
-        default_pos_loc = pos_locs.get(default_pos_code)
+        
+        central_loc = db.scalar(select(Location).where(
+            and_(Location.code == central.code, Location.business_id == default_business.id)
+        ))
+        if central_loc is None:
+            central_loc = Location(code=central.code, name=central.name, business_id=int(default_business.id))
+            db.add(central_loc)
+            db.flush()
+        
+        default_pos_loc = db.scalar(select(Location).where(
+            and_(Location.code == default_pos_code, Location.business_id == default_business.id)
+        ))
         if default_pos_loc is None:
-            default_pos_loc = ensure_location(default_pos_code, default_pos_code)
-            pos_locs[default_pos_code] = default_pos_loc
+            default_pos_loc = central_loc
 
         db.query(Product).filter(Product.business_id.is_(None)).update(
             {Product.business_id: int(default_business.id)}, synchronize_session=False
