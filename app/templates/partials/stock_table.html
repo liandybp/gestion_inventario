@@ -2,7 +2,8 @@
 {{ flash(message, message_class or '', message_detail) }}
 
 <div class="table-wrapper">
-{% set can_bulk_delete = user and (user.role or '')|lower == 'admin' %}
+{% set _role = ((user.role or '')|trim|lower) if user else '' %}
+{% set can_bulk_delete = user and (_role == 'admin' or _role == 'owner') %}
 
 {% if can_bulk_delete %}
   <form hx-post="/ui/stock/delete-selected"

@@ -80,5 +80,5 @@
 {% endcall %}
 
 <div class="card mt-16" id="restock"
-     hx-get="/ui/restock-table?location_code={{ selected_location_code or '' }}" hx-trigger="load, every 5s" hx-swap="innerHTML">
+     hx-get="/ui/restock-table?location_code={{ selected_location_code or '' }}" hx-trigger="load" hx-swap="innerHTML">
 </div>

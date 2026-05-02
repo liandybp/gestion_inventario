@@ -198,10 +198,12 @@ class InventoryService:
         remaining = quantity
         lots = self._inventory.fifo_lots_for_product_id(product_id, location_id=location_id)
         for lot in lots:
-            if remaining <= 0:
+            if remaining <= 1e-9:
                 break
 
             take = min(float(lot.qty_remaining), remaining)
+            if take <= 1e-9:
+                continue
             lot.qty_remaining = float(lot.qty_remaining) - take
             allocation = MovementAllocation(
                 movement_id=movement_id,
@@ -212,7 +214,7 @@ class InventoryService:
             self._inventory.add_allocation(allocation)
             remaining -= take
 
-        if remaining > 0:
+        if remaining > 1e-9:
             raise HTTPException(status_code=409, detail="Stock insuficiente")
 
     def _rebuild_product_fifo(self, product: Product, lot_code_overrides: Optional[dict[int, str]] = None) -> None:
@@ -955,6 +957,8 @@ class InventoryService:
         in_ids: list[int] = []
         for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
             qty_val = float(a_qty or 0)
+            if qty_val <= 1e-9:
+                continue
             cost_val = float(a_unit_cost or 0)
             recv_dt = src_received_at
             if recv_dt is None:
@@ -1176,6 +1180,8 @@ class InventoryService:
             )
 
             for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
+                if float(a_qty or 0) <= 1e-9:
+                    continue
                 src_recv_dt = src_received_at
                 if src_recv_dt is None:
                     src_recv_dt = mv_dt
@@ -2574,6 +2580,8 @@ class InventoryService:
 
                 in_ids: list[int] = []
                 for a_qty, a_unit_cost, src_lot_code, src_received_at in alloc_rows:
+                    if float(a_qty or 0) <= 1e-9:
+                        continue
                     src_recv_dt = src_received_at
                     if src_recv_dt is None:
                         src_recv_dt = movement_dt
@@ -3048,7 +3056,7 @@ class InventoryService:
         location_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100,
+        limit: Optional[int] = 100,
     ) -> list[tuple]:
         return self._inventory.movement_history(
             sku=sku,

@@ -31,7 +31,7 @@ from app.security import (
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
-from app.schemas import SupplierReturnLotCreate
+from app.schemas import SupplierReturnLotCreate, TransferCreate, TransferLineCreate
 
 from .ui_common import (
     dt_to_local_input,
@@ -281,6 +281,46 @@ def _location_name_for_code(location_code: str, business_code: Optional[str] = N
     return code or "General"
 
 
+def _normalize_restock_scope(restock_scope: str) -> str:
+    return "all" if (restock_scope or "").strip().lower() == "all" else "with_history"
+
+
+def _restock_items_with_location_history(
+    db: Session,
+    items: list,
+    *,
+    business_id: int,
+    location_id: Optional[int],
+) -> list:
+    if location_id is None or not items:
+        return items
+
+    skus = [str(getattr(i, "sku", "") or "").strip() for i in items]
+    skus = [sku for sku in skus if sku]
+    if not skus:
+        return items
+
+    history_skus = {
+        str(sku).strip()
+        for sku in db.scalars(
+            select(Product.sku)
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(
+                InventoryMovement.business_id == int(business_id),
+                InventoryMovement.location_id == int(location_id),
+                Product.sku.in_(skus),
+            )
+            .distinct()
+        ).all()
+        if str(sku or "").strip()
+    }
+    if not history_skus:
+        return []
+
+    return [i for i in items if str(getattr(i, "sku", "") or "").strip() in history_skus]
+
+
 @router.get("/", response_class=HTMLResponse)
 def ui_root() -> RedirectResponse:
     return RedirectResponse(url="/ui/dashboard", status_code=302)
@@ -310,7 +350,7 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
     q = (query or "").strip()
@@ -486,13 +526,14 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
-    print(f"[DEBUG] tab_inventory - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, user.business_id: {user.business_id if user else 'None'}, active bid: {bid}")
     business_code = get_active_business_code(db, request)
     config = load_business_config(business_code)
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
+    pos_locations: list[dict[str, str]] = []
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
             locations.append({"code": loc.code, "name": loc.name})
+            pos_locations.append({"code": str(loc.code), "name": str(loc.name)})
     
     product_options = []
     try:
@@ -512,17 +553,19 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
     except Exception:
         categories = []
-    
-    return templates.TemplateResponse(
+
+    response = templates.TemplateResponse(
         request=request,
         name="partials/tab_inventory.html",
         context={
             "locations": locations,
+            "pos_locations": pos_locations,
             "default_location_code": "",
             "product_options": product_options,
             "categories": categories,
         },
     )
+    return response
 
 
 @router.get("/tabs/purchases", response_class=HTMLResponse)
@@ -997,6 +1040,8 @@ def tab_transfers(
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
 
+    history_limit = None if (start_date or end_date) else 50
+
     message = None
     message_detail = None
     message_class = None
@@ -1009,7 +1054,7 @@ def tab_transfers(
             location_id=history_from_id,
             start_date=start_dt,
             end_date=end_dt,
-            limit=50,
+            limit=history_limit,
         )
         recent_transfer_in = inventory_service.movement_history(
             movement_type="transfer_in",
@@ -1017,7 +1062,7 @@ def tab_transfers(
             location_id=history_to_id,
             start_date=start_dt,
             end_date=end_dt,
-            limit=50,
+            limit=history_limit,
         )
     except Exception as e:
         recent_transfer_out = []
@@ -1770,7 +1815,7 @@ def stock_delete_selected(
     stock_filter: str = Form(""),
     category: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     product_service = ProductService(db, business_id=bid)
@@ -1858,9 +1903,13 @@ def ui_supplier_return(
     config = load_business_config(get_active_business_code(db, request))
 
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
+    pos_locations: list[dict[str, str]] = []
     for loc in (config.locations.pos or []):
         if getattr(loc, "code", None):
-            locations.append({"code": loc.code, "name": loc.name})
+            code = str(loc.code)
+            name = str(loc.name)
+            locations.append({"code": code, "name": name})
+            pos_locations.append({"code": code, "name": name})
 
     selected_location_code = (location_code or "").strip() or config.locations.central.code
 
@@ -1875,6 +1924,18 @@ def ui_supplier_return(
         product_options = ProductService(db, business_id=bid).search(query="", limit=200)
     except Exception:
         product_options = []
+
+    categories: list[str] = []
+    try:
+        rows = db.execute(
+            select(Product.category)
+            .where(Product.business_id == int(bid))
+            .distinct()
+            .order_by(Product.category.asc())
+        ).all()
+        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+    except Exception:
+        categories = []
 
     try:
         if int(lot_id or 0) <= 0:
@@ -1913,9 +1974,11 @@ def ui_supplier_return(
         name="partials/tab_inventory.html",
         context={
             "locations": locations,
+            "pos_locations": pos_locations,
             "default_location_code": config.locations.central.code,
             "selected_location_code": selected_location_code,
             "product_options": product_options,
+            "categories": categories,
             "message": message,
             "message_detail": message_detail,
             "message_class": message_class,
@@ -1964,17 +2027,36 @@ def ui_supplier_return_lots(
 
 
 @router.get("/restock-table", response_class=HTMLResponse)
-def restock_table(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
+def restock_table(
+    request: Request,
+    db: Session = Depends(session_dep),
+    location_code: str = "",
+    restock_scope: str = "with_history",
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+    selected_scope = _normalize_restock_scope(restock_scope)
     items = [
         i
         for i in inventory_service.stock_list(location_code=selected_location_code or None)
         if i.needs_restock
     ]
+    if selected_scope == "with_history":
+        items = _restock_items_with_location_history(
+            db,
+            items,
+            business_id=bid,
+            location_id=selected_location_id,
+        )
     items.sort(key=lambda r: float(getattr(r, "reorder_shortage", 0) or 0), reverse=True)
     return templates.TemplateResponse(
         request=request,
@@ -1983,22 +2065,42 @@ def restock_table(request: Request, db: Session = Depends(session_dep), location
             "items": items,
             "selected_location_code": selected_location_code,
             "selected_location_name": _location_name_for_code(selected_location_code, business_code),
+            "restock_scope": selected_scope,
         },
     )
 
 
 @router.get("/restock-print", response_class=HTMLResponse)
-def restock_print(request: Request, db: Session = Depends(session_dep), location_code: str = "") -> HTMLResponse:
+def restock_print(
+    request: Request,
+    db: Session = Depends(session_dep),
+    location_code: str = "",
+    restock_scope: str = "with_history",
+) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     business_code = get_active_business_code(db, request)
     bid = require_active_business_id(db, request)
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
+    selected_location_id = _location_id_for_code(
+        db,
+        selected_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+    selected_scope = _normalize_restock_scope(restock_scope)
     items = [
         i
         for i in inventory_service.stock_list(location_code=selected_location_code or None)
         if i.needs_restock
     ]
+    if selected_scope == "with_history":
+        items = _restock_items_with_location_history(
+            db,
+            items,
+            business_id=bid,
+            location_id=selected_location_id,
+        )
     return templates.TemplateResponse(
         request=request,
         name="restock_print.html",

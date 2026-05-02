@@ -19,6 +19,7 @@ from app.invoice_parsers import parse_autodoc_pdf
 from sqlalchemy import select
 
 from .ui_common import (
+    barcode_to_sku,
     ensure_admin_or_owner,
     extract_sku,
     parse_optional_float,
@@ -592,10 +593,32 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
 def product_defaults_sale(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
     business_id = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=business_id)
-    sku = extract_sku(product)
-    if not sku:
+    value = (product or "").strip()
+    if not value:
         return HTMLResponse("")
-    p = product_service.get_by_sku(sku)
+
+    sku = extract_sku(value)
+    p: Optional[Product] = None
+
+    if sku:
+        try:
+            p = product_service.get_by_sku(sku)
+        except HTTPException:
+            p = None
+
+    if p is None:
+        p = db.scalar(
+            select(Product)
+            .where(Product.business_id == int(business_id), Product.name.ilike(value))
+            .order_by(Product.id.asc())
+        )
+
+    if p is None:
+        try:
+            p = product_service.get_by_sku(barcode_to_sku(db, value, business_id=business_id))
+        except HTTPException:
+            return HTMLResponse("")
+
     uom = p.unit_of_measure or ""
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     label = f"Cantidad ({uom})" if uom else "Cantidad"

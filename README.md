@@ -119,6 +119,15 @@ En el arranque, la app asegura usuarios por variables de entorno:
 
 Este proyecto usa tags tipo `vMAJOR.MINOR.PATCH` (ej: `v0.1.0`) y un archivo `VERSION`.
 
+### Subir versión usando un path
+
+Si estás fuera de la carpeta del repo, usa una variable con la ruta del proyecto:
+
+```bash
+REPO_PATH="/Users/usuario/PycharmProjects/pythonProject/excel_python_inventario"
+cd "$REPO_PATH"
+```
+
 ## Changelog
 
 - Ver `CHANGELOG.md`.
@@ -127,12 +136,14 @@ Este proyecto usa tags tipo `vMAJOR.MINOR.PATCH` (ej: `v0.1.0`) y un archivo `VE
 1) Instala dependencias de desarrollo:
 
 ```bash
+cd "$REPO_PATH"  # opcional si ya estás dentro
 pip install -r requirements-dev.txt
 ```
 
 2) Incrementa versión (esto crea **commit** y **tag** automáticamente):
 
 ```bash
+cd "$REPO_PATH"  # opcional si ya estás dentro
 bump2version patch  # 0.1.0 -> 0.1.1
 bump2version minor  # 0.1.0 -> 0.2.0
 bump2version major  # 0.1.0 -> 1.0.0
@@ -141,6 +152,7 @@ bump2version major  # 0.1.0 -> 1.0.0
 3) Sube commits y tags a GitHub:
 
 ```bash
+cd "$REPO_PATH"  # opcional si ya estás dentro
 git push origin main
 git push origin --tags
 ```
