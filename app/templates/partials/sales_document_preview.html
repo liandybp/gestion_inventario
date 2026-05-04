@@ -1,4 +1,5 @@
 <div class="card mt-12">
+  {% set total_prefix = (currency_symbol ~ ' ') if currency_symbol == 'USD' else currency_symbol %}
   <div class="flex justify-between gap-12 items-center flex-wrap">
     <h4 class="m-0">Vista previa</h4>
     <button type="button" class="btn-secondary" data-clear-target="#sales-doc-preview">Cerrar</button>
@@ -13,7 +14,7 @@
     </div>
     <div class="text-right">
       <div><strong>Subtotal:</strong> {{ '%.2f'|format(subtotal) }}</div>
-      <div><strong>Total:</strong> {{ currency_symbol }}{{ '%.2f'|format(total) }}</div>
+      <div><strong>Total:</strong> {{ total_prefix }}{{ '%.2f'|format(total) }}</div>
       <div class="muted">(Precios sin IVA)</div>
     </div>
   </div>

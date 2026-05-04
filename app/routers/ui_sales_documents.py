@@ -21,9 +21,9 @@ from .ui_common import extract_sku, templates
 router = APIRouter()
 
 CURRENCY_OPTIONS: tuple[dict[str, str], ...] = (
-    {"code": "USD", "symbol": "US$", "label": "Dolar (US$)"},
+    {"code": "USD", "symbol": "USD", "label": "USD"},
     {"code": "EUR", "symbol": "€", "label": "Euro (€)"},
-    {"code": "GEN", "symbol": "$", "label": "Simbolo ($)"},
+    {"code": "GEN", "symbol": "MN$", "label": "Moneda nacional (MN$)"},
 )
 
 

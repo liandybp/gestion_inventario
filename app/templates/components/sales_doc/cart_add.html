@@ -17,9 +17,9 @@
     <div class="row">
       <label>Moneda</label>
       <select id="sales-doc-currency-code" name="currency_code" onchange="document.getElementById('sales-doc-currency-hidden').value=this.value">
-        <option value="USD" {% if selected_currency_code == 'USD' %}selected{% endif %}>Dolar (US$)</option>
+        <option value="USD" {% if selected_currency_code == 'USD' %}selected{% endif %}>USD</option>
         <option value="EUR" {% if selected_currency_code == 'EUR' %}selected{% endif %}>Euro (€)</option>
-        <option value="GEN" {% if selected_currency_code == 'GEN' %}selected{% endif %}>Simbolo ($)</option>
+        <option value="GEN" {% if selected_currency_code == 'GEN' %}selected{% endif %}>Moneda nacional (MN$)</option>
       </select>
     </div>
     <button type="submit" formnovalidate>Agregar</button>
