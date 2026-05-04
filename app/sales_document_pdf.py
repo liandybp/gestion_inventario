@@ -104,14 +104,14 @@ def build_sales_document_pdf(
 
         pdf.set_xy(x + col_desc, y)
         pdf.cell(col_qty, h, _safe_pdf_text(f"{qty:.2f}"), border=1, align="R")
-        pdf.cell(col_unit, h, _safe_pdf_text(f"{currency_symbol}{unit_price:.2f}"), border=1, align="R")
-        pdf.cell(col_total, h, _safe_pdf_text(f"{currency_symbol}{line_total:.2f}"), border=1, align="R")
+        pdf.cell(col_unit, h, _safe_pdf_text(f"{unit_price:.2f}"), border=1, align="R")
+        pdf.cell(col_total, h, _safe_pdf_text(f"{line_total:.2f}"), border=1, align="R")
         pdf.ln(h)
 
     pdf.ln(2)
 
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, _safe_pdf_text(f"Subtotal: {currency_symbol}{subtotal:.2f}"), ln=1, align="R")
+    pdf.cell(0, 6, _safe_pdf_text(f"Subtotal: {subtotal:.2f}"), ln=1, align="R")
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 7, _safe_pdf_text(f"Total: {currency_symbol}{total:.2f}"), ln=1, align="R")
 

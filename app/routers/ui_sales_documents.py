@@ -20,6 +20,31 @@ from .ui_common import extract_sku, templates
 
 router = APIRouter()
 
+CURRENCY_OPTIONS: tuple[dict[str, str], ...] = (
+    {"code": "USD", "symbol": "US$", "label": "Dolar (US$)"},
+    {"code": "EUR", "symbol": "€", "label": "Euro (€)"},
+    {"code": "GEN", "symbol": "$", "label": "Simbolo ($)"},
+)
+
+
+def _currency_options(config) -> list[dict[str, str]]:
+    options = [dict(opt) for opt in CURRENCY_OPTIONS]
+    default_code = str(getattr(config.currency, "code", "") or "").strip().upper()
+    default_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "$"
+    if default_code and not any(opt["code"] == default_code for opt in options):
+        options.insert(0, {"code": default_code, "symbol": default_symbol, "label": f"{default_code} ({default_symbol})"})
+    return options
+
+
+def _resolve_currency(config, currency_code: Optional[str]) -> tuple[str, str]:
+    code = (currency_code or "").strip().upper()
+    for option in _currency_options(config):
+        if option["code"] == code:
+            return option["code"], option["symbol"]
+    default_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
+    default_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "$"
+    return default_code, default_symbol
+
 
 def _upsert_customer(db: Session, *, client_id: str, name: str, address: Optional[str], business_id: int) -> Customer:
     stmt = select(Customer).where(Customer.client_id == client_id, Customer.business_id == int(business_id))
@@ -91,6 +116,8 @@ def _get_draft(request: Request) -> dict:
     return {
         "doc_type": str(draft.get("doc_type") or "").strip() or None,
         "location_code": str(draft.get("location_code") or "").strip() or None,
+        "currency_code": str(draft.get("currency_code") or "").strip().upper() or None,
+        "currency_symbol": str(draft.get("currency_symbol") or "").strip() or None,
         "client_name": str(draft.get("client_name") or "").strip() or None,
         "client_id": str(draft.get("client_id") or "").strip() or None,
         "client_address": str(draft.get("client_address") or "").strip() or None,
@@ -103,6 +130,8 @@ def _set_draft(
     *,
     doc_type: Optional[str] = None,
     location_code: Optional[str] = None,
+    currency_code: Optional[str] = None,
+    currency_symbol: Optional[str] = None,
     client_name: Optional[str] = None,
     client_id: Optional[str] = None,
     client_address: Optional[str] = None,
@@ -112,6 +141,8 @@ def _set_draft(
         request.session["sales_doc_draft"] = {
             "doc_type": (doc_type or "").strip() or None,
             "location_code": (location_code or "").strip() or None,
+            "currency_code": (currency_code or "").strip().upper() or None,
+            "currency_symbol": (currency_symbol or "").strip() or None,
             "client_name": (client_name or "").strip() or None,
             "client_id": (client_id or "").strip() or None,
             "client_address": (client_address or "").strip() or None,
@@ -196,6 +227,7 @@ def sales_doc_preview(
     client_id: str = Form(""),
     client_address: str = Form(""),
     notes: str = Form(""),
+    currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
@@ -208,6 +240,7 @@ def sales_doc_preview(
 
     default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
 
     client_name = (client_name or "").strip()
     client_id = (client_id or "").strip()
@@ -221,6 +254,8 @@ def sales_doc_preview(
         request,
         doc_type=doc_type_norm,
         location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -249,7 +284,8 @@ def sales_doc_preview(
             "items": items,
             "subtotal": subtotal,
             "total": total,
-            "currency_symbol": config.currency.symbol,
+            "currency_code": selected_currency_code,
+            "currency_symbol": selected_currency_symbol,
         },
     )
 
@@ -426,8 +462,8 @@ async def sales_doc_update(
     doc.client_id = client_id
     doc.client_address = client_address
     doc.notes = notes
-    doc.currency_code = config.currency.code
-    doc.currency_symbol = config.currency.symbol
+    doc.currency_code = (doc.currency_code or config.currency.code)
+    doc.currency_symbol = (doc.currency_symbol or config.currency.symbol)
     doc.subtotal = subtotal
     doc.total = subtotal
 
@@ -540,6 +576,7 @@ def sales_doc_cart_add(
     client_id: str = Form(""),
     client_address: str = Form(""),
     notes: str = Form(""),
+    currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -554,10 +591,13 @@ def sales_doc_cart_add(
 
         default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
         selected_location_code = (location_code or "").strip() or default_doc_location_code
+        selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
         _set_draft(
             request,
             doc_type=doc_type_norm,
             location_code=selected_location_code,
+            currency_code=selected_currency_code,
+            currency_symbol=selected_currency_symbol,
             client_name=client_name,
             client_id=client_id,
             client_address=client_address,
@@ -697,6 +737,7 @@ def sales_doc_cart_remove(
     client_id: str = Form(""),
     client_address: str = Form(""),
     notes: str = Form(""),
+    currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -708,10 +749,13 @@ def sales_doc_cart_remove(
 
     default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
     _set_draft(
         request,
         doc_type=doc_type_norm,
         location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -758,6 +802,7 @@ def sales_doc_cart_clear(
     client_id: str = Form(""),
     client_address: str = Form(""),
     notes: str = Form(""),
+    currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -769,10 +814,13 @@ def sales_doc_cart_clear(
 
     default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
     _set_draft(
         request,
         doc_type=doc_type_norm,
         location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
@@ -815,6 +863,7 @@ def sales_doc_issue(
     client_id: str = Form(""),
     client_address: str = Form(""),
     notes: str = Form(""),
+    currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
@@ -827,6 +876,7 @@ def sales_doc_issue(
 
     default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
 
     client_name = (client_name or "").strip()
     client_id = (client_id or "").strip()
@@ -900,8 +950,8 @@ def sales_doc_issue(
         client_name=client_name,
         client_id=client_id,
         client_address=client_address,
-        currency_code=config.currency.code,
-        currency_symbol=config.currency.symbol,
+        currency_symbol=selected_currency_symbol,
+        currency_code=selected_currency_code,
         notes=notes,
         subtotal=subtotal,
         total=subtotal,
