@@ -1,7 +1,8 @@
 {% from 'components/ui.html' import subcard %}
 
 {% call subcard('Agregar al carrito', extra_class='h-full') %}
-  <form hx-post="/ui/sales-doc/cart/add" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false">
+  {% set selected_currency_code = (draft.currency_code or currency.code or 'EUR') %}
+  <form id="sales-doc-cart-add-form" hx-post="/ui/sales-doc/cart/add" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false">
     <div class="row">
       <label>Producto</label>
       <input name="product" list="product-options" placeholder="SKU - Nombre (o texto libre)" required
@@ -13,6 +14,14 @@
     </div>
     <div class="row"><label>Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
     <div class="row"><label>Precio unitario</label><input id="sales-doc-unit-price" name="unit_price" type="number" step="0.0001" min="0" value="0" /></div>
+    <div class="row">
+      <label>Moneda</label>
+      <select id="sales-doc-currency-code" name="currency_code" onchange="document.getElementById('sales-doc-currency-hidden').value=this.value">
+        <option value="USD" {% if selected_currency_code == 'USD' %}selected{% endif %}>Dolar (US$)</option>
+        <option value="EUR" {% if selected_currency_code == 'EUR' %}selected{% endif %}>Euro (€)</option>
+        <option value="GEN" {% if selected_currency_code == 'GEN' %}selected{% endif %}>Simbolo ($)</option>
+      </select>
+    </div>
     <button type="submit" formnovalidate>Agregar</button>
   </form>
 

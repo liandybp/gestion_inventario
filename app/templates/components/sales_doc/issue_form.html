@@ -5,6 +5,7 @@
   {% set selected_location_code = (draft.location_code or default_doc_location_code or 'POS1') %}
   {% set selected_currency_code = (draft.currency_code or currency.code or 'EUR') %}
   <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <input id="sales-doc-currency-hidden" type="hidden" name="currency_code" value="{{ selected_currency_code }}" />
     <div class="row">
       <label>Tipo</label>
       <select name="doc_type">
@@ -18,14 +19,6 @@
         {% for loc in pos_locations %}
           <option value="{{ loc['code'] }}" {% if selected_location_code == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
         {% endfor %}
-      </select>
-    </div>
-    <div class="row">
-      <label>Moneda</label>
-      <select name="currency_code">
-        <option value="USD" {% if selected_currency_code == 'USD' %}selected{% endif %}>Dólar (US$)</option>
-        <option value="EUR" {% if selected_currency_code == 'EUR' %}selected{% endif %}>Euro (€)</option>
-        <option value="GEN" {% if selected_currency_code == 'GEN' %}selected{% endif %}>Símbolo ($)</option>
       </select>
     </div>
     <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"

@@ -33,11 +33,20 @@
         {% set ns.subtotal = ns.subtotal + line_total %}
         <tr>
           <td>{{ loop.index }}</td>
-          <td>{{ it.description }}</td>
-          <td class="text-right">{{ '%.2f'|format(qty) }}</td>
-          <td class="text-right">{{ '%.2f'|format(price) }}</td>
+          <td><input id="sales-doc-desc-{{ loop.index0 }}" name="description" value="{{ it.description }}" /></td>
+          <td class="text-right"><input id="sales-doc-qty-{{ loop.index0 }}" name="quantity" type="number" step="0.0001" min="0" value="{{ '%.4f'|format(qty) }}" /></td>
+          <td class="text-right"><input id="sales-doc-price-{{ loop.index0 }}" name="unit_price" type="number" step="0.0001" min="0" value="{{ '%.4f'|format(price) }}" /></td>
           <td class="text-right">{{ '%.2f'|format(line_total) }}</td>
           <td class="text-right">
+            <form hx-post="/ui/sales-doc/cart/update"
+                  hx-target="#sales-doc-panel"
+                  hx-swap="outerHTML"
+                  hx-include="#sales-doc-issue-form, #sales-doc-desc-{{ loop.index0 }}, #sales-doc-qty-{{ loop.index0 }}, #sales-doc-price-{{ loop.index0 }}"
+                  hx-validate="false"
+                  class="d-inline">
+              <input type="hidden" name="index" value="{{ loop.index0 }}" />
+              <button type="submit" formnovalidate class="btn-secondary">Actualizar</button>
+            </form>
             <form hx-post="/ui/sales-doc/cart/remove" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="d-inline">
               <input type="hidden" name="index" value="{{ loop.index0 }}" />
               <button type="submit" formnovalidate class="btn-danger">Quitar</button>

@@ -615,7 +615,7 @@ def sales_doc_cart_add(
                 p = None
             if p is not None:
                 if not desc:
-                    desc = f"{p.sku} - {p.name}".strip(" -")
+                    desc = (p.name or "").strip() or (p.sku or "").strip()
                 uom = p.unit_of_measure
             elif not desc:
                 desc = product.strip()
@@ -725,6 +725,88 @@ def sales_doc_cart_add(
                 "message_class": "error",
             },
         )
+
+
+@router.post("/sales-doc/cart/update", response_class=HTMLResponse)
+def sales_doc_cart_update(
+    request: Request,
+    index: int = Form(...),
+    description: str = Form(""),
+    quantity: str = Form(""),
+    unit_price: str = Form(""),
+    doc_type: str = Form(""),
+    location_code: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    currency_code: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    bid = require_active_business_id(db, request)
+    config = load_business_config(get_active_business_code(db, request))
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+    )
+
+    cart = _get_cart(request)
+    if 0 <= index < len(cart):
+        item = dict(cart[index])
+        desc = (description or "").strip() or "(sin descripción)"
+        try:
+            qty = float(quantity) if str(quantity).strip() else 0.0
+        except Exception:
+            qty = 0.0
+        try:
+            price = float(unit_price) if str(unit_price).strip() else 0.0
+        except Exception:
+            price = 0.0
+        if qty > 0:
+            item["description"] = desc
+            item["quantity"] = float(qty)
+            item["unit_price"] = float(price)
+            cart[index] = item
+            _set_cart(request, cart)
+
+    customers = _customers_list(db, business_id=bid, limit=200)
+    draft = _get_draft(request)
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/sales_document_panel.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
+            "cart": cart,
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+            "customers": customers,
+            "draft": draft,
+        },
+    )
 
 
 @router.post("/sales-doc/cart/remove", response_class=HTMLResponse)
