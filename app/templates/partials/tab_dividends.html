@@ -1,7 +1,9 @@
 <div>
   {% from 'components/ui.html' import flash %}
   <h2>Dividendos</h2>
-  <p class="muted">Resumen del mes corriente (costo de venta, costos operativos, utilidad neta y reparto 50/50). Registra y edita retiros para calcular lo pendiente.</p>
+  {% set n_partners = dividends.partners|length %}
+  {% set pct = (100 / n_partners)|int if n_partners else 0 %}
+  <p class="muted">Resumen del mes corriente (costo de venta, costos operativos, utilidad neta{% if n_partners == 1 %}, reparto 100%{% elif n_partners > 1 %} y reparto {{ pct }}% c/u{% endif %}). Registra y edita retiros para calcular lo pendiente.</p>
 
   {{ flash(message, message_class or '', message_detail) }}
 
@@ -35,7 +37,7 @@
             {% endfor %}
           </tr>
           <tr>
-            <th>Utilidades (50% cada uno)</th>
+            <th>Utilidades ({{ pct }}% c/u)</th>
             <td class="muted">-</td>
             {% for p in dividends.partners %}
               <td>{{ '%.2f'|format(summary.share_each or 0) }}</td>
