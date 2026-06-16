@@ -382,22 +382,52 @@ def _run_postgresql_schema_migrations() -> int:
         return schema_version
 
 
+def _discover_business_codes_from_config_files() -> list[str]:
+    """
+    Descubre códigos de negocio escaneando app/business_config.*.conf.
+    Extrae el código del nombre del archivo: business_config.<code>.conf
+    Omite business_config.conf (el default, sin código).
+    """
+    import glob
+
+    codes: list[str] = []
+    pattern = "app/business_config.*.conf"
+    for path in glob.glob(pattern):
+        name = os.path.basename(path)
+        # business_config.<code>.conf -> extraer <code>
+        if name == "business_config.conf":
+            continue
+        # quitar prefijo y sufijo
+        middle = name[len("business_config."):-len(".conf")]
+        if middle:
+            codes.append(middle)
+    return codes
+
+
 def _sync_all_locations_from_config() -> None:
     """
     Sincroniza ubicaciones para TODOS los negocios desde business_config.*.conf.
     Se ejecuta en CADA startup de la app.
+    Descubre automáticamente los negocios según los archivos .conf presentes.
+    Crea el negocio en BD si no existe aún.
     Asegura que nuevos POS agregados en config se creen automáticamente en BD.
     """
     db = get_session()
     try:
-        business_codes = ["recambios", "ropa"]  # Negocios conocidos
-        
+        business_codes = _discover_business_codes_from_config_files()
+
         for bcode in business_codes:
             business = db.scalar(select(Business).where(Business.code == bcode))
             if business is None:
-                continue  # Si el negocio no existe, skip
-            
+                config = load_business_config(bcode)
+                name = config.issuer.name or bcode
+                business = Business(code=bcode, name=name)
+                db.add(business)
+                db.flush()
+                print(f"✅ Negocio creado: {bcode} ({name})")
+
             _sync_locations_from_config(db, business)
+        db.commit()
     except Exception as e:
         print(f"⚠️  Advertencia al sincronizar ubicaciones: {e}")
         # No fallar el startup por esto
