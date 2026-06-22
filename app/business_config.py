@@ -61,6 +61,14 @@ class InventoryConfig(BaseModel):
     replenishment_lead_time_days: float = 25.0
 
 
+class PurchaseConfig(BaseModel):
+    invoice_source_currency: str = "EUR"
+    invoice_vat_rate: float = 1.21
+    # Multiplier from invoice source currency to business currency.
+    # If missing/empty, conversion is not applied.
+    invoice_fx_rate: Optional[float] = None
+
+
 class BusinessConfig(BaseModel):
     issuer: IssuerConfig = Field(default_factory=IssuerConfig)
     currency: CurrencyConfig = Field(default_factory=CurrencyConfig)
@@ -68,6 +76,7 @@ class BusinessConfig(BaseModel):
     dividends: DividendsConfig = Field(default_factory=DividendsConfig)
     locations: LocationsConfig = Field(default_factory=LocationsConfig)
     inventory: InventoryConfig = Field(default_factory=InventoryConfig)
+    purchase: PurchaseConfig = Field(default_factory=PurchaseConfig)
 
 
 _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
@@ -160,6 +169,15 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             return float(str(raw).strip().replace(",", "."))
         except Exception:
             return float(default or 0.0)
+
+    def get_optional_float(section: str, key: str) -> Optional[float]:
+        raw = get(section, key, "")
+        if not raw:
+            return None
+        try:
+            return float(str(raw).strip().replace(",", "."))
+        except Exception:
+            return None
 
     def get_opening_pending() -> Dict[str, float]:
         raw = get("dividends", "opening_pending", "")
@@ -291,6 +309,11 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         ),
         inventory=InventoryConfig(
             replenishment_lead_time_days=get_float("inventory", "replenishment_lead_time_days", 25.0),
+        ),
+        purchase=PurchaseConfig(
+            invoice_source_currency=get("purchase", "invoice_source_currency", "EUR"),
+            invoice_vat_rate=get_float("purchase", "invoice_vat_rate", 1.21),
+            invoice_fx_rate=get_optional_float("purchase", "invoice_fx_rate"),
         ),
     )
 
