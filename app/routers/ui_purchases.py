@@ -12,10 +12,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
+from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import InventoryLot, InventoryMovement, Product
 from app.schemas import PurchaseCreate
-from app.security import get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_invoice_pdf
@@ -33,6 +34,20 @@ from .ui_common import (
 router = APIRouter()
 
 
+def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optional[float], str, str]:
+    cfg = load_business_config(get_active_business_code(db, request))
+    purchase_cfg = getattr(cfg, "purchase", None)
+    vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
+    fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
+    try:
+        fx_rate = float(fx_rate) if fx_rate is not None else None
+    except Exception:
+        fx_rate = None
+    currency_code = str(getattr(cfg.currency, "code", "") or "").strip().upper() or "EUR"
+    currency_symbol = str(getattr(cfg.currency, "symbol", "") or "").strip() or "€"
+    return vat_rate, fx_rate, currency_code, currency_symbol
+
+
 @router.post("/purchase/from-invoice", response_class=HTMLResponse)
 def purchase_from_invoice(
     request: Request,
@@ -41,6 +56,7 @@ def purchase_from_invoice(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
@@ -57,6 +73,8 @@ def purchase_from_invoice(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=200,
         )
@@ -170,7 +188,8 @@ def purchase_from_invoice(
             return (w or "").strip().lower() in colors
 
         try:
-            unit_cost_vat = round(float(line.net_unit_price) * 1.21, 4)
+            fx_factor = fx_rate if (fx_rate is not None and fx_rate > 0) else 1.0
+            unit_cost_vat = round(float(line.net_unit_price) * vat_rate * fx_factor, 4)
         except Exception:
             errors.append(f"{sku}: precio neto inválido")
             continue
@@ -288,6 +307,8 @@ def purchase_from_invoice(
             "purchases": service.recent_purchases(limit=20),
             "product_options": product_service.search(query="", limit=200),
             "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "purchase_currency_code": currency_code,
+            "purchase_currency_symbol": currency_symbol,
         },
         status_code=status,
     )
@@ -307,6 +328,7 @@ def purchase(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
@@ -436,6 +458,8 @@ def purchase(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
         )
     except HTTPException as e:
@@ -451,6 +475,8 @@ def purchase(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=e.status_code,
         )
@@ -465,6 +491,7 @@ def purchase_label_print(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    _, _, currency_code, _ = _purchase_config_values(db, request)
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -507,6 +534,7 @@ def purchase_edit_form(
             "movement_date_value": dt_to_local_input(mv.movement_date),
             "lot_code": lot.lot_code if lot else "",
             "product_options": product_service.search(query="", limit=200),
+            "purchase_currency_code": currency_code,
         },
     )
 
@@ -524,6 +552,7 @@ def purchase_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
     ensure_admin_or_owner(db, request)
@@ -560,6 +589,8 @@ def purchase_update(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
         )
     except HTTPException as e:
@@ -575,6 +606,8 @@ def purchase_update(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=e.status_code,
         )
@@ -587,6 +620,7 @@ def purchase_delete(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
     try:
@@ -613,6 +647,8 @@ def purchase_delete(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
         )
     except HTTPException as e:
@@ -628,6 +664,8 @@ def purchase_delete(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=e.status_code,
         )
@@ -644,6 +682,8 @@ def purchase_delete(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=400,
         )
@@ -656,6 +696,7 @@ def purchase_delete_selected(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
@@ -720,6 +761,8 @@ def purchase_delete_selected(
                     "purchases": service.recent_purchases(limit=20),
                     "product_options": product_service.search(query="", limit=200),
                     "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                    "purchase_currency_code": currency_code,
+                    "purchase_currency_symbol": currency_symbol,
                 },
                 status_code=200,
             )
@@ -761,6 +804,8 @@ def purchase_delete_selected(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=200,
         )
@@ -776,6 +821,8 @@ def purchase_delete_selected(
                 "purchases": service.recent_purchases(limit=20),
                 "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "purchase_currency_code": currency_code,
+                "purchase_currency_symbol": currency_symbol,
             },
             status_code=200,
         )

@@ -584,6 +584,9 @@ def tab_purchases(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
+    config = load_business_config(get_active_business_code(db, request))
+    purchase_currency_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
+    purchase_currency_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "€"
     
     # Determine filter values
     now = datetime.now(timezone.utc)
@@ -646,6 +649,8 @@ def tab_purchases(
             "filter_start_date": start_date or "",
             "filter_end_date": end_date or "",
             "filter_show_all": bool(show_all),
+            "purchase_currency_code": purchase_currency_code,
+            "purchase_currency_symbol": purchase_currency_symbol,
         },
     )
 
