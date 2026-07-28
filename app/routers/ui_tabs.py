@@ -739,11 +739,21 @@ def tab_sales(
 
     cust_stmt = select(Customer).where(Customer.business_id == int(bid))
     customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
-    pos_locations = [
+    pos_locations: list[dict[str, str]] = []
+    central = getattr(config.locations, "central", None)
+    central_code = str(getattr(central, "code", "") or "").strip()
+    if central_code:
+        pos_locations.append(
+            {
+                "code": central_code,
+                "name": str(getattr(central, "name", "") or "Almacen central"),
+            }
+        )
+    pos_locations.extend(
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
-    ]
+    )
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
 
     selected_filter_location_code = (location_code or "").strip()

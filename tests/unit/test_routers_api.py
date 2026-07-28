@@ -70,6 +70,7 @@ class ProductServiceFake:
 class InventoryServiceFake:
     def __init__(self, db: Session):
         self.db = db
+        self.last_sale_payload: SaleCreate | None = None
 
     def _mv_result(self, *, mv_type: str, qty: float) -> MovementResult:
         movement = MovementRead(
@@ -107,6 +108,7 @@ class InventoryServiceFake:
         )
 
     def sale(self, payload: SaleCreate) -> MovementResult:
+        self.last_sale_payload = payload
         return self._mv_result(mv_type="sale", qty=-payload.quantity)
 
     def adjustment(self, payload: AdjustmentCreate) -> MovementResult:
@@ -164,7 +166,11 @@ def test_inventory_router_functions(db_session: Session, business_id: int) -> No
         user=user,
         service=service,
     )
-    r4 = inventory_router.create_sale(SaleCreate(sku="SKU1", quantity=1), user=user, service=service)
+    r4 = inventory_router.create_sale(
+        SaleCreate(sku="SKU1", quantity=1, location_code="CENTRAL"),
+        user=user,
+        service=service,
+    )
     r5 = inventory_router.create_adjustment(
         AdjustmentCreate(sku="SKU1", quantity_delta=1), user=user, service=service
     )
@@ -175,7 +181,10 @@ def test_inventory_router_functions(db_session: Session, business_id: int) -> No
     assert r2.movement.type == "return_supplier"
     assert r3.transfer_ref == "TP-1"
     assert r4.movement.type == "sale"
+    assert service.last_sale_payload is not None
+    assert service.last_sale_payload.location_code == "CENTRAL"
     assert r5.movement.type == "adjustment"
     assert stock.sku == "SKU1"
     assert len(stock_list) == 1
+
 

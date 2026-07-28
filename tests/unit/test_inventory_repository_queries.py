@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, InventoryLot, InventoryMovement, MovementAllocation, Product
+from app.models import AuditLog, InventoryLot, InventoryMovement, Location, MovementAllocation, Product
 from app.repositories.inventory_repository import InventoryRepository
 
 
@@ -134,4 +134,51 @@ def test_recent_filters_by_date(db_session: Session, business_id: int) -> None:
 
     assert len(jan) == 1
     assert len(feb) == 1
+
+
+def test_recent_sales_filters_by_location_id(db_session: Session, business_id: int) -> None:
+    repo = InventoryRepository(db_session, business_id=business_id)
+    p = _create_product(db_session, business_id, "SKU-LOC", "Zapato")
+    central = Location(business_id=business_id, code="CENTRAL", name="Almacen central")
+    pos1 = Location(business_id=business_id, code="POS1", name="Punto 1")
+    db_session.add_all([central, pos1])
+    db_session.flush()
+
+    t0 = datetime.now(timezone.utc)
+    db_session.add_all(
+        [
+            InventoryMovement(
+                business_id=business_id,
+                product_id=p.id,
+                location_id=central.id,
+                type="sale",
+                quantity=-1,
+                unit_cost=None,
+                unit_price=10,
+                movement_date=t0,
+                note="sale central",
+            ),
+            InventoryMovement(
+                business_id=business_id,
+                product_id=p.id,
+                location_id=pos1.id,
+                type="sale",
+                quantity=-1,
+                unit_cost=None,
+                unit_price=11,
+                movement_date=t0 + timedelta(minutes=1),
+                note="sale pos",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    central_sales = repo.recent_sales(limit=10, location_id=central.id)
+    pos_sales = repo.recent_sales(limit=10, location_id=pos1.id)
+
+    assert len(central_sales) == 1
+    assert len(pos_sales) == 1
+    assert central_sales[0][8] == "Almacen central"
+    assert pos_sales[0][8] == "Punto 1"
+
 

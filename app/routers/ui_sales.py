@@ -34,10 +34,24 @@ router = APIRouter()
 
 def _sale_pos_context(db: Session, request: Request, location_code: str = "") -> tuple[list[dict[str, str]], str, str]:
     config = load_business_config(get_active_business_code(db, request))
-    pos_locations = [{"code": l.code, "name": l.name} for l in (config.locations.pos or [])]
+    sale_locations: list[dict[str, str]] = []
+    central = getattr(config.locations, "central", None)
+    central_code = str(getattr(central, "code", "") or "").strip()
+    if central_code:
+        sale_locations.append(
+            {
+                "code": central_code,
+                "name": str(getattr(central, "name", "") or "Almacen central"),
+            }
+        )
+    sale_locations.extend(
+        {"code": l.code, "name": l.name}
+        for l in (config.locations.pos or [])
+        if getattr(l, "code", None)
+    )
     default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
     selected_location_code = (location_code or "").strip() or default_sale_location_code
-    return pos_locations, default_sale_location_code, selected_location_code
+    return sale_locations, default_sale_location_code, selected_location_code
 
 
 def _sale_product_options(service: InventoryService, location_code: str) -> list:
