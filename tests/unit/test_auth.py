@@ -16,4 +16,3 @@ def test_verify_password_handles_invalid_hash() -> None:
     assert not verify_password("abc", "")
     assert not verify_password("abc", "sha256$1000$salt$hash")
     assert not verify_password("abc", "pbkdf2_sha256$bad$parts")
-

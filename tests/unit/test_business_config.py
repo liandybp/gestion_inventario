@@ -159,4 +159,3 @@ enabled_types = X
     assert cfg.sales_documents.enabled_types == ["F", "P"]
 
 
-

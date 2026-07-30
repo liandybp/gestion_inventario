@@ -181,4 +181,3 @@ def test_recent_sales_filters_by_location_id(db_session: Session, business_id: i
     assert central_sales[0][8] == "Almacen central"
     assert pos_sales[0][8] == "Punto 1"
 
-

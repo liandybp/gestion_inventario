@@ -187,4 +187,3 @@ def test_inventory_router_functions(db_session: Session, business_id: int) -> No
     assert stock.sku == "SKU1"
     assert len(stock_list) == 1
 
-

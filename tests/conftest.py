@@ -61,4 +61,3 @@ def sample_product(db_session: Session, business_id: int) -> Product:
 @pytest.fixture
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
-

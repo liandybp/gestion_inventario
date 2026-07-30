@@ -55,4 +55,3 @@ def test_session_dep_yields_and_closes(monkeypatch):
         pass
 
     assert dummy.closed is True
-

@@ -125,4 +125,3 @@ def test_sale_fails_if_location_has_no_enough_stock_even_with_stock_elsewhere(db
     assert service.stock_for_location("SKU-TST", "POS1") == 2
     assert pos1.id > 0
 
-

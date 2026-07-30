@@ -27,4 +27,3 @@ def test_supplier_return_requires_positive_quantity() -> None:
         assert False, "Expected ValidationError"
     except ValidationError as exc:
         assert "quantity must be greater than 0" in str(exc)
-

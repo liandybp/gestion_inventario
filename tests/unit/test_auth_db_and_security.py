@@ -136,4 +136,3 @@ def test_require_active_business_id_and_code(db_session: Session, business_id: i
 
     with pytest.raises(HTTPException):
         require_active_business_id(db_session, _req({}))
-

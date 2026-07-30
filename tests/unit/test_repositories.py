@@ -101,4 +101,3 @@ def test_inventory_repository_stock_and_fifo_order(db_session: Session, business
 
     fifo = repo.fifo_lots_for_product_id(product.id)
     assert [lot.lot_code for lot in fifo] == ["L1", "L2"]
-

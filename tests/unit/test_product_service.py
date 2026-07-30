@@ -102,4 +102,3 @@ def test_delete_product_with_movements_raises_conflict(db_session: Session, busi
         service.delete("SKU-MV")
 
     assert exc.value.status_code == 409
-

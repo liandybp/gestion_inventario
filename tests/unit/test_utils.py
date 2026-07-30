@@ -41,4 +41,3 @@ def test_get_session_secret_generates_when_missing(monkeypatch) -> None:
     assert isinstance(secret, str)
     assert len(secret) == 64
 
-

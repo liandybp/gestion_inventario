@@ -56,7 +56,7 @@
         <input id="sales-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" hx-preserve="true" />
       </div>
       <div>
-        <label class="filter-label">Ubicacion</label>
+        <label class="filter-label">Punto de venta</label>
         <select id="sales-filter-location" name="location_code">
           <option value="" {% if not (filter_location_code or '') %}selected{% endif %}>Todos</option>
           {% for loc in pos_locations %}
