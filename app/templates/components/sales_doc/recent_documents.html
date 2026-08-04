@@ -16,12 +16,13 @@
     </thead>
     <tbody>
       {% for d in recent_documents %}
+        {% set total_prefix = (d.currency_symbol ~ ' ') if d.currency_symbol == 'USD' else d.currency_symbol %}
         <tr>
           <td><code>{{ d.code }}</code></td>
           <td>{{ d.doc_type }}</td>
           <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
           <td>{{ d.client_name }}</td>
-          <td class="text-right">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
+          <td class="text-right">{{ total_prefix }}{{ '%.2f'|format(d.total or 0) }}</td>
           <td class="text-right">
             <a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a>
             <button type="button" class="ml-8"

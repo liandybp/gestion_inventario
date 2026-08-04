@@ -50,7 +50,7 @@
           <td>{{ name }}</td>
           <td>{{ uom or '' }}</td>
           <td>{{ '%.0f'|format(qty or 0) }}</td>
-          <td>{{ '%.2f'|format(unit_cost or 0) }}</td>
+          <td>{{ purchase_currency_symbol or '€' }}{{ '%.2f'|format(unit_cost or 0) }}</td>
           {% set lot_disp = (lot_code[:-5] if lot_code and lot_code.endswith('00000') else lot_code) %}
           <td>{{ lot_disp or '' }}</td>
           <td>

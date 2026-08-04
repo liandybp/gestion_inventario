@@ -443,6 +443,14 @@ def product_from_invoice(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
+    config = load_business_config(get_active_business_code(db, request))
+    purchase_cfg = getattr(config, "purchase", None)
+    vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
+    fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
+    try:
+        fx_rate = float(fx_rate) if fx_rate is not None else None
+    except Exception:
+        fx_rate = None
     product_service = ProductService(db, business_id=bid)
 
     if invoice_pdf is None or not invoice_pdf.filename:
@@ -487,8 +495,8 @@ def product_from_invoice(
             name = sku
 
         try:
-            # Calculate cost with 21% VAT
-            unit_cost_with_vat = round(float(line.net_unit_price) * 1.21, 4)
+            fx_factor = fx_rate if (fx_rate is not None and fx_rate > 0) else 1.0
+            unit_cost_with_vat = round(float(line.net_unit_price) * vat_rate * fx_factor, 4)
         except Exception:
             errors.append(f"{sku}: precio neto inválido")
             continue

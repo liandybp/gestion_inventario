@@ -104,16 +104,17 @@ def build_sales_document_pdf(
 
         pdf.set_xy(x + col_desc, y)
         pdf.cell(col_qty, h, _safe_pdf_text(f"{qty:.2f}"), border=1, align="R")
-        pdf.cell(col_unit, h, _safe_pdf_text(f"{currency_symbol}{unit_price:.2f}"), border=1, align="R")
-        pdf.cell(col_total, h, _safe_pdf_text(f"{currency_symbol}{line_total:.2f}"), border=1, align="R")
+        pdf.cell(col_unit, h, _safe_pdf_text(f"{unit_price:.2f}"), border=1, align="R")
+        pdf.cell(col_total, h, _safe_pdf_text(f"{line_total:.2f}"), border=1, align="R")
         pdf.ln(h)
 
     pdf.ln(2)
 
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, _safe_pdf_text(f"Subtotal: {currency_symbol}{subtotal:.2f}"), ln=1, align="R")
+    pdf.cell(0, 6, _safe_pdf_text(f"Subtotal: {subtotal:.2f}"), ln=1, align="R")
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 7, _safe_pdf_text(f"Total: {currency_symbol}{total:.2f}"), ln=1, align="R")
+    total_prefix = f"{currency_symbol} " if currency_symbol == "USD" else currency_symbol
+    pdf.cell(0, 7, _safe_pdf_text(f"Total: {total_prefix}{total:.2f}"), ln=1, align="R")
 
     pdf.set_font("Helvetica", "", 9)
     pdf.cell(0, 5, _safe_pdf_text("(Precios sin IVA)"), ln=1, align="R")

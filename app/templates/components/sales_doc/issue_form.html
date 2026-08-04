@@ -3,7 +3,9 @@
 {% call subcard('Emitir documento', extra_class='h-full') %}
   {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
   {% set selected_location_code = (draft.location_code or default_doc_location_code or 'POS1') %}
+  {% set selected_currency_code = (draft.currency_code or currency.code or 'EUR') %}
   <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <input id="sales-doc-currency-hidden" type="hidden" name="currency_code" value="{{ selected_currency_code }}" />
     <div class="row">
       <label>Tipo</label>
       <select name="doc_type">
