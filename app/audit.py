@@ -5,7 +5,10 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.logger import get_logger
 from app.models import AuditLog, User
+
+_log = get_logger(__name__)
 
 
 def log_event(
@@ -29,3 +32,4 @@ def log_event(
         db.commit()
     except Exception:
         db.rollback()
+        _log.exception("Failed to persist audit event: action=%s entity=%s", action, entity_type)

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+import threading
 import time
+from collections import defaultdict
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +21,24 @@ from .ui_common import ensure_admin, templates
 
 router = APIRouter()
 
+# Simple in-memory rate limiter for login
+_LOGIN_RATE_LIMIT = int(os.getenv("LOGIN_RATE_LIMIT", "10"))  # max attempts
+_LOGIN_RATE_WINDOW = int(os.getenv("LOGIN_RATE_WINDOW", "300"))  # window in seconds
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_login_lock = threading.Lock()
+
+
+def _check_login_rate(client_ip: str) -> bool:
+    """Returns True if the client is allowed to attempt login."""
+    now = time.time()
+    with _login_lock:
+        attempts = [t for t in _login_attempts.get(client_ip, []) if now - t < _LOGIN_RATE_WINDOW]
+        _login_attempts[client_ip] = attempts
+        if len(attempts) >= _LOGIN_RATE_LIMIT:
+            return False
+        _login_attempts[client_ip].append(now)
+        return True
+
 
 @router.get("/login", response_class=HTMLResponse)
 def login_form(request: Request) -> HTMLResponse:
@@ -31,6 +52,15 @@ def login_submit(
     password: str = Form(...),
     db: Session = Depends(session_dep),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_login_rate(client_ip):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Demasiados intentos. Espera unos minutos."},
+            status_code=429,
+        )
+
     user = authenticate(db, username=username, password=password)
     if user is None:
         return templates.TemplateResponse(

@@ -368,6 +368,7 @@ def sale_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
@@ -438,6 +439,7 @@ def sale_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)

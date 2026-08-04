@@ -37,6 +37,10 @@ def ensure_admin_or_owner(db: Session, request: Request) -> None:
         raise HTTPException(status_code=403, detail="Admin required")
 
 
+MAX_IMAGE_SIZE_MB = int(os.getenv("MAX_IMAGE_SIZE_MB", "10"))
+MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
+
+
 def save_product_image(image_file: UploadFile) -> str:
     if image_file is None:
         raise HTTPException(status_code=422, detail="image_file is required")
@@ -52,6 +56,16 @@ def save_product_image(image_file: UploadFile) -> str:
     ext = Path(image_file.filename).suffix.lower()
     if not ext or len(ext) > 10:
         ext = ".img"
+
+    # Validate file size
+    image_file.file.seek(0, 2)
+    size = image_file.file.tell()
+    image_file.file.seek(0)
+    if size > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"La imagen excede el tamaño máximo de {MAX_IMAGE_SIZE_MB} MB",
+        )
 
     filename = f"{uuid4().hex}{ext}"
     out_path = _UPLOAD_DIR / filename

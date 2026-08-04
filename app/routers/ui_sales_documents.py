@@ -511,10 +511,12 @@ def sales_doc_product_defaults(
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
+    import html as _html
+
     p = ProductService(db, business_id=bid).get_by_sku(sku)
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     return HTMLResponse(
-        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
+        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{_html.escape(price)}' />"
     )
 
 

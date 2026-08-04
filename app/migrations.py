@@ -8,6 +8,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import hash_password
 from app.business_config import load_business_config
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 from app.db import Base, engine, get_session
 from app.models import (
     Business,
@@ -389,9 +392,11 @@ def _discover_business_codes_from_config_files() -> list[str]:
     Omite business_config.conf (el default, sin código).
     """
     import glob
+    from pathlib import Path
 
+    _app_dir = Path(__file__).resolve().parent
     codes: list[str] = []
-    pattern = "app/business_config.*.conf"
+    pattern = str(_app_dir / "business_config.*.conf")
     for path in glob.glob(pattern):
         name = os.path.basename(path)
         # business_config.<code>.conf -> extraer <code>
@@ -424,12 +429,12 @@ def _sync_all_locations_from_config() -> None:
                 business = Business(code=bcode, name=name)
                 db.add(business)
                 db.flush()
-                print(f"✅ Negocio creado: {bcode} ({name})")
+                _log.info("Negocio creado: %s (%s)", bcode, name)
 
             _sync_locations_from_config(db, business)
         db.commit()
     except Exception as e:
-        print(f"⚠️  Advertencia al sincronizar ubicaciones: {e}")
+        _log.warning("Advertencia al sincronizar ubicaciones: %s", e)
         # No fallar el startup por esto
     finally:
         db.close()

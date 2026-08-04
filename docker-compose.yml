@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: inventario
-      POSTGRES_USER: inventario
-      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: ${POSTGRES_DB:-inventario}
+      POSTGRES_USER: ${POSTGRES_USER:-inventario}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,14 +17,15 @@ services:
   app:
     build: .
     environment:
-      DATABASE_URL: postgresql+psycopg://inventario:change-me@db:5432/inventario
-      SESSION_SECRET: change-me-please
-      SESSION_HTTPS_ONLY: "1"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://inventario:change-me@db:5432/inventario}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-please}
+      SESSION_HTTPS_ONLY: ${SESSION_HTTPS_ONLY:-1}
       RELOAD: "0"
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: change-me
-      OPERATOR_USERNAME: operator
-      OPERATOR_PASSWORD: change-me
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME:-operator}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-change-me}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
     volumes:
       - uploads_data:/app/app/static/uploads
     depends_on:

@@ -1,0 +1,90 @@
+<div class="tab-panel">
+  <div class="tab-header">
+    <h1>Gestión de Negocios</h1>
+  </div>
+
+  {% if message %}
+  <div class="message {{ message_class }}">
+    <strong>{{ message }}</strong>
+    {% if message_detail %}<div class="muted">{{ message_detail }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Crear Nuevo Negocio</h2>
+    </div>
+    <form hx-post="/ui/businesses/create" hx-target="#tab-content" hx-swap="innerHTML" class="form-grid">
+      <div class="form-group">
+        <label for="new-code">Código *</label>
+        <input type="text" id="new-code" name="code" required autocomplete="off"
+               placeholder="Ej: mi_negocio" />
+        <small class="muted">Código único identificador (sin espacios, usar guiones bajos)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="new-name">Nombre *</label>
+        <input type="text" id="new-name" name="name" required autocomplete="off"
+               placeholder="Ej: Mi Negocio" />
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Crear Negocio</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Negocios Existentes</h2>
+    </div>
+
+    {% if businesses %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Creado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in businesses %}
+          <tr>
+            <td><code>{{ b.code }}</code></td>
+            <td><strong>{{ b.name }}</strong></td>
+            <td>{{ b.created_at.strftime('%d/%m/%Y') if b.created_at else '-' }}</td>
+            <td>
+              <div class="action-buttons">
+                <button
+                  type="button"
+                  hx-get="/ui/business/{{ b.id }}/edit"
+                  hx-target="#modal-container"
+                  hx-swap="innerHTML"
+                  class="btn-sm btn-secondary"
+                  title="Editar negocio">
+                  ✏️ Editar
+                </button>
+                <button
+                  hx-post="/ui/business/{{ b.id }}/delete"
+                  hx-target="#tab-content"
+                  hx-swap="innerHTML"
+                  hx-confirm="¿Estás seguro de eliminar el negocio '{{ b.name }}'? Esta acción no se puede deshacer."
+                  class="btn-sm btn-danger"
+                  title="Eliminar negocio">
+                  🗑️ Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No hay negocios registrados.</p>
+    {% endif %}
+  </div>
+</div>

@@ -587,8 +587,10 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
+    import html as _html
+
     p = product_service.get_by_sku(sku)
-    uom = p.unit_of_measure or ""
+    uom = _html.escape(p.unit_of_measure or "")
     cost = "" if p.default_purchase_cost is None else str(float(p.default_purchase_cost))
     label = f"Cantidad ({uom})" if uom else "Cantidad"
     return HTMLResponse(

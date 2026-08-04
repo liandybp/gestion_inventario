@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as _html
 import json
 import re
 from datetime import datetime, timedelta, timezone
@@ -31,6 +32,7 @@ from app.security import (
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.business_config import load_business_config
+from app.logger import get_logger
 from app.schemas import SupplierReturnLotCreate, TransferCreate, TransferLineCreate
 
 from .ui_common import (
@@ -42,6 +44,8 @@ from .ui_common import (
     parse_dt,
     templates,
 )
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -1720,7 +1724,8 @@ def stock_table(
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
-    print(f"[DEBUG] stock_table - User: {user.username if user else 'None'}, Role: {user.role if user else 'None'}, bid: {bid}, location: {location_code}, category: {category}")
+    _log.debug("stock_table - User: %s, Role: %s, bid: %s, location: %s, category: %s",
+               user.username if user else 'None', user.role if user else 'None', bid, location_code, category)
     inventory_service = InventoryService(db, business_id=bid)
     config = load_business_config(get_active_business_code(db, request))
     central_code = str(config.locations.central.code).strip()
@@ -2020,7 +2025,7 @@ def ui_supplier_return_lots(
     try:
         lots = service.available_lots(sku_clean, location_code=loc)
     except Exception as e:
-        error_msg = str(e)[:50] if str(e) else "Error"
+        error_msg = _html.escape(str(e)[:50]) if str(e) else "Error"
         return HTMLResponse(f"<select name='lot_id' disabled><option value=''>Error: {error_msg}</option></select>")
 
     if not lots:
@@ -2032,7 +2037,7 @@ def ui_supplier_return_lots(
         parts.append(
             "<option value='{}'>{} | disp={} | costo={}</option>".format(
                 int(lot.id),
-                str(lot.lot_code or ""),
+                _html.escape(str(lot.lot_code or "")),
                 float(lot.qty_remaining or 0),
                 float(lot.unit_cost or 0),
             )
@@ -2403,4 +2408,15 @@ def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "users": users,
             "businesses": businesses,
         },
+    )
+
+
+@router.get("/tabs/businesses", response_class=HTMLResponse)
+def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
+    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_businesses.html",
+        context={"businesses": businesses},
     )

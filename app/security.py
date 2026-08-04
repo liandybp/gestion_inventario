@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_user_by_username
 from app.deps import session_dep
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 from app.models import Business, User
 
 
@@ -48,7 +51,7 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
             except Exception:
                 pass
         result = int(user.business_id) if user.business_id is not None else None
-        print(f"[DEBUG] get_active_business_id - User: {user.username}, Role: {role}, user.business_id: {user.business_id}, returning: {result}")
+        _log.debug("get_active_business_id - User: %s, Role: %s, user.business_id: %s, returning: %s", user.username, role, user.business_id, result)
         return result
     
     # Admins can use session to switch between businesses
@@ -59,14 +62,14 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
             try:
                 bid = int(raw)
                 if db.get(Business, bid) is not None:
-                    print(f"[DEBUG] get_active_business_id - Admin {user.username} using session bid: {bid}")
+                    _log.debug("get_active_business_id - Admin %s using session bid: %s", user.username, bid)
                     return bid
             except Exception:
                 pass
         
         # Fallback: use admin's assigned business_id if available
         if user.business_id is not None:
-            print(f"[DEBUG] get_active_business_id - Admin {user.username} using user.business_id: {user.business_id}")
+            _log.debug("get_active_business_id - Admin %s using user.business_id: %s", user.username, user.business_id)
             return int(user.business_id)
         
         # Last resort for admins: use first available business
@@ -77,10 +80,10 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
                 session["active_business_id"] = bid
             except Exception:
                 pass
-            print(f"[DEBUG] get_active_business_id - Admin {user.username} using first business: {bid}")
+            _log.debug("get_active_business_id - Admin %s using first business: %s", user.username, bid)
             return bid
     
-    print(f"[DEBUG] get_active_business_id - User: {user.username}, Role: {role}, returning None")
+    _log.debug("get_active_business_id - User: %s, Role: %s, returning None", user.username, role)
     return None
 
 

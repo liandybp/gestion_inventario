@@ -525,6 +525,7 @@ def purchase_edit_form(
     product = db.get(Product, mv.product_id)
     lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
     product_service = ProductService(db, business_id=bid)
+    _, _, currency_code, _ = _purchase_config_values(db, request)
     return templates.TemplateResponse(
         request=request,
         name="partials/purchase_edit_form.html",

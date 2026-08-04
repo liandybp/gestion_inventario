@@ -23,6 +23,7 @@ from app.routers import (
     inventory,
     products,
     ui_auth,
+    ui_businesses,
     ui_expenses,
     ui_extractions,
     ui_products,
@@ -52,6 +53,18 @@ async def ui_auth_middleware(request, call_next):
     path = request.url.path or ""
     if path.startswith("/static") or path == "/health":
         return await call_next(request)
+
+    # CSRF protection: require HX-Request header for state-changing UI requests
+    # Login and logout are exempt (they are regular HTML forms, not HTMX)
+    if (
+        path.startswith("/ui")
+        and path not in ("/ui/login", "/ui/logout")
+        and request.method in ("POST", "PUT", "PATCH", "DELETE")
+        and request.headers.get("HX-Request") != "true"
+    ):
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse("CSRF validation failed", status_code=403)
+
     if path.startswith("/ui") and path not in ("/ui/login", "/ui/logout"):
         session = getattr(request, "session", None) or {}
         if session.get("username"):
@@ -121,6 +134,7 @@ app.include_router(ui_expenses.router, prefix="/ui")
 app.include_router(ui_extractions.router, prefix="/ui")
 app.include_router(ui_sales_documents.router, prefix="/ui")
 app.include_router(ui_users.router, prefix="/ui")
+app.include_router(ui_businesses.router, prefix="/ui")
 
 os.makedirs("app/static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

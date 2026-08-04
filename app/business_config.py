@@ -82,13 +82,19 @@ class BusinessConfig(BaseModel):
 _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
 
 
+_APP_DIR = Path(__file__).resolve().parent
+
+
 def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     global _cached_configs
 
     key = (business_code or "").strip().lower()
 
-    base_path = os.getenv("BUSINESS_CONFIG_PATH", "app/business_config.conf")
-    base = Path(base_path)
+    raw_default = os.getenv("BUSINESS_CONFIG_PATH", "")
+    if raw_default:
+        base = Path(raw_default)
+    else:
+        base = _APP_DIR / "business_config.conf"
 
     def pick_path() -> Path:
         if not key:
@@ -109,10 +115,10 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             if cand2.exists():
                 return cand2
 
-        cand3 = Path("app") / f"business_config.{key}.conf"
+        cand3 = _APP_DIR / f"business_config.{key}.conf"
         if cand3.exists():
             return cand3
-        cand4 = Path("app") / f"business_config.{key}.json"
+        cand4 = _APP_DIR / f"business_config.{key}.json"
         if cand4.exists():
             return cand4
 

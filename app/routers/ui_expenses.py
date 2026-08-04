@@ -25,6 +25,7 @@ def expense_create(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
@@ -170,6 +171,7 @@ def expense_update(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
