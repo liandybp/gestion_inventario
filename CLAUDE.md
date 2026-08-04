@@ -114,6 +114,7 @@ Archivo `app/business_config.conf` (INI):
 
 - [x] CRUD completo: productos, clientes, ventas, compras, documentos
 - [x] Multi-negocio + multi-ubicación
+- [x] **Gestión de negocios desde frontend** (tab Negocios, admin-only, auto-crea ubicación CENTRAL)
 - [x] FIFO inventory con lotes
 - [x] Documentos PDF (facturas/presupuestos)
 - [x] Importación de facturas PDF
@@ -121,10 +122,17 @@ Archivo `app/business_config.conf` (INI):
 - [x] Reposición SS/ROP
 - [x] Reportes (profit mensual, dividendos, gráficos)
 - [x] Docker Compose (PostgreSQL + App + Caddy)
-- [x] ~50 tests unitarios
+- [x] ~62 tests unitarios (SQLite en memoria)
+- [x] **CI/CD Gitea Actions** (`.gitea/workflows/test.yml`) + mirror GitHub
+- [x] **CSRF protection** (vía header `HX-Request` en middleware)
+- [x] **Rate limiting** en login (in-memory, 10 intentos / 5 min)
+- [x] FK enforcement SQLite (`PRAGMA foreign_keys=ON`)
+- [x] Logging centralizado (`app/logger.py`)
 - [ ] Sistema agéntico con LLM local (planificado, no implementado)
-- [ ] CSRF protection (planificado)
-- [ ] Rate limiting (planificado)
+
+## Sesiones
+
+- **2026-08-04/05** — Feature Negocios + auditoría (22 hallazgos) + deploy Gitea. Detalle en `.claude/session-notes.md`
 
 ## Reglas para el agente
 
@@ -133,8 +141,4 @@ Archivo `app/business_config.conf` (INI):
 3. **Documentación** — actualizar este `CLAUDE.md` si cambia la estructura o el estado
 4. **Commits** — mensajes en español, formato conventional commits
 5. **Base de datos** — nunca borrar `inventario.db` sin backup
-6. **Routers** — hay 17 routers, revisar `app/main.py` para ver cuáles están registrados
-
-## Sesiones
-
-Ver `.claude/session-notes.md` para el registro de sesiones de trabajo.
+6. **Routers** — hay 18 routers, revisar `app/main.py` para ver cuáles están registrados
