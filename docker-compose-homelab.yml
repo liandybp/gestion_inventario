@@ -10,11 +10,11 @@ services:
       APP_PORT: ${APP_PORT}
       DATABASE_URL: ${DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
-      SESSION_HTTPS_ONLY: "1"
+      SESSION_HTTPS_ONLY: ${SESSION_HTTPS_ONLY:-0}
       RELOAD: "0"
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      OPERATOR_USERNAME: operator
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME:-operator}
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD}
     volumes:
       - uploads_data:/app/app/static/uploads
