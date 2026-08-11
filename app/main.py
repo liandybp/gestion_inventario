@@ -55,10 +55,11 @@ async def ui_auth_middleware(request, call_next):
         return await call_next(request)
 
     # CSRF protection: require HX-Request header for state-changing UI requests
-    # Login and logout are exempt (they are regular HTML forms, not HTMX)
+    # Login, logout, and active-business switch are exempt (regular HTML forms, not HTMX)
+    _csrf_exempt_paths = {"/ui/login", "/ui/logout", "/ui/active-business"}
     if (
         path.startswith("/ui")
-        and path not in ("/ui/login", "/ui/logout")
+        and path not in _csrf_exempt_paths
         and request.method in ("POST", "PUT", "PATCH", "DELETE")
         and request.headers.get("HX-Request") != "true"
     ):
