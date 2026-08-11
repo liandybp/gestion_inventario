@@ -26,7 +26,7 @@ jobs:
       - name: Tests
         env:
           SESSION_SECRET: test
-          DATABASE_URL: sqlite+pysqlite:///:memory:
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: test
           OPERATOR_USERNAME: operator
