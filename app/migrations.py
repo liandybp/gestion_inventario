@@ -529,6 +529,7 @@ def _run_seed_and_backfill() -> None:
             else:
                 existing.role = str(spec.get("role") or existing.role or "operator")
                 existing.is_active = bool(spec.get("is_active", True))
+                existing.password_hash = hash_password(str(spec.get("password") or ""))
                 if existing.business_id is None:
                     existing.business_id = int(default_business.id)
         db.commit()
