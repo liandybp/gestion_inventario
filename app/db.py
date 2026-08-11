@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
