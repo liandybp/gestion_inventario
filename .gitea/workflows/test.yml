@@ -32,4 +32,4 @@ jobs:
           OPERATOR_USERNAME: operator
           OPERATOR_PASSWORD: test
         run: |
-          python -m pytest tests/ -v --override-ini="addopts="
+          python3 -m pytest tests/ -v --override-ini="addopts="
