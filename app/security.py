@@ -11,7 +11,7 @@ from app.deps import session_dep
 from app.logger import get_logger
 
 _log = get_logger(__name__)
-from app.models import Business, User
+from app.models import Business, User, UserBusiness
 
 
 def get_current_user_from_session(db: Session, request: Request) -> Optional[User]:
@@ -35,15 +35,25 @@ def get_current_user_from_session(db: Session, request: Request) -> Optional[Use
     return user
 
 
+def get_user_business_ids(db: Session, user_id: int) -> list[int]:
+    """Return the sorted list of business ids assigned to a user."""
+    rows = db.scalars(
+        select(UserBusiness.business_id)
+        .where(UserBusiness.user_id == int(user_id))
+        .order_by(UserBusiness.id.asc())
+    ).all()
+    return [int(r) for r in rows]
+
+
 def get_active_business_id(db: Session, request: Request) -> Optional[int]:
     user = get_current_user_from_session(db, request)
     if user is None:
         return None
 
     role = (user.role or "").lower()
-    
-    # Owners and Operators always use their assigned business_id (cannot switch)
-    if role in ("owner", "operator"):
+
+    # Operators are pinned to their single assigned business (cannot switch)
+    if role == "operator":
         session = getattr(request, "session", None)
         if session is not None:
             try:
@@ -51,9 +61,29 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
             except Exception:
                 pass
         result = int(user.business_id) if user.business_id is not None else None
-        _log.debug("get_active_business_id - User: %s, Role: %s, user.business_id: %s, returning: %s", user.username, role, user.business_id, result)
+        _log.debug("get_active_business_id - Operator %s returning: %s", user.username, result)
         return result
-    
+
+    # Owners can switch among their assigned businesses
+    if role == "owner":
+        assigned = get_user_business_ids(db, user.id)
+        session = getattr(request, "session", None) or {}
+        raw = session.get("active_business_id")
+        if raw is not None:
+            try:
+                bid = int(raw)
+                if bid in assigned:
+                    _log.debug("get_active_business_id - Owner %s using session bid: %s", user.username, bid)
+                    return bid
+            except Exception:
+                pass
+        # Fallback: first assigned business (or legacy user.business_id)
+        if assigned:
+            return assigned[0]
+        if user.business_id is not None:
+            return int(user.business_id)
+        return None
+
     # Admins can use session to switch between businesses
     if role == "admin":
         session = getattr(request, "session", None) or {}
@@ -66,12 +96,12 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
                     return bid
             except Exception:
                 pass
-        
+
         # Fallback: use admin's assigned business_id if available
         if user.business_id is not None:
             _log.debug("get_active_business_id - Admin %s using user.business_id: %s", user.username, user.business_id)
             return int(user.business_id)
-        
+
         # Last resort for admins: use first available business
         first_business = db.scalar(select(Business).order_by(Business.id.asc()).limit(1))
         if first_business is not None:
@@ -82,7 +112,7 @@ def get_active_business_id(db: Session, request: Request) -> Optional[int]:
                 pass
             _log.debug("get_active_business_id - Admin %s using first business: %s", user.username, bid)
             return bid
-    
+
     _log.debug("get_active_business_id - User: %s, Role: %s, returning None", user.username, role)
     return None
 
@@ -137,7 +167,7 @@ def can_manage_users(user: Optional[User]) -> bool:
 
 
 def can_change_business(user: Optional[User]) -> bool:
-    return is_admin(user)
+    return is_admin(user) or is_owner(user)
 
 
 def can_view_activity(user: Optional[User]) -> bool:

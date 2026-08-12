@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -10,11 +8,68 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import Business, User
-from app.security import get_current_user_from_session
+from app.models import Business, User, UserBusiness
+from app.security import get_current_user_from_session, get_user_business_ids
 from app.routers.ui_common import ensure_admin, templates
 
 router = APIRouter()
+
+
+def _coerce_business_ids(raw) -> list[int]:
+    """Coerce a FastAPI Form list to a list of ints.
+
+    ``raw`` is a list of ints when submitted via HTTP, but a FormInfo
+    default when the function is called directly (e.g. tests).
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        out: list[int] = []
+        for x in raw:
+            try:
+                out.append(int(x))
+            except (ValueError, TypeError):
+                continue
+        return out
+    default = getattr(raw, "default", None)
+    if isinstance(default, list):
+        return [int(x) for x in default if x]
+    if default is not None:
+        try:
+            return [int(default)]
+        except (ValueError, TypeError):
+            return []
+    return []
+
+
+def _sync_user_businesses(db: Session, user: User, business_ids: list[int]) -> None:
+    """Replace the user's business assignments with the given list.
+
+    ``User.business_id`` is kept as the primary business (first of the
+    list) for backward compatibility with operators and legacy code.
+    """
+    # Remove existing assignments
+    db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
+        synchronize_session=False
+    )
+    for bid in business_ids:
+        db.add(UserBusiness(user_id=int(user.id), business_id=int(bid)))
+    user.business_id = int(business_ids[0]) if business_ids else None
+
+
+def _users_tab_context(db: Session) -> dict:
+    """Build the shared context for the users tab, including a map of
+    user_id → assigned business_ids for rendering the multi-business column."""
+    users = list(db.scalars(select(User).order_by(User.username.asc())))
+    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map: dict[int, list[int]] = {}
+    for u in users:
+        user_business_map[int(u.id)] = get_user_business_ids(db, int(u.id))
+    return {
+        "users": users,
+        "businesses": businesses,
+        "user_business_map": user_business_map,
+    }
 
 
 @router.post("/users/create", response_class=HTMLResponse)
@@ -23,7 +78,7 @@ def user_create(
     username: str = Form(...),
     password: str = Form(...),
     role: str = Form(...),
-    business_id: Optional[int] = Form(None),
+    business_ids: list[int] = Form([]),
     is_active: bool = Form(True),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
@@ -40,12 +95,14 @@ def user_create(
     if existing is not None:
         users = list(db.scalars(select(User).order_by(User.username.asc())))
         businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
+                "user_business_map": user_business_map,
                 "message": "Error al crear usuario",
                 "message_detail": f"El usuario '{username}' ya existe",
                 "message_class": "error",
@@ -57,17 +114,21 @@ def user_create(
     if role_norm not in ("admin", "owner", "operator"):
         role_norm = "operator"
 
-    if role_norm in ("owner", "operator") and not business_id:
+    bid_list = _coerce_business_ids(business_ids)
+
+    if role_norm in ("owner", "operator") and not bid_list:
         users = list(db.scalars(select(User).order_by(User.username.asc())))
         businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
+                "user_business_map": user_business_map,
                 "message": "Error al crear usuario",
-                "message_detail": "Debes asignar un negocio a usuarios Operador/Dueño",
+                "message_detail": "Debes asignar al menos un negocio a usuarios Operador/Dueño",
                 "message_class": "error",
             },
             status_code=422,
@@ -77,11 +138,13 @@ def user_create(
         username=username,
         password_hash=hash_password(password),
         role=role_norm,
-        business_id=int(business_id) if business_id else None,
+        business_id=None,
         is_active=bool(is_active),
         must_change_password=True,
     )
     db.add(new_user)
+    db.flush()
+    _sync_user_businesses(db, new_user, bid_list)
     db.commit()
     db.refresh(new_user)
 
@@ -92,7 +155,7 @@ def user_create(
             action="user_create",
             entity_type="user",
             entity_id=str(new_user.id),
-            detail={"username": username, "role": role_norm},
+            detail={"username": username, "role": role_norm, "business_ids": bid_list},
         )
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
@@ -121,10 +184,15 @@ def user_edit_form(
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_ids = get_user_business_ids(db, user_id)
     return templates.TemplateResponse(
         request=request,
         name="partials/user_edit_form.html",
-        context={"user": user, "businesses": businesses},
+        context={
+            "user": user,
+            "businesses": businesses,
+            "user_business_ids": user_business_ids,
+        },
     )
 
 
@@ -134,7 +202,7 @@ def user_update(
     user_id: int,
     username: str = Form(...),
     role: str = Form(...),
-    business_id: Optional[int] = Form(None),
+    business_ids: list[int] = Form([]),
     is_active: bool = Form(True),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
@@ -151,12 +219,14 @@ def user_update(
     existing = db.scalar(select(User).where(User.username == username, User.id != user_id))
     if existing is not None:
         businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
             name="partials/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
+                "user_business_ids": user_business_ids,
                 "message": "Error al actualizar",
                 "message_detail": f"El username '{username}' ya existe",
                 "message_class": "error",
@@ -170,16 +240,20 @@ def user_update(
     if role_norm not in ("admin", "owner", "operator"):
         role_norm = "operator"
 
-    if role_norm in ("owner", "operator") and not business_id:
+    bid_list = _coerce_business_ids(business_ids)
+
+    if role_norm in ("owner", "operator") and not bid_list:
         businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
             name="partials/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
+                "user_business_ids": user_business_ids,
                 "message": "Error al actualizar",
-                "message_detail": "Debes asignar un negocio a usuarios Operador/Dueño",
+                "message_detail": "Debes asignar al menos un negocio a usuarios Operador/Dueño",
                 "message_class": "error",
             },
             status_code=422,
@@ -189,8 +263,9 @@ def user_update(
 
     user.username = username
     user.role = role_norm
-    user.business_id = int(business_id) if business_id else None
     user.is_active = bool(is_active)
+    db.flush()
+    _sync_user_businesses(db, user, bid_list)
     db.commit()
 
     if current_user is not None:
@@ -200,7 +275,7 @@ def user_update(
             action="user_update",
             entity_type="user",
             entity_id=str(user.id),
-            detail={"username": username, "role": role_norm},
+            detail={"username": username, "role": role_norm, "business_ids": bid_list},
         )
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
@@ -233,12 +308,14 @@ def user_delete(
     if current_user and current_user.id == user.id:
         users = list(db.scalars(select(User).order_by(User.username.asc())))
         businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
+                "user_business_map": user_business_map,
                 "message": "Error al eliminar",
                 "message_detail": "No puedes eliminar tu propio usuario",
                 "message_class": "error",
@@ -247,6 +324,9 @@ def user_delete(
         )
 
     username = user.username
+    db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
+        synchronize_session=False
+    )
     db.delete(user)
     db.commit()
 

@@ -64,18 +64,33 @@ gestion_inventario/
 ```bash
 cd ~/PyCharmMiscProject/gestion_inventario
 source .venv/bin/activate
-export SESSION_SECRET=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
-export ADMIN_USERNAME=admin
-export ADMIN_PASSWORD=admin
-python -m uvicorn app.main:app --host 127.0.0.1 --port 10000 --reload
+# Dev local usa PostgreSQL (localhost:5433/inventario) via .env
+uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
+# URL: http://localhost:10000 → admin/admin
 
-# Tests
-SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: pytest -v
+# Producción (vm-apps): Docker
+cd ~/PyCharmMiscProject/gestion_inventario  # en vm-apps
+docker compose -f docker-compose-homelab.yml up -d --build
+
+# Tests (SQLite en memoria)
+SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: python3 -m pytest -v
 ```
+
+## Entornos (dev vs producción)
+
+| Entorno | URL | Acceso | Rama | Dónde corre | Servidor |
+|---|---|---|---|---|---|
+| **Desarrollo** | `http://dev.gestion.legatumbp.com` | **Interno (LAN)** — NO sale a internet | `develop` | host `ai-lab-home` (192.168.1.162) | uvicorn `:10000` |
+| **Producción** | `https://gestion.legatumbp.com` | **Público** (Cloudflare Tunnel) | `main` | vm-apps (192.168.1.20) | Docker `gestion-inventario` `:10000` |
+
+- **Dev es interno**: se resuelve vía **AdGuard DNS** (192.168.1.23) con rewrite `dev.gestion.legatumbp.com → 192.168.1.162`. NO usa Cloudflare Tunnel.
+- **Deploy dev**: script `~/deploy-watcher-gestion.sh` (cron cada 2 min) hace `git pull origin develop` en `~/staging/gestion_inventario` y reinicia uvicorn `:10000`.
+- **Deploy prod**: manual — `docker compose -f docker-compose-homelab.yml up -d --build` en vm-apps (rama `main`).
+- **BD dev**: PostgreSQL `localhost:5433/inventario` (host). **BD prod**: `192.168.1.20:5432/inventario` (vm-apps).
 
 ## Variables de entorno clave
 
-- `DATABASE_URL` — default: `sqlite+pysqlite:///./inventario.db`
+- `DATABASE_URL` — dev: `postgresql+psycopg://liandy:devpassword@localhost:5433/inventario` (.env); prod: `192.168.1.20:5432`
 - `SESSION_SECRET` — requerido en producción
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales admin
 - `OPERATOR_USERNAME` / `OPERATOR_PASSWORD` — credenciales operador
@@ -123,15 +138,20 @@ Archivo `app/business_config.conf` (INI):
 - [x] Reportes (profit mensual, dividendos, gráficos)
 - [x] Docker Compose (PostgreSQL + App + Caddy)
 - [x] ~62 tests unitarios (SQLite en memoria)
-- [x] **CI/CD Gitea Actions** (`.gitea/workflows/test.yml`) + mirror GitHub
+- [x] **CI/CD Gitea Actions** (`.gitea/workflows/test.yml`) + mirror GitHub — **verde, 62 tests**
 - [x] **CSRF protection** (vía header `HX-Request` en middleware)
 - [x] **Rate limiting** en login (in-memory, 10 intentos / 5 min)
 - [x] FK enforcement SQLite (`PRAGMA foreign_keys=ON`)
 - [x] Logging centralizado (`app/logger.py`)
+- [x] **PostgreSQL en dev y producción** — migración SQLite→PG completada (BD `inventario`)
+- [x] **Deploy producción** — vm-apps (Docker `gestion-inventario` :10000), `gestion.legatumbp.com`
+- [x] **Formulario completo de config de negocio** — crear/editar negocio genera `business_config.<code>.conf` con todos los campos (issuer, currency, purchase, sales_documents, dividends, locations, inventory)
+- [x] **Acceso multi-negocio para owners** — tabla `user_businesses` (many-to-many), admin asigna múltiples negocios a un owner desde la pestaña Usuarios, y el owner cambia entre sus negocios asignados vía sidebar
 - [ ] Sistema agéntico con LLM local (planificado, no implementado)
 
 ## Sesiones
 
+- **2026-08-11** — DBeaver + PostgreSQL client + restauración BD + migración SQLite→PG + deploy producción + fix CI/CD Gitea + acceso en homepage. Detalle en `.claude/session-notes.md`
 - **2026-08-04/05** — Feature Negocios + auditoría (22 hallazgos) + deploy Gitea. Detalle en `.claude/session-notes.md`
 
 ## Reglas para el agente

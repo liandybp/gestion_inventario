@@ -15,9 +15,9 @@ from app.auth import authenticate
 from app.auth import hash_password
 from app.deps import session_dep
 from app.models import Business, User
-from app.security import get_current_user_from_session
+from app.security import get_current_user_from_session, get_user_business_ids
 
-from .ui_common import ensure_admin, templates
+from .ui_common import templates
 
 router = APIRouter()
 
@@ -72,10 +72,16 @@ def login_submit(
 
     request.session["username"] = user.username
     request.session["last_activity"] = int(time.time())
-    # Only set session business_id for admins (they can switch businesses)
-    # Owners and operators use their user.business_id directly (no switching)
-    if (user.role or "").lower() == "admin" and user.business_id is not None:
+    # Set session business_id for roles that can switch (admin/owner).
+    # Operators are pinned to user.business_id and never get it in session.
+    role = (user.role or "").lower()
+    if role == "admin" and user.business_id is not None:
         request.session["active_business_id"] = int(user.business_id)
+    elif role == "owner":
+        assigned = get_user_business_ids(db, user.id)
+        primary = assigned[0] if assigned else (int(user.business_id) if user.business_id else None)
+        if primary is not None:
+            request.session["active_business_id"] = primary
     else:
         try:
             request.session.pop("active_business_id", None)
@@ -157,7 +163,15 @@ def must_change_password_submit(
     db.commit()
     db.refresh(row)
     request.session["username"] = row.username
-    if (row.role or "").lower() != "admin":
+    role = (row.role or "").lower()
+    if role == "admin" and row.business_id is not None:
+        request.session["active_business_id"] = int(row.business_id)
+    elif role == "owner":
+        assigned = get_user_business_ids(db, row.id)
+        primary = assigned[0] if assigned else (int(row.business_id) if row.business_id else None)
+        if primary is not None:
+            request.session["active_business_id"] = primary
+    else:
         try:
             request.session.pop("active_business_id", None)
         except Exception:
@@ -182,10 +196,25 @@ def set_active_business(
     business_id: int = Form(...),
     db: Session = Depends(session_dep),
 ) -> RedirectResponse:
-    ensure_admin(db, request)
+    user = get_current_user_from_session(db, request)
+    if user is None:
+        return RedirectResponse(url="/ui/login", status_code=302)
+
+    role = (user.role or "").lower()
     bid = int(business_id)
+
     if db.get(Business, bid) is None:
         return RedirectResponse(url="/ui/dashboard", status_code=302)
+
+    if role == "owner":
+        # Owners can only switch to businesses they are assigned to
+        assigned = get_user_business_ids(db, user.id)
+        if bid not in assigned:
+            return RedirectResponse(url="/ui/dashboard", status_code=302)
+    elif role != "admin":
+        # Operators cannot switch businesses
+        return RedirectResponse(url="/ui/dashboard", status_code=302)
+
     request.session["active_business_id"] = bid
     try:
         request.session.pop("sales_doc_cart", None)

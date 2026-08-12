@@ -23,10 +23,11 @@ from app.models import (
     Product,
     SalesDocument,
     User,
+    UserBusiness,
 )
 
 
-_LATEST_SCHEMA_VERSION = 2
+_LATEST_SCHEMA_VERSION = 3
 
 
 def _ensure_schema_version_table(conn) -> None:
@@ -71,6 +72,9 @@ def run_startup_tasks() -> None:
 
     if schema_version < 2:
         _run_seed_and_backfill()
+
+    if schema_version < 3:
+        _backfill_user_businesses()
 
     with engine.begin() as conn:
         _ensure_schema_version_table(conn)
@@ -624,5 +628,39 @@ def _run_seed_and_backfill() -> None:
                 val = val * 2.0
             prod.default_purchase_cost = float(val)
         db.commit()
+    finally:
+        db.close()
+
+
+def _backfill_user_businesses() -> None:
+    """Populate user_businesses from existing users.business_id.
+
+    Runs once (schema version 2 → 3). For every user that has a
+    ``business_id`` but no corresponding ``user_businesses`` row, creates
+    one so owners/operators keep their existing assignment in the new
+    many-to-many model.
+    """
+    db = get_session()
+    try:
+        users = db.scalars(select(User).where(User.business_id.is_not(None))).all()
+        for user in users:
+            existing = db.scalar(
+                select(UserBusiness).where(
+                    and_(
+                        UserBusiness.user_id == int(user.id),
+                        UserBusiness.business_id == int(user.business_id),
+                    )
+                )
+            )
+            if existing is None:
+                db.add(
+                    UserBusiness(
+                        user_id=int(user.id),
+                        business_id=int(user.business_id),
+                    )
+                )
+        db.commit()
+    except Exception as e:
+        _log.warning("Advertencia al backfill de user_businesses: %s", e)
     finally:
         db.close()

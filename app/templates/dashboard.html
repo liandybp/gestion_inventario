@@ -23,7 +23,7 @@
           {% if user %}
             {% set user_role = (user.role or '')|lower %}
             <div class="sidebar-user">{{ user.username }}</div>
-            {% if user_role == 'admin' %}
+            {% if businesses and (user_role == 'admin' or user_role == 'owner') %}
               <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
               <form method="post" action="/ui/active-business" style="margin-top:8px;">
                 <select name="business_id" onchange="this.form.submit()" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
@@ -32,7 +32,7 @@
                   {% endfor %}
                 </select>
               </form>
-            {% elif user_role in ('owner', 'operator') %}
+            {% else %}
               <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
             {% endif %}
             <a href="/ui/logout" class="sidebar-logout">Cerrar sesión</a>

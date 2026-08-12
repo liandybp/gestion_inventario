@@ -37,6 +37,24 @@ class User(Base):
     )
 
 
+class UserBusiness(Base):
+    """Many-to-many association between users and businesses.
+
+    Owners can be assigned to multiple businesses and switch between them.
+    ``User.business_id`` remains the primary/default business for
+    backward compatibility (operators and legacy data).
+    """
+
+    __tablename__ = "user_businesses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class Customer(Base):
     __tablename__ = "customers"
 

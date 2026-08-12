@@ -69,8 +69,31 @@ def test_get_active_business_id_for_owner_uses_user_business(db_session: Session
 
     bid = get_active_business_id(db_session, request)
 
+    # Owner has no user_businesses rows, so 999 is ignored and
+    # legacy user.business_id is used as fallback.
     assert bid == business_id
-    assert "active_business_id" not in request.session
+
+
+def test_get_active_business_id_for_owner_switches_among_assigned(db_session: Session, business_id: int) -> None:
+    from app.models import UserBusiness
+
+    b2 = Business(code="b2", name="B2")
+    db_session.add(b2)
+    db_session.commit()
+    db_session.refresh(b2)
+
+    user = _mk_user(db_session, username="owner2", role="owner", business_id=business_id)
+    db_session.add(UserBusiness(user_id=user.id, business_id=business_id))
+    db_session.add(UserBusiness(user_id=user.id, business_id=b2.id))
+    db_session.commit()
+
+    # Switch to the second assigned business via session
+    req_b2 = _req({"username": user.username, "active_business_id": b2.id})
+    assert get_active_business_id(db_session, req_b2) == b2.id
+
+    # Invalid business (not assigned) falls back to first assigned
+    req_invalid = _req({"username": user.username, "active_business_id": 999})
+    assert get_active_business_id(db_session, req_invalid) == business_id
 
 
 def test_get_active_business_id_for_admin_session_and_fallback(db_session: Session, business_id: int) -> None:
@@ -119,7 +142,8 @@ def test_require_helpers_and_role_booleans(db_session: Session, business_id: int
     assert is_owner(owner) and not is_owner(admin)
     assert is_operator(operator) and not is_operator(owner)
     assert can_manage_users(admin) and not can_manage_users(owner)
-    assert can_change_business(admin) and not can_change_business(owner)
+    assert can_change_business(admin) and can_change_business(owner)
+    assert not can_change_business(operator)
     assert can_view_activity(admin) and not can_view_activity(owner)
     assert can_access_full_dashboard(admin)
     assert can_access_full_dashboard(owner)

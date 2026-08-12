@@ -27,6 +27,7 @@ from app.security import (
     get_active_business_code,
     get_active_business_id,
     get_current_user_from_session,
+    get_user_business_ids,
     require_active_business_id,
 )
 from app.services.inventory_service import InventoryService
@@ -338,8 +339,20 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     active_business = None
     if active_business_id is not None:
         active_business = db.get(Business, int(active_business_id))
-    if user is not None and (user.role or "").lower() == "admin":
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    if user is not None:
+        role = (user.role or "").lower()
+        if role == "admin":
+            businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        elif role == "owner":
+            assigned = get_user_business_ids(db, user.id)
+            if assigned:
+                businesses = list(
+                    db.scalars(
+                        select(Business)
+                        .where(Business.id.in_(assigned))
+                        .order_by(Business.code.asc())
+                    )
+                )
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -2401,12 +2414,14 @@ def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     ensure_admin(db, request)
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
+            "user_business_map": user_business_map,
         },
     )
 

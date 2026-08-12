@@ -26,13 +26,17 @@
         </div>
 
         <div class="row">
-          <label for="edit-business">Negocio</label>
-          <select id="edit-business" name="business_id">
-            <option value="">-- Sin negocio asignado --</option>
-            {% for b in businesses %}
-            <option value="{{ b.id }}" {% if user.business_id and user.business_id == b.id %}selected{% endif %}>{{ b.name }}</option>
-            {% endfor %}
-          </select>
+          <label>Negocios</label>
+          <div>
+            <div class="checkbox-group">
+              {% for b in businesses %}
+              <label class="checkbox-label">
+                <input type="checkbox" name="business_ids" value="{{ b.id }}" {% if b.id in user_business_ids %}checked{% endif %} /> {{ b.name }}
+              </label>
+              {% endfor %}
+            </div>
+            <small class="muted">Dueño puede tener varios negocios; Operador usa el primero seleccionado</small>
+          </div>
         </div>
 
         <div class="row">
