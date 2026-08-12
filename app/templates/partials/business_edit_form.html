@@ -1,5 +1,5 @@
 <div class="modal-overlay" id="business-edit-modal">
-  <div class="modal-container">
+  <div class="modal-container modal-container-wide">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Editar Negocio</h2>
@@ -14,18 +14,249 @@
       {% endif %}
 
       <form hx-post="/ui/business/{{ business.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
-        <div class="form-group">
-          <label for="edit-code">Código *</label>
-          <input type="text" id="edit-code" name="code" required autocomplete="off"
-                 value="{{ business.code }}" />
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 1. Datos del Negocio                                    -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Datos del Negocio</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-code">Código *</label>
+            <input type="text" id="edit-code" name="code" required autocomplete="off"
+                   value="{{ business.code }}" />
+            <small class="muted">Código único (sin espacios, usar guiones bajos)</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-name">Nombre *</label>
+            <input type="text" id="edit-name" name="name" required autocomplete="off"
+                   value="{{ business.name }}" />
+            <small class="muted">Nombre comercial → [issuer] name</small>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 2. Datos del Emisor [issuer]                            -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Datos del Emisor [issuer]</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-issuer-tax-id">Tax ID / RIF</label>
+            <input type="text" id="edit-issuer-tax-id" name="issuer_tax_id" autocomplete="off"
+                   value="{{ config.issuer.tax_id }}" />
+            <small class="muted">Ej: J-12345678-9</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-issuer-address">Dirección</label>
+            <input type="text" id="edit-issuer-address" name="issuer_address" autocomplete="off"
+                   value="{{ config.issuer.address }}" />
+            <small class="muted">Ej: Av. Principal, Edif. Centro, Piso 2</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-issuer-city">Ciudad</label>
+            <input type="text" id="edit-issuer-city" name="issuer_city" autocomplete="off"
+                   value="{{ config.issuer.city }}" />
+            <small class="muted">Ej: Caracas</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-issuer-postal-code">Código Postal</label>
+            <input type="text" id="edit-issuer-postal-code" name="issuer_postal_code" autocomplete="off"
+                   value="{{ config.issuer.postal_code }}" />
+            <small class="muted">Ej: 1010</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-issuer-country">País</label>
+            <input type="text" id="edit-issuer-country" name="issuer_country" autocomplete="off"
+                   value="{{ config.issuer.country }}" />
+            <small class="muted">Ej: Venezuela</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-issuer-email">Email</label>
+            <input type="email" id="edit-issuer-email" name="issuer_email" autocomplete="off"
+                   value="{{ config.issuer.email }}" />
+            <small class="muted">Ej: contacto@minegocio.com</small>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="edit-name">Nombre *</label>
-          <input type="text" id="edit-name" name="name" required autocomplete="off"
-                 value="{{ business.name }}" />
+          <label for="edit-issuer-phone">Teléfono</label>
+          <input type="text" id="edit-issuer-phone" name="issuer_phone" autocomplete="off"
+                 value="{{ config.issuer.phone }}" />
+          <small class="muted">Ej: +58 212 555-1234</small>
         </div>
 
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 3. Moneda [currency]                                    -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Moneda [currency]</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-currency-code">Código *</label>
+            <input type="text" id="edit-currency-code" name="currency_code" required autocomplete="off"
+                   value="{{ config.currency.code }}" />
+            <small class="muted">Ej: USD, EUR, VES</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-currency-symbol">Símbolo *</label>
+            <input type="text" id="edit-currency-symbol" name="currency_symbol" required autocomplete="off"
+                   value="{{ config.currency.symbol }}" />
+            <small class="muted">Ej: $, €, Bs.</small>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 4. Compras [purchase]                                   -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Compras [purchase]</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-purchase-source-currency">Moneda origen facturas</label>
+            <input type="text" id="edit-purchase-source-currency" name="purchase_source_currency" autocomplete="off"
+                   value="{{ config.purchase.invoice_source_currency }}" />
+            <small class="muted">Ej: EUR (moneda en que vienen las facturas de proveedores)</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-purchase-vat-rate">Tasa IVA</label>
+            <input type="text" id="edit-purchase-vat-rate" name="purchase_vat_rate" autocomplete="off"
+                   value="{{ config.purchase.invoice_vat_rate }}" />
+            <small class="muted">Ej: 1.21 (= 21% IVA). Usar punto decimal</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-purchase-fx-rate">Tasa de cambio</label>
+          <input type="text" id="edit-purchase-fx-rate" name="purchase_fx_rate" autocomplete="off"
+                 value="{{ config.purchase.invoice_fx_rate or '' }}" />
+          <small class="muted">Ej: 1.15 (1 EUR = 1.15 USD). Vacío = sin conversión</small>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 5. Documentos de Venta [sales_documents]                -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Documentos de Venta [sales_documents]</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-sales-default-type">Tipo por defecto</label>
+            <select id="edit-sales-default-type" name="sales_default_type">
+              <option value="F" {% if config.sales_documents.default_type == "F" %}selected{% endif %}>F — Factura</option>
+              <option value="P" {% if config.sales_documents.default_type == "P" %}selected{% endif %}>P — Presupuesto</option>
+            </select>
+            <small class="muted">Tipo de documento seleccionado al crear uno nuevo</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-sales-enabled-types">Tipos habilitados</label>
+            <input type="text" id="edit-sales-enabled-types" name="sales_enabled_types" autocomplete="off"
+                   value="{{ config.sales_documents.enabled_types | join(',') }}" />
+            <small class="muted">Ej: F,P (separados por coma, sin espacios)</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-sales-invoice-label">Label Factura</label>
+            <input type="text" id="edit-sales-invoice-label" name="sales_invoice_label" autocomplete="off"
+                   value="{{ config.sales_documents.invoice_label }}" />
+            <small class="muted">Ej: Factura, Invoice</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-sales-quote-label">Label Presupuesto</label>
+            <input type="text" id="edit-sales-quote-label" name="sales_quote_label" autocomplete="off"
+                   value="{{ config.sales_documents.quote_label }}" />
+            <small class="muted">Ej: Presupuesto, Quote</small>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 6. Dividendos [dividends]                               -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Dividendos [dividends]</div>
+
+        <div class="form-group">
+          <label for="edit-dividends-business-label">Label del negocio</label>
+          <input type="text" id="edit-dividends-business-label" name="dividends_business_label" autocomplete="off"
+                 value="{{ config.dividends.business_label }}" />
+          <small class="muted">Ej: Negocio, Business (cómo se llama en el reparto de dividendos)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-dividends-partners">Socios</label>
+          <input type="text" id="edit-dividends-partners" name="dividends_partners" autocomplete="off"
+                 value="{{ config.dividends.partners | join(', ') }}" />
+          <small class="muted">Ej: Liandy, Randy (nombres separados por coma)</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-dividends-opening-pending">Saldo pendiente inicial</label>
+            <input type="text" id="edit-dividends-opening-pending" name="dividends_opening_pending" autocomplete="off"
+                   value="{{ config.dividends.opening_pending | tojson if config.dividends.opening_pending else '' }}" />
+            <small class="muted">Ej: {"Negocio": 1375, "Liandy": 2715} (JSON)</small>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-dividends-opening-pending-as-of">Fecha saldo pendiente</label>
+            <input type="text" id="edit-dividends-opening-pending-as-of" name="dividends_opening_pending_as_of" autocomplete="off"
+                   value="{{ config.dividends.opening_pending_as_of }}" />
+            <small class="muted">Ej: 2026-02-01 (YYYY-MM-DD)</small>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 7. Ubicaciones [locations]                              -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Ubicaciones [locations]</div>
+
+        <div class="form-group">
+          <label for="edit-locations-central">Almacén CENTRAL *</label>
+          <input type="text" id="edit-locations-central" name="locations_central" required autocomplete="off"
+                 value="{{ config.locations.central.code }}:{{ config.locations.central.name }}" />
+          <small class="muted">Ej: CENTRAL:Almacén Central (código:nombre)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-locations-pos">Puntos de venta (POS)</label>
+          <input type="text" id="edit-locations-pos" name="locations_pos" autocomplete="off"
+                 value="{% for p in config.locations.pos %}{{ p.code }}:{{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}" />
+          <small class="muted">Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-locations-default-pos">POS por defecto</label>
+          <input type="text" id="edit-locations-default-pos" name="locations_default_pos" autocomplete="off"
+                 value="{{ config.locations.default_pos }}" />
+          <small class="muted">Ej: POS1 (código del POS seleccionado por defecto en ventas)</small>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 8. Inventario [inventory]                               -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-section-title">Inventario [inventory]</div>
+
+        <div class="form-group">
+          <label for="edit-inventory-lead-time">Lead time de reposición (días)</label>
+          <input type="number" id="edit-inventory-lead-time" name="inventory_replenishment_lead_time_days" autocomplete="off"
+                 value="{{ config.inventory.replenishment_lead_time_days }}" min="0" step="1" />
+          <small class="muted">Ej: 25 (días desde que se pide hasta que se recibe la mercancía)</small>
+        </div>
+
+        <!-- ── Submit ──────────────────────────────────────────────── -->
         <div class="form-actions">
           <button type="submit" class="btn-primary">Guardar Cambios</button>
           <button type="button" class="btn-secondary" data-modal-close="business-edit-modal">Cancelar</button>

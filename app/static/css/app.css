@@ -306,6 +306,26 @@ thead th { background: var(--brand-navy); color: #ffffff; }
  tbody tr:nth-child(even) td.sticky-actions { background: var(--row-even); }
  tbody tr:hover td.sticky-actions { background: var(--row-hover); }
 
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 14px; }
+.form-actions { margin-top: 16px; }
+.form-section-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: 20px;
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--brand-border);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+
 .muted { color: var(--brand-muted); font-size: 13px; }
 .warn { background: #fff7ed; }
 .error { background: #fef2f2; }

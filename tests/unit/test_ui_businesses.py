@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import func, select
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Business, Location, User
 from app.routers.ui_businesses import (
+    _write_business_config,
     business_create,
     business_delete,
     business_edit_form,
@@ -42,6 +44,24 @@ def admin_user(db_session: Session) -> User:
     return user
 
 
+@pytest.fixture(autouse=True)
+def _mock_write_config() -> None:
+    """Prevent _write_business_config from touching the real filesystem."""
+    with patch(
+        "app.routers.ui_businesses._write_business_config",
+        side_effect=_fake_write_config,
+    ):
+        yield
+
+
+def _fake_write_config(*, code: str, issuer_name: str, **kwargs: object) -> Path:
+    """No-op stub that returns a path without touching disk.
+
+    Matches the keyword-only signature of the real ``_write_business_config``.
+    """
+    return Path(f"/tmp/mock_configs/business_config.{code}.conf")
+
+
 class TestBusinessCreate:
     def test_creates_business_and_central_location(self, admin_request, db_session, admin_user):
         result = business_create(
@@ -57,15 +77,24 @@ class TestBusinessCreate:
         assert biz is not None
         assert biz.name == "Nuevo Negocio"
 
-        # Verify location was auto-created
+        # Verify location was auto-created (uses form default CENTRAL code)
         loc = db_session.scalar(
             select(Location).where(
                 Location.business_id == biz.id,
-                Location.code == "nuevo_negocio_CENTRAL",
+                Location.code == "CENTRAL",
             )
         )
         assert loc is not None
         assert loc.name == "Almacén Central"
+
+        # Verify POS location was also created (form default POS1)
+        pos_loc = db_session.scalar(
+            select(Location).where(
+                Location.business_id == biz.id,
+                Location.code == "POS1",
+            )
+        )
+        assert pos_loc is not None
 
     def test_duplicate_code_returns_409(self, admin_request, db_session, admin_user):
         # First creation
