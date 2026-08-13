@@ -47,7 +47,12 @@ def _sync_user_businesses(db: Session, user: User, business_ids: list[int]) -> N
 
     ``User.business_id`` is kept as the primary business (first of the
     list) for backward compatibility with operators and legacy code.
+    Operators are pinned to a single business, so only the first is kept.
     """
+    # Operators can only have one business — keep just the first
+    if (user.role or "").lower() == "operator" and len(business_ids) > 1:
+        business_ids = business_ids[:1]
+
     # Remove existing assignments
     db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
         synchronize_session=False
@@ -160,12 +165,14 @@ def user_create(
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
+            "user_business_map": user_business_map,
             "message": "Usuario creado",
             "message_detail": f"Usuario '{username}' creado correctamente",
             "message_class": "ok",
@@ -280,12 +287,14 @@ def user_update(
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
+            "user_business_map": user_business_map,
             "message": "Usuario actualizado",
             "message_detail": f"Usuario '{username}' actualizado correctamente",
             "message_class": "ok",
@@ -342,12 +351,14 @@ def user_delete(
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
+            "user_business_map": user_business_map,
             "message": "Usuario eliminado",
             "message_detail": f"Usuario '{username}' eliminado correctamente",
             "message_class": "ok",
@@ -405,12 +416,14 @@ def user_reset_password(
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
+            "user_business_map": user_business_map,
             "message": "Contraseña reseteada",
             "message_detail": f"Contraseña de '{user.username}' actualizada",
             "message_class": "ok",

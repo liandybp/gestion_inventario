@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.models import Business, Location, Product, User
+from app.models import Business, Location, Product, User, UserBusiness
 from app.security import get_current_user_from_session
 from app.routers.ui_common import ensure_admin, templates
 
@@ -36,6 +36,39 @@ def _str_form(value, fallback: str = "") -> str:
     if isinstance(default, str) and default.strip():
         return default.strip()
     return fallback
+
+
+def _prefix_location_code(loc_code: str, business_code: str) -> str:
+    """Prefix a location code with the business code to keep it globally unique.
+
+    ``Location.code`` is UNIQUE across the whole DB, so bare codes like
+    ``CENTRAL``/``POS1`` would collide between businesses. Already-prefixed
+    codes are left unchanged.
+    """
+    loc_code = (loc_code or "").strip()
+    prefix = f"{business_code}_"
+    return loc_code if loc_code.startswith(prefix) else f"{prefix}{loc_code}"
+
+
+def _prefix_location_spec(spec: str, business_code: str) -> str:
+    """Prefix the code part of a ``CODE:NAME`` spec (``CENTRAL:Almacén`` →
+    ``bazar_CENTRAL:Almacén``). Already-prefixed codes are left unchanged."""
+    spec = (spec or "").strip()
+    if ":" in spec:
+        code, name = spec.split(":", 1)
+        code = code.strip()
+        name = name.strip() or code
+        return f"{_prefix_location_code(code, business_code)}:{name}"
+    return _prefix_location_code(spec, business_code)
+
+
+def _prefix_location_list(spec_list: str, business_code: str) -> str:
+    """Prefix every ``CODE:NAME`` entry in a comma-separated list."""
+    return ", ".join(
+        _prefix_location_spec(p, business_code)
+        for p in (spec_list or "").split(",")
+        if p.strip()
+    )
 
 
 def _write_business_config(
@@ -121,10 +154,14 @@ def _write_business_config(
     div_opening = _s(dividends_opening_pending)
     div_opening_as_of = _s(dividends_opening_pending_as_of)
 
-    # locations — keep user-supplied codes; fill defaults if empty
-    loc_central = _s(locations_central) or "CENTRAL:Almacén Central"
-    loc_pos = _s(locations_pos) or "POS1:Punto de venta 1"
-    loc_def = _s(locations_default_pos) or "POS1"
+    # locations — prefix codes with the business code to keep them unique
+    loc_central = _prefix_location_spec(
+        _s(locations_central) or "CENTRAL:Almacén Central", code
+    )
+    loc_pos = _prefix_location_list(
+        _s(locations_pos) or "POS1:Punto de venta 1", code
+    )
+    loc_def = _prefix_location_code(_s(locations_default_pos) or "POS1", code)
 
     # inventory
     inv_lead = _s(inventory_replenishment_lead_time_days, "25")
@@ -280,6 +317,7 @@ def business_create(
     central_code, central_name = _parse_loc(
         _s(locations_central), "CENTRAL", "Almacén Central"
     )
+    central_code = _prefix_location_code(central_code, code)
     db.add(Location(
         business_id=new_business.id,
         code=central_code,
@@ -294,7 +332,7 @@ def business_create(
     for pcode, pname in pos_specs:
         db.add(Location(
             business_id=new_business.id,
-            code=pcode,
+            code=_prefix_location_code(pcode, code),
             name=pname,
         ))
 
@@ -642,12 +680,19 @@ def business_delete(
             Location.code != f"{code}_CENTRAL",
         )
     ) or 0
+    user_business_count = db.scalar(
+        select(func.count())
+        .select_from(UserBusiness)
+        .where(UserBusiness.business_id == business_id)
+    ) or 0
 
-    if user_count > 0 or product_count > 0 or other_location_count > 0:
+    if user_count > 0 or product_count > 0 or other_location_count > 0 or user_business_count > 0:
         businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
         parts = []
         if user_count > 0:
             parts.append(f"{user_count} usuario(s)")
+        if user_business_count > 0:
+            parts.append(f"{user_business_count} asignación(es) a dueño")
         if product_count > 0:
             parts.append(f"{product_count} producto(s)")
         if other_location_count > 0:

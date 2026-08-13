@@ -83,8 +83,9 @@ SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: python3 -m pytest -
 | **Desarrollo** | `http://dev.gestion.legatumbp.com` | **Interno (LAN)** — NO sale a internet | `develop` | host `ai-lab-home` (192.168.1.162) | uvicorn `:10000` |
 | **Producción** | `https://gestion.legatumbp.com` | **Público** (Cloudflare Tunnel) | `main` | vm-apps (192.168.1.20) | Docker `gestion-inventario` `:10000` |
 
-- **Dev es interno**: se resuelve vía **AdGuard DNS** (192.168.1.23) con rewrite `dev.gestion.legatumbp.com → 192.168.1.162`. NO usa Cloudflare Tunnel.
-- **Deploy dev**: script `~/deploy-watcher-gestion.sh` (cron cada 2 min) hace `git pull origin develop` en `~/staging/gestion_inventario` y reinicia uvicorn `:10000`.
+- **Dev es interno**: se resuelve vía **AdGuard DNS** (192.168.1.23) con rewrite `dev.gestion.legatumbp.com → 192.168.1.20` (vm-apps). El **Nginx de vm-apps** (`default.conf`) redirige `dev.gestion.legatumbp.com` → `192.168.1.162:10000` (host dev). NO usa Cloudflare Tunnel.
+  - Ruta: `navegador → AdGuard → vm-apps:80 (Nginx) → host:10000 (uvicorn)`.
+- **Deploy dev**: script `~/deploy-watcher-gestion.sh` (cron cada 2 min) hace `git fetch + reset --hard origin/develop` en `~/staging/gestion_inventario` y reinicia uvicorn `:10000`. Siempre asegura que el servidor esté vivo.
 - **Deploy prod**: manual — `docker compose -f docker-compose-homelab.yml up -d --build` en vm-apps (rama `main`).
 - **BD dev**: PostgreSQL `localhost:5433/inventario` (host). **BD prod**: `192.168.1.20:5432/inventario` (vm-apps).
 

@@ -77,21 +77,21 @@ class TestBusinessCreate:
         assert biz is not None
         assert biz.name == "Nuevo Negocio"
 
-        # Verify location was auto-created (uses form default CENTRAL code)
+        # Verify location was auto-created (form default CENTRAL, prefixed by code)
         loc = db_session.scalar(
             select(Location).where(
                 Location.business_id == biz.id,
-                Location.code == "CENTRAL",
+                Location.code == "nuevo_negocio_CENTRAL",
             )
         )
         assert loc is not None
         assert loc.name == "Almacén Central"
 
-        # Verify POS location was also created (form default POS1)
+        # Verify POS location was also created (form default POS1, prefixed by code)
         pos_loc = db_session.scalar(
             select(Location).where(
                 Location.business_id == biz.id,
-                Location.code == "POS1",
+                Location.code == "nuevo_negocio_POS1",
             )
         )
         assert pos_loc is not None
