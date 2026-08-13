@@ -160,6 +160,7 @@ Archivo `app/business_config.conf` (INI):
 1. **No inventar APIs** — leer `app/routers/` y `app/schemas.py` antes de asumir endpoints o schemas
 2. **Testing** — siempre correr `pytest -v` después de cambios en lógica de negocio
 3. **Documentación** — actualizar este `CLAUDE.md` si cambia la estructura o el estado
-4. **Commits** — mensajes en español, formato conventional commits
+4. **Commits** — mensajes en inglés (English), formato conventional commits
 5. **Base de datos** — nunca borrar `inventario.db` sin backup
 6. **Routers** — hay 18 routers, revisar `app/main.py` para ver cuáles están registrados
+7. **Push** — siempre a `gitea` (192.168.1.21). Gitea tiene mirror automático a GitHub, así que NO pushear a GitHub directamente.
