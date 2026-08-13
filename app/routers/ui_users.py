@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import Business, User, UserBusiness
+from app.models import AuditLog, Business, User, UserBusiness
 from app.security import get_current_user_from_session, get_user_business_ids
 from app.routers.ui_common import ensure_admin, templates
 
@@ -333,8 +333,13 @@ def user_delete(
         )
 
     username = user.username
+    # Desvincular registros de auditoría (FK) y asignaciones multi-negocio
+    # antes de borrar el usuario, para no violar las FKs.
     db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
         synchronize_session=False
+    )
+    db.query(AuditLog).filter(AuditLog.user_id == int(user.id)).update(
+        {AuditLog.user_id: None}, synchronize_session=False
     )
     db.delete(user)
     db.commit()
