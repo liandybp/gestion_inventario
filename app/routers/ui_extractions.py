@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timezone
 from typing import Optional
@@ -8,7 +9,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
@@ -31,7 +31,7 @@ def extraction_create(
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     try:
         ensure_admin_or_owner(db, request)
         service.create_extraction(
@@ -94,7 +94,7 @@ def extraction_delete(
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     try:
         ensure_admin_or_owner(db, request)
         service.delete_extraction(extraction_id)
@@ -169,7 +169,7 @@ def extraction_edit_form(
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
     extraction = service.get_extraction(extraction_id)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     return templates.TemplateResponse(
         request=request,
         name="partials/extraction_edit_form.html",
@@ -195,7 +195,7 @@ def extraction_update(
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     try:
         ensure_admin_or_owner(db, request)
         service.update_extraction(

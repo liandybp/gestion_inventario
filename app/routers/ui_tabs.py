@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 import html as _html
 import json
@@ -32,7 +33,6 @@ from app.security import (
 )
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
-from app.business_config import load_business_config
 from app.logger import get_logger
 from app.schemas import SupplierReturnLotCreate, TransferCreate, TransferLineCreate
 
@@ -226,8 +226,8 @@ def _home_charts_context(
     }
 
 
-def _home_locations_context(business_code: Optional[str] = None) -> tuple[list[dict], str]:
-    config = load_business_config(business_code)
+def _home_locations_context(db: Session, request: Request) -> tuple[list[dict], str]:
+    config = get_active_business_config(db, request)
     locations: list[dict] = [{"code": "", "name": "Vista General"}]
     if getattr(getattr(config, "locations", None), "central", None) is not None:
         central_code = str(getattr(config.locations.central, "code", "") or "").strip()
@@ -278,7 +278,7 @@ def _location_id_for_code(
 
 def _location_name_for_code(location_code: str, business_code: Optional[str] = None) -> str:
     code = (location_code or "").strip()
-    locations, _default_loc_code = _home_locations_context(business_code)
+    locations, _default_loc_code = _home_locations_context(db, request)
     for loc in locations:
         if (str(loc.get("code") or "").strip()) == code:
             name = str(loc.get("name") or "").strip()
@@ -401,7 +401,7 @@ def tab_home(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    locations, _default_loc_code = _home_locations_context(business_code)
+    locations, _default_loc_code = _home_locations_context(db, request)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(
         db,
@@ -544,7 +544,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
     business_code = get_active_business_code(db, request)
-    config = load_business_config(business_code)
+    config = get_active_business_config(db, request)
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
     pos_locations: list[dict[str, str]] = []
     for loc in (config.locations.pos or []):
@@ -601,7 +601,7 @@ def tab_purchases(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     purchase_currency_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
     purchase_currency_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "€"
     
@@ -724,7 +724,7 @@ def tab_sales(
         display_year = filter_year
 
     business_code = get_active_business_code(db, request)
-    config = load_business_config(business_code)
+    config = get_active_business_config(db, request)
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
@@ -835,7 +835,7 @@ def tab_documents(
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -977,7 +977,7 @@ def tab_dividends(
     service = InventoryService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     if not start_date and not end_date:
         start_dt, end_dt = month_start, month_end
@@ -1036,7 +1036,7 @@ def tab_transfers(
 
     inventory_service = InventoryService(db, business_id=bid)
     business_code = get_active_business_code(db, request)
-    config = load_business_config(business_code)
+    config = get_active_business_config(db, request)
 
     pos_locations = [
         {"code": loc.code, "name": loc.name}
@@ -1172,7 +1172,7 @@ def tab_profit(
     inventory_service = InventoryService(db, business_id=bid)
     business_code = get_active_business_code(db, request)
 
-    locations, default_loc_code = _home_locations_context(business_code)
+    locations, default_loc_code = _home_locations_context(db, request)
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
         _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
@@ -1399,7 +1399,7 @@ def _render_profit_items_tab(
     inventory_service = InventoryService(db, business_id=bid)
 
     business_code = get_active_business_code(db, request)
-    locations, default_loc_code = _home_locations_context(business_code)
+    locations, default_loc_code = _home_locations_context(db, request)
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
         _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
@@ -1740,7 +1740,7 @@ def stock_table(
     _log.debug("stock_table - User: %s, Role: %s, bid: %s, location: %s, category: %s",
                user.username if user else 'None', user.role if user else 'None', bid, location_code, category)
     inventory_service = InventoryService(db, business_id=bid)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
@@ -1788,7 +1788,7 @@ def stock_delete_product(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     central_code = str(config.locations.central.code).strip()
 
     message = None
@@ -1854,7 +1854,7 @@ def stock_delete_selected(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     central_code = str(config.locations.central.code).strip()
 
     clean_skus: list[str] = []
@@ -1933,7 +1933,7 @@ def ui_supplier_return(
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     user = get_current_user_from_session(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     pos_locations: list[dict[str, str]] = []

@@ -85,6 +85,73 @@ _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
 _APP_DIR = Path(__file__).resolve().parent
 
 
+def parse_partners(raw: str) -> list[str]:
+    """Divide una lista de socios separada por comas en strings limpios."""
+    parts = [p.strip() for p in (raw or "").split(",")]
+    return [p for p in parts if p]
+
+
+def parse_enabled_types(raw: str) -> list[str]:
+    """Tipos de documento habilitados ('F,P') filtrados a F/P."""
+    types = [p.strip() for p in (raw or "").split(",") if p.strip()]
+    valid = [t for t in types if t in ("F", "P")]
+    return valid or ["F", "P"]
+
+
+def parse_opening_pending(raw: str) -> dict[str, float]:
+    """Parsea el saldo inicial de dividendos por socio.
+
+    Acepta JSON canónico ({"Negocio": 605.5}), pseudo-JSON con decimales de coma
+    ({"Negocio": 605,04}) y formato `party:amount,party:amount`.
+    """
+    raw_str = (raw or "").strip()
+    if not raw_str:
+        return {}
+    if raw_str.startswith("{"):
+        try:
+            data = json.loads(raw_str)
+            if isinstance(data, dict):
+                out: dict[str, float] = {}
+                for k, v in data.items():
+                    key = (str(k) or "").strip()
+                    if not key:
+                        continue
+                    try:
+                        out[key] = float(v)
+                    except Exception:
+                        continue
+                return out
+        except Exception:
+            # Pseudo-JSON con comas decimales: {"Negocio": 605,04, "A": 1,23}
+            out3: dict[str, float] = {}
+            for m in re.finditer(r"\"([^\"]+)\"\s*:\s*([0-9]+(?:[\.,][0-9]+)?)", raw_str):
+                k = (m.group(1) or "").strip()
+                v_raw = (m.group(2) or "").strip()
+                if not k or not v_raw:
+                    continue
+                v_norm = v_raw.replace(",", ".")
+                try:
+                    out3[k] = float(v_norm)
+                except Exception:
+                    continue
+            if out3:
+                return out3
+    # Formato: party:amount,party:amount
+    out2: dict[str, float] = {}
+    for part in [p.strip() for p in raw_str.split(",") if p.strip()]:
+        if ":" not in part:
+            continue
+        k, v = part.split(":", 1)
+        key = (k or "").strip()
+        if not key:
+            continue
+        try:
+            out2[key] = float((v or "").strip())
+        except Exception:
+            continue
+    return out2
+
+
 def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     global _cached_configs
 
@@ -186,57 +253,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             return None
 
     def get_opening_pending() -> Dict[str, float]:
-        raw = get("dividends", "opening_pending", "")
-        if not raw:
-            return {}
-        raw_str = raw.strip()
-        if not raw_str:
-            return {}
-        if raw_str.startswith("{"):
-            try:
-                data = json.loads(raw_str)
-                if isinstance(data, dict):
-                    out: Dict[str, float] = {}
-                    for k, v in data.items():
-                        key = (str(k) or "").strip()
-                        if not key:
-                            continue
-                        try:
-                            out[key] = float(v)
-                        except Exception:
-                            continue
-                    return out
-            except Exception:
-                # Tolerate pseudo-JSON with comma decimals like: {"Negocio": 605,04, "A": 1,23}
-                out3: Dict[str, float] = {}
-                for m in re.finditer(r"\"([^\"]+)\"\s*:\s*([0-9]+(?:[\.,][0-9]+)?)", raw_str):
-                    k = (m.group(1) or "").strip()
-                    v_raw = (m.group(2) or "").strip()
-                    if not k or not v_raw:
-                        continue
-                    v_norm = v_raw.replace(",", ".")
-                    try:
-                        out3[k] = float(v_norm)
-                    except Exception:
-                        continue
-                if out3:
-                    return out3
-                # Fall back to alternate format parsing below.
-
-        # Format: party:amount,party:amount
-        out2: Dict[str, float] = {}
-        for part in [p.strip() for p in raw_str.split(",") if p.strip()]:
-            if ":" not in part:
-                continue
-            k, v = part.split(":", 1)
-            key = (k or "").strip()
-            if not key:
-                continue
-            try:
-                out2[key] = float((v or "").strip())
-            except Exception:
-                continue
-        return out2
+        return parse_opening_pending(get("dividends", "opening_pending", ""))
 
     def get_opening_pending_as_of() -> str:
         return get("dividends", "opening_pending_as_of", "")
@@ -298,13 +315,13 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         ),
         sales_documents=SalesDocumentsConfig(
             default_type=(get("sales_documents", "default_type", "F").upper() or "F"),
-            enabled_types=[t for t in (get_list("sales_documents", "enabled_types") or ["F", "P"]) if t in ("F", "P")],
+            enabled_types=parse_enabled_types(get("sales_documents", "enabled_types", "F,P")),
             invoice_label=get("sales_documents", "invoice_label", "Factura"),
             quote_label=get("sales_documents", "quote_label", "Presupuesto"),
         ),
         dividends=DividendsConfig(
             business_label=get("dividends", "business_label", "Negocio"),
-            partners=get_list("dividends", "partners"),
+            partners=parse_partners(get("dividends", "partners", "")),
             opening_pending=get_opening_pending(),
             opening_pending_as_of=get_opening_pending_as_of(),
         ),

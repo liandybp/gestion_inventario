@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timezone
 from typing import Optional
@@ -8,7 +9,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Product
 from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
@@ -379,7 +379,7 @@ def product_update_inventory(
                         },
                     )
 
-        config = load_business_config(get_active_business_code(db, request))
+        config = get_active_business_config(db, request)
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -406,7 +406,7 @@ def product_update_inventory(
             },
         )
     except HTTPException as e:
-        config = load_business_config(get_active_business_code(db, request))
+        config = get_active_business_config(db, request)
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -443,7 +443,7 @@ def product_from_invoice(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     purchase_cfg = getattr(config, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)

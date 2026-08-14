@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 import html
 from datetime import datetime, timezone
@@ -10,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
@@ -33,7 +33,7 @@ router = APIRouter()
 
 
 def _sale_pos_context(db: Session, request: Request, location_code: str = "") -> tuple[list[dict[str, str]], str, str]:
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     pos_locations: list[dict[str, str]] = []
     central = getattr(config.locations, "central", None)
     central_code = str(getattr(central, "code", "") or "").strip()
@@ -91,7 +91,7 @@ def sale_product_options(
 
 
 def _sales_doc_context(db: Session, request: Request) -> dict:
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     bid = require_active_business_id(db, request)
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")

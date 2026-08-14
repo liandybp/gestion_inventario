@@ -1,25 +1,141 @@
 from __future__ import annotations
 
-import configparser
+import json
 import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
+from app.business_config import parse_opening_pending
 from app.deps import session_dep
-from app.models import Business, Location, Product, User, UserBusiness
-from app.security import get_current_user_from_session
+from app.models import (
+    Business,
+    InventoryLot,
+    InventoryMovement,
+    Location,
+    Product,
+    SalesDocument,
+    User,
+    UserBusiness,
+)
+from app.repositories.business_repository import get_business_config
 from app.routers.ui_common import ensure_admin, templates
+from app.security import get_current_user_from_session
 
 _log = logging.getLogger(__name__)
 _APP_DIR = Path(__file__).resolve().parent.parent
 
 router = APIRouter()
+
+
+def _parse_float(value, fallback: float = 0.0) -> float:
+    s = (value or "").strip().replace(",", ".")
+    if not s:
+        return fallback
+    try:
+        return float(s)
+    except Exception:
+        return fallback
+
+
+def _parse_optional_float(value) -> float | None:
+    s = (value or "").strip().replace(",", ".")
+    if not s:
+        return None
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _location_has_data(db, location_id: int) -> bool:
+    """True si la ubicación tiene movimientos/lotes/documentos asociados."""
+    for model in (InventoryMovement, InventoryLot, SalesDocument):
+        try:
+            count = db.scalar(
+                select(func.count()).select_from(model).where(model.location_id == int(location_id))
+            )
+            if count:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _reconcile_locations(db, business, central_raw, pos_raw, default_pos_raw, code) -> str | None:
+    """Reconcilia las ubicaciones del negocio en BD con los specs del form.
+
+    Actualiza central/POS en sitio, añade los nuevos y borra los sobrantes SOLO
+    si no tienen datos asociados; si los tienen, devuelve un mensaje de error.
+    """
+    def _parse_spec(raw, fb_code, fb_name) -> tuple[str, str]:
+        s = (raw or "").strip()
+        if not s:
+            return fb_code, fb_name
+        if ":" in s:
+            c, n = s.split(":", 1)
+            return ((c or "").strip() or fb_code), ((n or "").strip() or fb_name)
+        return s, s
+
+    bid = int(business.id)
+
+    # CENTRAL
+    central_code, central_name = _parse_spec(central_raw, "CENTRAL", "Almacén Central")
+    central_code = _prefix_location_code(central_code, code)
+    central = db.scalar(select(Location).where(Location.business_id == bid, Location.role == "central"))
+    if central is None:
+        central = db.scalar(select(Location).where(Location.business_id == bid, Location.code == central_code))
+    if central is None:
+        central = Location(business_id=bid, code=central_code, name=central_name, role="central", position=0)
+        db.add(central)
+    else:
+        central.code = central_code
+        central.name = central_name
+        central.role = "central"
+        central.position = 0
+
+    # POS
+    raw_parts = [p.strip() for p in (pos_raw or "").split(",") if p.strip()]
+    if not raw_parts:
+        raw_parts = ["POS1:Punto de venta 1"]
+    parsed = [_parse_spec(p, "POS1", "Punto de venta 1") for p in raw_parts]
+    default_pos_code = _prefix_location_code((default_pos_raw or "").strip() or "POS1", code)
+
+    existing = list(db.scalars(
+        select(Location).where(Location.business_id == bid, Location.role == "pos")
+        .order_by(Location.position.asc(), Location.id.asc())
+    ).all())
+
+    for loc in existing:
+        loc.is_default = False
+
+    for i, (pcode, pname) in enumerate(parsed, start=1):
+        loc_code = _prefix_location_code(pcode, code)
+        is_def = (loc_code == default_pos_code)
+        if i - 1 < len(existing):
+            loc = existing[i - 1]
+            loc.code = loc_code
+            loc.name = pname
+            loc.role = "pos"
+            loc.position = i
+            loc.is_default = is_def
+        else:
+            db.add(Location(business_id=bid, code=loc_code, name=pname,
+                            role="pos", position=i, is_default=is_def))
+
+    if len(existing) > len(parsed):
+        for loc in existing[len(parsed):]:
+            if _location_has_data(db, int(loc.id)):
+                return f"No se puede eliminar la ubicación '{loc.name}' ({loc.code}) porque tiene datos asociados."
+            db.delete(loc)
+
+    db.flush()
+    return None
 
 
 def _str_form(value, fallback: str = "") -> str:
@@ -330,64 +446,50 @@ def business_create(
         business_id=new_business.id,
         code=central_code,
         name=central_name,
+        role="central",
+        position=0,
     ))
 
     # POS list
     pos_specs = _parse_loc_list(_s(locations_pos))
     if not pos_specs:
         pos_specs = [("POS1", "Punto de venta 1")]
+    default_pos_code = _prefix_location_code(_s(locations_default_pos, "POS1"), code)
 
-    for pcode, pname in pos_specs:
+    for i, (pcode, pname) in enumerate(pos_specs, start=1):
+        ploc_code = _prefix_location_code(pcode, code)
         db.add(Location(
             business_id=new_business.id,
-            code=_prefix_location_code(pcode, code),
+            code=ploc_code,
             name=pname,
+            role="pos",
+            position=i,
+            is_default=(ploc_code == default_pos_code),
         ))
 
-    # ── Write business_config.<code>.conf ─────────────────────────
-    try:
-        _write_business_config(
-            code=code,
-            issuer_name=name,
-            issuer_tax_id=_s(issuer_tax_id),
-            issuer_address=_s(issuer_address),
-            issuer_city=_s(issuer_city),
-            issuer_postal_code=_s(issuer_postal_code),
-            issuer_country=_s(issuer_country),
-            issuer_email=_s(issuer_email),
-            issuer_phone=_s(issuer_phone),
-            currency_code=_s(currency_code, "USD"),
-            currency_symbol=_s(currency_symbol, "$"),
-            purchase_source_currency=_s(purchase_source_currency, "EUR"),
-            purchase_vat_rate=_s(purchase_vat_rate, "1.21"),
-            purchase_fx_rate=_s(purchase_fx_rate),
-            sales_default_type=_s(sales_default_type, "F"),
-            sales_enabled_types=_s(sales_enabled_types, "F,P"),
-            sales_invoice_label=_s(sales_invoice_label, "Factura"),
-            sales_quote_label=_s(sales_quote_label, "Presupuesto"),
-            dividends_business_label=_s(dividends_business_label, "Negocio"),
-            dividends_partners=_s(dividends_partners),
-            dividends_opening_pending=_s(dividends_opening_pending),
-            dividends_opening_pending_as_of=_s(dividends_opening_pending_as_of),
-            locations_central=_s(locations_central),
-            locations_pos=_s(locations_pos),
-            locations_default_pos=_s(locations_default_pos),
-            inventory_replenishment_lead_time_days=_s(inventory_replenishment_lead_time_days, "25"),
-        )
-    except OSError as exc:
-        db.rollback()
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/tab_businesses.html",
-            context={
-                "businesses": businesses,
-                "message": "Error al crear negocio",
-                "message_detail": f"No se pudo escribir el archivo de configuración: {exc}",
-                "message_class": "error",
-            },
-            status_code=500,
-        )
+    # ── Config en BD (fuente única de verdad; el .conf es legacy) ──
+    new_business.issuer_name = name
+    new_business.issuer_tax_id = _s(issuer_tax_id)
+    new_business.issuer_address = _s(issuer_address)
+    new_business.issuer_city = _s(issuer_city)
+    new_business.issuer_postal_code = _s(issuer_postal_code)
+    new_business.issuer_country = _s(issuer_country)
+    new_business.issuer_email = _s(issuer_email)
+    new_business.issuer_phone = _s(issuer_phone)
+    new_business.currency_code = _s(currency_code, "USD")
+    new_business.currency_symbol = _s(currency_symbol, "$")
+    new_business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
+    new_business.purchase_invoice_vat_rate = _parse_float(_s(purchase_vat_rate, "1.21"), 1.21)
+    new_business.purchase_invoice_fx_rate = _parse_optional_float(_s(purchase_fx_rate))
+    new_business.sales_default_type = (_s(sales_default_type, "F").upper() or "F")
+    new_business.sales_enabled_types = _s(sales_enabled_types, "F,P")
+    new_business.sales_invoice_label = _s(sales_invoice_label, "Factura")
+    new_business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    new_business.dividends_business_label = _s(dividends_business_label, "Negocio")
+    new_business.dividends_partners = _s(dividends_partners)
+    new_business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))
+    new_business.dividends_opening_pending_as_of = _s(dividends_opening_pending_as_of)
+    new_business.inventory_replenishment_lead_time_days = _parse_float(_s(inventory_replenishment_lead_time_days, "25"), 25.0)
 
     try:
         db.commit()
@@ -431,8 +533,7 @@ def business_create(
             "businesses": businesses,
             "message": "Negocio creado",
             "message_detail": (
-                f"Negocio '{name}' creado con {len(pos_specs)} POS "
-                f"y configuración {code}.conf"
+                f"Negocio '{name}' creado con {len(pos_specs)} POS"
             ),
             "message_class": "ok",
         },
@@ -450,14 +551,7 @@ def business_edit_form(
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
 
-    # Load existing config if the .conf file exists; otherwise use defaults
-    from app.business_config import BusinessConfig, load_business_config
-
-    config_path = _APP_DIR / f"business_config.{business.code}.conf"
-    if config_path.exists():
-        config = load_business_config(business.code)
-    else:
-        config = BusinessConfig()
+    config = get_business_config(db, business_id)
 
     return templates.TemplateResponse(
         request=request,
@@ -529,19 +623,12 @@ def business_update(
         select(Business).where(Business.code == code, Business.id != business_id)
     )
     if existing is not None:
-        from app.business_config import BusinessConfig, load_business_config
-
-        config_path = _APP_DIR / f"business_config.{business.code}.conf"
-        if config_path.exists():
-            config = load_business_config(business.code)
-        else:
-            config = BusinessConfig()
         response = templates.TemplateResponse(
             request=request,
             name="partials/business_edit_form.html",
             context={
                 "business": business,
-                "config": config,
+                "config": get_business_config(db, business_id),
                 "message": "Error al actualizar",
                 "message_detail": f"El código '{code}' ya existe",
                 "message_class": "error",
@@ -551,66 +638,48 @@ def business_update(
         response.headers["X-Modal-Keep"] = "1"
         return response
 
-    old_code = business.code
     business.code = code
     business.name = name
 
-    # Rewrite the config file (or create it for legacy businesses)
-    try:
-        _write_business_config(
-            code=code,
-            issuer_name=name,
-            issuer_tax_id=_s(issuer_tax_id),
-            issuer_address=_s(issuer_address),
-            issuer_city=_s(issuer_city),
-            issuer_postal_code=_s(issuer_postal_code),
-            issuer_country=_s(issuer_country),
-            issuer_email=_s(issuer_email),
-            issuer_phone=_s(issuer_phone),
-            currency_code=_s(currency_code, "USD"),
-            currency_symbol=_s(currency_symbol, "$"),
-            purchase_source_currency=_s(purchase_source_currency, "EUR"),
-            purchase_vat_rate=_s(purchase_vat_rate, "1.21"),
-            purchase_fx_rate=_s(purchase_fx_rate),
-            sales_default_type=_s(sales_default_type, "F"),
-            sales_enabled_types=_s(sales_enabled_types, "F,P"),
-            sales_invoice_label=_s(sales_invoice_label, "Factura"),
-            sales_quote_label=_s(sales_quote_label, "Presupuesto"),
-            dividends_business_label=_s(dividends_business_label, "Negocio"),
-            dividends_partners=_s(dividends_partners),
-            dividends_opening_pending=_s(dividends_opening_pending),
-            dividends_opening_pending_as_of=_s(dividends_opening_pending_as_of),
-            locations_central=_s(locations_central),
-            locations_pos=_s(locations_pos),
-            locations_default_pos=_s(locations_default_pos),
-            inventory_replenishment_lead_time_days=_s(inventory_replenishment_lead_time_days, "25"),
-        )
-        # If the business code changed, remove the old config file
-        if old_code != code:
-            old_config_path = _APP_DIR / f"business_config.{old_code}.conf"
-            if old_config_path.exists():
-                old_config_path.unlink()
-                _log.info("Old config file removed: %s", old_config_path)
-    except OSError as exc:
-        db.rollback()
-        from app.business_config import BusinessConfig, load_business_config
+    # ── Config en BD (fuente única de verdad; el .conf es legacy) ──
+    business.issuer_name = name
+    business.issuer_tax_id = _s(issuer_tax_id)
+    business.issuer_address = _s(issuer_address)
+    business.issuer_city = _s(issuer_city)
+    business.issuer_postal_code = _s(issuer_postal_code)
+    business.issuer_country = _s(issuer_country)
+    business.issuer_email = _s(issuer_email)
+    business.issuer_phone = _s(issuer_phone)
+    business.currency_code = _s(currency_code, "USD")
+    business.currency_symbol = _s(currency_symbol, "$")
+    business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
+    business.purchase_invoice_vat_rate = _parse_float(_s(purchase_vat_rate, "1.21"), 1.21)
+    business.purchase_invoice_fx_rate = _parse_optional_float(_s(purchase_fx_rate))
+    business.sales_default_type = (_s(sales_default_type, "F").upper() or "F")
+    business.sales_enabled_types = _s(sales_enabled_types, "F,P")
+    business.sales_invoice_label = _s(sales_invoice_label, "Factura")
+    business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    business.dividends_business_label = _s(dividends_business_label, "Negocio")
+    business.dividends_partners = _s(dividends_partners)
+    business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))
+    business.dividends_opening_pending_as_of = _s(dividends_opening_pending_as_of)
+    business.inventory_replenishment_lead_time_days = _parse_float(_s(inventory_replenishment_lead_time_days, "25"), 25.0)
 
-        config_path = _APP_DIR / f"business_config.{business.code}.conf"
-        if config_path.exists():
-            config = load_business_config(business.code)
-        else:
-            config = BusinessConfig()
+    # ── Reconciliar ubicaciones en sitio (sin borrar las que tienen datos) ──
+    reconcile_error = _reconcile_locations(db, business, _s(locations_central), _s(locations_pos), _s(locations_default_pos), code)
+    if reconcile_error:
+        db.rollback()
         response = templates.TemplateResponse(
             request=request,
             name="partials/business_edit_form.html",
             context={
                 "business": business,
-                "config": config,
+                "config": get_business_config(db, business_id),
                 "message": "Error al actualizar",
-                "message_detail": f"No se pudo escribir la configuración: {exc}",
+                "message_detail": reconcile_error,
                 "message_class": "error",
             },
-            status_code=500,
+            status_code=409,
         )
         response.headers["X-Modal-Keep"] = "1"
         return response
@@ -624,7 +693,7 @@ def business_update(
             action="business_update",
             entity_type="business",
             entity_id=str(business.id),
-            detail={"code": code, "name": name, "old_code": old_code},
+            detail={"code": code, "name": name},
         )
 
     businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
@@ -680,12 +749,15 @@ def business_delete(
     product_count = db.scalar(
         select(func.count()).select_from(Product).where(Product.business_id == business_id)
     ) or 0
+    # Ubicaciones "adicionales" = todo menos la CENTRAL (por rol o por código,
+    # en mayúsculas o minúsculas — bug case-sensitivity corregido).
     other_location_count = db.scalar(
         select(func.count())
         .select_from(Location)
         .where(
             Location.business_id == business_id,
-            Location.code != f"{code}_CENTRAL",
+            or_(Location.role.is_(None), Location.role != "central"),
+            Location.code.not_in([f"{code}_CENTRAL", f"{code.upper()}_CENTRAL"]),
         )
     ) or 0
     user_business_count = db.scalar(
@@ -721,15 +793,8 @@ def business_delete(
             status_code=409,
         )
 
-    # Delete auto-created location first, then the business
-    auto_location = db.scalar(
-        select(Location).where(
-            Location.business_id == business_id,
-            Location.code == f"{code}_CENTRAL",
-        )
-    )
-    if auto_location is not None:
-        db.delete(auto_location)
+    # Borrar todas las ubicaciones del negocio, luego el negocio
+    db.query(Location).filter(Location.business_id == business_id).delete(synchronize_session=False)
 
     try:
         db.delete(business)
@@ -751,15 +816,6 @@ def business_delete(
             },
             status_code=409,
         )
-
-    # Remove associated config file if it exists
-    config_path = _APP_DIR / f"business_config.{code}.conf"
-    if config_path.exists():
-        try:
-            config_path.unlink()
-            _log.info("Config file removed: %s", config_path)
-        except OSError:
-            pass  # Non-critical — leftover file won't break anything
 
     if current_user is not None:
         log_event(

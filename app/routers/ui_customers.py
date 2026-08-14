@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 from datetime import timezone
 from typing import Optional
@@ -9,7 +10,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.security import (
@@ -178,7 +178,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
         .limit(10)
     ).all()
 
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     return templates.TemplateResponse(
         request=request,

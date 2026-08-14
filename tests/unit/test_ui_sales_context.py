@@ -20,8 +20,7 @@ def _mock_config() -> SimpleNamespace:
 
 
 def test_sale_pos_context_includes_central_and_pos(monkeypatch) -> None:
-    monkeypatch.setattr(ui_sales, "get_active_business_code", lambda db, request: "test")
-    monkeypatch.setattr(ui_sales, "load_business_config", lambda _code: _mock_config())
+    monkeypatch.setattr(ui_sales, "get_active_business_config", lambda _db, _request: _mock_config())
 
     sale_locations, default_code, selected_code = ui_sales._sale_pos_context(None, _DummyRequest(), "CENTRAL")
 
@@ -31,8 +30,7 @@ def test_sale_pos_context_includes_central_and_pos(monkeypatch) -> None:
 
 
 def test_sale_pos_context_defaults_to_default_pos(monkeypatch) -> None:
-    monkeypatch.setattr(ui_sales, "get_active_business_code", lambda db, request: "test")
-    monkeypatch.setattr(ui_sales, "load_business_config", lambda _code: _mock_config())
+    monkeypatch.setattr(ui_sales, "get_active_business_config", lambda _db, _request: _mock_config())
 
     _sale_locations, default_code, selected_code = ui_sales._sale_pos_context(None, _DummyRequest(), "")
 

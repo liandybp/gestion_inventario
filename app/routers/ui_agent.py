@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 import threading
 import time
@@ -11,7 +12,6 @@ from sqlalchemy.orm import Session
 from app.agent import chat_store
 from app.agent import runner
 from app.agent import widgets as widget_store
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.routers.ui_common import ensure_admin_or_owner, templates
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
@@ -28,8 +28,7 @@ _agent_lock = threading.Lock()
 
 def _currency_symbol(db, request) -> str:
     """Símbolo de moneda del negocio activo (H-011, consistente con el dashboard)."""
-    code = get_active_business_code(db, request)
-    config = load_business_config(code) if code else None
+    config = get_active_business_config(db, request)
     symbol = getattr(getattr(config, "currency", None), "symbol", None)
     return str(symbol) if symbol else "€"
 

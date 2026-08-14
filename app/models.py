@@ -19,6 +19,36 @@ class Business(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
 
+    # ── Config de negocio (fuente única de verdad; el .conf es legacy) ──
+    # issuer
+    issuer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    issuer_tax_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    issuer_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    issuer_city: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    issuer_postal_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    issuer_country: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    issuer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    issuer_phone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # currency
+    currency_code: Mapped[str] = mapped_column(String(8), default="EUR", server_default="EUR")
+    currency_symbol: Mapped[str] = mapped_column(String(8), default="€", server_default="€")
+    # purchase
+    purchase_invoice_source_currency: Mapped[str] = mapped_column(String(8), default="EUR", server_default="EUR")
+    purchase_invoice_vat_rate: Mapped[float] = mapped_column(Numeric(10, 4, asdecimal=False), default=1.21, server_default="1.21")
+    purchase_invoice_fx_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 4, asdecimal=False), nullable=True)
+    # sales_documents
+    sales_default_type: Mapped[str] = mapped_column(String(1), default="F", server_default="F")
+    sales_enabled_types: Mapped[str] = mapped_column(String(16), default="F,P", server_default="F,P")
+    sales_invoice_label: Mapped[str] = mapped_column(String(64), default="Factura", server_default="Factura")
+    sales_quote_label: Mapped[str] = mapped_column(String(64), default="Presupuesto", server_default="Presupuesto")
+    # dividends
+    dividends_business_label: Mapped[str] = mapped_column(String(64), default="Negocio", server_default="Negocio")
+    dividends_partners: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dividends_opening_pending: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dividends_opening_pending_as_of: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    # inventory
+    inventory_replenishment_lead_time_days: Mapped[float] = mapped_column(Numeric(10, 2, asdecimal=False), default=25.0, server_default="25")
+
 
 class User(Base):
     __tablename__ = "users"
@@ -83,6 +113,10 @@ class Location(Base):
     )
     code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
+    # "central" | "pos" (nullable para filas legacy pre-backfill)
+    role: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

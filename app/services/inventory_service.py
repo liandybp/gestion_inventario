@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_business_config
 
 import hashlib
 import math
@@ -21,7 +22,6 @@ from app.models import (
     OperatingExpense,
     Product,
 )
-from app.business_config import load_business_config
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.product_repository import ProductRepository
 from app.schemas import (
@@ -123,10 +123,7 @@ class InventoryService:
         return int(loc_id)
 
     def _config(self):
-        if self._business_code is None and self._business_id is not None:
-            code = self._db.scalar(select(Business.code).where(Business.id == int(self._business_id)))
-            self._business_code = (str(code).strip() if code is not None else None) or ""
-        return load_business_config(self._business_code or None)
+        return get_business_config(self._db, self._business_id)
 
     def _central_location_id(self) -> int:
         cfg = self._config()

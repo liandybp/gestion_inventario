@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config, get_business_config
 
 from datetime import datetime, timezone
 from typing import Optional
@@ -9,7 +10,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
@@ -197,7 +197,7 @@ def _location_id_for_code(db: Session, *, location_code: str, business_id: int) 
     if loc_id is not None:
         return int(loc_id)
 
-    cfg = load_business_config(str(business_code or "").strip() or None)
+    cfg = get_business_config(db, bid)
     name = code
     try:
         cfg_central = str(getattr(cfg.locations.central, "code", "") or "").strip()
@@ -232,7 +232,7 @@ def sales_doc_preview(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     _ = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -294,7 +294,7 @@ def sales_doc_preview(
 def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
@@ -376,7 +376,7 @@ async def sales_doc_update(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc = db.get(SalesDocument, doc_id)
     if doc is None:
@@ -582,7 +582,7 @@ def sales_doc_cart_add(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     product_service = ProductService(db, business_id=bid)
 
     try:
@@ -746,7 +746,7 @@ def sales_doc_cart_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -825,7 +825,7 @@ def sales_doc_cart_remove(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -890,7 +890,7 @@ def sales_doc_cart_clear(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -952,7 +952,7 @@ def sales_doc_issue(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -1102,7 +1102,7 @@ def sales_doc_pdf(
         )
     )
 
-    config = load_business_config(get_active_business_code(db, request))
+    config = get_active_business_config(db, request)
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
     try:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 from sqlalchemy import and_, func, select
@@ -27,7 +28,40 @@ from app.models import (
 )
 
 
-_LATEST_SCHEMA_VERSION = 3
+_LATEST_SCHEMA_VERSION = 4
+
+# Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
+_BUSINESS_CONFIG_COLS = [
+    ("issuer_name", "VARCHAR(255)"),
+    ("issuer_tax_id", "VARCHAR(64)"),
+    ("issuer_address", "VARCHAR(255)"),
+    ("issuer_city", "VARCHAR(128)"),
+    ("issuer_postal_code", "VARCHAR(32)"),
+    ("issuer_country", "VARCHAR(64)"),
+    ("issuer_email", "VARCHAR(255)"),
+    ("issuer_phone", "VARCHAR(64)"),
+    ("currency_code", "VARCHAR(8) DEFAULT 'EUR'"),
+    ("currency_symbol", "VARCHAR(8) DEFAULT '€'"),
+    ("purchase_invoice_source_currency", "VARCHAR(8) DEFAULT 'EUR'"),
+    ("purchase_invoice_vat_rate", "NUMERIC(10,4) DEFAULT 1.21"),
+    ("purchase_invoice_fx_rate", "NUMERIC(10,4)"),
+    ("sales_default_type", "VARCHAR(1) DEFAULT 'F'"),
+    ("sales_enabled_types", "VARCHAR(16) DEFAULT 'F,P'"),
+    ("sales_invoice_label", "VARCHAR(64) DEFAULT 'Factura'"),
+    ("sales_quote_label", "VARCHAR(64) DEFAULT 'Presupuesto'"),
+    ("dividends_business_label", "VARCHAR(64) DEFAULT 'Negocio'"),
+    ("dividends_partners", "TEXT"),
+    ("dividends_opening_pending", "TEXT"),
+    ("dividends_opening_pending_as_of", "VARCHAR(32)"),
+    ("inventory_replenishment_lead_time_days", "NUMERIC(10,2) DEFAULT 25"),
+]
+_LOCATION_COLS = [
+    ("role", "VARCHAR(16)"),
+    # `false` (no `0`): PostgreSQL rechaza `BOOLEAN DEFAULT 0` (datatype mismatch);
+    # SQLite acepta `false` (se almacena como 0).
+    ("is_default", "BOOLEAN DEFAULT false"),
+    ("position", "INTEGER"),
+]
 
 
 def _ensure_schema_version_table(conn) -> None:
@@ -76,14 +110,12 @@ def run_startup_tasks() -> None:
     if schema_version < 3:
         _backfill_user_businesses()
 
+    if schema_version < 4:
+        _backfill_business_config()
+
     with engine.begin() as conn:
         _ensure_schema_version_table(conn)
         _set_schema_version(conn, _LATEST_SCHEMA_VERSION)
-    
-    # Sincronizar ubicaciones desde config SIEMPRE (en cada startup)
-    # Esto asegura que nuevos POS agregados en business_config.*.conf
-    # se creen automáticamente en la BD al deployar
-    _sync_all_locations_from_config()
 
 
 def _run_sqlite_schema_migrations() -> int:
@@ -232,6 +264,16 @@ def _run_sqlite_schema_migrations() -> int:
             raise RuntimeError(
                 "No se pudo crear el índice para inventory_lots.location_id."
             ) from e
+
+        # v4: columnas de config de negocio en businesses + role/position en locations
+        biz_cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(businesses)").fetchall()}
+        for col, ddl in _BUSINESS_CONFIG_COLS:
+            if col not in biz_cols:
+                conn.exec_driver_sql(f"ALTER TABLE businesses ADD COLUMN {col} {ddl}")
+        loc_cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(locations)").fetchall()}
+        for col, ddl in _LOCATION_COLS:
+            if col not in loc_cols:
+                conn.exec_driver_sql(f"ALTER TABLE locations ADD COLUMN {col} {ddl}")
 
         if schema_version < 1:
             _set_schema_version(conn, 1)
@@ -382,6 +424,12 @@ def _run_postgresql_schema_migrations() -> int:
             raise RuntimeError(
                 "No se pudo crear la columna location_id en inventory_lots."
             ) from e
+
+        # v4: columnas de config de negocio en businesses + role/position en locations
+        for col, ddl in _BUSINESS_CONFIG_COLS:
+            conn.exec_driver_sql(f"ALTER TABLE businesses ADD COLUMN IF NOT EXISTS {col} {ddl}")
+        for col, ddl in _LOCATION_COLS:
+            conn.exec_driver_sql(f"ALTER TABLE locations ADD COLUMN IF NOT EXISTS {col} {ddl}")
 
         if schema_version < 1:
             _set_schema_version(conn, 1)
@@ -664,3 +712,85 @@ def _backfill_user_businesses() -> None:
         _log.warning("Advertencia al backfill de user_businesses: %s", e)
     finally:
         db.close()
+
+
+def _backfill_business_config() -> None:
+    """V4: migra la configuración de negocio desde los .conf (legacy) a la BD.
+
+    Lee los archivos business_config.<code>.conf una última vez, escribe las 22
+    columnas de config en `businesses` y marca las ubicaciones (role/is_default/
+    position). A partir de aquí la BD es la fuente única; los .conf quedan legacy.
+    """
+    db = get_session()
+    try:
+        for bcode in _discover_business_codes_from_config_files():
+            try:
+                config = load_business_config(bcode)
+                business = db.scalar(select(Business).where(Business.code == bcode))
+                if business is None:
+                    business = Business(code=bcode, name=config.issuer.name or bcode)
+                    db.add(business)
+                    db.flush()
+
+                business.issuer_name = config.issuer.name
+                business.issuer_tax_id = config.issuer.tax_id
+                business.issuer_address = config.issuer.address
+                business.issuer_city = config.issuer.city
+                business.issuer_postal_code = config.issuer.postal_code
+                business.issuer_country = config.issuer.country
+                business.issuer_email = config.issuer.email
+                business.issuer_phone = config.issuer.phone
+                business.currency_code = config.currency.code
+                business.currency_symbol = config.currency.symbol
+                business.purchase_invoice_source_currency = config.purchase.invoice_source_currency
+                business.purchase_invoice_vat_rate = config.purchase.invoice_vat_rate
+                business.purchase_invoice_fx_rate = config.purchase.invoice_fx_rate
+                business.sales_default_type = config.sales_documents.default_type
+                business.sales_enabled_types = ",".join(config.sales_documents.enabled_types)
+                business.sales_invoice_label = config.sales_documents.invoice_label
+                business.sales_quote_label = config.sales_documents.quote_label
+                business.dividends_business_label = config.dividends.business_label
+                business.dividends_partners = ",".join(config.dividends.partners)
+                business.dividends_opening_pending = json.dumps(config.dividends.opening_pending)
+                business.dividends_opening_pending_as_of = config.dividends.opening_pending_as_of
+                business.inventory_replenishment_lead_time_days = config.inventory.replenishment_lead_time_days
+
+                _backfill_locations(db, business, config)
+                db.commit()
+                _log.info("Backfill config de negocio: %s", bcode)
+            except Exception as e:  # noqa: BLE001
+                db.rollback()
+                _log.warning("Backfill config falló para %s: %s", bcode, e)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("Advertencia al backfill de business config: %s", e)
+    finally:
+        db.close()
+
+
+def _backfill_locations(db, business: Business, config) -> None:
+    """Marca central/pos/is_default/position en las locations existentes del negocio."""
+    central = getattr(getattr(config, "locations", None), "central", None)
+    pos_list = list(getattr(getattr(config, "locations", None), "pos", None) or [])
+    default_pos = getattr(getattr(config, "locations", None), "default_pos", None) or ""
+
+    def ensure(code: str, name: str) -> Location:
+        c = (code or "").strip()
+        n = (name or "").strip() or c
+        loc = db.scalar(select(Location).where(and_(Location.code == c, Location.business_id == int(business.id))))
+        if loc is None:
+            loc = Location(code=c, name=n, business_id=int(business.id))
+            db.add(loc)
+            db.flush()
+        else:
+            loc.name = n
+        return loc
+
+    if central is not None:
+        c = ensure(central.code, central.name)
+        c.role = "central"
+        c.position = 0
+    for i, p in enumerate(pos_list, start=1):
+        loc = ensure(p.code, p.name)
+        loc.role = "pos"
+        loc.position = i
+        loc.is_default = (p.code == default_pos)

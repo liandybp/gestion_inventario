@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timezone
 import re
@@ -12,7 +13,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
-from app.business_config import load_business_config
 from app.deps import session_dep
 from app.models import InventoryLot, InventoryMovement, Product
 from app.schemas import PurchaseCreate
@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optional[float], str, str]:
-    cfg = load_business_config(get_active_business_code(db, request))
+    cfg = get_active_business_config(db, request)
     purchase_cfg = getattr(cfg, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
