@@ -24,6 +24,7 @@ from app.routers import (
     products,
     ui_auth,
     ui_businesses,
+    ui_agent,
     ui_expenses,
     ui_extractions,
     ui_products,
@@ -46,6 +47,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="Inventario", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    """H-006: security headers básicos (CSP, frame, sniffing, referrer)."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self' data:; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'"
+    )
+    return response
 
 
 @app.middleware("http")
@@ -136,6 +158,7 @@ app.include_router(ui_extractions.router, prefix="/ui")
 app.include_router(ui_sales_documents.router, prefix="/ui")
 app.include_router(ui_users.router, prefix="/ui")
 app.include_router(ui_businesses.router, prefix="/ui")
+app.include_router(ui_agent.router, prefix="/ui")
 
 os.makedirs("app/static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

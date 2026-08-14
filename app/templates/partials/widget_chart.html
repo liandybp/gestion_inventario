@@ -1,0 +1,97 @@
+<div class="widget-chart-wrap">
+  <canvas id="chart-{{ w.id }}" role="img" aria-label="{{ w.title }}"></canvas>
+</div>
+<script>
+  (function () {
+    var el = document.getElementById("chart-{{ w.id }}");
+    if (!el || !window.Chart) return;
+    var payload = {{ (w.payload or {}) | tojson }};
+    var type = "{{ w.type }}";
+    var labels = payload.labels || [];
+    var values = payload.values || [];
+
+    // Paleta armónica con la identidad de la app, adaptada al tema (claro/oscuro).
+    var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    var palette = isDark
+      ? ["#60a5fa", "#f87171", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee", "#94a3b8"]
+      : ["#0b2d42", "#cf1f27", "#2a6f97", "#4c9a8c", "#d97706", "#7c3aed", "#0891b2", "#64748b"];
+    var accent = isDark ? "#93c5fd" : "#0b2d42";
+    var accentFill = isDark ? "rgba(147, 197, 253, 0.12)" : "rgba(11, 45, 66, 0.08)";
+
+    var backgroundColor, borderColor;
+    if (type === "pie" || type === "doughnut") {
+      backgroundColor = labels.map(function (_, i) { return palette[i % palette.length]; });
+      borderColor = "#ffffff";
+    } else if (type === "bar") {
+      backgroundColor = labels.map(function (_, i) { return palette[i % palette.length]; });
+      borderColor = backgroundColor;
+    } else { // line / radar
+      backgroundColor = accentFill;
+      borderColor = accent;
+    }
+
+    var cartesian = (type === "bar" || type === "line");
+    var opts = { responsive: true, maintainAspectRatio: false };
+    if (cartesian) {
+      opts.scales = {
+        y: { beginAtZero: true, grid: { color: "rgba(15, 23, 42, 0.06)" } },
+        x: { grid: { display: false } }
+      };
+      opts.plugins = { legend: { display: false } };
+    } else if (type === "pie" || type === "doughnut") {
+      opts.plugins = { legend: { position: "right", labels: { boxWidth: 12, font: { size: 11 } } } };
+    }
+
+    // Plugin inline: dibuja el porcentaje sobre cada porción de pie/doughnut.
+    var percentPlugin = {
+      id: "percentLabels",
+      afterDatasetsDraw: function (chart) {
+        var t = chart.config.type;
+        if (t !== "pie" && t !== "doughnut") return;
+        var ctx = chart.ctx;
+        var meta = chart.getDatasetMeta(0);
+        var data = chart.data.datasets[0].data || [];
+        var total = data.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+        if (total <= 0) return;
+        ctx.save();
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        meta.data.forEach(function (arc, i) {
+          var pct = Math.round((Number(data[i]) || 0) / total * 100);
+          var mid = (arc.startAngle + arc.endAngle) / 2;
+          var radius = t === "pie" ? arc.outerRadius * 0.6 : (arc.outerRadius + arc.innerRadius) / 2;
+          var x = Math.cos(mid) * radius + arc.x;
+          var y = Math.sin(mid) * radius + arc.y;
+          var txt = pct + "%";
+          ctx.strokeStyle = "rgba(15, 23, 42, 0.6)";
+          ctx.lineWidth = 2;
+          ctx.strokeText(txt, x, y);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(txt, x, y);
+        });
+        ctx.restore();
+      }
+    };
+
+    // Destruir la instancia previa del canvas al re-renderizar (F5).
+    if (Chart.getChart(el)) Chart.getChart(el).destroy();
+
+    new Chart(el, {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          label: {{ w.title | tojson }},  // tojson escapa \n y comillas (A6)
+          data: values,
+          backgroundColor: backgroundColor,
+          borderColor: borderColor,
+          borderWidth: 1,
+          tension: 0.3
+        }]
+      },
+      options: opts,
+      plugins: [percentPlugin]
+    });
+  })();
+</script>

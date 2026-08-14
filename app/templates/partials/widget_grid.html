@@ -1,0 +1,24 @@
+{% if widgets %}
+<div class="widget-grid">
+  {% for w in widgets %}
+  <div class="widget-card{% if w.type == 'table' and (w.payload.rows | length) > 10 %} widget-table-full{% endif %}" id="widget-{{ w.id }}">
+    <div class="widget-header">
+      <span>{{ w.title }}</span>
+      <button hx-post="/ui/agent/widget/{{ w.id }}/delete" hx-target="#agent-grid" hx-swap="innerHTML"
+              aria-label="Eliminar widget" title="Eliminar widget">✕</button>
+    </div>
+    {% if w.type in ("line", "bar", "pie", "doughnut", "radar") %}
+      {% include "partials/widget_chart.html" %}
+    {% elif w.type == "kpi" %}
+      {% include "partials/widget_kpi.html" %}
+    {% elif w.type == "table" %}
+      {% include "partials/widget_table.html" %}
+    {% else %}
+      {% include "partials/widget_list.html" %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">Aún no hay widgets. Pregunta algo arriba para construir tu tablero.</p>
+{% endif %}

@@ -1,0 +1,3 @@
+<ul class="widget-list">
+  {% for item in (w.payload.get('items') or []) %}<li>{{ item }}</li>{% endfor %}
+</ul>

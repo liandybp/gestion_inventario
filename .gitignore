@@ -21,6 +21,8 @@ app/static/uploads/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # AI tooling (local-only)
 .opencode

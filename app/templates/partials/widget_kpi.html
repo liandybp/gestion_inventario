@@ -1,0 +1,8 @@
+<div class="widget-kpi">
+  <span class="kpi-value">
+    {% if w.payload and w.payload.get('value') is not none %}
+      {% if w.payload.get('currency') %}{{ '%.2f'|format(w.payload.value) }} {{ currency_symbol }}{% else %}{{ w.payload.value }}{% endif %}
+    {% else %}—{% endif %}
+  </span>
+  <span class="kpi-label">{{ w.title }}</span>
+</div>

@@ -1,0 +1,5 @@
+{% for m in messages %}
+  <div class="msg msg-{{ m.role }}">{{ m.content }}</div>
+{% else %}
+  <p class="muted agent-empty">Todavía no hay conversación. Preguntame algo.</p>
+{% endfor %}

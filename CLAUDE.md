@@ -4,9 +4,9 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.3.4` (ver `VERSION`)
+- **Versión actual:** `0.4.0` (ver `VERSION`)
 - **Rama principal:** `develop`
-- **Repo:** `github.com/liandybp/gestion_inventario`
+- **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
 
 ## Stack tecnológico
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (~50 tests, SQLite en memoria) |
+| Testing | pytest (80 tests, SQLite en memoria, cobertura 86%) |
 
 ## Estructura del proyecto
 
@@ -42,13 +42,16 @@ gestion_inventario/
 │   ├── invoice_parsers.py   ← PDF invoice import (Autodoc, H&M, ZARA)
 │   ├── sales_document_pdf.py← PDF generation for invoices/quotes
 │   ├── utils.py             ← Utilities
+│   ├── settings.py          ← Config centralizada (env vars, H-008)
+│   ├── agent/               ← Copiloto IA (LangGraph + LLM): graph, tools,
+│   │                           runner, widgets, schemas, prompts, llm
 │   ├── repositories/        ← Data access layer
 │   │   ├── inventory_repository.py
 │   │   └── product_repository.py
 │   ├── services/            ← Business logic
 │   │   ├── inventory_service.py
 │   │   └── product_service.py
-│   ├── routers/             ← 17 routers (API + UI)
+│   ├── routers/             ← 18 routers (API + UI, incl. ui_agent)
 │   ├── templates/           ← Jinja2 + HTMX partials
 │   └── static/              ← CSS, JS, uploads
 ├── tests/
@@ -118,7 +121,7 @@ Archivo `app/business_config.conf` (INI):
 - Negocios se sincronizan desde `business_config.conf` en startup
 
 ### Auth
-- Roles: `admin` y `operator`
+- Roles: `admin`, `owner` y `operator`
 - Sesiones con inactividad máxima de 1h
 - HTMX polling no extiende la sesión (requiere `X-User-Activity` header)
 
@@ -138,20 +141,27 @@ Archivo `app/business_config.conf` (INI):
 - [x] Reposición SS/ROP
 - [x] Reportes (profit mensual, dividendos, gráficos)
 - [x] Docker Compose (PostgreSQL + App + Caddy)
-- [x] ~62 tests unitarios (SQLite en memoria)
-- [x] **CI/CD Gitea Actions** (`.gitea/workflows/test.yml`) + mirror GitHub — **verde, 62 tests**
+- [x] 80 tests unitarios (SQLite en memoria, cobertura 86%)
+- [x] **CI/CD Gitea Actions** (`.gitea/workflows/test.yml`) + mirror GitHub — **verde, 80 tests**
 - [x] **CSRF protection** (vía header `HX-Request` en middleware)
 - [x] **Rate limiting** en login (in-memory, 10 intentos / 5 min)
+- [x] **Security headers** (CSP, X-Frame-Options, nosniff) — H-006
 - [x] FK enforcement SQLite (`PRAGMA foreign_keys=ON`)
 - [x] Logging centralizado (`app/logger.py`)
+- [x] **Config centralizada** (`app/settings.py`, H-008)
 - [x] **PostgreSQL en dev y producción** — migración SQLite→PG completada (BD `inventario`)
 - [x] **Deploy producción** — vm-apps (Docker `gestion-inventario` :10000), `gestion.legatumbp.com`
 - [x] **Formulario completo de config de negocio** — crear/editar negocio genera `business_config.<code>.conf` con todos los campos (issuer, currency, purchase, sales_documents, dividends, locations, inventory)
 - [x] **Acceso multi-negocio para owners** — tabla `user_businesses` (many-to-many), admin asigna múltiples negocios a un owner desde la pestaña Usuarios, y el owner cambia entre sus negocios asignados vía sidebar
-- [ ] Sistema agéntico con LLM local (planificado, no implementado)
+- [x] **Fix borrado de usuario** — anula `audit_logs.user_id` antes de borrar (FK sin ON DELETE)
+- [x] **Code-review + auditoría** — score 2.35 → 3.03 (informe `docs/auditorias/2026-08-13-general.md`)
+- [x] **Copiloto IA (dashboard dinámico)** — `app/agent/` (LangGraph + tools read-only + widget persistente por negocio). Spec en `specs/copiloto-dashboard-ia/`. **Dev usa modelo local Qwen3-8B** (`qwen3_8b_instruct` vía llama-swap, default); **prod usa API LLM externa** (env `AGENT_LLM_*` en docker-compose). Code-review + fixes aplicados. Auditoría 3.45 (`docs/auditorias/2026-08-14-general.md`) → 3.13 (`2026-08-14-copiloto-completo.md`)
+- [ ] Sistema agéntico con LLM local multi-tool (20+ tools, insights proactivos) — fase 2 planificada
 
 ## Sesiones
 
+- **2026-08-14** — Copiloto IA implementado (LangGraph + 9 tools + widget persistente), code-review (10 findings corregidos), auditoría 3.45, quick wins (security headers, formato moneda, tests, settings), modelo local dev / API prod. Detalle en `.claude/session-notes.md`
+- **2026-08-13** — Features config de negocio + multi-negocio owners + code-review + auditoría + fix borrado usuario + version bump 0.4.0 + deploy dev y producción. Detalle en `.claude/session-notes.md`
 - **2026-08-11** — DBeaver + PostgreSQL client + restauración BD + migración SQLite→PG + deploy producción + fix CI/CD Gitea + acceso en homepage. Detalle en `.claude/session-notes.md`
 - **2026-08-04/05** — Feature Negocios + auditoría (22 hallazgos) + deploy Gitea. Detalle en `.claude/session-notes.md`
 
@@ -164,3 +174,6 @@ Archivo `app/business_config.conf` (INI):
 5. **Base de datos** — nunca borrar `inventario.db` sin backup
 6. **Routers** — hay 18 routers, revisar `app/main.py` para ver cuáles están registrados
 7. **Push** — siempre a `gitea` (192.168.1.21). Gitea tiene mirror automático a GitHub, así que NO pushear a GitHub directamente.
+8. **Flujo de cambios (permanente)** — los cambios van **siempre a `develop`**, se prueban en el entorno de desarrollo (`dev.gestion.legatumbp.com`, LAN interno), y solo después se mergean a `main` y se despliegan en producción (`gestion.legatumbp.com`). Nunca directo a `main`.
+9. **Modelo de ejecución** — Claude Code (DeepSeek API `deepseek-v4-pro[1m]`) planifica y genera el SDD/PAE; OpenCode + modelo local **Qwen3.6-35B-A3B** (`qwen36_35b_coder_mtp` vía llama-swap) implementa los task envelopes. El modelo local NO es GLM (GLM-4.7-Flash quedó como legado/fallback desde 2026-07-25).
+10. **Copiloto IA en runtime** — el copiloto usa **modelo local en dev** (default `AGENT_LLM_BASE_URL=http://localhost:8080/v1`, `AGENT_LLM_MODEL=qwen3_8b_instruct`) y **API LLM externa en producción** (env `AGENT_LLM_*` en `docker-compose-homelab.yml`). Las env vars viven en `app/settings.py`.

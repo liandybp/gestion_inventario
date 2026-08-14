@@ -2,6 +2,7 @@
 
 :root {
   --brand-navy: #0b2d42;
+  --brand-sidebar: #0b2d42;
   --brand-red: #cf1f27;
   --brand-bg: #f8fafc;
   --brand-surface: #ffffff;
@@ -29,7 +30,7 @@ body {
 
 .sidebar {
   width: 240px;
-  background: var(--brand-navy);
+  background: var(--brand-sidebar);
   color: white;
   padding: 20px 0;
   position: fixed;
@@ -761,3 +762,283 @@ a { color: var(--brand-red); }
     padding: 0;
   }
 }
+
+/* ═══ Copiloto: burbuja flotante + panel + historial ═══ */
+/* Colores alineados con la app: --brand-navy (primario), --brand-red (acento). */
+.agent-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: var(--brand-sidebar);
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  z-index: 1000;
+}
+.agent-fab:hover { background: var(--brand-red); }
+
+.agent-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 92px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  height: 480px;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  background: var(--brand-surface);
+  border: 1px solid rgba(11, 45, 66, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  z-index: 1001;
+  overflow: hidden;
+}
+.agent-panel.hidden { display: none; }
+
+.agent-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  font-weight: 600;
+  background: var(--brand-sidebar);
+  color: #fff;
+}
+.agent-panel-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.agent-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent-empty { text-align: center; }
+
+.agent-panel form {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid var(--brand-border);
+}
+.agent-panel form input {
+  flex: 1;
+  padding: 9px 10px;
+  border: 1px solid var(--brand-border);
+  border-radius: 8px;
+}
+.agent-panel form button {
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--brand-sidebar);
+  color: #fff;
+  cursor: pointer;
+}
+.agent-panel form button:hover { background: var(--brand-red); }
+
+.msg {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+.msg-user {
+  align-self: flex-end;
+  background: var(--brand-sidebar);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.msg-assistant {
+  align-self: flex-start;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+  border: 1px solid rgba(11, 45, 66, 0.35);
+  border-bottom-left-radius: 4px;
+}
+
+.agent-panel-actions { display: flex; align-items: center; gap: 8px; }
+.agent-panel-new {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.agent-panel-new:hover { background: var(--brand-red); }
+
+.agent-panel-size {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.agent-panel-size:hover { background: var(--brand-red); }
+
+/* Tamaños predeterminados de la burbuja (medium es el default) */
+.agent-panel.small  { width: 300px; height: 380px; }
+.agent-panel.medium { width: 360px; height: 480px; }
+.agent-panel.large  { width: 480px; height: 620px; }
+
+/* El canvas del gráfico vive en un wrapper con altura fija para que Chart.js
+   (responsive + maintainAspectRatio:false) no crezca el contenedor en bucle. */
+.widget-chart-wrap {
+  position: relative;
+  height: 220px;
+}
+.widget-chart-wrap canvas { max-height: 220px; }
+
+/* ═══ Dashboard Dinámico: grid responsive de widgets ═══ */
+/* Auto-fill: más columnas en pantallas anchas. grid-auto-flow: dense empaqueta
+   los widgets para llenar huecos (no deja espacios en blanco si se puede). */
+.widget-grid {
+  display: grid;
+  /* 2 diagramas por fila; las tablas largas (widget-table-full) ocupan la fila entera */
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: dense;
+  gap: 16px;
+  align-items: start;
+}
+.widget-card.widget-table-full { grid-column: 1 / -1; }
+.widget-card {
+  break-inside: avoid;
+  min-width: 0;
+  border: 1px solid var(--brand-border);
+  border-radius: 10px;
+  background: var(--brand-surface);
+  padding: 14px 14px 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.widget-card:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  border-color: #cbd5e1;
+}
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--brand-navy);
+  margin-bottom: 10px;
+}
+.widget-header button {
+  background: none;
+  border: none;
+  color: var(--brand-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.widget-header button:hover {
+  color: var(--brand-red);
+  background: rgba(207, 31, 39, 0.08);
+}
+
+/* Indicador "escribiendo…" del copiloto (puntos animados) */
+.agent-typing { display: inline-flex; gap: 5px; align-items: center; padding: 12px; }
+.agent-typing .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+  animation: agentBlink 1.2s infinite ease-in-out;
+}
+.agent-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.agent-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes agentBlink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+/* Botón de cambio de tema (sidebar) */
+.sidebar-theme-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.sidebar-theme {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sidebar-theme:hover { background: var(--brand-red); }
+
+/* ═══ Tema oscuro ═══
+   La app ya usa variables CSS, así que redefinir las variables cambia todo. */
+[data-theme="dark"] {
+  --brand-bg: #0f172a;
+  --brand-surface: #1e293b;
+  --brand-border: #334155;
+  --brand-text: #f1f5f9;
+  --brand-muted: #94a3b8;
+  /* --brand-navy es el ACENTO (botones/FAB). El sidebar y los headers de tabla
+     se fuerzan a navy oscuro abajo, para que la barra de pestañas no sea azul. */
+  --brand-navy: #2563eb;
+  --brand-red: #ef4444;
+  --row-odd: #1e293b;
+  --row-even: #182234;
+  --row-hover: rgba(148, 163, 184, 0.15);
+}
+[data-theme="dark"] thead th { background: #0b2d42; }
+[data-theme="dark"] .widget-header { color: var(--brand-text); }
+[data-theme="dark"] .error { background: rgba(239, 68, 68, 0.12); }
+[data-theme="dark"] .warn  { background: rgba(245, 158, 11, 0.12); }
+[data-theme="dark"] .ok    { background: rgba(16, 185, 129, 0.12); }
+[data-theme="dark"] .color-purchase  { color: #34d399; }
+[data-theme="dark"] .color-sale      { color: #f87171; }
+[data-theme="dark"] .color-adjustment { color: #fbbf24; }
+[data-theme="dark"] .btn-secondary   { background: #475569; }
+[data-theme="dark"] .msg-assistant   { border-color: var(--brand-border); }
+
+/* Los checkboxes no deben estirarse al 100% (el input genérico tiene width:100%) */
+input[type="checkbox"] {
+  width: auto;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Tablas de widgets — estilizadas como el resto de la app */
+.widget-card { overflow-x: auto; }
+.widget-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.widget-table th, .widget-table td {
+  border: 1px solid var(--brand-border);
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.widget-table thead th {
+  background: var(--brand-sidebar);
+  color: #fff;
+  font-weight: 600;
+}
+.widget-table tbody tr:nth-child(even) td { background: var(--row-even); }
+.widget-table tbody tr:hover td { background: var(--row-hover); }

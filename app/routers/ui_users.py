@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import AuditLog, Business, User, UserBusiness
+from app.models import AuditLog, Business, ChatMessage, DashboardWidget, User, UserBusiness
 from app.security import get_current_user_from_session, get_user_business_ids
 from app.routers.ui_common import ensure_admin, templates
 
@@ -340,6 +340,13 @@ def user_delete(
     )
     db.query(AuditLog).filter(AuditLog.user_id == int(user.id)).update(
         {AuditLog.user_id: None}, synchronize_session=False
+    )
+    # Copiloto: anular las FKs de chat_messages y dashboard_widgets (sin ON DELETE)
+    db.query(ChatMessage).filter(ChatMessage.user_id == int(user.id)).update(
+        {ChatMessage.user_id: None}, synchronize_session=False
+    )
+    db.query(DashboardWidget).filter(DashboardWidget.created_by == int(user.id)).update(
+        {DashboardWidget.created_by: None}, synchronize_session=False
     )
     db.delete(user)
     db.commit()

@@ -16,6 +16,14 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       OPERATOR_USERNAME: ${OPERATOR_USERNAME:-operator}
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD}
+      # Copiloto IA — REQUERIDO en producción: definir AGENT_LLM_BASE_URL/MODEL/API_KEY.
+      # Si quedan vacíos, settings.env() cae al default de DEV (llama-swap local
+      # dentro del contenedor, que no existe) y el copiloto degrada en runtime.
+      AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:?debe definirse en prod}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:?debe definirse en prod}
+      AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:?debe definirse en prod}
+      AGENT_LLM_TIMEOUT_S: ${AGENT_LLM_TIMEOUT_S:-60}
+      AGENT_MAX_CONCURRENCY: ${AGENT_MAX_CONCURRENCY:-8}
     volumes:
       - uploads_data:/app/app/static/uploads
     restart: unless-stopped

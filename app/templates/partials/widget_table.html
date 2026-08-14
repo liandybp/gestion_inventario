@@ -1,0 +1,8 @@
+<table class="widget-table">
+  <thead>
+    <tr>{% for c in (w.payload.get('columns') or []) %}<th>{{ c }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for row in (w.payload.get('rows') or []) %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+  </tbody>
+</table>

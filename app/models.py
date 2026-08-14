@@ -277,3 +277,43 @@ class OperatingExpense(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class DashboardWidget(Base):
+    __tablename__ = "dashboard_widgets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
+    type: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(255))
+    params: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    position: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_by: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class ChatMessage(Base):
+    """Mensaje de la conversación del copiloto, por negocio (historial)."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("businesses.id"), nullable=True, index=True
+    )
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    role: Mapped[str] = mapped_column(String(16))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
