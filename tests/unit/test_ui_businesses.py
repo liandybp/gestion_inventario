@@ -81,7 +81,7 @@ class TestBusinessCreate:
         loc = db_session.scalar(
             select(Location).where(
                 Location.business_id == biz.id,
-                Location.code == "nuevo_negocio_CENTRAL",
+                Location.code == "NUEVO_NEGOCIO_CENTRAL",
             )
         )
         assert loc is not None
@@ -91,7 +91,7 @@ class TestBusinessCreate:
         pos_loc = db_session.scalar(
             select(Location).where(
                 Location.business_id == biz.id,
-                Location.code == "nuevo_negocio_POS1",
+                Location.code == "NUEVO_NEGOCIO_POS1",
             )
         )
         assert pos_loc is not None
@@ -244,3 +244,15 @@ class TestBusinessDelete:
 
         assert result.status_code == 409
         assert db_session.get(Business, biz.id) is not None
+
+
+def test_prefix_location_code_no_double_prefix():
+    """Bug: un código ya prefijado (cualquier capitalización) no debe re-prefijarse."""
+    from app.routers.ui_businesses import _prefix_location_code
+    # código nuevo -> prefijo mayúsculas (convención ROPA_CENTRAL)
+    assert _prefix_location_code("POST2", "ropa") == "ROPA_POST2"
+    # ya prefijado (mayúsculas) -> sin cambios
+    assert _prefix_location_code("ROPA_POST2", "ropa") == "ROPA_POST2"
+    # ya prefijado (minúsculas) -> sin cambios (no doble prefijo)
+    assert _prefix_location_code("ropa_POST2", "ropa") == "ropa_POST2"
+    assert _prefix_location_code("CENTRAL", "bazar") == "BAZAR_CENTRAL"

@@ -44,10 +44,18 @@ def _prefix_location_code(loc_code: str, business_code: str) -> str:
     ``Location.code`` is UNIQUE across the whole DB, so bare codes like
     ``CENTRAL``/``POS1`` would collide between businesses. Already-prefixed
     codes are left unchanged.
+
+    Fix (bug doble prefijo): la comprobación es case-insensitive y el prefijo se
+    normaliza a mayúsculas para coincidir con la convención existente
+    (``ROPA_CENTRAL`` aunque el negocio sea ``ropa``). Antes, un código ya
+    prefijado con otra capitalización (``ROPA_POST2`` vs negocio ``ropa``) se
+    prefijaba de nuevo → ``ROPA_ropa_POST2``.
     """
     loc_code = (loc_code or "").strip()
-    prefix = f"{business_code}_"
-    return loc_code if loc_code.startswith(prefix) else f"{prefix}{loc_code}"
+    prefix = f"{business_code.strip().upper()}_"
+    if loc_code.lower().startswith(prefix.lower()):
+        return loc_code  # ya prefijado (cualquier capitalización)
+    return f"{prefix}{loc_code}"
 
 
 def _prefix_location_spec(spec: str, business_code: str) -> str:
@@ -56,7 +64,7 @@ def _prefix_location_spec(spec: str, business_code: str) -> str:
     spec = (spec or "").strip()
     if ":" in spec:
         code, name = spec.split(":", 1)
-        code = code.strip()
+        code = code.strip().lower()
         name = name.strip() or code
         return f"{_prefix_location_code(code, business_code)}:{name}"
     return _prefix_location_code(spec, business_code)
@@ -258,7 +266,7 @@ def business_create(
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
 
-    code = code.strip()
+    code = code.strip().lower()
     name = name.strip()
 
     if not code:
@@ -505,7 +513,7 @@ def business_update(
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
 
-    code = code.strip()
+    code = code.strip().lower()
     name = name.strip()
 
     if not code:
