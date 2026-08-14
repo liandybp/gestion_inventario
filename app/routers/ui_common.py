@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -18,6 +19,27 @@ from app.security import get_current_user_from_session
 from app.utils import month_range
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _static_asset_version() -> str:
+    """Versión de cache-busting derivada del contenido de los assets estáticos.
+
+    Se calcula en CADA render (no se congela en import): ``uvicorn --reload``
+    solo vigila ``*.py``, así que editar ``app.css``/``app.js`` no reinicia el
+    proceso; con un hash por render, el ``?v=`` cambia igual y el navegador/CDN
+    invalida la caché. Las rutas parten de ``__file__`` para no depender del CWD.
+    """
+    digest = hashlib.sha1()
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+    for rel in ("css/app.css", "js/app.js"):
+        try:
+            digest.update((static_dir / rel).read_bytes())
+        except OSError:
+            continue
+    return digest.hexdigest()[:8]
+
+
+templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
 
 _DEV_ACTIONS_ENABLED = os.getenv("DEV_ACTIONS_ENABLED", "1") == "1"
 

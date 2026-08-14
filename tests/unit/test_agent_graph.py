@@ -140,18 +140,32 @@ def test_graph_degrades_when_planner_returns_none(db_session, business_id):
         g._PLANNER = original
 
 
-def test_strict_schema_is_openai_compatible():
-    """C1: el schema del PlanModel debe cumplir los requisitos strict de OpenAI
-    (additionalProperties:false + required completo, también en modelos anidados)."""
-    from app.agent.llm import _strict_schema
+def test_tighten_schema_marks_closed_and_required():
+    """El schema que se envía al LLM (json_schema, no strict) se endurece como hint:
+    additionalProperties:false + required completo, también en modelos anidados."""
+    from app.agent.llm import _tighten_schema
     from app.agent.schemas import PlanModel
 
-    s = _strict_schema(PlanModel.model_json_schema())
+    s = _tighten_schema(PlanModel.model_json_schema())
     assert s.get("additionalProperties") is False
     assert set(s.get("required", [])) == {"tool", "tool_args", "widgets", "reply"}
     ws = s["$defs"]["WidgetSpec"]
     assert ws.get("additionalProperties") is False
     assert set(ws.get("required", [])) == {"type", "title", "tool", "tool_args", "unit"}
+
+
+def test_build_planner_does_not_force_strict():
+    """Regresión del LLM 400 en prod: el response_format json_schema NO debe ir en
+    modo strict (OpenAI rechaza anyOf/additionalProperties:true con strict:true)."""
+    from app.agent.llm import build_planner
+    from app.agent.schemas import PlanModel
+
+    llm = build_planner(PlanModel)
+    rf = llm.model_kwargs.get("response_format", {})
+    assert rf.get("type") == "json_schema"
+    js = rf.get("json_schema", {})
+    assert js.get("name") == "PlanModel"
+    assert "strict" not in js
 
 
 def test_execute_keys_results_by_index(db_session, business_id, monkeypatch):

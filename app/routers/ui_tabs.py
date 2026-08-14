@@ -276,7 +276,7 @@ def _location_id_for_code(
     return int(row[0])
 
 
-def _location_name_for_code(location_code: str, business_code: Optional[str] = None) -> str:
+def _location_name_for_code(location_code: str, db: Session, request: Request) -> str:
     code = (location_code or "").strip()
     locations, _default_loc_code = _home_locations_context(db, request)
     for loc in locations:
@@ -2097,7 +2097,7 @@ def restock_table(
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code, business_code),
+            "selected_location_name": _location_name_for_code(selected_location_code, db, request),
             "restock_scope": selected_scope,
         },
     )
@@ -2140,7 +2140,7 @@ def restock_print(
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code, business_code),
+            "selected_location_name": _location_name_for_code(selected_location_code, db, request),
             "print_mode": True,
             "generated_at": datetime.now(timezone.utc),
         },

@@ -22,12 +22,13 @@ def build_llm(**kwargs) -> ChatOpenAI:
     )
 
 
-def _strict_schema(schema: dict) -> dict:
-    """Hace un JSON Schema compatible con el modo strict de OpenAI.
+def _tighten_schema(schema: dict) -> dict:
+    """Endurece el JSON Schema de pydantic para guiar mejor al modelo.
 
-    OpenAI exige `additionalProperties: false` y que `required` incluya TODAS
-    las propiedades (de lo contrario devuelve 400). Se aplica recursivamente a
-    objetos y arrays anidados, incluidos los `$defs` de pydantic.
+    Añade ``additionalProperties: false`` y ``required`` con todas las
+    propiedades, recursivamente (objetos, arrays y ``$defs``). Se usa como
+    ``json_schema`` SIN ``strict``: el modo strict de OpenAI rechaza los
+    ``anyOf: [.., null]`` de los campos Optional y los dicts libres.
     """
     props = schema.get("properties")
     if isinstance(props, dict):
@@ -37,29 +38,31 @@ def _strict_schema(schema: dict) -> dict:
             if not isinstance(value, dict):
                 continue
             if value.get("type") == "object":
-                _strict_schema(value)
+                _tighten_schema(value)
             elif value.get("type") == "array" and isinstance(value.get("items"), dict):
-                _strict_schema(value["items"])
+                _tighten_schema(value["items"])
     for ref in (schema.get("$defs") or {}).values():
         if isinstance(ref, dict):
-            _strict_schema(ref)
+            _tighten_schema(ref)
     return schema
 
 
 def build_planner(model: Type[BaseModel]) -> ChatOpenAI:
     """LLM configurado para devolver el modelo Pydantic forzado por JSON Schema.
 
-    Funciona con llama.cpp (dev) y con las APIs OpenAI-compatibles (prod): el
-    schema se adapta a los requisitos strict de OpenAI (C1).
+    Funciona con llama.cpp (dev) y con las APIs OpenAI-compatibles (prod). Se
+    usa ``json_schema`` SIN ``strict``: PlanModel contiene campos Optional
+    (``anyOf: [.., null]``) y dicts libres (``additionalProperties: true``) que
+    el modo strict de OpenAI rechaza con 400. La salida se re-valida con pydantic
+    y se reintenta en ``_plan_node``, así que el modo no-estricto es seguro.
     """
-    schema = _strict_schema(model.model_json_schema())
+    schema = _tighten_schema(model.model_json_schema())
     return build_llm(model_kwargs={
         "response_format": {
             "type": "json_schema",
             "json_schema": {
                 "name": model.__name__,
                 "schema": schema,
-                "strict": True,
             },
         }
     })

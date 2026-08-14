@@ -36,9 +36,10 @@ class _Planner:
         return PlanModel.model_validate_json(content)
 
 
-# El planner se construye con build_planner (llm.py): el schema se adapta a los
-# requisitos strict de OpenAI (C1). La fecha del prompt NO se cachea: se calcula
-# en cada _plan_node para que "mes pasado" se resuelva contra la fecha real (A1).
+# El planner se construye con build_planner (llm.py): el schema se envía como
+# json_schema (no strict, para aceptar campos Optional/dict de PlanModel). La
+# fecha del prompt NO se cachea: se calcula en cada _plan_node para que "mes
+# pasado" se resuelva contra la fecha real (A1).
 _PLANNER = _Planner(build_planner(PlanModel))
 
 
