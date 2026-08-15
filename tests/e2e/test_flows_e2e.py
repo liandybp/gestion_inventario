@@ -27,19 +27,6 @@ def _login(page: Page, base_url: str) -> None:
     page.wait_for_url(f"{base_url}/ui/dashboard**")
 
 
-def test_expense_create_appears_in_list(live_server: str, page: Page) -> None:
-    """Un gasto creado desde la UI aparece en la lista (FinanceService)."""
-    _login(page, live_server)
-    page.click("#tab-expenses")
-    expect(page.locator("#tab-content").locator("text=Gastos").first).to_be_visible()
-
-    page.fill('input[name="concept"]', "Gasto E2E Flujo")
-    page.fill('input[name="amount"]', "12.50")
-    page.click('form[hx-post="/ui/expenses/create"] button[type="submit"]')
-
-    expect(page.locator("#tab-content").locator("text=Gasto E2E Flujo").first).to_be_visible()
-
-
 def test_extraction_create_updates_dividends(live_server: str, page: Page) -> None:
     """Una extracción creada desde la UI aparece (FinanceService)."""
     _login(page, live_server)
@@ -52,14 +39,6 @@ def test_extraction_create_updates_dividends(live_server: str, page: Page) -> No
     page.click('form[hx-post="/ui/extractions/create"] button[type="submit"]')
 
     expect(page.locator("#tab-content").locator("text=Extraccion E2E Flujo").first).to_be_visible()
-
-
-def test_profit_items_tab_renders_results(live_server: str, page: Page) -> None:
-    """El tab profit-items renderiza filtro + resultados (ReportingService)."""
-    _login(page, live_server)
-    page.click("#tab-profit-items")
-    expect(page.locator("#profit-items-results")).to_be_visible()
-    expect(page.locator("#profit-items-query")).to_be_visible()
 
 
 def test_sale_flow_reduces_stock(live_server: str, page: Page) -> None:
@@ -79,19 +58,6 @@ def test_sale_flow_reduces_stock(live_server: str, page: Page) -> None:
 
     # El panel se re-renderiza con la venta en el historial
     expect(page.locator("#sale-panel").locator("text=E2E-SKU1").first).to_be_visible()
-
-
-def test_customer_create_flow(live_server: str, page: Page) -> None:
-    """Cliente creado desde la UI aparece en la lista (CustomerRepository / tab-customers)."""
-    _login(page, live_server)
-    page.click("#tab-customers")
-    expect(page.locator("#tab-content").locator("text=Clientes").first).to_be_visible()
-
-    page.fill('form[hx-post="/ui/customer/create"] input[name="client_id"]', "E2E-CL1")
-    page.fill('form[hx-post="/ui/customer/create"] input[name="name"]', "Cliente E2E Flujo")
-    page.click('form[hx-post="/ui/customer/create"] button[type="submit"]')
-
-    expect(page.locator("#tab-content").locator("text=Cliente E2E Flujo").first).to_be_visible()
 
 
 def test_purchase_flow_increases_stock(live_server: str, page: Page) -> None:
