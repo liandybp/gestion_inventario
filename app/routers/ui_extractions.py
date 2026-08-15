@@ -15,6 +15,10 @@ from app.services.inventory_service import InventoryService
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
+from app.logger import get_logger
+
+_log = get_logger(__name__)
+
 router = APIRouter()
 
 
@@ -51,6 +55,7 @@ def extraction_create(
                 entity_id=None,
                 detail={"party": party, "amount": amount, "concept": concept, "extraction_date": extraction_date},
             )
+            db.commit()
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -66,6 +71,7 @@ def extraction_create(
             },
         )
     except Exception as e:
+        _log.exception("extraction_create fallback: %s", e)
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -109,6 +115,7 @@ def extraction_delete(
                 entity_id=str(extraction_id),
                 detail={},
             )
+            db.commit()
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -141,6 +148,7 @@ def extraction_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("extraction_delete fallback: %s", e)
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -216,6 +224,7 @@ def extraction_update(
                 entity_id=str(extraction_id),
                 detail={"party": party, "amount": amount, "concept": concept, "extraction_date": extraction_date},
             )
+            db.commit()
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
@@ -248,6 +257,7 @@ def extraction_update(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("extraction_update fallback: %s", e)
         summary = service.monthly_dividends_report(now=now)
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(

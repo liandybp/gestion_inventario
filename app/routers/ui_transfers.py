@@ -13,12 +13,15 @@ from sqlalchemy.sql import func
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.schemas import TransferCreate, TransferLineCreate, TransferResult
+from app.logger import get_logger
+from app.schemas import TransferCreate, TransferLineCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
-from app.models import InventoryMovement, Product, User
+from app.models import InventoryMovement, Product
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, parse_dt, templates
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -59,30 +62,12 @@ def _parse_transfer_lines(products: list[str], quantities: list[str]) -> list[Tr
         try:
             qty = float((q or "").strip() or 0)
         except Exception:
+            _log.debug("transfer quantity parse skip: %r", q)
             qty = 0
         if qty <= 0:
             continue
         lines.append(TransferLineCreate(sku=sku, quantity=qty))
     return lines
-
-
-def _audit_transfer(db: Session, user: Optional[User], result: TransferResult) -> None:
-    for line in result.lines:
-        for mv_id in (line.movements_out or []) + (line.movements_in or []):
-            log_event(
-                db,
-                user,
-                action="transfer_create",
-                entity_type="movement",
-                entity_id=str(mv_id),
-                detail={
-                    "sku": line.sku,
-                    "quantity": float(line.quantity),
-                    "from_location_code": result.from_location_code,
-                    "to_location_code": result.to_location_code,
-                    "transfer_ref": result.transfer_ref,
-                },
-            )
 
 
 def _stock_options(service: InventoryService, from_code: str) -> list[dict]:
@@ -169,6 +154,7 @@ def transfer_update(
                 p for p in service.stock_list(query="", location_code=code) if float(p.quantity or 0) > 0
             ]
         except Exception:
+            _log.error("product_options fallback en _safe_product_options")
             return []
 
     def _tab_error(detail: str) -> HTMLResponse:
@@ -181,6 +167,7 @@ def transfer_update(
                 movement_type="transfer_in", start_date=None, end_date=None, limit=50
             )
         except Exception:
+            _log.error("recent transfer history fallback en _tab_error")
             recent_transfer_out = []
             recent_transfer_in = []
 
@@ -216,6 +203,7 @@ def transfer_update(
     except HTTPException as e:
         return _tab_error(str(e.detail))
     except Exception as e:
+        _log.exception("transfer_update lookup fallback: %s", e)
         return _tab_error(str(e))
 
     from_code = default_from_location_code
@@ -224,6 +212,7 @@ def transfer_update(
         if mv_out is not None:
             from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
+        _log.error("transfer_codes_from_out_note fallback en transfer_update")
         from_code = default_from_location_code
         to_code = default_to_location_code
 
@@ -249,6 +238,7 @@ def transfer_update(
                 entity_id=str(result.movement.id),
                 detail={"quantity": float(quantity)},
             )
+            db.commit()  # H-041: el audit flushea; commit explícito (update_transfer_shipment ya commiteó)
 
         recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
@@ -276,6 +266,7 @@ def transfer_update(
     except HTTPException as e:
         return _tab_error(str(e.detail))
     except Exception as e:
+        _log.exception("update_transfer_shipment fallback: %s", e)
         return _tab_error(str(e))
 
 
@@ -336,6 +327,7 @@ def transfer_delete_selected(
         try:
             out_ids.add(int(service._transfer_out_id_for_movement_id(int(mid))))
         except Exception:
+            _log.debug("transfer out_id lookup skip: %r", mid)
             continue
 
     deleted = 0
@@ -356,7 +348,9 @@ def transfer_delete_selected(
         except HTTPException as e:
             errors.append(str(e.detail))
         except Exception as e:
+            _log.exception("delete_transfer_shipment fallback %s: %s", out_id, e)
             errors.append(str(e))
+    db.commit()
 
     recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
     recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
@@ -420,6 +414,7 @@ def transfer_delete(
         if mv_out is not None:
             from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
+        _log.error("transfer_codes_from_out_note fallback en transfer_delete")
         from_code = default_from_location_code
         to_code = default_to_location_code
 
@@ -440,6 +435,7 @@ def transfer_delete(
                 entity_id=str(movement_id),
                 detail={},
             )
+            db.commit()
 
         recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
@@ -523,6 +519,21 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
     user = get_current_user_from_session(db, request)
 
     try:
+        if user is not None:
+            for line in lines:
+                log_event(
+                    db,
+                    user,
+                    action="transfer_create",
+                    entity_type="movement",
+                    entity_id=None,
+                    detail={
+                        "sku": line.sku,
+                        "quantity": float(line.quantity),
+                        "from_location_code": from_location_code,
+                        "to_location_code": to_location_code,
+                    },
+                )
         result = service.transfer(
             TransferCreate(
                 from_location_code=from_location_code,
@@ -532,9 +543,6 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
                 note=note,
             )
         )
-
-        if user is not None:
-            _audit_transfer(db, user, result)
 
         recent_transfer_out = service.movement_history(
             movement_type="transfer_out",
@@ -572,6 +580,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
             },
         )
     except Exception as e:
+        _log.exception("create_transfer fallback: %s", e)
         recent_transfer_out = service.movement_history(
             movement_type="transfer_out",
             start_date=None,
@@ -665,6 +674,7 @@ async def get_transfer_stock(
         stock = service.stock_for_location(resolved_sku, location_code=effective_code)
         return HTMLResponse(f"{float(stock or 0):g}")
     except Exception:
+        _log.debug("get_transfer_stock fallback: %r", sku)
         return HTMLResponse("0")
 
 
@@ -692,6 +702,7 @@ def transfer_print(
             try:
                 ref_clean = raw.split("ref=", 1)[1].split()[0].strip()
             except Exception:
+                _log.debug("transfer_print ref parse fallback")
                 ref_clean = ""
 
     if not ref_clean:
@@ -932,6 +943,21 @@ async def transfer_bulk_execute(
                                "Selecciona al menos un producto para traspasar.", set(), {}, True)
 
     try:
+        if user is not None:
+            for line in lines:
+                log_event(
+                    db,
+                    user,
+                    action="transfer_create",
+                    entity_type="movement",
+                    entity_id=None,
+                    detail={
+                        "sku": line.sku,
+                        "quantity": float(line.quantity),
+                        "from_location_code": from_code,
+                        "to_location_code": to_code,
+                    },
+                )
         result = service.transfer(
             TransferCreate(
                 from_location_code=from_code,
@@ -946,9 +972,6 @@ async def transfer_bulk_execute(
         quantities_map = {line.sku: line.quantity for line in lines}
         return _modal_response("Error en traspaso", "error",
                                str(getattr(e, "detail", e)), checked_skus, quantities_map, True)
-
-    if user is not None:
-        _audit_transfer(db, user, result)
 
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "transferBulkSuccess"

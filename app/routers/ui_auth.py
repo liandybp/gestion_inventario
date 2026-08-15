@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import threading
 import time
 from collections import defaultdict
@@ -16,14 +15,13 @@ from app.auth import hash_password
 from app.deps import session_dep
 from app.models import Business, User
 from app.security import get_current_user_from_session, get_user_business_ids
+from app.settings import LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW
 
 from .ui_common import templates
 
 router = APIRouter()
 
 # Simple in-memory rate limiter for login
-_LOGIN_RATE_LIMIT = int(os.getenv("LOGIN_RATE_LIMIT", "10"))  # max attempts
-_LOGIN_RATE_WINDOW = int(os.getenv("LOGIN_RATE_WINDOW", "300"))  # window in seconds
 _login_attempts: dict[str, list[float]] = defaultdict(list)
 _login_lock = threading.Lock()
 
@@ -32,9 +30,9 @@ def _check_login_rate(client_ip: str) -> bool:
     """Returns True if the client is allowed to attempt login."""
     now = time.time()
     with _login_lock:
-        attempts = [t for t in _login_attempts.get(client_ip, []) if now - t < _LOGIN_RATE_WINDOW]
+        attempts = [t for t in _login_attempts.get(client_ip, []) if now - t < LOGIN_RATE_WINDOW]
         _login_attempts[client_ip] = attempts
-        if len(attempts) >= _LOGIN_RATE_LIMIT:
+        if len(attempts) >= LOGIN_RATE_LIMIT:
             return False
         _login_attempts[client_ip].append(now)
         return True
@@ -95,6 +93,7 @@ def login_submit(
         entity_id=user.username,
         detail={"role": user.role},
     )
+    db.commit()
     return RedirectResponse(url="/ui/dashboard", status_code=302)
 
 
@@ -185,6 +184,7 @@ def must_change_password_submit(
         entity_id=row.username,
         detail={"role": row.role},
     )
+    db.commit()
     resp = HTMLResponse("")
     resp.headers["HX-Refresh"] = "true"
     return resp
@@ -236,6 +236,7 @@ def logout(request: Request, db: Session = Depends(session_dep)) -> RedirectResp
             entity_id=user.username,
             detail={"role": user.role},
         )
+        db.commit()
     try:
         request.session.clear()
     except Exception:

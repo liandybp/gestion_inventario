@@ -162,6 +162,7 @@ def user_create(
             entity_id=str(new_user.id),
             detail={"username": username, "role": role_norm, "business_ids": bid_list},
         )
+        db.commit()
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
@@ -284,6 +285,7 @@ def user_update(
             entity_id=str(user.id),
             detail={"username": username, "role": role_norm, "business_ids": bid_list},
         )
+        db.commit()
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
@@ -360,6 +362,7 @@ def user_delete(
             entity_id=str(user_id),
             detail={"username": username},
         )
+        db.commit()
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
@@ -425,6 +428,7 @@ def user_reset_password(
             entity_id=str(user.id),
             detail={"username": user.username, "must_change": must_change},
         )
+        db.commit()
 
     users = list(db.scalars(select(User).order_by(User.username.asc())))
     businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))

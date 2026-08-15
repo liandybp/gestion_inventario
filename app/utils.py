@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import os
 import secrets
 import unicodedata
 from datetime import datetime, timezone
 from typing import Tuple
 
+from app import settings
+
 
 def get_session_secret() -> str:
     """Obtiene el secret key para sesiones. Genera uno seguro si no está definido."""
-    secret = os.getenv("SESSION_SECRET", "").strip()
+    secret = (settings.SESSION_SECRET or "").strip()
     if not secret:
         secret = secrets.token_hex(32)
     return secret

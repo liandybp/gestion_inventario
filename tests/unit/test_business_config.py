@@ -12,7 +12,7 @@ def _write(path, content: str) -> None:
 
 def test_load_business_config_defaults_when_file_missing(monkeypatch, tmp_path) -> None:
     missing = tmp_path / "does_not_exist.conf"
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(missing))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(missing))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -37,7 +37,7 @@ invoice_vat_rate = 1.21
 invoice_fx_rate =
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -58,7 +58,7 @@ invoice_vat_rate = 1,21
 invoice_fx_rate = 1,15
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -81,7 +81,7 @@ symbol = €
 invoice_fx_rate = 1.0
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_DIR", str(cfg_dir))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_DIR", str(cfg_dir))
     monkeypatch.delenv("BUSINESS_CONFIG_PATH_ROPA", raising=False)
     business_config._cached_configs.clear()
 
@@ -106,7 +106,7 @@ def test_json_config_load(monkeypatch, tmp_path) -> None:
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -124,7 +124,7 @@ def test_opening_pending_supports_colon_format(monkeypatch, tmp_path) -> None:
 opening_pending = Negocio:10,Mariela:2.5
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -148,7 +148,7 @@ default_type = F
 enabled_types = X
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()
@@ -206,7 +206,7 @@ default_type = F
 enabled_types = F,P
 """.strip(),
     )
-    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    monkeypatch.setattr("app.settings.BUSINESS_CONFIG_PATH", str(cfg_file))
     business_config._cached_configs.clear()
 
     cfg = load_business_config()

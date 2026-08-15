@@ -15,6 +15,13 @@ from __future__ import annotations
 
 import os
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 
 def env(name: str, default: str) -> str:
     value = os.getenv(name)
@@ -32,3 +39,25 @@ AGENT_MAX_WIDGETS = int(env("AGENT_MAX_WIDGETS", "20"))
 AGENT_MAX_MESSAGES = int(env("AGENT_MAX_MESSAGES", "100"))
 AGENT_RATE_LIMIT = int(env("AGENT_RATE_LIMIT", "30"))
 AGENT_RATE_WINDOW = int(env("AGENT_RATE_WINDOW", "60"))
+
+# ── Circuit breaker del copiloto (H-030) ──────────────────────────────────────
+AGENT_BREAKER_FAIL_THRESHOLD = int(env("AGENT_BREAKER_FAIL_THRESHOLD", "3"))
+AGENT_BREAKER_COOLDOWN_S = float(env("AGENT_BREAKER_COOLDOWN_S", "60"))
+AGENT_BREAKER_MAX_RETRIES = int(env("AGENT_BREAKER_MAX_RETRIES", "1"))
+
+# ── Comunes (H-045: consolidar os.getenv dispersos) ──────────────────────────
+DATABASE_URL = env("DATABASE_URL", "sqlite+pysqlite:///./inventario.db")
+DB_POOL_SIZE = int(env("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(env("DB_MAX_OVERFLOW", "20"))
+SESSION_SECRET = env("SESSION_SECRET", "")
+SESSION_HTTPS_ONLY = env("SESSION_HTTPS_ONLY", "0") == "1"
+HOST = env("HOST", "127.0.0.1")
+PORT = int(env("PORT", "10000"))
+RELOAD = env("RELOAD", "1") == "1"
+LOG_LEVEL = env("LOG_LEVEL", "INFO").upper()
+BUSINESS_CONFIG_PATH = env("BUSINESS_CONFIG_PATH", "")
+BUSINESS_CONFIG_DIR = env("BUSINESS_CONFIG_DIR", "")
+LOGIN_RATE_LIMIT = int(env("LOGIN_RATE_LIMIT", "10"))
+LOGIN_RATE_WINDOW = int(env("LOGIN_RATE_WINDOW", "300"))
+UPLOAD_MAX_MB = int(env("UPLOAD_MAX_MB", "10"))
+DEV_ACTIONS_ENABLED = env("DEV_ACTIONS_ENABLED", "1") == "1"

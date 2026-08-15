@@ -9,11 +9,15 @@ from langgraph.graph import END, StateGraph
 from pydantic import ValidationError
 
 from app.agent import config
+from app.agent.circuit_breaker import breaker
 from app.agent.llm import build_planner
 from app.agent.prompts import build_system_prompt
 from app.agent.schemas import PlanModel
 from app.agent.tools import TOOL_REGISTRY
+from app.logger import get_logger
 from app.services.inventory_service import InventoryService
+
+_log_agent = get_logger(__name__)
 
 
 class _Planner:
@@ -70,10 +74,19 @@ def _plan_node(state: AgentState) -> AgentState:
         else:
             messages.append(HumanMessage(content=content))
     messages.append(HumanMessage(content=state["message"]))
+    if not breaker.allow_request():
+        _log_agent.warning("LLM circuit breaker OPEN — degradando sin llamar al LLM")
+        state["error"] = "LLM en cooldown"
+        state["plan"] = PlanModel(
+            tool=None, widgets=[],
+            reply="El copiloto está temporalmente no disponible. Inténtalo en un momento.",
+        )
+        return state
     error: Optional[str] = None
     for _ in range(config.MAX_RETRIES + 1):
         try:
             plan = _PLANNER.invoke(messages)
+            breaker.record_success()
             # El modelo puede devolver None (salida estructurada vacía) en vez de
             # un PlanModel; si lo guardamos tal cual, _execute_node crashea con
             # AttributeError y el chat da 500. Tratar None como error de formato.
@@ -92,6 +105,7 @@ def _plan_node(state: AgentState) -> AgentState:
             # Hard failure (network/auth/timeout): do not burn retries on a
             # dead endpoint; degrade immediately and surface the reason.
             # (reply must be non-empty: PlanModel enforces min_length=1.)
+            breaker.record_failure()
             state["error"] = f"LLM no disponible: {exc}"
             state["plan"] = PlanModel(
                 tool=None, widgets=[], reply="El copiloto no está disponible en este momento."

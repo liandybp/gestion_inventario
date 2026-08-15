@@ -14,6 +14,10 @@ from app.services.inventory_service import InventoryService
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
+from app.logger import get_logger
+
+_log = get_logger(__name__)
+
 router = APIRouter()
 
 
@@ -42,6 +46,7 @@ def expense_create(
                 entity_id=None,
                 detail={"amount": amount, "concept": concept, "expense_date": expense_date},
             )
+            db.commit()
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -56,6 +61,7 @@ def expense_create(
             },
         )
     except Exception as e:
+        _log.exception("expense_create fallback: %s", e)
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -115,6 +121,7 @@ def expense_delete(
                 entity_id=str(expense_id),
                 detail={},
             )
+            db.commit()
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -145,6 +152,7 @@ def expense_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("expense_delete fallback: %s", e)
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -193,6 +201,7 @@ def expense_update(
                 entity_id=str(expense_id),
                 detail={"amount": amount, "concept": concept, "expense_date": expense_date},
             )
+            db.commit()
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
@@ -223,6 +232,7 @@ def expense_update(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("expense_update fallback: %s", e)
         expenses = service.list_expenses(start=start, end=end, limit=200)
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(

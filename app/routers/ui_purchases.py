@@ -30,6 +30,9 @@ from .ui_common import (
     parse_optional_float,
     templates,
 )
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -42,6 +45,7 @@ def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optio
     try:
         fx_rate = float(fx_rate) if fx_rate is not None else None
     except Exception:
+        _log.debug("fx_rate parse fallback: %r", fx_rate)
         fx_rate = None
     currency_code = str(getattr(cfg.currency, "code", "") or "").strip().upper() or "EUR"
     currency_symbol = str(getattr(cfg.currency, "symbol", "") or "").strip() or "€"
@@ -92,6 +96,7 @@ def purchase_from_invoice(
     try:
         parsed = parse_invoice_pdf(invoice_pdf.file)
     except Exception as e:
+        _log.exception("parse_invoice_pdf fallback: %s", e)
         return _render_error(
             "No se pudo importar la factura",
             f"No se pudo leer el PDF: {e}",
@@ -101,6 +106,7 @@ def purchase_from_invoice(
         try:
             invoice_pdf.file.seek(0)
         except Exception:
+            _log.debug("zara pdf seek fallback")
             return None
 
         try:
@@ -118,12 +124,13 @@ def purchase_from_invoice(
                     )
                 return " | ".join(per_page)
         except Exception:
+            _log.debug("zara pdf diagnostics fallback")
             return None
         finally:
             try:
                 invoice_pdf.file.seek(0)
             except Exception:
-                pass
+                _log.debug("zara pdf seek reset fallback")
 
     if parsed.invoice_date is None:
         return _render_error(
@@ -191,6 +198,7 @@ def purchase_from_invoice(
             fx_factor = fx_rate if (fx_rate is not None and fx_rate > 0) else 1.0
             unit_cost_vat = round(float(line.net_unit_price) * vat_rate * fx_factor, 4)
         except Exception:
+            _log.debug("unit cost parse skip para sku %r", sku)
             errors.append(f"{sku}: precio neto inválido")
             continue
 
@@ -231,6 +239,7 @@ def purchase_from_invoice(
                             "invoice_date": invoice_movement_dt.isoformat() if invoice_movement_dt else None,
                         },
                     )
+                    db.commit()
             else:
                 category = getattr(line, "category", None)
                 if category and not (product.category or "").strip():
@@ -273,9 +282,11 @@ def purchase_from_invoice(
                         "invoice_date": invoice_movement_dt.isoformat() if invoice_movement_dt else None,
                     },
                 )
+                db.commit()
         except HTTPException as e:
             errors.append(f"{sku}: {e.detail}")
         except Exception as e:
+            _log.exception("compra desde invoice fallback %s: %s", sku, e)
             errors.append(f"{sku}: {e}")
 
     if created_movements == 0:
@@ -385,6 +396,7 @@ def purchase(
             stmt = stmt.where(Product.business_id == int(bid))
             existing_product = db.scalar(stmt)
         except Exception:
+            _log.error("existing_product lookup fallback para sku %r", sku)
             existing_product = None
 
         if existing_product is None and created_product is None:
@@ -419,6 +431,7 @@ def purchase(
                         "source": "manual_purchase",
                     },
                 )
+                db.commit()
 
         result = service.purchase(
             PurchaseCreate(
@@ -441,6 +454,7 @@ def purchase(
                 entity_id=str(result.movement.id),
                 detail={"sku": sku, "quantity": quantity, "unit_cost": parse_optional_float(unit_cost)},
             )
+            db.commit()
         message_detail = f"Stock después: {result.stock_after}"
         if created_product is not None:
             message_detail = (
@@ -579,6 +593,7 @@ def purchase_update(
                 entity_id=str(movement_id),
                 detail={"sku": sku, "quantity": quantity, "unit_cost": unit_cost},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
@@ -638,6 +653,7 @@ def purchase_delete(
                 entity_id=str(movement_id),
                 detail={},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/purchase_panel.html",
@@ -671,6 +687,7 @@ def purchase_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("purchase_delete fallback: %s", e)
         user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
@@ -787,6 +804,7 @@ def purchase_delete_selected(
                 errors.append(f"{mid}: {e.detail}")
             except Exception as e:
                 errors.append(f"{mid}: {e}")
+        db.commit()
 
         msg = "Compras eliminadas" if deleted > 0 else "No se pudo eliminar"
         detail = f"Se eliminaron {deleted} compra(s)."

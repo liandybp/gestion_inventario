@@ -18,6 +18,9 @@ from app.security import get_active_business_code, get_current_user_from_session
 from app.services.product_service import ProductService
 
 from .ui_common import extract_sku, templates
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -99,14 +102,14 @@ def _set_cart(request: Request, cart: list[dict]) -> None:
     try:
         request.session["sales_doc_cart"] = cart
     except Exception:
-        pass
+        _log.debug("set_cart fallback")
 
 
 def _clear_cart(request: Request) -> None:
     try:
         request.session.pop("sales_doc_cart", None)
     except Exception:
-        pass
+        _log.debug("clear_cart fallback")
 
 
 def _get_draft(request: Request) -> dict:
@@ -150,14 +153,14 @@ def _set_draft(
             "notes": (notes or "").strip() or None,
         }
     except Exception:
-        pass
+        _log.debug("set_draft fallback")
 
 
 def _clear_draft(request: Request) -> None:
     try:
         request.session.pop("sales_doc_draft", None)
     except Exception:
-        pass
+        _log.debug("clear_draft fallback")
 
 
 def _recent_documents(db: Session, limit: int = 10, business_id: int = 0) -> list[SalesDocument]:
@@ -415,10 +418,12 @@ async def sales_doc_update(
         try:
             qty = float(form.get(f"qty_{it.id}") or 0)
         except Exception:
+            _log.debug("sales doc line qty parse fallback: %r", form.get(f"qty_{it.id}"))
             qty = 0.0
         try:
             price = float(form.get(f"price_{it.id}") or 0)
         except Exception:
+            _log.debug("sales doc line price parse fallback: %r", form.get(f"price_{it.id}"))
             price = 0.0
 
         it.line_no = next_line
@@ -433,10 +438,12 @@ async def sales_doc_update(
     try:
         new_qty = float(form.get("new_qty") or 0)
     except Exception:
+        _log.debug("sales doc new_qty parse fallback: %r", form.get("new_qty"))
         new_qty = 0.0
     try:
         new_price = float(form.get("new_price") or 0)
     except Exception:
+        _log.debug("sales doc new_price parse fallback: %r", form.get("new_price"))
         new_price = 0.0
 
     if new_desc and new_qty > 0:
@@ -620,6 +627,7 @@ def sales_doc_cart_add(
         try:
             quantity_f = float(quantity) if str(quantity).strip() else 0.0
         except Exception:
+            _log.debug("sales doc cart qty parse fallback: %r", quantity)
             quantity_f = 0.0
 
         if quantity_f <= 0:
@@ -648,6 +656,7 @@ def sales_doc_cart_add(
         try:
             unit_price_f = float(unit_price) if str(unit_price).strip() else 0.0
         except Exception:
+            _log.debug("sales doc cart price parse fallback: %r", unit_price)
             unit_price_f = 0.0
 
         cart = _get_cart(request)
@@ -685,6 +694,7 @@ def sales_doc_cart_add(
             },
         )
     except Exception as e:
+        _log.exception("sales doc add-to-cart fallback: %s", e)
         cart = _get_cart(request)
         customers = _customers_list(db, business_id=bid, limit=200)
         draft = _get_draft(request)
@@ -754,10 +764,12 @@ def sales_doc_cart_update(
         try:
             qty = float(quantity) if str(quantity).strip() else 0.0
         except Exception:
+            _log.debug("sales doc edit qty parse fallback: %r", quantity)
             qty = 0.0
         try:
             price = float(unit_price) if str(unit_price).strip() else 0.0
         except Exception:
+            _log.debug("sales doc edit price parse fallback: %r", unit_price)
             price = 0.0
         if qty > 0:
             item["description"] = desc
@@ -1095,6 +1107,7 @@ def sales_doc_pdf(
             notes=doc.notes,
         )
     except RuntimeError as e:
+        _log.exception("build_sales_document_pdf fallback: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
     filename = f"{doc.code}.pdf"

@@ -43,6 +43,7 @@ def create_purchase(
         entity_id=str(result.movement.id),
         detail={"sku": payload.sku, "quantity": payload.quantity, "unit_cost": payload.unit_cost},
     )
+    service.db.commit()
     return result
 
 
@@ -65,6 +66,7 @@ def create_supplier_return_lot(
             "location_code": payload.location_code,
         },
     )
+    service.db.commit()
     return result
 
 
@@ -89,6 +91,7 @@ def create_transfer(
                     "to_location_code": result.to_location_code,
                 },
             )
+    service.db.commit()
     return result
 
 
@@ -107,6 +110,7 @@ def create_sale(
         entity_id=str(result.movement.id),
         detail={"sku": payload.sku, "quantity": payload.quantity, "unit_price": payload.unit_price},
     )
+    service.db.commit()
     return result
 
 
@@ -125,6 +129,7 @@ def create_adjustment(
         entity_id=str(result.movement.id),
         detail={"sku": payload.sku, "quantity_delta": payload.quantity_delta, "unit_cost": payload.unit_cost},
     )
+    service.db.commit()
     return result
 
 

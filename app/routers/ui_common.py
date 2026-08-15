@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 import shutil
 from datetime import datetime, timezone
@@ -16,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, Product
 from app.security import get_current_user_from_session
+from app.settings import DEV_ACTIONS_ENABLED, UPLOAD_MAX_MB
 from app.utils import month_range
 
 templates = Jinja2Templates(directory="app/templates")
@@ -41,7 +41,7 @@ def _static_asset_version() -> str:
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
 
-_DEV_ACTIONS_ENABLED = os.getenv("DEV_ACTIONS_ENABLED", "1") == "1"
+_DEV_ACTIONS_ENABLED = DEV_ACTIONS_ENABLED
 
 _UPLOAD_DIR = Path("app/static/uploads")
 
@@ -59,7 +59,7 @@ def ensure_admin_or_owner(db: Session, request: Request) -> None:
         raise HTTPException(status_code=403, detail="Admin required")
 
 
-MAX_IMAGE_SIZE_MB = int(os.getenv("MAX_IMAGE_SIZE_MB", "10"))
+MAX_IMAGE_SIZE_MB = UPLOAD_MAX_MB
 MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
 
 

@@ -28,6 +28,9 @@ from .ui_common import (
     parse_optional_float,
     templates,
 )
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -174,6 +177,15 @@ def sale(
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         sku = _resolve_sale_sku(db, business_id=bid, product_input=product)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_create",
+                entity_type="movement",
+                entity_id=None,
+                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
+            )
         result = service.sale(
             SaleCreate(
                 sku=sku,
@@ -184,15 +196,6 @@ def sale(
                 location_code=selected_location_code,
             )
         )
-        if user is not None:
-            log_event(
-                db,
-                user,
-                action="sale_create",
-                entity_type="movement",
-                entity_id=str(result.movement.id),
-                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
-            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -253,6 +256,16 @@ def sale_barcode(
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         sku = barcode_to_sku(db, barcode, business_id=bid)
+        user = get_current_user_from_session(db, request)
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="sale_create",
+                entity_type="movement",
+                entity_id=None,
+                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
+            )
         result = service.sale(
             SaleCreate(
                 sku=sku,
@@ -263,17 +276,6 @@ def sale_barcode(
                 location_code=selected_location_code,
             )
         )
-
-        user = get_current_user_from_session(db, request)
-        if user is not None:
-            log_event(
-                db,
-                user,
-                action="sale_create",
-                entity_type="movement",
-                entity_id=str(result.movement.id),
-                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
-            )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -310,6 +312,7 @@ def sale_barcode(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("sale_create fallback: %s", e)
         user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
@@ -394,6 +397,7 @@ def sale_update(
                 entity_id=str(movement_id),
                 detail={"sku": sku, "quantity": quantity, "unit_price": unit_price},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -457,6 +461,7 @@ def sale_delete(
                 entity_id=str(movement_id),
                 detail={},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -494,6 +499,7 @@ def sale_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("sale_delete fallback: %s", e)
         user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
@@ -567,7 +573,9 @@ def sale_delete_selected(
             except HTTPException as e:
                 errors.append(f"{mid}: {e.detail}")
             except Exception as e:
+                _log.exception("bulk sale delete fallback %s: %s", mid, e)
                 errors.append(f"{mid}: {e}")
+        db.commit()
 
         msg = "Ventas eliminadas" if deleted > 0 else "No se pudo eliminar"
         detail = f"Se eliminaron {deleted} venta(s)."

@@ -106,7 +106,7 @@ class InventoryService:
                         break
 
             self._db.add(Location(business_id=int(self._business_id), code=alt_code, name=name))
-            self._db.commit()
+            self._db.flush()
         except IntegrityError:
             self._db.rollback()
 

@@ -31,12 +31,12 @@ def test_query_match_is_accent_and_case_insensitive() -> None:
 
 
 def test_get_session_secret_prefers_env(monkeypatch) -> None:
-    monkeypatch.setenv("SESSION_SECRET", "my-secret")
+    monkeypatch.setattr("app.settings.SESSION_SECRET", "my-secret")
     assert get_session_secret() == "my-secret"
 
 
 def test_get_session_secret_generates_when_missing(monkeypatch) -> None:
-    monkeypatch.delenv("SESSION_SECRET", raising=False)
+    monkeypatch.setattr("app.settings.SESSION_SECRET", "")
     secret = get_session_secret()
     assert isinstance(secret, str)
     assert len(secret) == 64

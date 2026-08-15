@@ -11,6 +11,8 @@ from typing_extensions import Literal
 
 from pydantic import BaseModel, Field
 
+from app import settings
+
 
 class IssuerConfig(BaseModel):
     name: str = "Mi Negocio"
@@ -178,7 +180,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
 
     key = (business_code or "").strip().lower()
 
-    raw_default = os.getenv("BUSINESS_CONFIG_PATH", "")
+    raw_default = settings.BUSINESS_CONFIG_PATH
     if raw_default:
         base = Path(raw_default)
     else:
@@ -193,7 +195,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         if override:
             return Path(override)
 
-        dir_override = (os.getenv("BUSINESS_CONFIG_DIR") or "").strip()
+        dir_override = settings.BUSINESS_CONFIG_DIR
         if dir_override:
             d = Path(dir_override)
             cand = d / f"business_config.{key}.conf"

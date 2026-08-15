@@ -3,14 +3,20 @@ from __future__ import annotations
 import os
 import sys
 import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
+import app.settings as settings  # H-045: env centralizada
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+
+from app.logger import get_logger, request_id_var, set_request_id
+
+_log = get_logger(__name__)
 
 if __name__ == "__main__" and __package__ is None:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -134,13 +140,31 @@ async def ui_auth_middleware(request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def correlation_id_middleware(request, call_next):
+    """H-043: X-Request-ID + log de request (método, path, status, duración)."""
+    rid = (request.headers.get("X-Request-ID") or "").strip() or uuid.uuid4().hex[:16]
+    request.state.request_id = rid
+    set_request_id(rid)
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = int((time.monotonic() - start) * 1000)
+    response.headers["X-Request-ID"] = rid
+    path = getattr(request, "url", None)
+    _log.info(
+        "request %s %s -> %s (%sms)",
+        request.method, path.path if path else request.url, response.status_code, duration_ms,
+    )
+    return response
+
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=get_session_secret(),
     session_cookie="inventario_session",
     max_age=60 * 60 * 24,
     same_site="lax",
-    https_only=os.getenv("SESSION_HTTPS_ONLY", "0") == "1",
+    https_only=settings.SESSION_HTTPS_ONLY,
 )
 
 app.include_router(health_router)
@@ -178,7 +202,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "app.main:app",
-        host=os.getenv("HOST", "127.0.0.1"),
-        port=int(os.getenv("PORT", "10000")),
-        reload=os.getenv("RELOAD", "1") == "1",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.RELOAD,
     )

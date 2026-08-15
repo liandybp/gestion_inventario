@@ -63,6 +63,7 @@ def _location_has_data(db, location_id: int) -> bool:
             if count:
                 return True
         except Exception:
+            _log.exception("_location_has_data: fallo de query en %s", model.__tablename__)
             continue
     return False
 
@@ -523,6 +524,7 @@ def business_create(
                 "pos_count": len(pos_specs),
             },
         )
+        db.commit()
 
     businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
     return templates.TemplateResponse(
@@ -694,6 +696,7 @@ def business_update(
             entity_id=str(business.id),
             detail={"code": code, "name": name},
         )
+        db.commit()
 
     businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
     return templates.TemplateResponse(
@@ -825,6 +828,7 @@ def business_delete(
             entity_id=str(business_id),
             detail={"code": code, "name": name},
         )
+        db.commit()
 
     businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
     return templates.TemplateResponse(

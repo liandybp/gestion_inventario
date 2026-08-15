@@ -557,6 +557,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         from app.services.product_service import ProductService
         product_options = ProductService(db, business_id=bid).search(query="", limit=200)
     except Exception:
+        _log.error("product_options fallback en tab_inventory")
         product_options = []
 
     categories: list[str] = []
@@ -569,6 +570,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
         ).all()
         categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
     except Exception:
+        _log.error("categories fallback en tab_inventory")
         categories = []
 
     response = templates.TemplateResponse(
@@ -1089,6 +1091,7 @@ def tab_transfers(
             limit=history_limit,
         )
     except Exception as e:
+        _log.exception("historial de traspasos fallback en tab_transfers")
         recent_transfer_out = []
         recent_transfer_in = []
         message = "Error al cargar historial de traspasos"
@@ -1117,6 +1120,7 @@ def tab_transfers(
             if float(p.quantity or 0) > 0
         ]
     except Exception as e:
+        _log.exception("product_options traspasos fallback en tab_transfers")
         if message is None:
             message = "Error al cargar traspasos"
             message_detail = str(getattr(e, "detail", e))
@@ -1283,6 +1287,7 @@ def profit_items_adjustment_update(
             entity_id=str(movement_id),
             detail={"unit_cost": float(unit_cost)},
         )
+        db.commit()
     return _render_profit_items_tab(
         request=request,
         db=db,
@@ -1364,6 +1369,7 @@ def profit_items_transfer_in_update(
             entity_id=str(movement_id),
             detail={"unit_cost": float(unit_cost)},
         )
+        db.commit()
     return _render_profit_items_tab(
         request=request,
         db=db,
@@ -1518,6 +1524,7 @@ def profit_items_sale_update(
             entity_id=str(movement_id),
             detail={"sku": sku, "quantity": float(quantity), "unit_price": float(unit_price)},
         )
+        db.commit()
     return _render_profit_items_tab(
         request=request,
         db=db,
@@ -1552,6 +1559,7 @@ def profit_items_sale_delete(
             entity_id=str(movement_id),
             detail={},
         )
+        db.commit()
     return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
 
 
@@ -1576,6 +1584,7 @@ def profit_items_sale_delete_selected(
         try:
             mid = int(raw)
         except Exception:
+            _log.debug("sale_id parse skip: %r", raw)
             continue
         if mid <= 0 or mid in seen:
             continue
@@ -1612,7 +1621,9 @@ def profit_items_sale_delete_selected(
         except HTTPException as e:
             errors.append(f"{mid}: {e.detail}")
         except Exception as e:
+            _log.exception("delete_sale_movement fallback %s: %s", mid, e)
             errors.append(f"{mid}: {e}")
+    db.commit()
 
     msg = "Ventas eliminadas" if deleted > 0 else "No se pudo eliminar"
     detail = f"Se eliminaron {deleted} venta(s)."
@@ -1707,6 +1718,7 @@ def profit_items_purchase_update(
             entity_id=str(movement_id),
             detail={"sku": sku, "quantity": float(quantity), "unit_cost": float(unit_cost)},
         )
+        db.commit()
     return _render_profit_items_tab(
         request=request,
         db=db,
@@ -1792,6 +1804,7 @@ def stock_delete_product(
         message_detail = f"SKU: {sku}"
         message_class = "ok"
     except Exception as e:
+        _log.exception("delete producto fallback en stock delete: %r", sku)
         message = "No se pudo eliminar"
         message_detail = str(getattr(e, "detail", e))
         message_class = "error"
@@ -1870,6 +1883,7 @@ def stock_delete_selected(
             except HTTPException as e:
                 errors.append(f"{sku}: {e.detail}")
             except Exception as e:
+                _log.exception("delete-selected producto fallback %s: %s", sku, e)
                 errors.append(f"{sku}: {e}")
 
     loc = (location_code or "").strip() or None
@@ -1948,6 +1962,7 @@ def ui_supplier_return(
         from app.services.product_service import ProductService
         product_options = ProductService(db, business_id=bid).search(query="", limit=200)
     except Exception:
+        _log.error("product_options fallback en devoluciones")
         product_options = []
 
     categories: list[str] = []
@@ -1960,6 +1975,7 @@ def ui_supplier_return(
         ).all()
         categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
     except Exception:
+        _log.error("categories fallback en devoluciones")
         categories = []
 
     try:
@@ -1986,10 +2002,12 @@ def ui_supplier_return(
                 "location_code": selected_location_code,
             },
         )
+        db.commit()
         message = "Devolución registrada"
         message_detail = f"SKU: {(sku or '').strip()}"
         message_class = "ok"
     except Exception as e:
+        _log.exception("devolución fallback en supplier_return: %s", e)
         message = "No se pudo registrar la devolución"
         message_detail = str(getattr(e, "detail", e))
         message_class = "error"
@@ -2030,6 +2048,7 @@ def ui_supplier_return_lots(
     try:
         lots = service.available_lots(sku_clean, location_code=loc)
     except Exception as e:
+        _log.exception("available_lots fallback en ui_supplier_return_lots: %s", e)
         error_msg = _html.escape(str(e)[:50]) if str(e) else "Error"
         return HTMLResponse(f"<select name='lot_id' disabled><option value=''>Error: {error_msg}</option></select>")
 
@@ -2212,6 +2231,7 @@ def history_adjustments_delete_selected(
         try:
             mid = int(raw)
         except Exception:
+            _log.debug("movement_id parse skip en adjustments delete: %r", raw)
             continue
         if mid <= 0 or mid in seen:
             continue
@@ -2239,7 +2259,9 @@ def history_adjustments_delete_selected(
             except HTTPException as e:
                 errors.append(f"{mid}: {e.detail}")
             except Exception as e:
+                _log.exception("delete_adjustment fallback %s: %s", mid, e)
                 errors.append(f"{mid}: {e}")
+        db.commit()
 
     query_filter = (query or "").strip()
     type_filter = movement_type.strip() if movement_type else None
@@ -2321,6 +2343,7 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
         try:
             return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
+            _log.error("fmt_dt fallback en tab_activity")
             return str(dt)
 
     def parse_detail(raw: Optional[str]) -> dict:
@@ -2329,6 +2352,7 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
         try:
             return json.loads(raw)
         except Exception:
+            _log.error("parse_detail fallback en tab_activity")
             return {}
 
     if role_filter and role_filter != "all":
@@ -2361,6 +2385,7 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
                 try:
                     duration_seconds = max(0, int((logout_at - login_at).total_seconds()))
                 except Exception:
+                    _log.error("duration calc fallback en tab_activity")
                     duration_seconds = None
 
             sessions.append(

@@ -19,6 +19,13 @@ def log_event(
     entity_id: Optional[str] = None,
     detail: Optional[dict[str, Any]] = None,
 ) -> None:
+    """Registra un evento de auditoría en la MISMA transacción del caller.
+
+    Usa `flush()` (no `commit()`): el AuditLog se persiste con el commit que
+    haga el caller. En ventas/traspasos se llama ANTES de la operación que
+    commitea (atómico). En el resto es best-effort: el caller debe commitear
+    tras llamarlo (o aceptar la pérdida si no lo hace).
+    """
     row = AuditLog(
         user_id=user.id if user is not None else None,
         username=user.username if user is not None else None,
@@ -29,7 +36,7 @@ def log_event(
     )
     db.add(row)
     try:
-        db.commit()
+        db.flush()
     except Exception:
         db.rollback()
         _log.exception("Failed to persist audit event: action=%s entity=%s", action, entity_type)

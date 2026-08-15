@@ -33,6 +33,7 @@ def create_product(
         entity_id=created.sku,
         detail={"name": created.name},
     )
+    service.db.commit()
     return ProductRead.model_validate(created)
 
 

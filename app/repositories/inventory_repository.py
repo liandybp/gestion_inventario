@@ -1,13 +1,43 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+import re
 import unicodedata
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, InventoryLot, InventoryMovement, Location, MovementAllocation, Product
+
+_TRANSFER_REF_RE = re.compile(r"\bref=(TP-[A-Za-z0-9_-]+)")
+
+
+def _json_object(raw) -> dict:
+    if not raw:
+        return {}
+    try:
+        val = json.loads(raw)
+        return val if isinstance(val, dict) else {}
+    except Exception:
+        return {}
+
+
+class MovementHistoryRow(NamedTuple):
+    id: int
+    movement_date: Optional[datetime]
+    type: Optional[str]
+    location_id: Optional[int]
+    sku: Optional[str]
+    name: Optional[str]
+    unit_of_measure: Optional[str]
+    quantity: Optional[float]
+    unit_cost: Optional[float]
+    unit_price: Optional[float]
+    note: Optional[str]
+    username: Optional[str]
+
 
 
 def _normalize_text(text: str) -> str:
@@ -322,9 +352,77 @@ class InventoryRepository:
 
         if prefetch_limit is not None:
             stmt = stmt.limit(prefetch_limit)
-        rows = list(self._db.execute(stmt).all())
+        rows = [MovementHistoryRow(*r) for r in self._db.execute(stmt).all()]
         if q:
             rows = [r for r in rows if _query_match(q, str(r[4] or ""), str(r[5] or ""))]
+        rows = self._fill_reordered_audit_usernames(rows)
         if limit is None:
             return rows
         return rows[: int(limit or 0)]
+
+    def _fill_reordered_audit_usernames(self, rows: list[MovementHistoryRow]) -> list[MovementHistoryRow]:
+        """Resuelve el username de ventas/traspasos cuyo audit se emite ANTES de la
+        operación (H-041, entity_id NULL) correlacionando por sku+cantidad (salidas)
+        y por `ref=` de la nota del movimiento (transfer_in)."""
+        missing = [
+            r for r in rows
+            if not (r.username or "").strip() and r.type in ("sale", "transfer_out", "transfer_in")
+        ]
+        if not missing:
+            return rows
+        audits = list(
+            self._db.scalars(
+                select(AuditLog)
+                .where(
+                    AuditLog.entity_type == "movement",
+                    AuditLog.entity_id.is_(None),
+                    AuditLog.action.in_(["sale_create", "transfer_create"]),
+                )
+                .order_by(AuditLog.created_at.asc(), AuditLog.id.asc())
+            )
+        )
+        if not audits:
+            return rows
+
+        transfer_by_sku_qty: dict[tuple[str, float], str] = {}
+        sale_by_sku_qty: dict[tuple[str, float], str] = {}
+        for a in audits:
+            detail = _json_object(a.detail)
+            sku = str(detail.get("sku") or "").strip()
+            try:
+                qty = float(detail.get("quantity") or 0)
+            except (TypeError, ValueError):
+                continue
+            if not sku:
+                continue
+            if a.action == "transfer_create":
+                transfer_by_sku_qty[(sku, qty)] = a.username or ""
+            elif a.action == "sale_create":
+                sale_by_sku_qty[(sku, qty)] = a.username or ""
+        if not transfer_by_sku_qty and not sale_by_sku_qty:
+            return rows
+
+        ref_to_user: dict[str, str] = {}
+        for r in rows:
+            if r.type != "transfer_out":
+                continue
+            user = transfer_by_sku_qty.get((str(r.sku or "").strip(), abs(float(r.quantity or 0))), "")
+            if not user:
+                continue
+            m = _TRANSFER_REF_RE.search(r.note or "")
+            if m:
+                ref_to_user[m.group(1)] = user
+
+        out: list[MovementHistoryRow] = []
+        for r in rows:
+            username = r.username or ""
+            if not username:
+                if r.type in ("transfer_out", "transfer_in"):
+                    m = _TRANSFER_REF_RE.search(r.note or "")
+                    if m and m.group(1) in ref_to_user:
+                        username = ref_to_user[m.group(1)]
+                elif r.type == "sale":
+                    key = (str(r.sku or "").strip(), abs(float(r.quantity or 0)))
+                    username = sale_by_sku_qty.get(key, "")
+            out.append(r if username == (r.username or "") else r._replace(username=username or None))
+        return out

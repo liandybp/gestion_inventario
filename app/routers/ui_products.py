@@ -27,6 +27,9 @@ from .ui_common import (
     save_product_image,
     templates,
 )
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -72,6 +75,7 @@ def create_product(
                 entity_id=created.sku,
                 detail={"name": created.name},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -122,6 +126,7 @@ def product_delete(
                 entity_id=sku,
                 detail={},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -148,6 +153,7 @@ def product_delete(
             status_code=e.status_code,
         )
     except Exception as e:
+        _log.exception("product_delete fallback: %s", e)
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -226,6 +232,7 @@ def product_update(
                 entity_id=updated.sku,
                 detail={"from_sku": sku, "to_sku": updated.sku, "name": updated.name},
             )
+            db.commit()
         return templates.TemplateResponse(
             request=request,
             name="partials/product_panel.html",
@@ -379,6 +386,7 @@ def product_update_inventory(
                             "note": note,
                         },
                     )
+                    db.commit()
 
         config = get_active_business_config(db, request)
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
@@ -391,6 +399,7 @@ def product_update_inventory(
         try:
             product_options = product_service.search(query="", limit=200)
         except Exception:
+            _log.error("product_options fallback en product_update")
             product_options = []
 
         return templates.TemplateResponse(
@@ -418,6 +427,7 @@ def product_update_inventory(
         try:
             product_options = product_service.search(query="", limit=200)
         except Exception:
+            _log.error("product_options fallback en product_update")
             product_options = []
 
         return templates.TemplateResponse(
@@ -451,6 +461,7 @@ def product_from_invoice(
     try:
         fx_rate = float(fx_rate) if fx_rate is not None else None
     except Exception:
+        _log.debug("fx_rate parse fallback: %r", fx_rate)
         fx_rate = None
     product_service = ProductService(db, business_id=bid)
 
@@ -464,6 +475,7 @@ def product_from_invoice(
     try:
         parsed = parse_autodoc_pdf(invoice_pdf.file)
     except Exception as e:
+        _log.exception("parse_autodoc_pdf fallback: %s", e)
         raise HTTPException(status_code=400, detail=f"No se pudo leer el PDF: {e}") from e
 
     if not parsed.lines:
@@ -499,6 +511,7 @@ def product_from_invoice(
             fx_factor = fx_rate if (fx_rate is not None and fx_rate > 0) else 1.0
             unit_cost_with_vat = round(float(line.net_unit_price) * vat_rate * fx_factor, 4)
         except Exception:
+            _log.debug("unit cost parse skip para sku %r", sku)
             errors.append(f"{sku}: precio neto inválido")
             continue
 
@@ -539,8 +552,10 @@ def product_from_invoice(
                         "invoice_number": parsed.invoice_number,
                     },
                 )
+                db.commit()
 
         except Exception as e:
+            _log.exception("product_create desde invoice fallback %s: %s", sku, e)
             errors.append(f"{sku}: {str(e)}")
             continue
 
