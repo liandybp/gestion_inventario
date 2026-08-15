@@ -91,3 +91,20 @@ def test_bulk_modal_uses_selected_locations(live_server: str, page: Page) -> Non
     summary = page.locator("#transfer-bulk-modal p.muted").inner_text()
     assert "Punto de venta Playa" in summary  # POS1
     assert "Taller Boyeros" in summary        # POS2
+
+
+def test_transfer_locations_have_no_duplicates(live_server: str, page: Page) -> None:
+    """Regresión: la central no debe aparecer dos veces en los selectores de traspaso."""
+    base_url = live_server
+    page.goto(f"{base_url}/ui/login")
+    page.fill('input[name="username"]', "admin")
+    page.fill('input[name="password"]', "admin")
+    page.click('button[type="submit"]')
+    page.wait_for_url(f"{base_url}/ui/dashboard**")
+
+    page.click("#tab-transfers")
+    expect(page.locator("#transfer-form")).to_be_visible()
+
+    for sel in ('select[name="from_location_code"]', 'select[name="to_location_code"]'):
+        options = page.locator(f"#transfer-form {sel} option").all_text_contents()
+        assert len(options) == len(set(options)), f"{sel} tiene ubicaciones duplicadas: {options}"

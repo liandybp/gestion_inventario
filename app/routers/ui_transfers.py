@@ -1002,9 +1002,9 @@ def tab_transfers(
     business_code = get_active_business_code(db, request)
     config = get_active_business_config(db, request)
 
-    pos_locations = config.locations.all_locations()
+    # all_locations() ya incluye la central → no volver a prependerla (bug duplicado)
+    all_locations = config.locations.all_locations()
     central_code = str(config.locations.central.code).strip()
-    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
     default_to_location_code = config.locations.default_sale_code()
     selected_from_code = (from_location_code or "").strip() or default_from_location_code
