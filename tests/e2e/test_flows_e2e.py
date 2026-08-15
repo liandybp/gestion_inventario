@@ -79,3 +79,55 @@ def test_sale_flow_reduces_stock(live_server: str, page: Page) -> None:
 
     # El panel se re-renderiza con la venta en el historial
     expect(page.locator("#sale-panel").locator("text=E2E-SKU1").first).to_be_visible()
+
+
+def test_customer_create_flow(live_server: str, page: Page) -> None:
+    """Cliente creado desde la UI aparece en la lista (CustomerRepository / tab-customers)."""
+    _login(page, live_server)
+    page.click("#tab-customers")
+    expect(page.locator("#tab-content").locator("text=Clientes").first).to_be_visible()
+
+    page.fill('form[hx-post="/ui/customer/create"] input[name="client_id"]', "E2E-CL1")
+    page.fill('form[hx-post="/ui/customer/create"] input[name="name"]', "Cliente E2E Flujo")
+    page.click('form[hx-post="/ui/customer/create"] button[type="submit"]')
+
+    expect(page.locator("#tab-content").locator("text=Cliente E2E Flujo").first).to_be_visible()
+
+
+def test_purchase_flow_increases_stock(live_server: str, page: Page) -> None:
+    """Compra registrada desde la UI aparece en el historial (InventoryService.purchase)."""
+    _login(page, live_server)
+    page.click("#tab-purchases")
+    expect(page.locator("#purchase-panel")).to_be_visible()
+
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="product"]', "E2E-SKU2")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="quantity"]', "3")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="unit_cost"]', "1.50")
+    page.click('#purchase-panel form[hx-post="/ui/purchase"] button[type="submit"]')
+
+    # El panel se re-renderiza con la compra en el historial
+    expect(page.locator("#purchase-panel").locator("text=E2E-SKU2").first).to_be_visible()
+
+
+def test_document_issue_flow(live_server: str, page: Page) -> None:
+    """Emitir un documento de venta crea el doc (SalesDocumentService / tab-documents)."""
+    _login(page, live_server)
+    page.click("#tab-documents")
+    expect(page.locator("#sales-doc-panel")).to_be_visible()
+
+    # Añadir un ítem al carrito
+    page.fill('form#sales-doc-cart-add-form input[name="product"]', "E2E-SKU1")
+    page.fill('form#sales-doc-cart-add-form input[name="quantity"]', "1")
+    page.fill('form#sales-doc-cart-add-form input[name="unit_price"]', "2.00")
+    page.click('form#sales-doc-cart-add-form button[type="submit"]')
+
+    # El ítem se agregó (flash de confirmación visible)
+    expect(page.locator("#sales-doc-panel").locator("text=Producto agregado al documento").first).to_be_visible()
+
+    # Emitir el documento (requiere cliente)
+    page.fill('form#sales-doc-issue-form input[name="client_name"]', "Cliente E2E Doc")
+    page.fill('form#sales-doc-issue-form input[name="client_id"]', "E2E-DOC1")
+    page.click('form#sales-doc-issue-form button[type="submit"]')
+
+    # El documento aparece en recientes (desaparece "Sin documentos emitidos")
+    expect(page.locator("#sales-doc-panel").locator("text=Sin documentos emitidos").first).not_to_be_visible()
