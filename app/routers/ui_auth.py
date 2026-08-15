@@ -26,15 +26,23 @@ _login_attempts: dict[str, list[float]] = defaultdict(list)
 _login_lock = threading.Lock()
 
 
-def _check_login_rate(client_ip: str) -> bool:
+def _real_ip(request) -> str:
+    """IP real detrás del proxy: primer valor de X-Forwarded-For, si no client.host."""
+    xff = (request.headers.get("X-Forwarded-For") or "").strip()
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_login_rate(key: str) -> bool:
     """Returns True if the client is allowed to attempt login."""
     now = time.time()
     with _login_lock:
-        attempts = [t for t in _login_attempts.get(client_ip, []) if now - t < LOGIN_RATE_WINDOW]
-        _login_attempts[client_ip] = attempts
+        attempts = [t for t in _login_attempts.get(key, []) if now - t < LOGIN_RATE_WINDOW]
+        _login_attempts[key] = attempts
         if len(attempts) >= LOGIN_RATE_LIMIT:
             return False
-        _login_attempts[client_ip].append(now)
+        _login_attempts[key].append(now)
         return True
 
 
@@ -50,8 +58,10 @@ def login_submit(
     password: str = Form(...),
     db: Session = Depends(session_dep),
 ):
-    client_ip = request.client.host if request.client else "unknown"
-    if not _check_login_rate(client_ip):
+    ip = _real_ip(request)
+    username_key = (username or "").strip().lower()
+    key = f"{ip}|{username_key}"
+    if not _check_login_rate(key):
         return templates.TemplateResponse(
             request=request,
             name="login.html",
