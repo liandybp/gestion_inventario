@@ -38,7 +38,7 @@ jobs:
           OPERATOR_USERNAME: operator
           OPERATOR_PASSWORD: test
         run: |
-          python3 -m pytest tests/e2e -m e2e --no-cov -q
+          python3 -m pytest tests/e2e -m e2e -q --override-ini="addopts="
 
   deploy-dev:
     needs: [test]
