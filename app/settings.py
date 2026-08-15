@@ -39,6 +39,9 @@ AGENT_MAX_WIDGETS = int(env("AGENT_MAX_WIDGETS", "20"))
 AGENT_MAX_MESSAGES = int(env("AGENT_MAX_MESSAGES", "100"))
 AGENT_RATE_LIMIT = int(env("AGENT_RATE_LIMIT", "30"))
 AGENT_RATE_WINDOW = int(env("AGENT_RATE_WINDOW", "60"))
+AGENT_RETRY_BASE_S = float(env("AGENT_RETRY_BASE_S", "1.0"))
+AGENT_RETRY_MAX_S = float(env("AGENT_RETRY_MAX_S", "5.0"))
+AGENT_RETRY_JITTER = float(env("AGENT_RETRY_JITTER", "0.5"))
 
 # ── Circuit breaker del copiloto (H-030) ──────────────────────────────────────
 AGENT_BREAKER_FAIL_THRESHOLD = int(env("AGENT_BREAKER_FAIL_THRESHOLD", "3"))

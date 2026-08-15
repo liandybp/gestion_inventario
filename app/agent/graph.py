@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import time
 from typing import Any, Optional, TypedDict
 
 from fastapi import HTTPException
@@ -83,7 +85,10 @@ def _plan_node(state: AgentState) -> AgentState:
         )
         return state
     error: Optional[str] = None
-    for _ in range(config.MAX_RETRIES + 1):
+    for attempt in range(config.MAX_RETRIES + 1):
+        if attempt > 0:
+            backoff = min(config.RETRY_BASE_S * (2 ** (attempt - 1)), config.RETRY_MAX_S)
+            time.sleep(backoff + random.uniform(0, config.RETRY_JITTER))
         try:
             plan = _PLANNER.invoke(messages)
             breaker.record_success()
