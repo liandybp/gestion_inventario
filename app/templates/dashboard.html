@@ -172,7 +172,7 @@
       <div id="agent-chat-thread" class="agent-thread"
            hx-get="/ui/agent/messages" hx-trigger="load"></div>
       <form hx-post="/ui/agent/chat" hx-target="#agent-chat-thread" hx-swap="beforeend" id="agent-chat-form">
-        <input type="text" name="message" placeholder="Preguntame sobre tu negocio..." required />
+        <textarea name="message" placeholder="Preguntame sobre tu negocio..." rows="2" required></textarea>
         <button type="submit">Enviar</button>
       </form>
     </div>
@@ -225,13 +225,23 @@
       var _agentForm = document.getElementById("agent-chat-form");
       if (_agentForm) {
         _agentForm.addEventListener("submit", function () {
-          var input = _agentForm.querySelector('input[name=message]');
+          var input = _agentForm.querySelector('textarea[name=message]');
           var msg = (input && input.value || "").trim();
           if (!msg) return;
           appendAgentBubble("user", msg);  // el mensaje va al historial YA
           appendAgentTyping();             // indicador "escribiendo…"
           setTimeout(function () { if (input) input.value = ""; }, 0);
         }, true); // capture: corre antes de que htmx lea el formulario
+        // Enter envía; Shift+Enter inserta salto de línea (textarea multilínea).
+        var _agentInput = _agentForm.querySelector('textarea[name=message]');
+        if (_agentInput) {
+          _agentInput.addEventListener("keydown", function (evt) {
+            if (evt.key === "Enter" && !evt.shiftKey) {
+              evt.preventDefault();
+              _agentForm.requestSubmit();
+            }
+          });
+        }
       }
       // Al terminar la respuesta: quitar el indicador; si fue un error (4xx),
       // htmx no swapea >=400, así que insertamos el reply de error a mano (B1).

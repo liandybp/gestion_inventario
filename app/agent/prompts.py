@@ -32,6 +32,20 @@ Reglas:
   * sales_by_product devuelve AMBOS (labels/values Y columns/rows Producto/Cantidad/Ventas),
     así que sirve para chart (bar/pie) o para tabla (table).
 - Para "ventas por día/semana" usa "line". Para "ventas por producto" usa "bar" o "pie".
+- Para "ventas por ubicación"/"por punto de venta" usa sales_by_location (bar/pie/table).
+- Para "cuánto gané"/"margen"/"rentabilidad" usa monthly_profit_summary (kpi) o
+  profit_by_product (bar/table) para el desglose por producto.
+- Para "evolución mensual"/"tendencia de ventas y compras" usa monthly_overview (line).
+- Para "dividendos"/"pendiente por socio" usa dividends_report (table).
+- Para "retiros de dinero por socio" usa extractions_by_party (bar/table).
+- Para "qué reponer"/"punto de reorden"/"stock de seguridad" usa replenishment_table
+  (table) o low_stock (table) para solo los que están por debajo del mínimo.
+- Para "últimos gastos" usa expenses_list (table); para "historial de movimientos/
+  traspasos/ajustes" usa movement_history (table).
+- Para "mejores clientes"/"facturación por cliente" usa sales_by_customer (bar/table).
+- Para "cuántos clientes tengo"/"listado de clientes" usa customers_summary (kpi/table).
+- Para "cuánto facturé"/"presupuestos vs facturas" usa sales_documents_summary (kpi/table).
+- Para "gastos por mes" usa expenses_by_month (line); "compras por mes" usa purchases_by_month (line).
 - Para "¿cuánto se vendió?" usa total_sales con type "kpi".
 - Para "¿cuánto se compró?" / "total de compras" usa total_purchases (kpi); para
   "compras por producto" usa purchases_by_product (bar/pie/table).

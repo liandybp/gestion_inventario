@@ -836,11 +836,19 @@ a { color: var(--brand-red); }
   padding: 10px;
   border-top: 1px solid var(--brand-border);
 }
-.agent-panel form input {
+.agent-panel form input,
+.agent-panel form textarea {
   flex: 1;
   padding: 9px 10px;
   border: 1px solid var(--brand-border);
   border-radius: 8px;
+  font: inherit;
+}
+.agent-panel form textarea {
+  resize: vertical;
+  min-height: 40px;
+  max-height: 140px;
+  line-height: 1.4;
 }
 .agent-panel form button {
   padding: 9px 14px;

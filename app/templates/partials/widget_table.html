@@ -4,5 +4,6 @@
   </thead>
   <tbody>
     {% for row in (w.payload.get('rows') or []) %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+    {% if not (w.payload.get('rows') or []) %}<tr><td colspan="10" class="muted text-center">Sin resultados para el rango solicitado.</td></tr>{% endif %}
   </tbody>
 </table>
