@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (80 tests, SQLite en memoria, cobertura 86%) |
+| Testing | pytest (108 tests unitarios, SQLite en memoria, cobertura 85%) + Playwright e2e (`tests/e2e`) |
 
 ## Estructura del proyecto
 
@@ -56,7 +56,8 @@ gestion_inventario/
 │   └── static/              ← CSS, JS, uploads
 ├── tests/
 │   ├── conftest.py
-│   └── unit/                ← 12 test files (~50 tests)
+│   ├── unit/                ← tests unitarios (SQLite en memoria)
+│   └── e2e/                 ← Playwright e2e (flujo completo, live server + SQLite temp)
 ├── docker-compose.yml       ← PostgreSQL + App + Caddy
 ├── requirements.txt
 └── VERSION
@@ -75,8 +76,11 @@ uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
 cd ~/PyCharmMiscProject/gestion_inventario  # en vm-apps
 docker compose -f docker-compose-homelab.yml up -d --build
 
-# Tests (SQLite en memoria)
+# Tests unitarios (SQLite en memoria)
 SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: python3 -m pytest -v
+
+# Tests e2e (Playwright; requiere `python3 -m playwright install chromium`)
+python3 -m pytest tests/e2e -m e2e --no-cov -v
 ```
 
 ## Entornos (dev vs producción)
@@ -172,7 +176,7 @@ Archivo `app/business_config.conf` (INI):
 ## Reglas para el agente
 
 1. **No inventar APIs** — leer `app/routers/` y `app/schemas.py` antes de asumir endpoints o schemas
-2. **Testing** — siempre correr `pytest -v` después de cambios en lógica de negocio
+2. **Testing** — siempre correr `pytest -v` después de cambios en lógica de negocio. **Toda feature nueva lleva tests e2e** (`tests/e2e/`, Playwright) que validen el flujo completo; no se da por terminada sin ellos (ver DoD)
 3. **Documentación** — actualizar este `CLAUDE.md` si cambia la estructura o el estado
 4. **Commits** — mensajes en inglés (English), formato conventional commits
 5. **Base de datos** — nunca borrar `inventario.db` sin backup
