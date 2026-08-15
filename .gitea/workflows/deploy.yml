@@ -18,7 +18,7 @@ jobs:
           pip install playwright pytest-playwright --break-system-packages -q
       - name: Install Playwright chromium
         run: |
-          python3 -m playwright install chromium --with-deps
+          python3 -m playwright install chromium
       - name: Tests
         env:
           SESSION_SECRET: test

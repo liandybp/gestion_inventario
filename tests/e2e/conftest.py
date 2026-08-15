@@ -80,13 +80,19 @@ def _seed_stock(db_path: str) -> None:
                 location_id=central.id, lot_code=f"{sku}-E2E", received_at=now,
                 unit_cost=1.0, qty_received=qty, qty_remaining=qty,
             ))
-        # Operador de prueba (cajero): puede vender, no gestionar inventario (RBAC Fase C)
+        # Operador de prueba (cajero): puede vender, no gestionar inventario (RBAC Fase C).
+        # Upsert con password conocida: el seed de startup puede haberlo creado con otra
+        # password según la env del entorno (CI vs local) — forzamos 'operator'.
         op = db.scalar(select(User).where(User.username == "operator"))
         if op is None:
-            db.add(User(
-                username="operator", password_hash=hash_password("operator"),
-                role="operator", is_active=True, business_id=biz.id,
-            ))
+            op = User(username="operator", password_hash=hash_password("operator"),
+                      role="operator", is_active=True, business_id=biz.id)
+            db.add(op)
+        else:
+            op.password_hash = hash_password("operator")
+            op.role = "operator"
+            op.is_active = True
+            op.business_id = biz.id
         db.commit()
     finally:
         db.close()
