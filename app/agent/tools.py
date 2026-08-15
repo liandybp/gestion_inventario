@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
+from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
 from app.services.sales_document_service import SalesDocumentService
@@ -51,7 +52,8 @@ def inventory_sale_value_total(service: InventoryService, args: dict) -> dict:
 @tool("total_expenses", "Gastos operativos totales (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def total_expenses(service: InventoryService, args: dict) -> dict:
-    total = service.total_expenses(
+    finance = FinanceService(service.db, service.business_id)
+    total = finance.total_expenses(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
     )
@@ -61,7 +63,8 @@ def total_expenses(service: InventoryService, args: dict) -> dict:
 @tool("top_expense_concept", "Concepto de gasto más alto en un rango (start/end ISO).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}, "required": ["start", "end"]})
 def top_expense_concept(service: InventoryService, args: dict) -> dict:
-    result = service.top_expense_concept(_iso(args["start"]), _parse_end(args["end"]))
+    finance = FinanceService(service.db, service.business_id)
+    result = finance.top_expense_concept(_iso(args["start"]), _parse_end(args["end"]))
     if result is None:
         return {"value": 0.0, "label": None, "currency": True}
     return {"value": result["total"], "label": result["concept"], "currency": True}
@@ -77,7 +80,8 @@ def stock(service: InventoryService, args: dict) -> dict:
 @tool("total_sales", "Ventas totales (en dinero) en un rango de fechas (start/end ISO).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}, "required": ["start", "end"]})
 def total_sales(service: InventoryService, args: dict) -> dict:
-    total, _items = service.sales_by_product(_iso(args["start"]), _parse_end(args["end"]))
+    reporting = ReportingService(service.db, service.business_id)
+    total, _items = reporting.sales_by_product(_iso(args["start"]), _parse_end(args["end"]))
     return {"value": total, "label": None, "currency": True}
 
 
@@ -90,7 +94,8 @@ def tool_schemas() -> list[dict]:
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"}},
        "required": ["start", "end"]})
 def sales_by_product(service: InventoryService, args: dict) -> dict:
-    _total, items = service.sales_by_product(_iso(args["start"]), _parse_end(args["end"]))
+    reporting = ReportingService(service.db, service.business_id)
+    _total, items = reporting.sales_by_product(_iso(args["start"]), _parse_end(args["end"]))
     limit = args.get("limit")
     if limit:
         items = items[: int(limit)]
@@ -107,7 +112,8 @@ def sales_by_product(service: InventoryService, args: dict) -> dict:
 @tool("daily_sales_series", "Serie diaria de ventas entre start y end ISO.",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}, "required": ["start", "end"]})
 def daily_sales_series(service: InventoryService, args: dict) -> dict:
-    series = service.daily_sales_series(_iso(args["start"]), _parse_end(args["end"]))
+    reporting = ReportingService(service.db, service.business_id)
+    series = reporting.daily_sales_series(_iso(args["start"]), _parse_end(args["end"]))
     return {"labels": [d["day"] for d in series], "values": [d["sales"] for d in series]}
 
 
@@ -126,8 +132,8 @@ def total_purchases(service: InventoryService, args: dict) -> dict:
             InventoryMovement.movement_date < _parse_end(args["end"]),
         )
     )
-    if service._business_id is not None:
-        stmt = stmt.where(InventoryMovement.business_id == service._business_id)
+    if service.business_id is not None:
+        stmt = stmt.where(InventoryMovement.business_id == service.business_id)
     total = service.db.scalar(stmt) or 0
     return {"value": float(total), "label": None, "currency": True}
 
@@ -153,7 +159,7 @@ def purchases_by_product(service: InventoryService, args: dict) -> dict:
             InventoryMovement.type == "purchase",
             InventoryMovement.movement_date >= _iso(args["start"]),
             InventoryMovement.movement_date < _parse_end(args["end"]),
-            True if service._business_id is None else (InventoryMovement.business_id == service._business_id),
+            True if service.business_id is None else (InventoryMovement.business_id == service.business_id),
         )
         .group_by(Product.id)
         .order_by(func.sum(InventoryMovement.quantity * InventoryMovement.unit_cost).desc())
@@ -193,7 +199,7 @@ def sales_by_location(service: InventoryService, args: dict) -> dict:
             InventoryMovement.type == "sale",
             InventoryMovement.movement_date >= _iso(args["start"]),
             InventoryMovement.movement_date < _parse_end(args["end"]),
-            True if service._business_id is None else (InventoryMovement.business_id == service._business_id),
+            True if service.business_id is None else (InventoryMovement.business_id == service.business_id),
         )
         .group_by(Location.id)
         .order_by(
@@ -232,7 +238,8 @@ def available_lots(service: InventoryService, args: dict) -> dict:
 @tool("monthly_profit_summary", "Rentabilidad del período: ventas, costo, gastos, margen bruto/neto (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def monthly_profit_summary(service: InventoryService, args: dict) -> dict:
-    summary, _items = service.monthly_profit_report(
+    reporting = ReportingService(service.db, service.business_id)
+    summary, _items = reporting.monthly_profit_report(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
     )
@@ -255,7 +262,8 @@ def monthly_profit_summary(service: InventoryService, args: dict) -> dict:
 @tool("profit_by_product", "Ganancia y margen por producto en un período (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def profit_by_product(service: InventoryService, args: dict) -> dict:
-    _summary, items = service.monthly_profit_report(
+    reporting = ReportingService(service.db, service.business_id)
+    _summary, items = reporting.monthly_profit_report(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
     )
@@ -275,7 +283,8 @@ def profit_by_product(service: InventoryService, args: dict) -> dict:
       {"type": "object", "properties": {"months": {"type": "integer"}}})
 def monthly_overview(service: InventoryService, args: dict) -> dict:
     months = int(args.get("months") or 12)
-    series = service.monthly_overview(months=months)
+    reporting = ReportingService(service.db, service.business_id)
+    series = reporting.monthly_overview(months=months)
     return {
         "labels": [s["month"] for s in series],
         "values": [float(s["sales"]) for s in series],
@@ -287,7 +296,8 @@ def monthly_overview(service: InventoryService, args: dict) -> dict:
 @tool("dividends_report", "Dividendos y pendiente por socio en un período (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def dividends_report(service: InventoryService, args: dict) -> dict:
-    rep = service.monthly_dividends_report(
+    finance = FinanceService(service.db, service.business_id)
+    rep = finance.monthly_dividends_report(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
     )
@@ -304,7 +314,8 @@ def dividends_report(service: InventoryService, args: dict) -> dict:
 @tool("extractions_by_party", "Retiros de dinero agrupados por socio (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def extractions_by_party(service: InventoryService, args: dict) -> dict:
-    by_party = service.total_extractions_by_party(
+    finance = FinanceService(service.db, service.business_id)
+    by_party = finance.total_extractions_by_party(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
     )
@@ -319,7 +330,8 @@ def extractions_by_party(service: InventoryService, args: dict) -> dict:
 @tool("replenishment_table", "Reposición: stock, punto de reorden y faltante por producto.",
       {"type": "object", "properties": {}})
 def replenishment_table(service: InventoryService, args: dict) -> dict:
-    items = service.sales_metrics_table(datetime.now(timezone.utc))
+    reporting = ReportingService(service.db, service.business_id)
+    items = reporting.sales_metrics_table(datetime.now(timezone.utc))
     items = sorted(items, key=lambda i: float(i["reorder_shortage"]), reverse=True)
     return {
         "columns": ["Producto", "Stock", "Mínimo", "Punto reorden", "Faltante"],
@@ -334,7 +346,8 @@ def replenishment_table(service: InventoryService, args: dict) -> dict:
 @tool("expenses_list", "Últimos gastos operativos (start/end ISO opcionales; limit opcional).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"}}})
 def expenses_list(service: InventoryService, args: dict) -> dict:
-    rows = service.list_expenses(
+    finance = FinanceService(service.db, service.business_id)
+    rows = finance.list_expenses(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
         limit=int(args.get("limit") or 50),
@@ -380,7 +393,7 @@ def low_stock(service: InventoryService, args: dict) -> dict:
 @tool("sales_by_customer", "Facturación agrupada por cliente (top clientes; start/end ISO opcionales; limit opcional).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"}}})
 def sales_by_customer(service: InventoryService, args: dict) -> dict:
-    doc_service = SalesDocumentService(service.db, service._business_id)
+    doc_service = SalesDocumentService(service.db, service.business_id)
     rows = doc_service.sales_by_customer(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
@@ -397,7 +410,7 @@ def sales_by_customer(service: InventoryService, args: dict) -> dict:
 @tool("customers_summary", "Resumen de clientes: cantidad y listado.",
       {"type": "object", "properties": {}})
 def customers_summary(service: InventoryService, args: dict) -> dict:
-    doc_service = SalesDocumentService(service.db, service._business_id)
+    doc_service = SalesDocumentService(service.db, service.business_id)
     summary = doc_service.customers_summary()
     return {
         "value": summary["count"],
@@ -410,7 +423,7 @@ def customers_summary(service: InventoryService, args: dict) -> dict:
 @tool("sales_documents_summary", "Facturado vs presupuestado por tipo de documento (start/end ISO opcionales).",
       {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
 def sales_documents_summary(service: InventoryService, args: dict) -> dict:
-    doc_service = SalesDocumentService(service.db, service._business_id)
+    doc_service = SalesDocumentService(service.db, service.business_id)
     rows = doc_service.documents_summary(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
@@ -431,7 +444,7 @@ def sales_documents_summary(service: InventoryService, args: dict) -> dict:
 @tool("expenses_by_month", "Gastos operativos por mes (months opcional, default 12).",
       {"type": "object", "properties": {"months": {"type": "integer"}}})
 def expenses_by_month(service: InventoryService, args: dict) -> dict:
-    reporting = ReportingService(service.db, service._business_id)
+    reporting = ReportingService(service.db, service.business_id)
     series = reporting.expenses_by_month(months=int(args.get("months") or 12))
     return {
         "labels": [s["month"] for s in series],
@@ -444,7 +457,7 @@ def expenses_by_month(service: InventoryService, args: dict) -> dict:
 @tool("purchases_by_month", "Compras por mes (months opcional, default 12).",
       {"type": "object", "properties": {"months": {"type": "integer"}}})
 def purchases_by_month(service: InventoryService, args: dict) -> dict:
-    reporting = ReportingService(service.db, service._business_id)
+    reporting = ReportingService(service.db, service.business_id)
     series = reporting.purchases_by_month(months=int(args.get("months") or 12))
     return {
         "labels": [s["month"] for s in series],

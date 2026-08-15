@@ -2,7 +2,7 @@ from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
 import html
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -24,11 +24,14 @@ from .ui_common import (
     ensure_admin,
     ensure_admin_or_owner,
     extract_sku,
+    month_range,
     parse_dt,
     parse_optional_float,
     templates,
 )
+from .ui_tabs_common import _location_id_for_code
 from app.logger import get_logger
+from app.utils import query_match
 
 _log = get_logger(__name__)
 
@@ -619,3 +622,154 @@ def sale_delete_selected(
             },
             status_code=200,
         )
+
+
+@router.get("/tabs/sales", response_class=HTMLResponse)
+def tab_sales(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    location_code: str = "",
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
+    bid = require_active_business_id(db, request)
+    inventory_service = InventoryService(db, business_id=bid)
+    user = get_current_user_from_session(db, request)
+    
+    # Determine filter values
+    now = datetime.now(timezone.utc)
+
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    date_range_active = (start_dt is not None) or (end_dt is not None)
+    
+    # If a date range is provided, don't apply month/year filtering.
+    if date_range_active:
+        filter_month = None
+        filter_year = None
+        display_month = ""
+        display_year = now.year
+    # If show_all is set, don't filter by month/year
+    elif show_all:
+        filter_month = None
+        filter_year = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        filter_month = month if month else None
+        filter_year = year if year else now.year
+        display_month = month if month else ''
+        display_year = filter_year
+    # Default: show current month
+    else:
+        filter_month = now.strftime('%m')
+        filter_year = now.year
+        display_month = filter_month
+        display_year = filter_year
+
+    business_code = get_active_business_code(db, request)
+    config = get_active_business_config(db, request)
+    session = getattr(request, "session", None) or {}
+    cart = session.get("sales_doc_cart")
+    if not isinstance(cart, list):
+        cart = []
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        draft = {}
+
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
+    if start_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
+    if end_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
+    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
+    recent_documents = list(db.scalars(doc_stmt))
+    q = (query or "").strip()
+    if q:
+        recent_documents = [
+            d
+            for d in recent_documents
+            if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
+        ]
+    recent_documents = recent_documents[:10]
+
+    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    pos_locations: list[dict[str, str]] = []
+    central = getattr(config.locations, "central", None)
+    central_code = str(getattr(central, "code", "") or "").strip()
+    if central_code:
+        pos_locations.append(
+            {
+                "code": central_code,
+                "name": str(getattr(central, "name", "") or "Almacen central"),
+            }
+        )
+    pos_locations.extend(
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    )
+    default_sale_location_code = config.locations.default_sale_code()
+
+    selected_filter_location_code = (location_code or "").strip()
+    selected_filter_location_id = _location_id_for_code(
+        db,
+        selected_filter_location_code,
+        business_id=bid,
+        business_code=business_code,
+    )
+
+    product_options = [
+        p
+        for p in inventory_service.stock_list(query="", location_code=default_sale_location_code)
+        if float(p.quantity or 0) > 0
+    ]
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_sales.html",
+        context={
+            "user": user,
+            "sales": inventory_service.recent_sales(
+                query=query,
+                limit=100,
+                start_date=start_dt,
+                end_date=end_dt,
+                month=filter_month,
+                year=filter_year,
+                location_id=selected_filter_location_id,
+            ),
+            "filter_month": display_month,
+            "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
+            "filter_location_code": selected_filter_location_code,
+            "product_options": product_options,
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "pos_locations": pos_locations,
+            "default_sale_location_code": default_sale_location_code,
+            "sale_location_code": default_sale_location_code,
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "cart": cart,
+            "recent_documents": recent_documents,
+            "customers": customers,
+            "draft": draft,
+        },
+    )

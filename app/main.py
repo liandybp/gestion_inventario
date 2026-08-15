@@ -37,7 +37,6 @@ from app.routers import (
     ui_purchases,
     ui_sales,
     ui_sales_documents,
-    ui_tabs,
     ui_transfers,
     ui_users,
 )
@@ -171,7 +170,6 @@ app.include_router(health_router)
 app.include_router(products_router)
 app.include_router(inventory_router)
 app.include_router(ui_router)
-app.include_router(ui_tabs.router, prefix="/ui")
 app.include_router(ui_auth.router, prefix="/ui")
 app.include_router(ui_products.router, prefix="/ui")
 app.include_router(ui_purchases.router, prefix="/ui")

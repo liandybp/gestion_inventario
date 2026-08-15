@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
-from app.services.inventory_service import InventoryService
+from app.services.finance_service import FinanceService
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
@@ -32,7 +32,7 @@ def extraction_create(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)
@@ -97,7 +97,7 @@ def extraction_delete(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)
@@ -175,7 +175,7 @@ def extraction_edit_form(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     extraction = service.get_extraction(extraction_id)
     config = get_active_business_config(db, request)
     return templates.TemplateResponse(
@@ -200,7 +200,7 @@ def extraction_update(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)

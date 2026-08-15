@@ -3,6 +3,7 @@ from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
 from html import escape
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -19,7 +20,9 @@ from app.security import get_active_business_code, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.models import InventoryMovement, Product
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, parse_dt, templates
+from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, month_range, parse_dt, templates
+from .ui_tabs_common import _location_id_for_code
+from app.utils import query_match
 
 _log = get_logger(__name__)
 
@@ -976,3 +979,142 @@ async def transfer_bulk_execute(
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "transferBulkSuccess"
     return response
+
+
+@router.get("/tabs/transfers", response_class=HTMLResponse)
+def tab_transfers(
+    request: Request,
+    db: Session = Depends(session_dep),
+    success: int = 0,
+    from_location_code: str = "",
+    to_location_code: str = "",
+    filter_from_location_code: str = "",
+    filter_to_location_code: str = "",
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
+
+    inventory_service = InventoryService(db, business_id=bid)
+    business_code = get_active_business_code(db, request)
+    config = get_active_business_config(db, request)
+
+    pos_locations = config.locations.all_locations()
+    central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
+    default_to_location_code = config.locations.default_sale_code()
+    selected_from_code = (from_location_code or "").strip() or default_from_location_code
+    selected_to_code = (to_location_code or "").strip() or default_to_location_code
+
+    history_from_code = (filter_from_location_code or "").strip()
+    history_to_code = (filter_to_location_code or "").strip()
+    history_from_id = (
+        _location_id_for_code(db, history_from_code, business_id=bid, business_code=business_code)
+        if history_from_code
+        else None
+    )
+    history_to_id = (
+        _location_id_for_code(db, history_to_code, business_id=bid, business_code=business_code)
+        if history_to_code
+        else None
+    )
+
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
+
+    history_limit = None if (start_date or end_date) else 50
+
+    message = None
+    message_detail = None
+    message_class = None
+    show_only_in = False
+
+    try:
+        recent_transfer_out = inventory_service.movement_history(
+            movement_type="transfer_out",
+            query=query,
+            location_id=history_from_id,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=history_limit,
+        )
+        recent_transfer_in = inventory_service.movement_history(
+            movement_type="transfer_in",
+            query=query,
+            location_id=history_to_id,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=history_limit,
+        )
+    except Exception as e:
+        _log.exception("historial de traspasos fallback en tab_transfers")
+        recent_transfer_out = []
+        recent_transfer_in = []
+        message = "Error al cargar historial de traspasos"
+        message_detail = str(getattr(e, "detail", e))
+        message_class = "error"
+
+    if history_to_code:
+        pat = re.compile(r"Transfer\s+[^\s:;]+->" + re.escape(history_to_code) + r"\b")
+        recent_transfer_out = [r for r in recent_transfer_out if pat.search(str(r[10] or ""))]
+
+    if history_from_code:
+        needle = f"Transfer in from {history_from_code}".lower()
+        recent_transfer_in = [r for r in recent_transfer_in if needle in str(r[10] or "").lower()]
+
+    if success == 1:
+        message = "Traspaso registrado"
+        message_detail = "El traspaso se ha creado correctamente"
+        message_class = "ok"
+        show_only_in = True
+
+    product_options = []
+    try:
+        product_options = [
+            p
+            for p in inventory_service.stock_list(query="", location_code=selected_from_code)
+            if float(p.quantity or 0) > 0
+        ]
+    except Exception as e:
+        _log.exception("product_options traspasos fallback en tab_transfers")
+        if message is None:
+            message = "Error al cargar traspasos"
+            message_detail = str(getattr(e, "detail", e))
+            message_class = "error"
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_transfers.html",
+        context={
+            "user": user,
+            "product_options": product_options,
+            "all_locations": all_locations,
+            "from_location_code": selected_from_code,
+            "to_location_code": selected_to_code,
+            "default_from_location_code": default_from_location_code,
+            "default_to_location_code": default_to_location_code,
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "rows_count": 12,
+            "recent_transfer_out": recent_transfer_out,
+            "recent_transfer_in": recent_transfer_in,
+            "message": message,
+            "message_detail": message_detail,
+            "message_class": message_class,
+            "show_only_in": show_only_in,
+            "filter_from_location_code": history_from_code,
+            "filter_to_location_code": history_to_code,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+        },
+    )

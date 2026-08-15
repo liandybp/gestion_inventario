@@ -19,7 +19,7 @@ from app.security import (
 )
 from app.utils import query_match
 
-from .ui_common import templates
+from .ui_common import ensure_admin, templates
 
 router = APIRouter()
 
@@ -313,5 +313,27 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
             "query": "",
             "message": "Cliente eliminado",
             "message_class": "ok",
+        },
+    )
+
+
+@router.get("/tabs/customers", response_class=HTMLResponse)
+def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
+    ensure_admin(db, request)
+    _ = get_current_user_from_session(db, request)
+    bid = require_active_business_id(db, request)
+    q = (query or "").strip()
+    stmt = select(Customer)
+    stmt = stmt.where(Customer.business_id == int(bid))
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
+    customers = list(db.scalars(stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_customers.html",
+        context={
+            "customers": customers,
+            "query": q,
         },
     )

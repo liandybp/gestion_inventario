@@ -651,3 +651,52 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
         f"<label id='sale-qty-label' hx-swap-oob='true'>{label}</label>"
         f"<input id='sale-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
     )
+
+
+@router.get("/tabs/inventory", response_class=HTMLResponse)
+def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    user = get_current_user_from_session(db, request)
+    business_code = get_active_business_code(db, request)
+    config = get_active_business_config(db, request)
+    locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
+    pos_locations: list[dict[str, str]] = []
+    for loc in (config.locations.pos or []):
+        if getattr(loc, "code", None):
+            locations.append({"code": loc.code, "name": loc.name})
+            pos_locations.append({"code": str(loc.code), "name": str(loc.name)})
+    
+    product_options = []
+    try:
+        from app.services.product_service import ProductService
+        product_options = ProductService(db, business_id=bid).search(query="", limit=200)
+    except Exception:
+        _log.error("product_options fallback en tab_inventory")
+        product_options = []
+
+    categories: list[str] = []
+    try:
+        rows = db.execute(
+            select(Product.category)
+            .where(Product.business_id == int(bid))
+            .distinct()
+            .order_by(Product.category.asc())
+        ).all()
+        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+    except Exception:
+        _log.error("categories fallback en tab_inventory")
+        categories = []
+
+    response = templates.TemplateResponse(
+        request=request,
+        name="partials/tab_inventory.html",
+        context={
+            "locations": locations,
+            "pos_locations": pos_locations,
+            "default_location_code": "",
+            "product_options": product_options,
+            "categories": categories,
+        },
+    )
+    return response

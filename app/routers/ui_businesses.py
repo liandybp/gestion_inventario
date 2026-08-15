@@ -841,3 +841,14 @@ def business_delete(
             "message_class": "ok",
         },
     )
+
+
+@router.get("/tabs/businesses", response_class=HTMLResponse)
+def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
+    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_businesses.html",
+        context={"businesses": businesses},
+    )

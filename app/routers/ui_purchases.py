@@ -1,7 +1,7 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 from typing import Optional
 
@@ -26,6 +26,7 @@ from .ui_common import (
     dt_to_local_input,
     ensure_admin_or_owner,
     extract_sku,
+    month_range,
     parse_dt,
     parse_optional_float,
     templates,
@@ -845,3 +846,90 @@ def purchase_delete_selected(
             },
             status_code=200,
         )
+
+
+@router.get("/tabs/purchases", response_class=HTMLResponse)
+def tab_purchases(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
+    inventory_service = InventoryService(db, business_id=bid)
+    user = get_current_user_from_session(db, request)
+    config = get_active_business_config(db, request)
+    purchase_currency_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
+    purchase_currency_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "€"
+    
+    # Determine filter values
+    now = datetime.now(timezone.utc)
+
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_dt, end_dt = month_range(now)
+    else:
+        start_dt = parse_dt(start_date) if start_date else None
+        end_dt = parse_dt(end_date) if end_date else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
+
+    date_range_active = (start_dt is not None) or (end_dt is not None)
+    
+    # If a date range is provided, don't apply month/year filtering.
+    if date_range_active:
+        filter_month = None
+        filter_year = None
+        display_month = ""
+        display_year = now.year
+    # If show_all is set, don't filter by month/year
+    elif show_all:
+        filter_month = None
+        filter_year = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        filter_month = month if month else None
+        filter_year = year if year else now.year
+        display_month = month if month else ''
+        display_year = filter_year
+    # Default: show current month
+    else:
+        filter_month = now.strftime('%m')
+        filter_year = now.year
+        display_month = filter_month
+        display_year = filter_year
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_purchases.html",
+        context={
+            "user": user,
+            "products": product_service.recent(limit=20),
+            "product_options": product_service.search(query="", limit=200),
+            "purchases": inventory_service.recent_purchases(
+                query=query,
+                limit=100,
+                start_date=start_dt,
+                end_date=end_dt,
+                month=filter_month,
+                year=filter_year,
+            ),
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "filter_month": display_month,
+            "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
+            "purchase_currency_code": purchase_currency_code,
+            "purchase_currency_symbol": purchase_currency_symbol,
+        },
+    )

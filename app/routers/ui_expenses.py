@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
-from app.services.inventory_service import InventoryService
+from app.services.finance_service import FinanceService
+from app.utils import query_match
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
 
@@ -31,7 +32,7 @@ def expense_create(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.create_expense(amount=amount, concept=concept, expense_date=parse_dt(expense_date))
@@ -86,7 +87,7 @@ def expense_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     expense = service.get_expense(expense_id)
     return templates.TemplateResponse(
         request=request,
@@ -105,7 +106,7 @@ def expense_delete(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         ensure_admin_or_owner(db, request)
@@ -181,7 +182,7 @@ def expense_update(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    service = InventoryService(db, business_id=bid)
+    service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.update_expense(
@@ -248,3 +249,71 @@ def expense_update(
             },
             status_code=400,
         )
+
+
+@router.get("/tabs/expenses", response_class=HTMLResponse)
+def tab_expenses(
+    request: Request,
+    month: Optional[str] = None,
+    year: Optional[int] = None,
+    show_all: Optional[str] = None,
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(session_dep)
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    inventory_service = FinanceService(db, business_id=bid)
+    
+    now = datetime.now(timezone.utc)
+    
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    # If show_all is set, show all records
+    if show_all:
+        start = None
+        end = None
+        display_month = ''
+        display_year = now.year
+    # If month or year is explicitly provided, use those values
+    elif month is not None or year is not None:
+        target_year = year if year else now.year
+        target_month = int(month) if month else now.month
+        target_date = datetime(target_year, target_month, 1, tzinfo=timezone.utc)
+        start, end = month_range(target_date)
+        display_month = month if month else ''
+        display_year = target_year
+    # Default: show current month
+    else:
+        start, end = month_range(now)
+        display_month = now.strftime('%m')
+        display_year = now.year
+    
+    eff_start = start_dt if start_dt is not None else start
+    eff_end = end_dt if end_dt is not None else end
+
+    expenses = inventory_service.list_expenses(start=eff_start, end=eff_end, limit=500)
+    q = (query or "").strip()
+    if q:
+        expenses = [e for e in expenses if query_match(q, str(e.concept or ""))]
+    expenses = expenses[:200]
+    total = inventory_service.total_expenses(start=eff_start, end=eff_end)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_expenses.html",
+        context={
+            "expenses": expenses,
+            "expenses_total": total,
+            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "filter_month": display_month,
+            "filter_year": display_year,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "filter_show_all": bool(show_all),
+        },
+    )

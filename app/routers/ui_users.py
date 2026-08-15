@@ -445,3 +445,20 @@ def user_reset_password(
             "message_class": "ok",
         },
     )
+
+
+@router.get("/tabs/users", response_class=HTMLResponse)
+def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ensure_admin(db, request)
+    users = list(db.scalars(select(User).order_by(User.username.asc())))
+    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_users.html",
+        context={
+            "users": users,
+            "businesses": businesses,
+            "user_business_map": user_business_map,
+        },
+    )

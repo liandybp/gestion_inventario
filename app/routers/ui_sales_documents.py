@@ -1,7 +1,8 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config, get_business_config
+from app.repositories.location_repository import LocationRepository
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import html
 from typing import Optional
 
@@ -17,7 +18,9 @@ from app.sales_document_pdf import build_sales_document_pdf
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.product_service import ProductService
 
-from .ui_common import extract_sku, templates
+from app.utils import query_match
+
+from .ui_common import ensure_admin_or_owner, extract_sku, parse_dt, templates
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -187,41 +190,11 @@ def _location_id_for_code(db: Session, *, location_code: str, business_id: int) 
     code = (location_code or "").strip()
     if not code:
         return None
-    bid = int(business_id)
-    stmt = select(Location.id).where(Location.code == code, Location.business_id == bid)
-    loc_id = db.scalar(stmt)
-    if loc_id is not None:
-        return int(loc_id)
-
-    business_code = db.scalar(select(Business.code).where(Business.id == bid))
-    prefix = "".join(ch if ch.isalnum() else "_" for ch in (str(business_code or "").strip().upper() or "BUSINESS"))
-    alt_code = code if code.startswith(f"{prefix}_") else f"{prefix}_{code}"
-
-    loc_id = db.scalar(select(Location.id).where(Location.code == alt_code, Location.business_id == bid))
-    if loc_id is not None:
-        return int(loc_id)
-
-    cfg = get_business_config(db, bid)
-    name = code
+    repo = LocationRepository(db, business_id)
     try:
-        cfg_central = str(getattr(cfg.locations.central, "code", "") or "").strip()
-        if code == cfg_central or code.upper() == "CENTRAL":
-            name = str(getattr(cfg.locations.central, "name", "") or "").strip() or code
-        else:
-            for p in (getattr(cfg.locations, "pos", None) or []):
-                p_code = str(getattr(p, "code", "") or "").strip()
-                if p_code == code:
-                    name = str(getattr(p, "name", "") or "").strip() or code
-                    break
-        db.add(Location(business_id=bid, code=alt_code, name=name))
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-    loc_id = db.scalar(select(Location.id).where(Location.code == alt_code, Location.business_id == bid))
-    return int(loc_id) if loc_id is not None else None
-
-
+        return repo.location_id_for_code(code, auto_create=True)
+    except HTTPException:
+        return None
 @router.post("/sales-doc/preview", response_class=HTMLResponse)
 def sales_doc_preview(
     request: Request,
@@ -1115,3 +1088,72 @@ def sales_doc_pdf(
 
     headers = {"Content-Disposition": f"{disposition}; filename=\"{filename}\""}
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.get("/tabs/documents", response_class=HTMLResponse)
+def tab_documents(
+    request: Request,
+    db: Session = Depends(session_dep),
+    query: str = "",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    _ = get_current_user_from_session(db, request)
+    bid = require_active_business_id(db, request)
+    product_service = ProductService(db, business_id=bid)
+    config = get_active_business_config(db, request)
+
+    pos_locations = config.locations.all_locations()
+    default_doc_location_code = config.locations.default_sale_code()
+
+    session = getattr(request, "session", None) or {}
+    cart = session.get("sales_doc_cart")
+    if not isinstance(cart, list):
+        cart = []
+    draft = session.get("sales_doc_draft")
+    if not isinstance(draft, dict):
+        draft = {}
+
+    start_dt = parse_dt(start_date) if start_date else None
+    end_dt = parse_dt(end_date) if end_date else None
+    if end_dt is not None:
+        end_dt = end_dt + timedelta(days=1)
+
+    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
+    if start_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
+    if end_dt is not None:
+        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
+    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
+    recent_documents = list(db.scalars(doc_stmt))
+    q = (query or "").strip()
+    if q:
+        recent_documents = [
+            d
+            for d in recent_documents
+            if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
+        ]
+    recent_documents = recent_documents[:10]
+    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
+    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tab_documents.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
+            "cart": cart,
+            "recent_documents": recent_documents,
+            "filter_query": query,
+            "filter_start_date": start_date or "",
+            "filter_end_date": end_date or "",
+            "customers": customers,
+            "draft": draft,
+            "product_options": product_service.search(query="", limit=200),
+        },
+    )
