@@ -101,7 +101,10 @@ def _reconcile_locations(db, business, central_raw, pos_raw, default_pos_raw, co
 
     # POS (vacío = negocio sin POS: no crear y borrar los sobrantes sin datos)
     raw_parts = [p.strip() for p in (pos_raw or "").split(",") if p.strip()]
-    parsed = [_parse_spec(p, "POS1", "Punto de venta 1") for p in raw_parts]
+    parsed = [
+        s for s in (_parse_spec(p, "POS1", "Punto de venta 1") for p in raw_parts)
+        if (s[0] or "").strip()
+    ]
     default_pos_code = _prefix_location_code((default_pos_raw or "").strip(), code)
 
     existing = list(db.scalars(
@@ -370,8 +373,8 @@ def business_create(
     dividends_opening_pending_as_of: str = Form(""),
     # ── locations ───────────────────────────────────────────────
     locations_central: str = Form("CENTRAL:Almacén Central"),
-    locations_pos: str = Form("POS1:Punto de venta 1"),
-    locations_default_pos: str = Form("POS1"),
+    locations_pos: str = Form(""),
+    locations_default_pos: str = Form(""),
     # ── inventory ───────────────────────────────────────────────
     inventory_replenishment_lead_time_days: str = Form("25"),
     # ── dependencies ────────────────────────────────────────────
@@ -448,8 +451,8 @@ def business_create(
         position=0,
     ))
 
-    # POS list (vacío = negocio sin POS)
-    pos_specs = _parse_loc_list(_s(locations_pos))
+    # POS list (vacío = negocio sin POS); descartar specs sin código (p.ej. ':Tienda')
+    pos_specs = [s for s in _parse_loc_list(_s(locations_pos)) if (s[0] or "").strip()]
     default_pos_code = _prefix_location_code(_s(locations_default_pos), code)
 
     for i, (pcode, pname) in enumerate(pos_specs, start=1):
@@ -590,8 +593,8 @@ def business_update(
     dividends_opening_pending_as_of: str = Form(""),
     # ── locations ───────────────────────────────────────────────
     locations_central: str = Form("CENTRAL:Almacén Central"),
-    locations_pos: str = Form("POS1:Punto de venta 1"),
-    locations_default_pos: str = Form("POS1"),
+    locations_pos: str = Form(""),
+    locations_default_pos: str = Form(""),
     # ── inventory ───────────────────────────────────────────────
     inventory_replenishment_lead_time_days: str = Form("25"),
     # ── dependencies ────────────────────────────────────────────

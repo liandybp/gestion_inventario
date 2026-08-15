@@ -5,6 +5,7 @@
   {% from 'components/ui.html' import flash %}
   {{ flash(message, message_class or '', message_detail) }}
 
+  {% if all_locations|length > 1 %}
   <form hx-post="/ui/transfers" hx-target="#tab-content" hx-swap="innerHTML" hx-indicator="#transfer-loading" hx-sync="this:drop" hx-disabled-elt="#transfer-submit" class="card" id="transfer-form">
     <div class="grid-3" style="gap:12px;">
       <div>
@@ -116,6 +117,11 @@
       <a href="#" hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML" class="text-sm">Limpiar</a>
     </div>
   </form>
+  {% else %}
+  <div class="card">
+    <p class="muted">Este negocio no tiene puntos de venta; los traspasos requieren al menos dos ubicaciones.</p>
+  </div>
+  {% endif %}
 
   <div class="mt-16"></div>
 

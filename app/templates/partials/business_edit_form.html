@@ -240,7 +240,7 @@
         <div class="form-group">
           <label for="edit-locations-default-pos">POS por defecto</label>
           <input type="text" id="edit-locations-default-pos" name="locations_default_pos" autocomplete="off"
-                 value="{{ config.locations.default_pos }}" />
+                 value="{{ config.locations.default_pos or '' }}" />
           <small class="muted">Ej: POS1 (código del POS seleccionado por defecto en ventas)</small>
         </div>
 

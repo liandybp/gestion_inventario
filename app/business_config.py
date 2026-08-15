@@ -65,6 +65,18 @@ class LocationsConfig(BaseModel):
             return self.default_pos
         return self.central.code or "CENTRAL"
 
+    def all_locations(self) -> list[dict]:
+        """Todas las ubicaciones para selects de UI: central primero, luego POS.
+
+        Incluye siempre la central (aunque el negocio no tenga POS) para que los
+        desplegables de ventas/documentos/traspasos no queden vacíos.
+        """
+        out = [{"code": self.central.code, "name": self.central.name}]
+        for p in self.pos:
+            if getattr(p, "code", None):
+                out.append({"code": p.code, "name": p.name})
+        return out
+
 
 class InventoryConfig(BaseModel):
     replenishment_lead_time_days: float = 25.0
@@ -304,6 +316,9 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     pos_codes = {p.code for p in pos_list}
     if pos_list and default_pos not in pos_codes:
         default_pos = pos_list[0].code
+    elif not pos_list:
+        # negocio sin POS: un default_pos sobrante del .conf no debe sobrevivir
+        default_pos = ""
 
     cfg = BusinessConfig(
         issuer=IssuerConfig(

@@ -2,6 +2,7 @@ from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config, get_business_config
 
 from datetime import datetime, timezone
+import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -312,11 +313,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
 
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()
 
     return templates.TemplateResponse(
@@ -472,11 +469,7 @@ async def sales_doc_update(
     cart = _get_cart(request)
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
@@ -511,12 +504,11 @@ def sales_doc_product_defaults(
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
-    import html as _html
 
     p = ProductService(db, business_id=bid).get_by_sku(sku)
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     return HTMLResponse(
-        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{_html.escape(price)}' />"
+        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{html.escape(price)}' />"
     )
 
 
@@ -559,10 +551,9 @@ def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Ses
         return HTMLResponse("")
 
     addr = (customer.address or "")
-    import html as _html  # H-029: escapar campos de cliente (XSS almacenado)
     return HTMLResponse(
-        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{_html.escape(str(customer.client_id or ''))}' required />"
-        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{_html.escape(addr)}' />"
+        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{html.escape(str(customer.client_id or ''))}' required />"
+        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{html.escape(addr)}' />"
     )
 
 
@@ -635,11 +626,7 @@ def sales_doc_cart_add(
             cart = _get_cart(request)
             customers = _customers_list(db, business_id=bid, limit=200)
             draft = _get_draft(request)
-            pos_locations = [
-                {"code": loc.code, "name": loc.name}
-                for loc in (config.locations.pos or [])
-                if getattr(loc, "code", None)
-            ]
+            pos_locations = config.locations.all_locations()
             return templates.TemplateResponse(
                 request=request,
                 name="partials/sales_document_panel.html",
@@ -678,11 +665,7 @@ def sales_doc_cart_add(
         customers = _customers_list(db, business_id=bid, limit=200)
         draft = _get_draft(request)
 
-        pos_locations = [
-            {"code": loc.code, "name": loc.name}
-            for loc in (config.locations.pos or [])
-            if getattr(loc, "code", None)
-        ]
+        pos_locations = config.locations.all_locations()
 
         return templates.TemplateResponse(
             request=request,
@@ -705,11 +688,7 @@ def sales_doc_cart_add(
         cart = _get_cart(request)
         customers = _customers_list(db, business_id=bid, limit=200)
         draft = _get_draft(request)
-        pos_locations = [
-            {"code": loc.code, "name": loc.name}
-            for loc in (config.locations.pos or [])
-            if getattr(loc, "code", None)
-        ]
+        pos_locations = config.locations.all_locations()
         default_doc_location_code = config.locations.default_sale_code()
         return templates.TemplateResponse(
             request=request,
@@ -789,11 +768,7 @@ def sales_doc_cart_update(
 
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
 
     return templates.TemplateResponse(
         request=request,
@@ -855,11 +830,7 @@ def sales_doc_cart_remove(
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
 
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
 
     return templates.TemplateResponse(
         request=request,
@@ -917,11 +888,7 @@ def sales_doc_cart_clear(
 
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_panel.html",
@@ -1063,11 +1030,7 @@ def sales_doc_issue(
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
             "issuer": config.issuer.model_dump(),
-            "pos_locations": [
-                {"code": loc.code, "name": loc.name}
-                for loc in (config.locations.pos or [])
-                if getattr(loc, "code", None)
-            ],
+            "pos_locations": config.locations.all_locations(),
             "default_doc_location_code": default_doc_location_code,
             "cart": [],
             "recent_documents": _recent_documents(db, limit=10, business_id=bid),

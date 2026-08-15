@@ -2,6 +2,7 @@ from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timezone
+import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -587,10 +588,9 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
-    import html as _html
 
     p = product_service.get_by_sku(sku)
-    uom = _html.escape(p.unit_of_measure or "")
+    uom = html.escape(p.unit_of_measure or "")
     cost = "" if p.default_purchase_cost is None else str(float(p.default_purchase_cost))
     label = f"Cantidad ({uom})" if uom else "Cantidad"
     return HTMLResponse(
@@ -629,8 +629,7 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
         except HTTPException:
             return HTMLResponse("")
 
-    import html as _html  # H-034: escapar UOM (XSS almacenado)
-    uom = _html.escape(p.unit_of_measure or "")
+    uom = html.escape(p.unit_of_measure or "")
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     label = f"Cantidad ({uom})" if uom else "Cantidad"
     return HTMLResponse(

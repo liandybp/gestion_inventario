@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 
 from sqlalchemy import and_, func, select
 from sqlalchemy import text
@@ -14,6 +13,16 @@ from app.logger import get_logger
 
 _log = get_logger(__name__)
 from app.db import Base, engine, get_session
+
+# H-053: índices compuestos en filtros calientes multi-tenant. Una sola fuente
+# de verdad para las dos ramas de migración (SQLite y PostgreSQL).
+_COMPOSITE_INDEX_SQL = [
+    "CREATE INDEX IF NOT EXISTS ix_products_business_sku ON products(business_id, sku)",
+    "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_type_date "
+    "ON inventory_movements(business_id, type, movement_date)",
+    "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_product "
+    "ON inventory_movements(business_id, product_id)",
+]
 from app.models import (
     Business,
     Customer,
@@ -189,14 +198,8 @@ def _run_sqlite_schema_migrations() -> int:
             except SQLAlchemyError:
                 pass
 
-        # H-053: índices compuestos en filtros calientes multi-tenant
-        for index_sql in [
-            "CREATE INDEX IF NOT EXISTS ix_products_business_sku ON products(business_id, sku)",
-            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_type_date "
-            "ON inventory_movements(business_id, type, movement_date)",
-            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_product "
-            "ON inventory_movements(business_id, product_id)",
-        ]:
+        # H-053: índices compuestos (constante única compartida con la rama PG)
+        for index_sql in _COMPOSITE_INDEX_SQL:
             try:
                 conn.exec_driver_sql(index_sql)
             except SQLAlchemyError:
@@ -367,14 +370,8 @@ def _run_postgresql_schema_migrations() -> int:
                     f"No se pudo crear la columna business_id en {tbl}."
                 ) from e
 
-        # H-053: índices compuestos en filtros calientes multi-tenant
-        for index_sql in [
-            "CREATE INDEX IF NOT EXISTS ix_products_business_sku ON products(business_id, sku)",
-            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_type_date "
-            "ON inventory_movements(business_id, type, movement_date)",
-            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_product "
-            "ON inventory_movements(business_id, product_id)",
-        ]:
+        # H-053: índices compuestos (constante única compartida con la rama PG)
+        for index_sql in _COMPOSITE_INDEX_SQL:
             try:
                 conn.exec_driver_sql(index_sql)
             except SQLAlchemyError:
@@ -583,14 +580,13 @@ def _run_seed_and_backfill() -> None:
             username = (os.getenv(username_env) or "").strip() or role
             password = os.getenv(password_env) or ""
             if not password:
-                # H-036: nunca caer a credenciales triviales por defecto. Si falta la
-                # env var, generar una contraseña aleatoria y loguearla para que el
-                # operador la recupere del log del seed inicial.
-                password = secrets.token_urlsafe(16)
-                _log.warning(
-                    "No se definió %s en el entorno. Credenciales iniciales generadas: "
-                    "usuario=%r contraseña=%r (cámbiala tras el primer login).",
-                    password_env, username, password,
+                # H-036: nunca caer a credenciales triviales ni generarlas en un log
+                # transitorio (se perderían y bloquearían el acceso). Abortar el seed
+                # obliga a definir la env var explícitamente.
+                raise RuntimeError(
+                    f"No se definió {password_env} en el entorno. El seed inicial de "
+                    f"credenciales requiere que {password_env} esté configurada "
+                    f"(usuario {username!r}). Configúrala y reintenta el arranque."
                 )
             users_to_ensure.append({
                 "username": username,

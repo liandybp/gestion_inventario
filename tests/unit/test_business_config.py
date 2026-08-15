@@ -175,4 +175,44 @@ def test_locations_config_with_pos_default_sale_code():
     assert cfg.default_sale_code() == "POS1"
 
 
+def test_locations_all_locations_includes_central_and_pos():
+    cfg = business_config.LocationsConfig(
+        pos=[
+            business_config.LocationSpec(code="POS1", name="Tienda"),
+            business_config.LocationSpec(code="POS2", name="Taller"),
+        ],
+        default_pos="POS1",
+    )
+    assert [l["code"] for l in cfg.all_locations()] == ["CENTRAL", "POS1", "POS2"]
+
+
+def test_locations_all_locations_no_pos_returns_central_only():
+    cfg = business_config.LocationsConfig()
+    assert [l["code"] for l in cfg.all_locations()] == ["CENTRAL"]
+
+
+def test_legacy_conf_no_pos_clears_stale_default_pos(monkeypatch, tmp_path) -> None:
+    """Un .conf legacy sin POS pero con default_pos sobrante no debe sobrevivir."""
+    cfg_file = tmp_path / "business_config.conf"
+    _write(
+        cfg_file,
+        """
+[locations]
+central = CEN:Central
+default_pos = POS1
+
+[sales_documents]
+default_type = F
+enabled_types = F,P
+""".strip(),
+    )
+    monkeypatch.setenv("BUSINESS_CONFIG_PATH", str(cfg_file))
+    business_config._cached_configs.clear()
+
+    cfg = load_business_config()
+    assert cfg.locations.pos == []
+    assert cfg.locations.default_pos in (None, "")
+    assert cfg.locations.default_sale_code() == "CEN"
+
+
 

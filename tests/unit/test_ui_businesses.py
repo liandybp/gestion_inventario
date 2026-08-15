@@ -68,6 +68,8 @@ class TestBusinessCreate:
             request=admin_request,
             code="nuevo_negocio",
             name="Nuevo Negocio",
+            locations_pos="POS1:Punto de venta 1",
+            locations_default_pos="POS1",
             db=db_session,
         )
 
@@ -121,6 +123,25 @@ class TestBusinessCreate:
         )
         assert central is not None
         assert central.code == "SIN_POS_CENTRAL"
+
+    def test_create_business_skips_pos_with_empty_code(self, admin_request, db_session, admin_user):
+        """Specs malformados ':Tienda' (código vacío) se descartan, no crean Location vacía."""
+        result = business_create(
+            request=admin_request,
+            code="pos_malo",
+            name="POS Malo",
+            locations_pos=":Tienda",
+            locations_default_pos="",
+            db=db_session,
+        )
+
+        assert result.status_code == 200
+        biz = db_session.scalar(select(Business).where(Business.code == "pos_malo"))
+        assert biz is not None
+        pos_locs = db_session.scalars(
+            select(Location).where(Location.business_id == biz.id, Location.role == "pos")
+        ).all()
+        assert pos_locs == []
 
     def test_duplicate_code_returns_409(self, admin_request, db_session, admin_user):
         # First creation

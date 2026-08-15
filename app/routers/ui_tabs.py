@@ -837,11 +837,7 @@ def tab_documents(
     product_service = ProductService(db, business_id=bid)
     config = get_active_business_config(db, request)
 
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()
 
     session = getattr(request, "session", None) or {}
@@ -1038,11 +1034,7 @@ def tab_transfers(
     business_code = get_active_business_code(db, request)
     config = get_active_business_config(db, request)
 
-    pos_locations = [
-        {"code": loc.code, "name": loc.name}
-        for loc in (config.locations.pos or [])
-        if getattr(loc, "code", None)
-    ]
+    pos_locations = config.locations.all_locations()
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
