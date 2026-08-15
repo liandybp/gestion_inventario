@@ -96,6 +96,32 @@ class TestBusinessCreate:
         )
         assert pos_loc is not None
 
+    def test_create_business_without_pos(self, admin_request, db_session, admin_user):
+        """Negocio sin POS: campos de POS vacíos → solo se crea la central."""
+        result = business_create(
+            request=admin_request,
+            code="sin_pos",
+            name="Negocio Sin POS",
+            locations_pos="",
+            locations_default_pos="",
+            db=db_session,
+        )
+
+        assert result.status_code == 200
+        biz = db_session.scalar(select(Business).where(Business.code == "sin_pos"))
+        assert biz is not None
+
+        pos_locs = db_session.scalars(
+            select(Location).where(Location.business_id == biz.id, Location.role == "pos")
+        ).all()
+        assert pos_locs == []
+
+        central = db_session.scalar(
+            select(Location).where(Location.business_id == biz.id, Location.role == "central")
+        )
+        assert central is not None
+        assert central.code == "SIN_POS_CENTRAL"
+
     def test_duplicate_code_returns_409(self, admin_request, db_session, admin_user):
         # First creation
         business_create(request=admin_request, code="dup", name="First", db=db_session)

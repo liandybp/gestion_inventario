@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -190,6 +190,10 @@ class AuditLog(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        # H-053: filtros calientes multi-tenant por (business, sku)
+        Index("ix_products_business_sku", "business_id", "sku"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     business_id: Mapped[Optional[int]] = mapped_column(
@@ -216,6 +220,17 @@ class Product(Base):
 
 class InventoryMovement(Base):
     __tablename__ = "inventory_movements"
+    __table_args__ = (
+        # H-053: filtros calientes multi-tenant (profit por mes, historial, por producto)
+        Index(
+            "ix_inventory_movements_business_type_date",
+            "business_id", "type", "movement_date",
+        ),
+        Index(
+            "ix_inventory_movements_business_product",
+            "business_id", "product_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     business_id: Mapped[Optional[int]] = mapped_column(

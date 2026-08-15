@@ -164,6 +164,8 @@ Archivo `app/business_config.conf` (INI):
 - [x] **Traspaso masivo** — modal con checklist + 6 fixes de code-review + **campo "Fecha" visible** (traspasos atrasados) + **e2e Playwright** (`tests/e2e/`, institucionalizado en el DoD).
 - [x] **Copiloto ampliado a 27 tools** — fixes tabla/POS/chat + Tier 1 (profit/dividendos/reposición/historial) + Tier 2 (clientes/documentos/tendencias vía `SalesDocumentService`/`ReportingService`).
 - [x] **Despliegue CD con Gitea Actions** — runners self-hosted `dev`/`prod`, test-gate, systemd `Restart=always`; cron watcher y Dokploy eliminados. Doc: `04-Harness/deploy-gitea-actions.md`.
+- [x] **Negocio sin POS** — `LocationsConfig.default_pos` opcional (`None`), sin fallback que inyecte `POS1` (business_config/business_repository/ui_businesses), ventas/traspasos usan la central (`default_sale_code()`), UI permite crear/editar sin POS (campo vacío). Limpieza de `CERVEZA_MARIELA_POS1` en prod.
+- [x] **Auditoría quick wins (H-029/H-034/H-036/H-053)** — XSS escapado en `customer.client_id`/`address` y `unit_of_measure`; seed sin credenciales triviales (genera aleatoria si falta env); índices compuestos `(business_id, type, movement_date)`, `(business_id, product_id)`, `(business_id, sku)` (models + migraciones SQLite/PG).
 - [ ] Sistema agéntico con LLM local multi-tool (20+ tools, insights proactivos) — fase 2 planificada
 
 ## Sesiones

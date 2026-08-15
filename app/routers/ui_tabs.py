@@ -771,7 +771,7 @@ def tab_sales(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     )
-    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_sale_location_code = config.locations.default_sale_code()
 
     selected_filter_location_code = (location_code or "").strip()
     selected_filter_location_id = _location_id_for_code(
@@ -842,7 +842,7 @@ def tab_documents(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
 
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
@@ -1046,7 +1046,7 @@ def tab_transfers(
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_to_location_code = config.locations.default_sale_code()
     selected_from_code = (from_location_code or "").strip() or default_from_location_code
     selected_to_code = (to_location_code or "").strip() or default_to_location_code
 

@@ -51,10 +51,19 @@ class LocationsConfig(BaseModel):
     central: LocationSpec = Field(
         default_factory=lambda: LocationSpec(code="CENTRAL", name="Almacén Central")
     )
-    pos: List[LocationSpec] = Field(
-        default_factory=lambda: [LocationSpec(code="POS1", name="Punto de venta 1")]
-    )
-    default_pos: str = "POS1"
+    pos: List[LocationSpec] = Field(default_factory=list)
+    # None = el negocio NO tiene punto de venta (solo central). Ver default_sale_code().
+    default_pos: Optional[str] = None
+
+    def default_sale_code(self) -> str:
+        """Código de la ubicación por defecto para ventas/traspasos/documentos.
+
+        Si el negocio tiene POS usa `default_pos`; si no (negocio sin POS) cae a
+        la central, que es la única ubicación disponible.
+        """
+        if self.default_pos:
+            return self.default_pos
+        return self.central.code or "CENTRAL"
 
 
 class InventoryConfig(BaseModel):
@@ -291,11 +300,9 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         fallback_name="Almacén Central",
     )
     pos_list = parse_location_list(get_list("locations", "pos"))
-    if not pos_list:
-        pos_list = [LocationSpec(code="POS1", name="Punto de venta 1")]
-    default_pos = (get("locations", "default_pos", "POS1") or "POS1").strip()
+    default_pos = (get("locations", "default_pos", "") or "").strip()
     pos_codes = {p.code for p in pos_list}
-    if default_pos not in pos_codes:
+    if pos_list and default_pos not in pos_codes:
         default_pos = pos_list[0].code
 
     cfg = BusinessConfig(
@@ -345,9 +352,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     if cfg.sales_documents.default_type not in ("F", "P"):
         cfg.sales_documents.default_type = "F"
 
-    if not cfg.locations.pos:
-        cfg.locations.pos = [LocationSpec(code="POS1", name="Punto de venta 1")]
-    if cfg.locations.default_pos not in {p.code for p in cfg.locations.pos}:
+    if cfg.locations.pos and cfg.locations.default_pos not in {p.code for p in cfg.locations.pos}:
         cfg.locations.default_pos = cfg.locations.pos[0].code
 
     _cached_configs[key] = (cfg, path_str, mtime)

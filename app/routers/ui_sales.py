@@ -49,7 +49,7 @@ def _sale_pos_context(db: Session, request: Request, location_code: str = "") ->
         for l in (config.locations.pos or [])
         if getattr(l, "code", None)
     )
-    default_sale_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_sale_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_sale_location_code
     return pos_locations, default_sale_location_code, selected_location_code
 

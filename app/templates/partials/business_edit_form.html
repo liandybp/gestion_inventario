@@ -234,7 +234,7 @@
           <label for="edit-locations-pos">Puntos de venta (POS)</label>
           <input type="text" id="edit-locations-pos" name="locations_pos" autocomplete="off"
                  value="{% for p in config.locations.pos %}{{ p.code }}:{{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}" />
-          <small class="muted">Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...)</small>
+          <small class="muted">Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...) · vacío si no hay POS</small>
         </div>
 
         <div class="form-group">

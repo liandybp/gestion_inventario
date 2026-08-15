@@ -99,12 +99,10 @@ def _reconcile_locations(db, business, central_raw, pos_raw, default_pos_raw, co
         central.role = "central"
         central.position = 0
 
-    # POS
+    # POS (vacío = negocio sin POS: no crear y borrar los sobrantes sin datos)
     raw_parts = [p.strip() for p in (pos_raw or "").split(",") if p.strip()]
-    if not raw_parts:
-        raw_parts = ["POS1:Punto de venta 1"]
     parsed = [_parse_spec(p, "POS1", "Punto de venta 1") for p in raw_parts]
-    default_pos_code = _prefix_location_code((default_pos_raw or "").strip() or "POS1", code)
+    default_pos_code = _prefix_location_code((default_pos_raw or "").strip(), code)
 
     existing = list(db.scalars(
         select(Location).where(Location.business_id == bid, Location.role == "pos")
@@ -168,6 +166,8 @@ def _prefix_location_code(loc_code: str, business_code: str) -> str:
     prefijaba de nuevo → ``ROPA_ropa_POST2``.
     """
     loc_code = (loc_code or "").strip()
+    if not loc_code:
+        return ""  # sin código (p.ej. negocio sin POS) → vacío, sin prefijo suelto
     prefix = f"{business_code.strip().upper()}_"
     if loc_code.lower().startswith(prefix.lower()):
         return loc_code  # ya prefijado (cualquier capitalización)
@@ -282,10 +282,8 @@ def _write_business_config(
     loc_central = _prefix_location_spec(
         _s(locations_central) or "CENTRAL:Almacén Central", code
     )
-    loc_pos = _prefix_location_list(
-        _s(locations_pos) or "POS1:Punto de venta 1", code
-    )
-    loc_def = _prefix_location_code(_s(locations_default_pos) or "POS1", code)
+    loc_pos = _prefix_location_list(_s(locations_pos), code)
+    loc_def = _prefix_location_code(_s(locations_default_pos), code)
 
     # inventory
     inv_lead = _s(inventory_replenishment_lead_time_days, "25")
@@ -450,11 +448,9 @@ def business_create(
         position=0,
     ))
 
-    # POS list
+    # POS list (vacío = negocio sin POS)
     pos_specs = _parse_loc_list(_s(locations_pos))
-    if not pos_specs:
-        pos_specs = [("POS1", "Punto de venta 1")]
-    default_pos_code = _prefix_location_code(_s(locations_default_pos, "POS1"), code)
+    default_pos_code = _prefix_location_code(_s(locations_default_pos), code)
 
     for i, (pcode, pname) in enumerate(pos_specs, start=1):
         ploc_code = _prefix_location_code(pcode, code)

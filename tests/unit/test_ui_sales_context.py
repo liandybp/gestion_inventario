@@ -15,6 +15,7 @@ def _mock_config() -> SimpleNamespace:
             central=SimpleNamespace(code="CENTRAL", name="Almacen central"),
             pos=[SimpleNamespace(code="POS1", name="Tienda 1"), SimpleNamespace(code="POS2", name="Tienda 2")],
             default_pos="POS1",
+            default_sale_code=lambda: "POS1",
         )
     )
 

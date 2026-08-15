@@ -131,7 +131,7 @@ class InventoryService:
 
     def _default_pos_location_id(self) -> int:
         cfg = self._config()
-        return self._location_id_for_code(cfg.locations.default_pos)
+        return self._location_id_for_code(cfg.locations.default_sale_code())
 
     def _month_range(self, now: datetime) -> tuple[datetime, datetime]:
         return utils_month_range(now)
@@ -2662,7 +2662,7 @@ class InventoryService:
         movement_dt = self._movement_datetime(payload.movement_date)
 
         cfg = self._config()
-        selected_code = str(payload.location_code or "").strip() or str(cfg.locations.default_pos)
+        selected_code = str(payload.location_code or "").strip() or cfg.locations.default_sale_code()
         loc_id = self._location_id_for_code(selected_code)
 
         stock_before = self._inventory.stock_for_product_id(product.id, location_id=loc_id)

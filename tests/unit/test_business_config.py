@@ -159,3 +159,20 @@ enabled_types = X
     assert cfg.sales_documents.enabled_types == ["F", "P"]
 
 
+def test_locations_config_no_pos_default_sale_code():
+    """Config por defecto (sin POS) → ventas caen a la central."""
+    cfg = business_config.LocationsConfig()
+    assert cfg.pos == []
+    assert cfg.default_pos is None
+    assert cfg.default_sale_code() == "CENTRAL"
+
+
+def test_locations_config_with_pos_default_sale_code():
+    cfg = business_config.LocationsConfig(
+        pos=[business_config.LocationSpec(code="POS1", name="Tienda")],
+        default_pos="POS1",
+    )
+    assert cfg.default_sale_code() == "POS1"
+
+
+

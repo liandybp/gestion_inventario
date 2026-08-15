@@ -629,7 +629,8 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
         except HTTPException:
             return HTMLResponse("")
 
-    uom = p.unit_of_measure or ""
+    import html as _html  # H-034: escapar UOM (XSS almacenado)
+    uom = _html.escape(p.unit_of_measure or "")
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     label = f"Cantidad ({uom})" if uom else "Cantidad"
     return HTMLResponse(

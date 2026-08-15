@@ -238,7 +238,7 @@ def sales_doc_preview(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_doc_location_code
     selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
 
@@ -317,7 +317,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
 
     return templates.TemplateResponse(
         request=request,
@@ -477,7 +477,7 @@ async def sales_doc_update(
         for loc in (config.locations.pos or [])
         if getattr(loc, "code", None)
     ]
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     customers = _customers_list(db, business_id=bid, limit=200)
     draft = _get_draft(request)
 
@@ -559,9 +559,10 @@ def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Ses
         return HTMLResponse("")
 
     addr = (customer.address or "")
+    import html as _html  # H-029: escapar campos de cliente (XSS almacenado)
     return HTMLResponse(
-        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{customer.client_id}' required />"
-        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{addr}' />"
+        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{_html.escape(str(customer.client_id or ''))}' required />"
+        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{_html.escape(addr)}' />"
     )
 
 
@@ -591,7 +592,7 @@ def sales_doc_cart_add(
         if doc_type_norm not in ("F", "P"):
             doc_type_norm = "F"
 
-        default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+        default_doc_location_code = config.locations.default_sale_code()
         selected_location_code = (location_code or "").strip() or default_doc_location_code
         selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
         _set_draft(
@@ -709,7 +710,7 @@ def sales_doc_cart_add(
             for loc in (config.locations.pos or [])
             if getattr(loc, "code", None)
         ]
-        default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+        default_doc_location_code = config.locations.default_sale_code()
         return templates.TemplateResponse(
             request=request,
             name="partials/sales_document_panel.html",
@@ -752,7 +753,7 @@ def sales_doc_cart_update(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_doc_location_code
     selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
     _set_draft(
@@ -831,7 +832,7 @@ def sales_doc_cart_remove(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_doc_location_code
     selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
     _set_draft(
@@ -896,7 +897,7 @@ def sales_doc_cart_clear(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_doc_location_code
     selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
     _set_draft(
@@ -958,7 +959,7 @@ def sales_doc_issue(
     if doc_type_norm not in ("F", "P"):
         doc_type_norm = "F"
 
-    default_doc_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_doc_location_code = config.locations.default_sale_code()
     selected_location_code = (location_code or "").strip() or default_doc_location_code
     selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
 

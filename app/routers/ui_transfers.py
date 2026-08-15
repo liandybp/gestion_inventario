@@ -157,7 +157,7 @@ def transfer_update(
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_to_location_code = config.locations.default_sale_code()
     from_code = default_from_location_code
     to_code = default_to_location_code
 
@@ -298,7 +298,7 @@ def transfer_delete_selected(
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_to_location_code = config.locations.default_sale_code()
 
     from_code = default_from_location_code
     to_code = default_to_location_code
@@ -410,7 +410,7 @@ def transfer_delete(
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_to_location_code = config.locations.default_sale_code()
 
     out_id = service._transfer_out_id_for_movement_id(movement_id)
     mv_out = db.get(InventoryMovement, out_id)
@@ -501,7 +501,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
     central_code = str(config.locations.central.code).strip()
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
-    default_to_location_code = str(getattr(config.locations, "default_pos", "POS1") or "POS1")
+    default_to_location_code = config.locations.default_sale_code()
 
     form = await request.form()
 
@@ -784,7 +784,7 @@ def transfer_bulk_modal(
     cfg = get_active_business_config(db, request)
 
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
-    to_code = (to_location_code or "").strip() or str(getattr(cfg.locations, "default_pos", "POS1") or "POS1")
+    to_code = (to_location_code or "").strip() or cfg.locations.default_sale_code()
 
     code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
     for loc in (cfg.locations.pos or []):
@@ -877,7 +877,7 @@ async def transfer_bulk_execute(
     form = await request.form()
 
     from_code = (form.get("from_location_code") or "").strip() or str(cfg.locations.central.code).strip()
-    to_code = (form.get("to_location_code") or "").strip() or str(getattr(cfg.locations, "default_pos", "POS1") or "POS1")
+    to_code = (form.get("to_location_code") or "").strip() or cfg.locations.default_sale_code()
     movement_date_raw = (form.get("movement_date") or "").strip()
     note = (form.get("note") or "").strip() or None
 

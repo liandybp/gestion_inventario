@@ -55,3 +55,16 @@ def test_get_business_locations_legacy_infers_central(db_session, business_id):
     loc = get_business_locations(db_session, business_id)
     assert loc.central.code == "TEST_CENTRAL"
     assert [p.code for p in loc.pos] == ["TEST_POS1"]
+
+
+def test_get_business_locations_no_pos(db_session, business_id):
+    """Negocio sin POS (solo central) → pos vacío, default_pos None y ventas usan central."""
+    db_session.add(Location(business_id=business_id, code="TEST_CENTRAL", name="Central",
+                            role="central", position=0))
+    db_session.commit()
+
+    loc = get_business_locations(db_session, business_id)
+    assert loc.central.code == "TEST_CENTRAL"
+    assert loc.pos == []
+    assert loc.default_pos is None
+    assert loc.default_sale_code() == "TEST_CENTRAL"

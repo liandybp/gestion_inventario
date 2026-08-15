@@ -65,10 +65,8 @@ def get_business_locations(db: Session, business_id: int) -> LocationsConfig:
 
     if central is None:
         central = LocationSpec(code="CENTRAL", name="Almacén Central")
-    if not pos:
-        pos = [LocationSpec(code="POS1", name="Punto de venta 1")]
     pos_codes = {p.code for p in pos}
-    if default_pos is None or default_pos not in pos_codes:
+    if pos and (default_pos is None or default_pos not in pos_codes):
         default_pos = pos[0].code
     return LocationsConfig(central=central, pos=pos, default_pos=default_pos)
 

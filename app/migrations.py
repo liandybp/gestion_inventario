@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 
 from sqlalchemy import and_, func, select
 from sqlalchemy import text
@@ -188,6 +189,19 @@ def _run_sqlite_schema_migrations() -> int:
             except SQLAlchemyError:
                 pass
 
+        # H-053: índices compuestos en filtros calientes multi-tenant
+        for index_sql in [
+            "CREATE INDEX IF NOT EXISTS ix_products_business_sku ON products(business_id, sku)",
+            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_type_date "
+            "ON inventory_movements(business_id, type, movement_date)",
+            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_product "
+            "ON inventory_movements(business_id, product_id)",
+        ]:
+            try:
+                conn.exec_driver_sql(index_sql)
+            except SQLAlchemyError:
+                pass
+
         cols = {
             row[1] for row in conn.exec_driver_sql("PRAGMA table_info(products)").fetchall()
         }
@@ -352,6 +366,19 @@ def _run_postgresql_schema_migrations() -> int:
                 raise RuntimeError(
                     f"No se pudo crear la columna business_id en {tbl}."
                 ) from e
+
+        # H-053: índices compuestos en filtros calientes multi-tenant
+        for index_sql in [
+            "CREATE INDEX IF NOT EXISTS ix_products_business_sku ON products(business_id, sku)",
+            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_type_date "
+            "ON inventory_movements(business_id, type, movement_date)",
+            "CREATE INDEX IF NOT EXISTS ix_inventory_movements_business_product "
+            "ON inventory_movements(business_id, product_id)",
+        ]:
+            try:
+                conn.exec_driver_sql(index_sql)
+            except SQLAlchemyError:
+                pass
 
         try:
             exists = conn.exec_driver_sql(
@@ -548,20 +575,29 @@ def _run_seed_and_backfill() -> None:
         default_business = ensure_business("recambios", "Recambios")
         ensure_business("ropa", "Ropa")
 
-        users_to_ensure = [
-            {
-                "username": os.getenv("ADMIN_USERNAME", "admin"),
-                "password": os.getenv("ADMIN_PASSWORD", "admin"),
-                "role": "admin",
+        users_to_ensure = []
+        for username_env, password_env, role in [
+            ("ADMIN_USERNAME", "ADMIN_PASSWORD", "admin"),
+            ("OPERATOR_USERNAME", "OPERATOR_PASSWORD", "operator"),
+        ]:
+            username = (os.getenv(username_env) or "").strip() or role
+            password = os.getenv(password_env) or ""
+            if not password:
+                # H-036: nunca caer a credenciales triviales por defecto. Si falta la
+                # env var, generar una contraseña aleatoria y loguearla para que el
+                # operador la recupere del log del seed inicial.
+                password = secrets.token_urlsafe(16)
+                _log.warning(
+                    "No se definió %s en el entorno. Credenciales iniciales generadas: "
+                    "usuario=%r contraseña=%r (cámbiala tras el primer login).",
+                    password_env, username, password,
+                )
+            users_to_ensure.append({
+                "username": username,
+                "password": password,
+                "role": role,
                 "is_active": True,
-            },
-            {
-                "username": os.getenv("OPERATOR_USERNAME", "operator"),
-                "password": os.getenv("OPERATOR_PASSWORD", "operator"),
-                "role": "operator",
-                "is_active": True,
-            },
-        ]
+            })
 
         for spec in users_to_ensure:
             username = (spec.get("username") or "").strip()
@@ -592,7 +628,7 @@ def _run_seed_and_backfill() -> None:
         # Obtener referencias a ubicaciones para el resto del seed
         central = config.locations.central
         pos_list = list(config.locations.pos or [])
-        default_pos_code = str(config.locations.default_pos or "POS1").strip() or "POS1"
+        default_pos_code = (config.locations.default_pos or "").strip()
         
         central_loc = db.scalar(select(Location).where(
             and_(Location.code == central.code, Location.business_id == default_business.id)
