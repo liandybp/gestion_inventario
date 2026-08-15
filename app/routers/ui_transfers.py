@@ -13,10 +13,10 @@ from sqlalchemy.sql import func
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.schemas import TransferCreate, TransferLineCreate
+from app.schemas import TransferCreate, TransferLineCreate, TransferResult
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
-from app.models import InventoryMovement, Product
+from app.models import InventoryMovement, Product, User
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, parse_dt, templates
 
@@ -46,6 +46,60 @@ def _resolve_transfer_sku(db: Session, business_id: int, product_input: str) -> 
         return str(by_name.sku)
 
     raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+
+def _parse_transfer_lines(products: list[str], quantities: list[str]) -> list[TransferLineCreate]:
+    lines: list[TransferLineCreate] = []
+    for p, q in zip(products, quantities):
+        sku = (p or "").strip()
+        if " - " in sku:
+            sku = sku.split(" - ", 1)[0].strip()
+        if not sku:
+            continue
+        try:
+            qty = float((q or "").strip() or 0)
+        except Exception:
+            qty = 0
+        if qty <= 0:
+            continue
+        lines.append(TransferLineCreate(sku=sku, quantity=qty))
+    return lines
+
+
+def _audit_transfer(db: Session, user: Optional[User], result: TransferResult) -> None:
+    for line in result.lines:
+        for mv_id in (line.movements_out or []) + (line.movements_in or []):
+            log_event(
+                db,
+                user,
+                action="transfer_create",
+                entity_type="movement",
+                entity_id=str(mv_id),
+                detail={
+                    "sku": line.sku,
+                    "quantity": float(line.quantity),
+                    "from_location_code": result.from_location_code,
+                    "to_location_code": result.to_location_code,
+                    "transfer_ref": result.transfer_ref,
+                },
+            )
+
+
+def _stock_options(service: InventoryService, from_code: str) -> list[dict]:
+    options = [
+        p for p in service.stock_list(query="", location_code=from_code)
+        if float(getattr(p, "quantity", 0) or 0) > 0
+    ]
+    return [
+        {
+            "sku": str(getattr(p, "sku", "") or ""),
+            "name": str(getattr(p, "name", "") or ""),
+            "uom": str(getattr(p, "unit_of_measure", "") or ""),
+            "stock": float(getattr(p, "quantity", 0) or 0),
+        }
+        for p in options
+        if str(getattr(p, "sku", "") or "")
+    ]
 
 
 @router.get("/movement/transfer/{movement_id}/edit", response_class=HTMLResponse)
@@ -462,21 +516,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
 
     products = form.getlist("product")
     quantities = form.getlist("quantity")
-
-    lines: list[TransferLineCreate] = []
-    for p, q in zip(products, quantities):
-        sku = (p or "").strip()
-        if " - " in sku:
-            sku = sku.split(" - ", 1)[0].strip()
-        if not sku:
-            continue
-        try:
-            qty = float((q or "").strip() or 0)
-        except Exception:
-            qty = 0
-        if qty <= 0:
-            continue
-        lines.append(TransferLineCreate(sku=sku, quantity=qty))
+    lines = _parse_transfer_lines(products, quantities)
 
     movement_date = parse_dt(movement_date_raw) if movement_date_raw else None
 
@@ -494,22 +534,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
         )
 
         if user is not None:
-            for line in result.lines:
-                for mv_id in (line.movements_out or []) + (line.movements_in or []):
-                    log_event(
-                        db,
-                        user,
-                        action="transfer_create",
-                        entity_type="movement",
-                        entity_id=str(mv_id),
-                        detail={
-                            "sku": line.sku,
-                            "quantity": float(line.quantity),
-                            "from_location_code": result.from_location_code,
-                            "to_location_code": result.to_location_code,
-                            "transfer_ref": result.transfer_ref,
-                        },
-                    )
+            _audit_transfer(db, user, result)
 
         recent_transfer_out = service.movement_history(
             movement_type="transfer_out",
@@ -740,3 +765,160 @@ def transfer_print(
             "items": items,
         },
     )
+
+
+@router.get("/transfers/bulk", response_class=HTMLResponse)
+def transfer_bulk_modal(
+    request: Request,
+    db: Session = Depends(session_dep),
+    from_location_code: str = "",
+    to_location_code: str = "",
+    movement_date: str = "",
+    note: str = "",
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    cfg = get_active_business_config(db, request)
+
+    from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
+    to_code = (to_location_code or "").strip() or str(getattr(cfg.locations, "default_pos", "POS1") or "POS1")
+
+    code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
+    for loc in (cfg.locations.pos or []):
+        code_to_name[str(loc.code)] = str(loc.name)
+
+    from_name = code_to_name.get(from_code, from_code)
+    to_name = code_to_name.get(to_code, to_code)
+
+    if from_code == to_code:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/transfer_bulk_modal.html",
+            context={
+                "from_code": from_code,
+                "to_code": to_code,
+                "from_name": from_name,
+                "to_name": to_name,
+                "movement_date": movement_date,
+                "note": note,
+                "products": [],
+                "message": "Origen y destino son iguales",
+                "message_class": "warn",
+                "message_detail": "Selecciona ubicaciones diferentes para poder traspasar.",
+                "checked_skus": set(),
+                "quantities": {},
+            },
+        )
+
+    products = _stock_options(service, from_code)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/transfer_bulk_modal.html",
+        context={
+            "from_code": from_code,
+            "to_code": to_code,
+            "from_name": from_name,
+            "to_name": to_name,
+            "movement_date": movement_date,
+            "note": note,
+            "products": products,
+            "message": "",
+            "message_class": "",
+            "message_detail": "",
+            "checked_skus": set(),
+            "quantities": {},
+        },
+    )
+
+
+@router.post("/transfers/bulk", response_class=HTMLResponse)
+async def transfer_bulk_execute(
+    request: Request,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ensure_admin_or_owner(db, request)
+    bid = require_active_business_id(db, request)
+    service = InventoryService(db, business_id=bid)
+    cfg = get_active_business_config(db, request)
+
+    form = await request.form()
+
+    from_code = (form.get("from_location_code") or "").strip() or str(cfg.locations.central.code).strip()
+    to_code = (form.get("to_location_code") or "").strip() or str(getattr(cfg.locations, "default_pos", "POS1") or "POS1")
+    movement_date_raw = (form.get("movement_date") or "").strip()
+    note = (form.get("note") or "").strip() or None
+
+    code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
+    for loc in (cfg.locations.pos or []):
+        code_to_name[str(loc.code)] = str(loc.name)
+
+    submitted_products = form.getlist("product")
+    lines = _parse_transfer_lines(submitted_products, form.getlist("quantity"))
+
+    try:
+        movement_date = parse_dt(movement_date_raw) if movement_date_raw else None
+    except ValueError:
+        movement_date = None
+
+    user = get_current_user_from_session(db, request)
+
+    def _modal_response(message: str, message_class: str, message_detail: str,
+                        checked_skus: set, quantities_map: dict, keep_open: bool) -> HTMLResponse:
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/transfer_bulk_modal.html",
+            context={
+                "from_code": from_code,
+                "to_code": to_code,
+                "from_name": code_to_name.get(from_code, from_code),
+                "to_name": code_to_name.get(to_code, to_code),
+                "movement_date": movement_date_raw,
+                "note": note or "",
+                "products": _stock_options(service, from_code),
+                "message": message,
+                "message_class": message_class,
+                "message_detail": message_detail,
+                "checked_skus": checked_skus,
+                "quantities": quantities_map,
+            },
+        )
+        if keep_open:
+            response.headers["X-Modal-Keep"] = "1"
+        return response
+
+    parsed_skus = {line.sku for line in lines}
+    dropped = [sku for sku in submitted_products if (sku or "").strip() and (sku or "").strip() not in parsed_skus]
+    if dropped:
+        quantities_map = {line.sku: line.quantity for line in lines}
+        return _modal_response("Error en traspaso", "error",
+                               "Cantidad inválida o vacía para: " + ", ".join(dropped),
+                               set(quantities_map.keys()), quantities_map, True)
+
+    if not lines:
+        return _modal_response("Error en traspaso", "error",
+                               "Selecciona al menos un producto para traspasar.", set(), {}, True)
+
+    try:
+        result = service.transfer(
+            TransferCreate(
+                from_location_code=from_code,
+                to_location_code=to_code,
+                lines=lines,
+                movement_date=movement_date,
+                note=note,
+            )
+        )
+    except HTTPException as e:
+        checked_skus = {line.sku for line in lines}
+        quantities_map = {line.sku: line.quantity for line in lines}
+        return _modal_response("Error en traspaso", "error",
+                               str(getattr(e, "detail", e)), checked_skus, quantities_map, True)
+
+    if user is not None:
+        _audit_transfer(db, user, result)
+
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "transferBulkSuccess"
+    return response

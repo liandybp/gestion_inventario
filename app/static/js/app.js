@@ -245,6 +245,46 @@
     }
   }
 
+  function _toggleBulkRow(cb, checked) {
+    const row = cb.closest('tr');
+    if (!row) return;
+    const qty = row.querySelector('input[name="quantity"]');
+    const prod = row.querySelector('input[name="product"]');
+    if (qty) qty.disabled = !checked;
+    if (prod) prod.disabled = !checked;
+  }
+
+  function onTransferBulkCheckboxChange(evt) {
+    const cb = evt.target.closest('.transfer-bulk-check');
+    if (!cb) return;
+    _toggleBulkRow(cb, cb.checked);
+  }
+
+  function onTransferBulkSelectAll(evt) {
+    const master = evt.target.closest('#transfer-bulk-select-all');
+    if (!master) return;
+    const modal = master.closest('.modal-overlay');
+    if (!modal) return;
+    modal.querySelectorAll('.transfer-bulk-check').forEach((cb) => {
+      const row = cb.closest('tr');
+      if (row && row.style.display === 'none') return;
+      cb.checked = master.checked;
+      _toggleBulkRow(cb, master.checked);
+    });
+  }
+
+  function onTransferBulkSearch(evt) {
+    const input = evt.target.closest('#transfer-bulk-search');
+    if (!input) return;
+    const q = (input.value || '').toLowerCase();
+    const modal = input.closest('.modal-overlay');
+    if (!modal) return;
+    modal.querySelectorAll('.transfer-bulk-row').forEach((row) => {
+      const hay = (row.getAttribute('data-search') || '').indexOf(q) !== -1;
+      row.style.display = hay ? '' : 'none';
+    });
+  }
+
   function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -568,6 +608,14 @@
   document.addEventListener('click', onTransferRemoveLine);
   document.addEventListener('click', onTransferToggleEdit);
   document.addEventListener('change', onTransferProductChange);
+  document.addEventListener('change', onTransferBulkCheckboxChange);
+  document.addEventListener('change', onTransferBulkSelectAll);
+  document.addEventListener('input', onTransferBulkSearch);
+  document.addEventListener('transferBulkSuccess', () => {
+    try {
+      window.htmx.ajax('GET', '/ui/tabs/transfers', { target: '#tab-content', swap: 'innerHTML' });
+    } catch (e) {}
+  });
 
   document.addEventListener('htmx:beforeRequest', (evt) => {
     const elt = evt.detail && evt.detail.elt;

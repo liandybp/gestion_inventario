@@ -1,0 +1,70 @@
+{% from 'components/ui.html' import flash %}
+<div class="modal-overlay" id="transfer-bulk-modal">
+  <div class="modal-container" style="max-width: 760px;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Traspaso masivo</h3>
+        <button type="button" class="modal-close" data-modal-close="transfer-bulk-modal">&times;</button>
+      </div>
+
+      {{ flash(message, message_class or '', message_detail) }}
+
+      <p class="muted">
+        Origen: <strong>{{ from_name }}</strong> &rarr; Destino: <strong>{{ to_name }}</strong>
+      </p>
+
+      <div class="row">
+        <label>Buscar</label>
+        <input type="text" id="transfer-bulk-search" placeholder="Filtrar por SKU o nombre" />
+      </div>
+
+      <form hx-post="/ui/transfers/bulk" hx-target="#transfer-bulk-modal" hx-swap="outerHTML" hx-indicator="#transfer-bulk-loading">
+        <input type="hidden" name="from_location_code" value="{{ from_code }}" />
+        <input type="hidden" name="to_location_code" value="{{ to_code }}" />
+        <input type="hidden" name="movement_date" value="{{ movement_date or '' }}" />
+        <input type="hidden" name="note" value="{{ note or '' }}" />
+
+        <div class="table-wrapper" style="max-height: 48vh; overflow-y: auto;">
+          <table class="table-compact transfer-bulk-table">
+            <thead>
+              <tr>
+                <th style="width: 3%;">
+                  <input type="checkbox" id="transfer-bulk-select-all" aria-label="Seleccionar todo" />
+                </th>
+                <th>Producto</th>
+                <th style="width: 120px;" class="text-right">Stock</th>
+                <th style="width: 150px;" class="text-right">Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+                {% set is_checked = (p.sku in checked_skus) %}
+                {% set qty_value = quantities.get(p.sku, p.stock) %}
+              <tr class="transfer-bulk-row" data-search="{{ (p.sku ~ ' ' ~ (p.name or ''))|lower }}">
+                <td>
+                  <input type="checkbox" class="transfer-bulk-check" {% if is_checked %}checked{% endif %} />
+                </td>
+                <td><code>{{ p.sku }}</code> {{ p.name }}{% if p.uom %} <span class="muted">({{ p.uom }})</span>{% endif %}</td>
+                <td class="text-right nowrap">{{ "%.2f"|format(p.stock) }}</td>
+                <td class="text-right">
+                  <input type="hidden" name="product" value="{{ p.sku }}" {% if not is_checked %}disabled{% endif %} />
+                  <input type="number" name="quantity" step="0.01" min="0" value="{{ qty_value }}" {% if not is_checked %}disabled{% endif %} />
+                </td>
+              </tr>
+              {% endfor %}
+              {% if not products %}
+              <tr><td colspan="4" class="muted text-center">No hay stock en {{ from_name }}.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-12 flex gap-10 items-center">
+          <button type="submit" class="mb-0">Traspasar</button>
+          <button type="button" class="btn-secondary mb-0" data-modal-close="transfer-bulk-modal">Cancelar</button>
+          <span id="transfer-bulk-loading" class="htmx-indicator">Procesando...</span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
