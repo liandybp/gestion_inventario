@@ -21,8 +21,12 @@
       <form hx-post="/ui/transfers/bulk" hx-target="#transfer-bulk-modal" hx-swap="outerHTML" hx-indicator="#transfer-bulk-loading">
         <input type="hidden" name="from_location_code" value="{{ from_code }}" />
         <input type="hidden" name="to_location_code" value="{{ to_code }}" />
-        <input type="hidden" name="movement_date" value="{{ movement_date or '' }}" />
         <input type="hidden" name="note" value="{{ note or '' }}" />
+
+        <div class="row">
+          <label>Fecha</label>
+          <input type="datetime-local" name="movement_date" value="{{ movement_date or '' }}" />
+        </div>
 
         <div class="table-wrapper" style="max-height: 48vh; overflow-y: auto;">
           <table class="table-compact transfer-bulk-table">
