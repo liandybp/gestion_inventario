@@ -18,6 +18,19 @@
         <input type="text" id="transfer-bulk-search" placeholder="Filtrar por SKU o nombre" />
       </div>
 
+      <div class="row">
+        <label>Traspasados entre</label>
+        <div class="flex gap-10" style="align-items: center;">
+          <input type="date" name="from_date" value="{{ from_date or '' }}"
+                 hx-get="/ui/transfers/bulk" hx-trigger="change" hx-target="#transfer-bulk-modal" hx-swap="outerHTML"
+                 hx-include="[name='from_location_code'], [name='to_location_code'], [name='from_date'], [name='to_date'], [name='movement_date'], [name='note']" />
+          <span class="muted">y</span>
+          <input type="date" name="to_date" value="{{ to_date or '' }}"
+                 hx-get="/ui/transfers/bulk" hx-trigger="change" hx-target="#transfer-bulk-modal" hx-swap="outerHTML"
+                 hx-include="[name='from_location_code'], [name='to_location_code'], [name='from_date'], [name='to_date'], [name='movement_date'], [name='note']" />
+        </div>
+      </div>
+
       <form hx-post="/ui/transfers/bulk" hx-target="#transfer-bulk-modal" hx-swap="outerHTML" hx-indicator="#transfer-bulk-loading">
         <input type="hidden" name="from_location_code" value="{{ from_code }}" />
         <input type="hidden" name="to_location_code" value="{{ to_code }}" />

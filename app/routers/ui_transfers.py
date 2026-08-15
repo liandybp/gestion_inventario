@@ -1,7 +1,7 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 from typing import Optional
 
@@ -775,6 +775,8 @@ def transfer_bulk_modal(
     to_location_code: str = "",
     movement_date: str = "",
     note: str = "",
+    from_date: str = "",
+    to_date: str = "",
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
@@ -802,6 +804,8 @@ def transfer_bulk_modal(
                 "to_name": to_name,
                 "movement_date": movement_date,
                 "note": note,
+                "from_date": (from_date or "").strip(),
+                "to_date": (to_date or "").strip(),
                 "products": [],
                 "message": "Origen y destino son iguales",
                 "message_class": "warn",
@@ -813,6 +817,31 @@ def transfer_bulk_modal(
 
     products = _stock_options(service, from_code)
 
+    from_date_s = (from_date or "").strip()
+    to_date_s = (to_date or "").strip()
+    if from_date_s or to_date_s:
+        start_dt = parse_dt(from_date_s) if from_date_s else None
+        end_dt = parse_dt(to_date_s) if to_date_s else None
+        if end_dt is not None:
+            end_dt = end_dt + timedelta(days=1)
+        mv_filters = [
+            InventoryMovement.business_id == bid,
+            InventoryMovement.type == "transfer_out",
+        ]
+        if start_dt is not None:
+            mv_filters.append(InventoryMovement.movement_date >= start_dt)
+        if end_dt is not None:
+            mv_filters.append(InventoryMovement.movement_date < end_dt)
+        transferred_skus = set(
+            db.scalars(
+                select(Product.sku)
+                .join(InventoryMovement, InventoryMovement.product_id == Product.id)
+                .where(*mv_filters)
+                .distinct()
+            ).all()
+        )
+        products = [p for p in products if p["sku"] in transferred_skus]
+
     return templates.TemplateResponse(
         request=request,
         name="partials/transfer_bulk_modal.html",
@@ -823,6 +852,8 @@ def transfer_bulk_modal(
             "to_name": to_name,
             "movement_date": movement_date,
             "note": note,
+            "from_date": from_date_s,
+            "to_date": to_date_s,
             "products": products,
             "message": "",
             "message_class": "",
