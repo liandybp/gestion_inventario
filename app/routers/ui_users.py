@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import AuditLog, Business, ChatMessage, DashboardWidget, User, UserBusiness
+from app.models import AuditLog, ChatMessage, DashboardWidget, User
 from app.security import get_current_user_from_session, get_user_business_ids
+from app.repositories.user_repository import UserRepository
 from app.routers.ui_common import ensure_admin, templates
 
 router = APIRouter()
@@ -54,19 +54,16 @@ def _sync_user_businesses(db: Session, user: User, business_ids: list[int]) -> N
         business_ids = business_ids[:1]
 
     # Remove existing assignments
-    db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
-        synchronize_session=False
-    )
-    for bid in business_ids:
-        db.add(UserBusiness(user_id=int(user.id), business_id=int(bid)))
+    UserRepository(db).set_user_businesses(int(user.id), business_ids)
     user.business_id = int(business_ids[0]) if business_ids else None
 
 
 def _users_tab_context(db: Session) -> dict:
     """Build the shared context for the users tab, including a map of
     user_id → assigned business_ids for rendering the multi-business column."""
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    repo = UserRepository(db)
+    users = repo.list_users()
+    businesses = repo.list_businesses()
     user_business_map: dict[int, list[int]] = {}
     for u in users:
         user_business_map[int(u.id)] = get_user_business_ids(db, int(u.id))
@@ -96,10 +93,11 @@ def user_create(
     if not password:
         raise HTTPException(status_code=422, detail="Password es requerido")
 
-    existing = db.scalar(select(User).where(User.username == username))
+    existing = UserRepository(db).get_by_username(username)
     if existing is not None:
-        users = list(db.scalars(select(User).order_by(User.username.asc())))
-        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        users_repo = UserRepository(db)
+        users = users_repo.list_users()
+        businesses = users_repo.list_businesses()
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
@@ -122,8 +120,9 @@ def user_create(
     bid_list = _coerce_business_ids(business_ids)
 
     if role_norm in ("owner", "operator") and not bid_list:
-        users = list(db.scalars(select(User).order_by(User.username.asc())))
-        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        users_repo = UserRepository(db)
+        users = users_repo.list_users()
+        businesses = users_repo.list_businesses()
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
@@ -164,8 +163,9 @@ def user_create(
         )
         db.commit()
 
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    users_repo = UserRepository(db)
+    users = users_repo.list_users()
+    businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
@@ -188,10 +188,10 @@ def user_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    user = db.get(User, user_id)
+    user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    businesses = UserRepository(db).list_businesses()
     user_business_ids = get_user_business_ids(db, user_id)
     return templates.TemplateResponse(
         request=request,
@@ -216,7 +216,7 @@ def user_update(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
-    user = db.get(User, user_id)
+    user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -224,9 +224,9 @@ def user_update(
     if not username:
         raise HTTPException(status_code=422, detail="Username es requerido")
 
-    existing = db.scalar(select(User).where(User.username == username, User.id != user_id))
+    existing = UserRepository(db).get_by_username(username)
     if existing is not None:
-        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        businesses = UserRepository(db).list_businesses()
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
@@ -251,7 +251,7 @@ def user_update(
     bid_list = _coerce_business_ids(business_ids)
 
     if role_norm in ("owner", "operator") and not bid_list:
-        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        businesses = UserRepository(db).list_businesses()
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
@@ -287,8 +287,9 @@ def user_update(
         )
         db.commit()
 
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    users_repo = UserRepository(db)
+    users = users_repo.list_users()
+    businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
@@ -312,13 +313,14 @@ def user_delete(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
-    user = db.get(User, user_id)
+    user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     if current_user and current_user.id == user.id:
-        users = list(db.scalars(select(User).order_by(User.username.asc())))
-        businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+        users_repo = UserRepository(db)
+        users = users_repo.list_users()
+        businesses = users_repo.list_businesses()
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
@@ -337,9 +339,7 @@ def user_delete(
     username = user.username
     # Desvincular registros de auditoría (FK) y asignaciones multi-negocio
     # antes de borrar el usuario, para no violar las FKs.
-    db.query(UserBusiness).filter(UserBusiness.user_id == int(user.id)).delete(
-        synchronize_session=False
-    )
+    UserRepository(db).set_user_businesses(int(user.id), [])
     db.query(AuditLog).filter(AuditLog.user_id == int(user.id)).update(
         {AuditLog.user_id: None}, synchronize_session=False
     )
@@ -364,8 +364,9 @@ def user_delete(
         )
         db.commit()
 
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    users_repo = UserRepository(db)
+    users = users_repo.list_users()
+    businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
@@ -388,7 +389,7 @@ def user_reset_password_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    user = db.get(User, user_id)
+    user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return templates.TemplateResponse(
@@ -408,7 +409,7 @@ def user_reset_password(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
-    user = db.get(User, user_id)
+    user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -430,8 +431,9 @@ def user_reset_password(
         )
         db.commit()
 
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    users_repo = UserRepository(db)
+    users = users_repo.list_users()
+    businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
@@ -450,8 +452,9 @@ def user_reset_password(
 @router.get("/tabs/users", response_class=HTMLResponse)
 def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin(db, request)
-    users = list(db.scalars(select(User).order_by(User.username.asc())))
-    businesses = list(db.scalars(select(Business).order_by(Business.name.asc())))
+    users_repo = UserRepository(db)
+    users = users_repo.list_users()
+    businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,

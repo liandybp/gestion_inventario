@@ -63,7 +63,7 @@ def stock_table(
     default_filter = "all"
     effective_filter = stock_filter if stock_filter in ("all", "in_stock", "zero") else default_filter
 
-    items = inventory_service.stock_list(query=query, location_code=loc)
+    items = inventory_service.stock_list(query=query, location_code=loc, limit=200)
     cat = (category or "").strip()
     if cat:
         items = [i for i in items if str(getattr(i, "category", "") or "").strip() == cat]

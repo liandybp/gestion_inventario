@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from app.models import Customer, Location, Product, SalesDocument, SalesDocument
 from app.sales_document_pdf import build_sales_document_pdf
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.product_service import ProductService
+from app.services.sales_document_service import SalesDocumentService
 
 from app.utils import query_match
 
@@ -54,11 +55,11 @@ def _resolve_currency(config, currency_code: Optional[str]) -> tuple[str, str]:
 
 
 def _upsert_customer(db: Session, *, client_id: str, name: str, address: Optional[str], business_id: int) -> Customer:
-    stmt = select(Customer).where(Customer.client_id == client_id, Customer.business_id == int(business_id))
-    customer = db.scalar(stmt)
+    svc = SalesDocumentService(db, business_id)
+    customer = svc.get_customer_by_client_id(client_id)
     if customer is None:
         customer = Customer(client_id=client_id, name=name, address=address, business_id=int(business_id))
-        db.add(customer)
+        svc.add_customer(customer)
         db.flush()
         return customer
     customer.name = name
@@ -167,23 +168,11 @@ def _clear_draft(request: Request) -> None:
 
 
 def _recent_documents(db: Session, limit: int = 10, business_id: int = 0) -> list[SalesDocument]:
-    stmt = (
-        select(SalesDocument)
-        .where(SalesDocument.business_id == int(business_id))
-        .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
-        .limit(limit)
-    )
-    return list(db.scalars(stmt))
+    return SalesDocumentService(db, business_id).list_recent(limit=limit)
 
 
 def _customers_list(db: Session, *, business_id: int, limit: int = 200) -> list[Customer]:
-    stmt = (
-        select(Customer)
-        .where(Customer.business_id == int(business_id))
-        .order_by(Customer.name.asc(), Customer.id.asc())
-        .limit(limit)
-    )
-    return list(db.scalars(stmt))
+    return SalesDocumentService(db, business_id).customers_list(limit=limit)
 
 
 def _location_id_for_code(db: Session, *, location_code: str, business_id: int) -> Optional[int]:
@@ -273,13 +262,13 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     bid = require_active_business_id(db, request)
     config = get_active_business_config(db, request)
 
-    doc = db.get(SalesDocument, doc_id)
+    doc = SalesDocumentService(db, bid).get(doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    items = list(db.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    items = SalesDocumentService(db, bid).get_items(doc.id)
     for it in items:
         db.delete(it)
     db.delete(doc)
@@ -319,18 +308,13 @@ def sales_doc_edit_form(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    doc = db.get(SalesDocument, doc_id)
+    svc = SalesDocumentService(db, bid)
+    doc = svc.get(doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
-    items = list(
-        db.scalars(
-            select(SalesDocumentItem)
-            .where(SalesDocumentItem.document_id == doc.id)
-            .order_by(SalesDocumentItem.line_no.asc(), SalesDocumentItem.id.asc())
-        )
-    )
+    items = svc.get_items_ordered(doc.id)
     return templates.TemplateResponse(
         request=request,
         name="partials/sales_document_edit_form.html",
@@ -351,7 +335,8 @@ async def sales_doc_update(
     bid = require_active_business_id(db, request)
     config = get_active_business_config(db, request)
 
-    doc = db.get(SalesDocument, doc_id)
+    svc = SalesDocumentService(db, bid)
+    doc = svc.get(doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
@@ -371,13 +356,7 @@ async def sales_doc_update(
     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
     doc.customer_id = customer.id
 
-    items = list(
-        db.scalars(
-            select(SalesDocumentItem)
-            .where(SalesDocumentItem.document_id == doc.id)
-            .order_by(SalesDocumentItem.line_no.asc(), SalesDocumentItem.id.asc())
-        )
-    )
+    items = svc.get_items_ordered(doc.id)
 
     subtotal = 0.0
     next_line = 1
@@ -505,27 +484,14 @@ def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Ses
         if len(parts) >= 2:
             extracted_id = parts[-1]
 
+    svc = SalesDocumentService(db, bid)
     customer = None
     if extracted_id:
-        stmt = select(Customer).where(Customer.client_id == extracted_id, Customer.business_id == int(bid))
-        customer = db.scalar(stmt)
+        customer = svc.get_customer_by_client_id(extracted_id)
     if customer is None:
-        stmt = (
-            select(Customer)
-            .where(Customer.name.ilike(raw), Customer.business_id == int(bid))
-            .order_by(Customer.id.asc())
-            .limit(1)
-        )
-        customer = db.scalar(stmt)
+        customer = svc.get_customer_by_name(raw)
     if customer is None:
-        like = f"%{raw}%"
-        stmt = (
-            select(Customer)
-            .where(Customer.name.ilike(like), Customer.business_id == int(bid))
-            .order_by(Customer.id.asc())
-            .limit(1)
-        )
-        customer = db.scalar(stmt)
+        customer = svc.get_customer_by_name_like(raw)
 
     if customer is None:
         return HTMLResponse("")
@@ -935,9 +901,7 @@ def sales_doc_issue(
     year_month = now.strftime("%Y%m")
     yyyymmdd = now.strftime("%Y%m%d")
 
-    max_seq_stmt = select(func.max(SalesDocument.seq)).where(SalesDocument.year_month == year_month)
-    max_seq_stmt = max_seq_stmt.where(SalesDocument.business_id == int(bid))
-    max_seq = db.scalar(max_seq_stmt)
+    max_seq = SalesDocumentService(db, bid).max_seq(year_month)
     seq = int(max_seq or 0) + 1
     code = f"{doc_type_norm}{yyyymmdd}{seq:04d}"
 
@@ -1037,19 +1001,14 @@ def sales_doc_pdf(
 ) -> Response:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    doc = db.get(SalesDocument, doc_id)
+    svc = SalesDocumentService(db, bid)
+    doc = svc.get(doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    items = list(
-        db.scalars(
-            select(SalesDocumentItem)
-            .where(SalesDocumentItem.document_id == doc.id)
-            .order_by(SalesDocumentItem.line_no.asc())
-        )
-    )
+    items = svc.get_items_ordered(doc.id)
 
     config = get_active_business_config(db, request)
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
@@ -1120,13 +1079,8 @@ def tab_documents(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
-    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
-    if start_dt is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
-    if end_dt is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
-    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
-    recent_documents = list(db.scalars(doc_stmt))
+    svc = SalesDocumentService(db, bid)
+    recent_documents = svc.list_recent(limit=200, start=start_dt, end=end_dt)
     q = (query or "").strip()
     if q:
         recent_documents = [
@@ -1135,8 +1089,7 @@ def tab_documents(
             if query_match(q, str(getattr(d, "code", "") or ""), str(getattr(d, "client_name", "") or ""))
         ]
     recent_documents = recent_documents[:10]
-    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
-    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    customers = svc.customers_list(limit=200)
 
     return templates.TemplateResponse(
         request=request,

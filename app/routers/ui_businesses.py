@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,16 +14,22 @@ from app.audit import log_event
 from app.business_config import parse_opening_pending
 from app.deps import session_dep
 from app.models import (
-    Business,
     InventoryLot,
     InventoryMovement,
     Location,
-    Product,
     SalesDocument,
-    User,
-    UserBusiness,
 )
-from app.repositories.business_repository import get_business_config
+from app.repositories.business_repository import (
+    count_other_businesses,
+    count_related,
+    create_business,
+    delete_business,
+    get_business,
+    get_business_by_code,
+    get_business_by_code_excluding,
+    get_business_config,
+    list_businesses,
+)
 from app.routers.ui_common import ensure_admin, templates
 from app.security import get_current_user_from_session
 
@@ -396,9 +402,9 @@ def business_create(
     def _s(v, fb: str = "") -> str:
         return _str_form(v, fb)
 
-    existing = db.scalar(select(Business).where(Business.code == code))
+    existing = get_business_by_code(db, code)
     if existing is not None:
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_businesses.html",
@@ -411,9 +417,7 @@ def business_create(
             status_code=409,
         )
 
-    new_business = Business(code=code, name=name)
-    db.add(new_business)
-    db.flush()
+    new_business = create_business(db, code, name)
 
     # ── Locations: parse CODE:NAME specs from the form ──────────
     def _parse_loc(raw: str, fb_code: str, fb_name: str) -> tuple[str, str]:
@@ -495,7 +499,7 @@ def business_create(
         db.commit()
     except IntegrityError:
         db.rollback()
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_businesses.html",
@@ -526,7 +530,7 @@ def business_create(
         )
         db.commit()
 
-    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_businesses.html",
@@ -548,7 +552,7 @@ def business_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin(db, request)
-    business = db.get(Business, business_id)
+    business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
 
@@ -604,7 +608,7 @@ def business_update(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
-    business = db.get(Business, business_id)
+    business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
 
@@ -620,9 +624,7 @@ def business_update(
     def _s(v, fb: str = "") -> str:
         return _str_form(v, fb)
 
-    existing = db.scalar(
-        select(Business).where(Business.code == code, Business.id != business_id)
-    )
+    existing = get_business_by_code_excluding(db, code, business_id)
     if existing is not None:
         response = templates.TemplateResponse(
             request=request,
@@ -698,7 +700,7 @@ def business_update(
         )
         db.commit()
 
-    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_businesses.html",
@@ -719,16 +721,14 @@ def business_delete(
 ) -> HTMLResponse:
     ensure_admin(db, request)
     current_user = get_current_user_from_session(db, request)
-    business = db.get(Business, business_id)
+    business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
 
     # Prevent deleting the last business
-    remaining = db.scalar(
-        select(func.count()).select_from(Business).where(Business.id != business_id)
-    ) or 0
+    remaining = count_other_businesses(db, business_id)
     if remaining == 0:
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_businesses.html",
@@ -745,31 +745,14 @@ def business_delete(
     name = business.name
 
     # Explicit dependency checks (works on both SQLite and Postgres)
-    user_count = db.scalar(
-        select(func.count()).select_from(User).where(User.business_id == business_id)
-    ) or 0
-    product_count = db.scalar(
-        select(func.count()).select_from(Product).where(Product.business_id == business_id)
-    ) or 0
-    # Ubicaciones "adicionales" = todo menos la CENTRAL (por rol o por código,
-    # en mayúsculas o minúsculas — bug case-sensitivity corregido).
-    other_location_count = db.scalar(
-        select(func.count())
-        .select_from(Location)
-        .where(
-            Location.business_id == business_id,
-            or_(Location.role.is_(None), Location.role != "central"),
-            Location.code.not_in([f"{code}_CENTRAL", f"{code.upper()}_CENTRAL"]),
-        )
-    ) or 0
-    user_business_count = db.scalar(
-        select(func.count())
-        .select_from(UserBusiness)
-        .where(UserBusiness.business_id == business_id)
-    ) or 0
+    related = count_related(db, business_id, code)
+    user_count = related["users"]
+    product_count = related["products"]
+    other_location_count = related["locations"]
+    user_business_count = related["user_businesses"]
 
     if user_count > 0 or product_count > 0 or other_location_count > 0 or user_business_count > 0:
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        businesses = list_businesses(db)
         parts = []
         if user_count > 0:
             parts.append(f"{user_count} usuario(s)")
@@ -799,11 +782,11 @@ def business_delete(
     db.query(Location).filter(Location.business_id == business_id).delete(synchronize_session=False)
 
     try:
-        db.delete(business)
+        delete_business(db, business_id)
         db.commit()
     except IntegrityError:
         db.rollback()
-        businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+        businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
             name="partials/tab_businesses.html",
@@ -830,7 +813,7 @@ def business_delete(
         )
         db.commit()
 
-    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_businesses.html",
@@ -846,7 +829,7 @@ def business_delete(
 @router.get("/tabs/businesses", response_class=HTMLResponse)
 def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ensure_admin(db, request)
-    businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+    businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_businesses.html",

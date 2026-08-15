@@ -8,13 +8,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 import pdfplumber
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.models import InventoryLot, InventoryMovement, Product
+from app.repositories.purchase_repository import PurchaseRepository
+from app.models import Product
 from app.schemas import PurchaseCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
@@ -204,9 +204,7 @@ def purchase_from_invoice(
             continue
 
         try:
-            stmt = select(Product).where(Product.sku == sku)
-            stmt = stmt.where(Product.business_id == int(bid))
-            product = db.scalar(stmt)
+            product = PurchaseRepository(db, bid).get_product_by_sku(sku)
             if product is None:
                 category = getattr(line, "category", None)
                 product = Product(
@@ -345,7 +343,7 @@ def purchase(
     product_service = ProductService(db, business_id=bid)
 
     def _generate_auto_sku(prefix: str = "SKU", width: int = 6) -> str:
-        rows = db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
+        rows = PurchaseRepository(db, bid).list_sku_prefixes(prefix)
         existing = [str(sku or "") for (sku,) in rows]
         max_n = 0
         for s in existing:
@@ -393,9 +391,7 @@ def purchase(
                 raise HTTPException(status_code=409, detail="No se pudo generar un SKU automáticamente") from last_error
 
         try:
-            stmt = select(Product).where(Product.sku == sku)
-            stmt = stmt.where(Product.business_id == int(bid))
-            existing_product = db.scalar(stmt)
+            existing_product = PurchaseRepository(db, bid).get_product_by_sku(sku)
         except Exception:
             _log.error("existing_product lookup fallback para sku %r", sku)
             existing_product = None
@@ -507,12 +503,13 @@ def purchase_label_print(
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     _, _, currency_code, _ = _purchase_config_values(db, request)
-    mv = db.get(InventoryMovement, movement_id)
+    repo = PurchaseRepository(db, bid)
+    mv = repo.get_movement(movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     if int(getattr(mv, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Purchase movement not found")
-    product = db.get(Product, mv.product_id)
+    product = repo.get_product(mv.product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -532,13 +529,14 @@ def purchase_edit_form(
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
-    mv = db.get(InventoryMovement, movement_id)
+    repo = PurchaseRepository(db, bid)
+    mv = repo.get_movement(movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     if int(getattr(mv, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Purchase movement not found")
-    product = db.get(Product, mv.product_id)
-    lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
+    product = repo.get_product(mv.product_id)
+    lot = repo.get_lot_by_movement(mv.id)
     product_service = ProductService(db, business_id=bid)
     _, _, currency_code, _ = _purchase_config_values(db, request)
     return templates.TemplateResponse(
@@ -727,21 +725,22 @@ def purchase_delete_selected(
         skipped: list[str] = []
 
         def _resolve_purchase_movement_id(candidate_id: int) -> Optional[int]:
-            mv = db.get(InventoryMovement, int(candidate_id))
+            repo = PurchaseRepository(db, bid)
+            mv = repo.get_movement(int(candidate_id))
             if mv is not None:
                 if mv.type == "purchase" and int(getattr(mv, "business_id", 0) or 0) == int(bid):
                     return int(mv.id)
                 skipped.append(f"{candidate_id}: no es compra o es de otro negocio")
                 return None
 
-            lot = db.get(InventoryLot, int(candidate_id))
+            lot = repo.get_lot(int(candidate_id))
             if lot is None:
                 skipped.append(f"{candidate_id}: no existe")
                 return None
             if int(getattr(lot, "business_id", 0) or 0) != int(bid):
                 skipped.append(f"{candidate_id}: lote de otro negocio")
                 return None
-            mv2 = db.get(InventoryMovement, int(getattr(lot, "movement_id", 0) or 0))
+            mv2 = repo.get_movement(int(getattr(lot, "movement_id", 0) or 0))
             if mv2 is None:
                 skipped.append(f"{candidate_id}: lote sin movimiento")
                 return None

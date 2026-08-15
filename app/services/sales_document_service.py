@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Customer, SalesDocument
+from app.models import Customer, SalesDocument, SalesDocumentItem
 
 
 class SalesDocumentService:
@@ -19,6 +19,80 @@ class SalesDocumentService:
     def __init__(self, db: Session, business_id: int):
         self._db = db
         self._business_id = int(business_id)
+
+    def list_recent(
+        self,
+        limit: int = 10,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> list[SalesDocument]:
+        stmt = select(SalesDocument).where(SalesDocument.business_id == self._business_id)
+        if start is not None:
+            stmt = stmt.where(SalesDocument.issue_date >= start)
+        if end is not None:
+            stmt = stmt.where(SalesDocument.issue_date < end)
+        stmt = stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(int(limit))
+        return list(self._db.scalars(stmt))
+
+    def get(self, doc_id: int) -> Optional[SalesDocument]:
+        return self._db.get(SalesDocument, int(doc_id))
+
+    def get_items(self, doc_id: int) -> list[SalesDocumentItem]:
+        stmt = select(SalesDocumentItem).where(SalesDocumentItem.document_id == int(doc_id))
+        return list(self._db.scalars(stmt))
+
+    def get_items_ordered(self, doc_id: int) -> list[SalesDocumentItem]:
+        stmt = (
+            select(SalesDocumentItem)
+            .where(SalesDocumentItem.document_id == int(doc_id))
+            .order_by(SalesDocumentItem.line_no.asc(), SalesDocumentItem.id.asc())
+        )
+        return list(self._db.scalars(stmt))
+
+    def customers_list(self, limit: int = 200) -> list[Customer]:
+        stmt = (
+            select(Customer)
+            .where(Customer.business_id == self._business_id)
+            .order_by(Customer.name.asc(), Customer.id.asc())
+            .limit(int(limit))
+        )
+        return list(self._db.scalars(stmt))
+
+    def get_customer_by_client_id(self, client_id: str) -> Optional[Customer]:
+        stmt = select(Customer).where(
+            Customer.client_id == client_id, Customer.business_id == self._business_id
+        )
+        return self._db.scalar(stmt)
+
+    def get_customer_by_name(self, name: str) -> Optional[Customer]:
+        stmt = (
+            select(Customer)
+            .where(Customer.name.ilike(name), Customer.business_id == self._business_id)
+            .order_by(Customer.id.asc())
+            .limit(1)
+        )
+        return self._db.scalar(stmt)
+
+    def get_customer_by_name_like(self, name: str) -> Optional[Customer]:
+        like = f"%{name}%"
+        stmt = (
+            select(Customer)
+            .where(Customer.name.ilike(like), Customer.business_id == self._business_id)
+            .order_by(Customer.id.asc())
+            .limit(1)
+        )
+        return self._db.scalar(stmt)
+
+    def add_customer(self, customer: Customer) -> None:
+        self._db.add(customer)
+
+    def max_seq(self, year_month: str) -> Optional[int]:
+        stmt = (
+            select(func.max(SalesDocument.seq))
+            .where(SalesDocument.year_month == year_month)
+            .where(SalesDocument.business_id == self._business_id)
+        )
+        return self._db.scalar(stmt)
 
     def sales_by_customer(
         self,

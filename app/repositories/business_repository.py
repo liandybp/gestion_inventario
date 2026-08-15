@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.business_config import (
@@ -28,7 +28,7 @@ from app.business_config import (
     parse_opening_pending,
     parse_partners,
 )
-from app.models import Business, Location
+from app.models import Business, Location, Product, User, UserBusiness
 from app.security import get_active_business_id
 
 
@@ -131,3 +131,82 @@ def get_active_business_config(db: Session, request: Request) -> BusinessConfig:
     `load_business_config(get_active_business_code(db, request))`)."""
     bid = get_active_business_id(db, request)
     return get_business_config(db, bid)
+
+
+# ── CRUD de negocios (extraído de ui_businesses, H-028) ───────────────────────
+
+def list_businesses(db: Session) -> list[Business]:
+    return list(db.scalars(select(Business).order_by(Business.code.asc())))
+
+
+def get_business(db: Session, business_id: int) -> Optional[Business]:
+    return db.get(Business, int(business_id))
+
+
+def get_business_by_code(db: Session, code: str) -> Optional[Business]:
+    return db.scalar(select(Business).where(Business.code == code))
+
+
+def get_business_by_code_excluding(db: Session, code: str, business_id: int) -> Optional[Business]:
+    return db.scalar(
+        select(Business).where(Business.code == code, Business.id != int(business_id))
+    )
+
+
+def create_business(db: Session, code: str, name: str) -> Business:
+    business = Business(code=code, name=name)
+    db.add(business)
+    db.flush()
+    return business
+
+
+def delete_business(db: Session, business_id: int) -> None:
+    business = db.get(Business, int(business_id))
+    if business is not None:
+        db.delete(business)
+
+
+def count_other_businesses(db: Session, business_id: int) -> int:
+    return int(
+        db.scalar(
+            select(func.count()).select_from(Business).where(Business.id != int(business_id))
+        )
+        or 0
+    )
+
+
+def count_related(db: Session, business_id: int, code: Optional[str] = None) -> dict:
+    bid = int(business_id)
+    user_count = int(
+        db.scalar(select(func.count()).select_from(User).where(User.business_id == bid)) or 0
+    )
+    product_count = int(
+        db.scalar(select(func.count()).select_from(Product).where(Product.business_id == bid)) or 0
+    )
+    bcode = (code or "").strip()
+    other_location_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(Location)
+            .where(
+                Location.business_id == bid,
+                or_(Location.role.is_(None), Location.role != "central"),
+                Location.code.not_in([f"{bcode}_CENTRAL", f"{bcode.upper()}_CENTRAL"]),
+            )
+        )
+        or 0
+    )
+    user_business_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(UserBusiness)
+            .where(UserBusiness.business_id == bid)
+        )
+        or 0
+    )
+    return {
+        "users": user_count,
+        "products": product_count,
+        "locations": other_location_count,
+        "user_businesses": user_business_count,
+    }

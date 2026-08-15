@@ -7,7 +7,7 @@ from app.audit import log_event
 from app.deps import session_dep
 from app.models import User
 from app.schemas import ProductCreate, ProductRead
-from app.security import require_active_business_id, require_user_api
+from app.security import require_active_business_id, require_admin_or_owner_api, require_user_api
 from app.services.product_service import ProductService
 
 router = APIRouter(tags=["products"])
@@ -21,7 +21,7 @@ def product_service_dep(request: Request, db: Session = Depends(session_dep)) ->
 @router.post("/products", response_model=ProductRead)
 def create_product(
     payload: ProductCreate,
-    user: User = Depends(require_user_api),
+    user: User = Depends(require_admin_or_owner_api),
     service: ProductService = Depends(product_service_dep),
 ) -> ProductRead:
     created = service.create(payload)

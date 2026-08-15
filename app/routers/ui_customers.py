@@ -6,18 +6,17 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Customer, SalesDocument, SalesDocumentItem
+from app.repositories.customer_repository import CustomerRepository
+from app.models import Customer
 from app.security import (
     get_active_business_code,
     get_current_user_from_session,
     require_active_business_id,
 )
-from app.utils import query_match
 
 from .ui_common import ensure_admin, templates
 
@@ -25,14 +24,7 @@ router = APIRouter()
 
 
 def _list_customers(db: Session, query: str, limit: int = 200, business_id: int = 0) -> list[Customer]:
-    q = (query or "").strip()
-    prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
-    stmt = select(Customer).where(Customer.business_id == int(business_id))
-    stmt = stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(prefetch_limit)
-    rows = list(db.scalars(stmt))
-    if q:
-        rows = [c for c in rows if query_match(q, str(c.name or ""), str(c.client_id or ""))]
-    return rows[: int(limit or 0)]
+    return CustomerRepository(db, business_id).list(query=query, limit=limit)
 
 
 @router.get("/customers/table", response_class=HTMLResponse)
@@ -69,15 +61,13 @@ def customer_create(
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
 
-    customer = Customer(
-        business_id=int(bid),
+    customer = CustomerRepository(db, bid).create(
         client_id=client_id,
         name=name,
         address=(address or "").strip() or None,
         phone=(phone or "").strip() or None,
         email=(email or "").strip() or None,
     )
-    db.add(customer)
     try:
         db.commit()
     except IntegrityError:
@@ -101,59 +91,19 @@ def customer_create(
 def customer_detail(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    customer = db.get(Customer, customer_id)
+    customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    docs = list(
-        db.scalars(
-            select(SalesDocument)
-            .where(SalesDocument.customer_id == customer.id)
-            .where(SalesDocument.business_id == int(bid))
-            .order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc())
-            .limit(200)
-        )
-    )
+    repo = CustomerRepository(db, bid)
+    docs = repo.recent_documents(customer.id, limit=200)
 
-    total_invoices = float(
-        db.scalar(
-            select(func.coalesce(func.sum(SalesDocument.total), 0)).where(
-                (SalesDocument.customer_id == customer.id)
-                & (SalesDocument.doc_type == "F")
-                & (SalesDocument.business_id == int(bid))
-            )
-        )
-        or 0
-    )
-    total_quotes = float(
-        db.scalar(
-            select(func.coalesce(func.sum(SalesDocument.total), 0)).where(
-                (SalesDocument.customer_id == customer.id)
-                & (SalesDocument.doc_type == "P")
-                & (SalesDocument.business_id == int(bid))
-            )
-        )
-        or 0
-    )
-    count_invoices = int(
-        db.scalar(
-            select(func.count(SalesDocument.id)).where(
-                (SalesDocument.customer_id == customer.id)
-                & (SalesDocument.doc_type == "F")
-                & (SalesDocument.business_id == int(bid))
-            )
-        )
-        or 0
-    )
-    last_invoice_dt = db.scalar(
-        select(func.max(SalesDocument.issue_date)).where(
-            (SalesDocument.customer_id == customer.id)
-            & (SalesDocument.doc_type == "F")
-            & (SalesDocument.business_id == int(bid))
-        )
-    )
+    total_invoices = repo.document_totals(customer.id, "F")
+    total_quotes = repo.document_totals(customer.id, "P")
+    count_invoices = repo.document_count(customer.id, "F")
+    last_invoice_dt = repo.last_invoice_date(customer.id)
     last_purchase = ""
     if last_invoice_dt is not None:
         try:
@@ -161,22 +111,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
         except Exception:
             last_purchase = str(last_invoice_dt)
 
-    top_items = db.execute(
-        select(
-            SalesDocumentItem.description,
-            func.coalesce(func.sum(SalesDocumentItem.line_total), 0).label("total"),
-        )
-        .join(SalesDocument, SalesDocumentItem.document_id == SalesDocument.id)
-        .where(
-            and_(
-                SalesDocument.customer_id == customer.id,
-                SalesDocument.business_id == int(bid),
-            )
-        )
-        .group_by(SalesDocumentItem.description)
-        .order_by(func.sum(SalesDocumentItem.line_total).desc())
-        .limit(10)
-    ).all()
+    top_items = repo.top_items(customer.id, limit=10)
 
     config = get_active_business_config(db, request)
 
@@ -202,7 +137,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 def customer_edit_form(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    customer = db.get(Customer, customer_id)
+    customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if int(getattr(customer, "business_id", 0) or 0) != int(bid):
@@ -229,7 +164,7 @@ def customer_update(
 ) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    customer = db.get(Customer, customer_id)
+    customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if int(getattr(customer, "business_id", 0) or 0) != int(bid):
@@ -271,23 +206,13 @@ def customer_update(
 def customer_delete(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
-    customer = db.get(Customer, customer_id)
+    customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if int(getattr(customer, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    doc_count = int(
-        db.scalar(
-            select(func.count(SalesDocument.id)).where(
-                and_(
-                    SalesDocument.customer_id == customer.id,
-                    SalesDocument.business_id == int(bid),
-                )
-            )
-        )
-        or 0
-    )
+    doc_count = CustomerRepository(db, bid).document_count(customer.id)
     if doc_count > 0:
         customers = _list_customers(db, query="", business_id=bid)
         return templates.TemplateResponse(
@@ -323,12 +248,7 @@ def tab_customers(request: Request, db: Session = Depends(session_dep), query: s
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
     q = (query or "").strip()
-    stmt = select(Customer)
-    stmt = stmt.where(Customer.business_id == int(bid))
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where((Customer.name.ilike(like)) | (Customer.client_id.ilike(like)))
-    customers = list(db.scalars(stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    customers = CustomerRepository(db, bid).list_like(query=q, limit=200)
     return templates.TemplateResponse(
         request=request,
         name="partials/tab_customers.html",

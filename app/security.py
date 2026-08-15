@@ -144,6 +144,17 @@ def require_admin_api(
     return user
 
 
+def require_admin_or_owner_api(
+    request: Request,
+    db: Session = Depends(session_dep),
+) -> User:
+    user = require_user_api(request=request, db=db)
+    role = (user.role or "").lower()
+    if role not in ("admin", "owner"):
+        raise HTTPException(status_code=403, detail="Admin or owner required")
+    return user
+
+
 def is_admin(user: Optional[User]) -> bool:
     if user is None:
         return False

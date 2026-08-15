@@ -39,6 +39,9 @@ from app.schemas import (
 )
 from app.utils import month_range as utils_month_range
 
+# Cache de métricas de ventas (SS/ROP) — H-033: evitar recalcular por request
+_metrics_cache: dict[tuple, tuple] = {}
+
 
 class InventoryService:
     def __init__(self, db: Session, business_id: int | None = None):
@@ -58,6 +61,151 @@ class InventoryService:
     @property
     def business_id(self) -> int:
         return self._business_id
+
+    def _invalidate_metrics_cache(self) -> None:
+        _metrics_cache.clear()
+
+    def _cached_stock_metrics(self, loc_id, skus):
+        import time as _time
+        import app.settings as _settings
+        key = (self._business_id, loc_id, tuple(sorted(str(s) for s in skus)))
+        hit = _metrics_cache.get(key)
+        if hit is not None and (_time.monotonic() - hit[0]) < _settings.INVENTORY_METRICS_TTL:
+            return hit[1]
+        result = self._compute_stock_metrics(loc_id, skus)
+        _metrics_cache[key] = (_time.monotonic(), result)
+        return result
+
+    def _compute_stock_metrics(self, loc_id, skus):
+        """Métricas semanales/diarias por SKU usadas para SS/ROP (H-033)."""
+        avg_daily_by_sku: dict[str, float] = {}
+        weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
+        if skus:
+            now_dt = datetime.now(timezone.utc)
+
+            # Rolling window: use all sales history until it reaches 1 year; after that, last 12 months.
+            one_year_ago = now_dt - timedelta(days=365)
+            earliest_sale_filters = [
+                InventoryMovement.type == "sale",
+                Product.sku.in_(skus),
+                True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+            ]
+            if loc_id is not None:
+                earliest_sale_filters.append(InventoryMovement.location_id == loc_id)
+            earliest_sale = self._db.scalar(
+                select(func.min(InventoryMovement.movement_date))
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(and_(*earliest_sale_filters))
+            )
+            if earliest_sale is not None:
+                try:
+                    earliest_sale = earliest_sale.astimezone(timezone.utc)
+                except Exception:
+                    pass
+            start_window = earliest_sale if earliest_sale and earliest_sale > one_year_ago else one_year_ago
+
+            # Aggregate daily sales and bucket to weeks in Python (dialect-safe for sqlite/postgres).
+            daily_rows = self._db.execute(
+                select(
+                    Product.sku,
+                    func.date(InventoryMovement.movement_date).label("day"),
+                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                )
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    and_(
+                        InventoryMovement.type == "sale",
+                        InventoryMovement.movement_date >= start_window,
+                        InventoryMovement.movement_date < now_dt,
+                        Product.sku.in_(skus),
+                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+                        True if loc_id is None else (InventoryMovement.location_id == loc_id),
+                    )
+                )
+                .group_by(Product.sku, func.date(InventoryMovement.movement_date))
+            ).all()
+
+            weekly_by_sku: dict[str, dict[datetime, float]] = {}
+            for sku, day_raw, qty in daily_rows:
+                sku_s = str(sku)
+                try:
+                    # day_raw might be a string (sqlite) or date (postgres). Normalize to date.
+                    if hasattr(day_raw, "year"):
+                        day_d = day_raw
+                    else:
+                        day_d = datetime.fromisoformat(str(day_raw)).date()
+                except Exception:
+                    continue
+                week_start_date = day_d - timedelta(days=int(day_d.weekday()))
+                week_start_dt = datetime(
+                    week_start_date.year,
+                    week_start_date.month,
+                    week_start_date.day,
+                    tzinfo=timezone.utc,
+                )
+                m = weekly_by_sku.setdefault(sku_s, {})
+                m[week_start_dt] = float(m.get(week_start_dt, 0.0)) + float(qty or 0)
+
+            # Build weekly series (including zero weeks) and compute mean/std per SKU.
+            try:
+                start_date = start_window.date()
+            except Exception:
+                start_date = one_year_ago.date()
+            start_week_date = start_date - timedelta(days=int(start_date.weekday()))
+            end_date = (now_dt - timedelta(days=1)).date() if now_dt else start_date
+            end_week_date = end_date - timedelta(days=int(end_date.weekday()))
+
+            week_starts: list[datetime] = []
+            cur = datetime(start_week_date.year, start_week_date.month, start_week_date.day, tzinfo=timezone.utc)
+            end_dt_week = datetime(end_week_date.year, end_week_date.month, end_week_date.day, tzinfo=timezone.utc)
+            while cur <= end_dt_week:
+                week_starts.append(cur)
+                cur = cur + timedelta(days=7)
+
+            for sku_s in skus:
+                wmap = weekly_by_sku.get(str(sku_s), {})
+                series = [float(wmap.get(ws, 0.0)) for ws in week_starts]
+                n_weeks = len(series)
+                if n_weeks <= 0:
+                    weekly_stats_by_sku[str(sku_s)] = (0.0, 0.0, 0)
+                    continue
+                mean_w = float(sum(series)) / float(n_weeks)
+                if n_weeks <= 1:
+                    std_w = 0.0
+                else:
+                    var = float(sum((x - mean_w) ** 2 for x in series)) / float(n_weeks)
+                    std_w = float(math.sqrt(var))
+                weekly_stats_by_sku[str(sku_s)] = (mean_w, std_w, int(n_weeks))
+
+            start = now_dt - timedelta(days=30)
+            where_parts = [
+                InventoryMovement.type == "sale",
+                InventoryMovement.movement_date >= start,
+                Product.sku.in_(skus),
+            ]
+            if self._business_id is not None:
+                where_parts.append(InventoryMovement.business_id == self._business_id)
+            if loc_id is not None:
+                where_parts.append(InventoryMovement.location_id == loc_id)
+
+            rows = self._db.execute(
+                select(
+                    Product.sku,
+                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                )
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    and_(*where_parts)
+                )
+                .group_by(Product.sku)
+            ).all()
+            for sku, qty_sold in rows:
+                avg_daily_by_sku[str(sku)] = float(qty_sold or 0) / 30.0
+
+        return avg_daily_by_sku, weekly_stats_by_sku
 
     def _get_product(self, sku: str) -> Product:
         product = self._products.get_by_sku(sku)
@@ -349,6 +497,7 @@ class InventoryService:
         self._db.execute(delete(InventoryMovement).where(InventoryMovement.id.in_(movement_ids)))
         self._db.commit()
     def delete_purchase_movement(self, movement_id: int) -> None:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "purchase":
             raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -496,6 +645,7 @@ class InventoryService:
         movement_id: int,
         unit_cost: float,
     ) -> MovementResult:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "adjustment":
             raise HTTPException(status_code=404, detail="Adjustment movement not found")
@@ -756,6 +906,7 @@ class InventoryService:
         movement_date: Optional[datetime],
         note: Optional[str],
     ) -> MovementResult:
+        self._invalidate_metrics_cache()
         out_id = self._transfer_out_id_for_movement_id(movement_id)
         mv_out = self._db.get(InventoryMovement, out_id)
         if mv_out is None or mv_out.type != "transfer_out":
@@ -945,6 +1096,7 @@ class InventoryService:
             raise
 
     def delete_transfer_movement(self, movement_id: int) -> None:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type not in ("transfer_in", "transfer_out"):
             raise HTTPException(status_code=404, detail="Transfer movement not found")
@@ -965,6 +1117,7 @@ class InventoryService:
             raise
 
     def delete_sale_movement(self, movement_id: int) -> None:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "sale":
             raise HTTPException(status_code=404, detail="Sale movement not found")
@@ -986,6 +1139,7 @@ class InventoryService:
             raise
 
     def delete_adjustment_movement(self, movement_id: int) -> None:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "adjustment":
             raise HTTPException(status_code=404, detail="Adjustment movement not found")
@@ -1121,6 +1275,7 @@ class InventoryService:
         lot_code: Optional[str],
         note: Optional[str],
     ) -> MovementResult:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "purchase":
             raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -1179,6 +1334,7 @@ class InventoryService:
         movement_date: Optional[datetime],
         note: Optional[str],
     ) -> MovementResult:
+        self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type != "sale":
             raise HTTPException(status_code=404, detail="Sale movement not found")
@@ -1224,6 +1380,7 @@ class InventoryService:
         )
 
     def purchase(self, payload: PurchaseCreate) -> MovementResult:
+        self._invalidate_metrics_cache()
         if payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
@@ -1290,6 +1447,7 @@ class InventoryService:
         )
 
     def supplier_return_by_lot(self, payload: SupplierReturnLotCreate) -> MovementResult:
+        self._invalidate_metrics_cache()
         if payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
@@ -1357,6 +1515,7 @@ class InventoryService:
         return self._inventory.fifo_lots_for_product_id(product.id, location_id=loc_id)
 
     def transfer(self, payload: TransferCreate) -> TransferResult:
+        self._invalidate_metrics_cache()
         if not payload.lines:
             raise HTTPException(status_code=422, detail="lines is required")
 
@@ -1515,6 +1674,7 @@ class InventoryService:
         return TransferResult(from_location_code=from_code, to_location_code=to_code, lines=results, transfer_ref=transfer_ref)
 
     def sale(self, payload: SaleCreate) -> MovementResult:
+        self._invalidate_metrics_cache()
         if payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
@@ -1575,6 +1735,7 @@ class InventoryService:
         )
 
     def adjustment(self, payload: AdjustmentCreate) -> MovementResult:
+        self._invalidate_metrics_cache()
         if payload.quantity_delta == 0:
             raise HTTPException(status_code=422, detail="quantity_delta must be != 0")
 
@@ -1684,7 +1845,13 @@ class InventoryService:
         loc_id = self._location_id_for_code(location_code)
         return self._inventory.stock_for_product_id(product.id, location_id=loc_id)
 
-    def stock_list(self, query: str = "", location_code: Optional[str] = None) -> list[StockRead]:
+    def stock_list(
+        self,
+        query: str = "",
+        location_code: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> list[StockRead]:
         loc_id = None
         if location_code:
             loc_id = self._location_id_for_code(location_code)
@@ -1700,129 +1867,7 @@ class InventoryService:
         avg_daily_by_sku: dict[str, float] = {}
         weekly_stats_by_sku: dict[str, tuple[float, float, int]] = {}
         if skus:
-            now_dt = datetime.now(timezone.utc)
-
-            # Rolling window: use all sales history until it reaches 1 year; after that, last 12 months.
-            one_year_ago = now_dt - timedelta(days=365)
-            earliest_sale_filters = [
-                InventoryMovement.type == "sale",
-                Product.sku.in_(skus),
-                True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
-            ]
-            if loc_id is not None:
-                earliest_sale_filters.append(InventoryMovement.location_id == loc_id)
-            earliest_sale = self._db.scalar(
-                select(func.min(InventoryMovement.movement_date))
-                .select_from(InventoryMovement)
-                .join(Product, Product.id == InventoryMovement.product_id)
-                .where(and_(*earliest_sale_filters))
-            )
-            if earliest_sale is not None:
-                try:
-                    earliest_sale = earliest_sale.astimezone(timezone.utc)
-                except Exception:
-                    pass
-            start_window = earliest_sale if earliest_sale and earliest_sale > one_year_ago else one_year_ago
-
-            # Aggregate daily sales and bucket to weeks in Python (dialect-safe for sqlite/postgres).
-            daily_rows = self._db.execute(
-                select(
-                    Product.sku,
-                    func.date(InventoryMovement.movement_date).label("day"),
-                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
-                )
-                .select_from(InventoryMovement)
-                .join(Product, Product.id == InventoryMovement.product_id)
-                .where(
-                    and_(
-                        InventoryMovement.type == "sale",
-                        InventoryMovement.movement_date >= start_window,
-                        InventoryMovement.movement_date < now_dt,
-                        Product.sku.in_(skus),
-                        True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
-                        True if loc_id is None else (InventoryMovement.location_id == loc_id),
-                    )
-                )
-                .group_by(Product.sku, func.date(InventoryMovement.movement_date))
-            ).all()
-
-            weekly_by_sku: dict[str, dict[datetime, float]] = {}
-            for sku, day_raw, qty in daily_rows:
-                sku_s = str(sku)
-                try:
-                    # day_raw might be a string (sqlite) or date (postgres). Normalize to date.
-                    if hasattr(day_raw, "year"):
-                        day_d = day_raw
-                    else:
-                        day_d = datetime.fromisoformat(str(day_raw)).date()
-                except Exception:
-                    continue
-                week_start_date = day_d - timedelta(days=int(day_d.weekday()))
-                week_start_dt = datetime(
-                    week_start_date.year,
-                    week_start_date.month,
-                    week_start_date.day,
-                    tzinfo=timezone.utc,
-                )
-                m = weekly_by_sku.setdefault(sku_s, {})
-                m[week_start_dt] = float(m.get(week_start_dt, 0.0)) + float(qty or 0)
-
-            # Build weekly series (including zero weeks) and compute mean/std per SKU.
-            try:
-                start_date = start_window.date()
-            except Exception:
-                start_date = one_year_ago.date()
-            start_week_date = start_date - timedelta(days=int(start_date.weekday()))
-            end_date = (now_dt - timedelta(days=1)).date() if now_dt else start_date
-            end_week_date = end_date - timedelta(days=int(end_date.weekday()))
-
-            week_starts: list[datetime] = []
-            cur = datetime(start_week_date.year, start_week_date.month, start_week_date.day, tzinfo=timezone.utc)
-            end_dt_week = datetime(end_week_date.year, end_week_date.month, end_week_date.day, tzinfo=timezone.utc)
-            while cur <= end_dt_week:
-                week_starts.append(cur)
-                cur = cur + timedelta(days=7)
-
-            for sku_s in skus:
-                wmap = weekly_by_sku.get(str(sku_s), {})
-                series = [float(wmap.get(ws, 0.0)) for ws in week_starts]
-                n_weeks = len(series)
-                if n_weeks <= 0:
-                    weekly_stats_by_sku[str(sku_s)] = (0.0, 0.0, 0)
-                    continue
-                mean_w = float(sum(series)) / float(n_weeks)
-                if n_weeks <= 1:
-                    std_w = 0.0
-                else:
-                    var = float(sum((x - mean_w) ** 2 for x in series)) / float(n_weeks)
-                    std_w = float(math.sqrt(var))
-                weekly_stats_by_sku[str(sku_s)] = (mean_w, std_w, int(n_weeks))
-
-            start = now_dt - timedelta(days=30)
-            where_parts = [
-                InventoryMovement.type == "sale",
-                InventoryMovement.movement_date >= start,
-                Product.sku.in_(skus),
-            ]
-            if self._business_id is not None:
-                where_parts.append(InventoryMovement.business_id == self._business_id)
-            if loc_id is not None:
-                where_parts.append(InventoryMovement.location_id == loc_id)
-
-            rows = self._db.execute(
-                select(
-                    Product.sku,
-                    func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
-                )
-                .select_from(InventoryMovement)
-                .join(Product, Product.id == InventoryMovement.product_id)
-                .where(
-                    and_(*where_parts)
-                )
-                .group_by(Product.sku)
-            ).all()
-            for sku, qty_sold in rows:
-                avg_daily_by_sku[str(sku)] = float(qty_sold or 0) / 30.0
+            avg_daily_by_sku, weekly_stats_by_sku = self._cached_stock_metrics(loc_id, skus)
 
         out: list[StockRead] = []
         for sku, name, category, uom, qty, min_stock, lead_time_days, min_purchase_cost, default_purchase_cost, default_sale_price in base_rows:
@@ -1870,6 +1915,9 @@ class InventoryService:
                     default_sale_price=default_sale_price,
                 )
             )
+
+        if limit is not None:
+            out = out[offset : offset + limit]
 
         return out
 

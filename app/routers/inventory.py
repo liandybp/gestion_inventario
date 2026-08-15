@@ -17,7 +17,7 @@ from app.schemas import (
     TransferCreate,
     TransferResult,
 )
-from app.security import require_user_api
+from app.security import require_admin_or_owner_api, require_user_api
 from app.services.inventory_service import InventoryService
 
 router = APIRouter(tags=["inventory"])
@@ -31,7 +31,7 @@ def inventory_service_dep(request: Request, db: Session = Depends(session_dep)) 
 @router.post("/movements/purchase", response_model=MovementResult)
 def create_purchase(
     payload: PurchaseCreate,
-    user: User = Depends(require_user_api),
+    user: User = Depends(require_admin_or_owner_api),
     service: InventoryService = Depends(inventory_service_dep),
 ) -> MovementResult:
     result = service.purchase(payload)
@@ -50,7 +50,7 @@ def create_purchase(
 @router.post("/movements/return-supplier-lot", response_model=MovementResult)
 def create_supplier_return_lot(
     payload: SupplierReturnLotCreate,
-    user: User = Depends(require_user_api),
+    user: User = Depends(require_admin_or_owner_api),
     service: InventoryService = Depends(inventory_service_dep),
 ) -> MovementResult:
     result = service.supplier_return_by_lot(payload)
@@ -73,7 +73,7 @@ def create_supplier_return_lot(
 @router.post("/movements/transfer", response_model=TransferResult)
 def create_transfer(
     payload: TransferCreate,
-    user: User = Depends(require_user_api),
+    user: User = Depends(require_admin_or_owner_api),
     service: InventoryService = Depends(inventory_service_dep),
 ) -> TransferResult:
     result = service.transfer(payload)
@@ -117,7 +117,7 @@ def create_sale(
 @router.post("/movements/adjustment", response_model=MovementResult)
 def create_adjustment(
     payload: AdjustmentCreate,
-    user: User = Depends(require_user_api),
+    user: User = Depends(require_admin_or_owner_api),
     service: InventoryService = Depends(inventory_service_dep),
 ) -> MovementResult:
     result = service.adjustment(payload)

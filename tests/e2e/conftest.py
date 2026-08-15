@@ -15,7 +15,8 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Business, InventoryLot, InventoryMovement, Location, Product
+from app.auth import hash_password
+from app.models import Business, InventoryLot, InventoryMovement, Location, Product, User
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -78,6 +79,13 @@ def _seed_stock(db_path: str) -> None:
                 business_id=biz.id, movement_id=mv.id, product_id=p.id,
                 location_id=central.id, lot_code=f"{sku}-E2E", received_at=now,
                 unit_cost=1.0, qty_received=qty, qty_remaining=qty,
+            ))
+        # Operador de prueba (cajero): puede vender, no gestionar inventario (RBAC Fase C)
+        op = db.scalar(select(User).where(User.username == "operator"))
+        if op is None:
+            db.add(User(
+                username="operator", password_hash=hash_password("operator"),
+                role="operator", is_active=True, business_id=biz.id,
             ))
         db.commit()
     finally:
