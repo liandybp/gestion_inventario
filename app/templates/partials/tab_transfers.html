@@ -105,7 +105,7 @@
       <button type="button" class="mb-0" data-transfer-add-line>Agregar línea</button>
       <button type="button" class="mb-0"
               hx-get="/ui/transfers/bulk"
-              hx-include="[name='from_location_code'], [name='to_location_code'], [name='movement_date'], [name='note']"
+              hx-include="closest form"
               hx-target="body"
               hx-swap="beforeend">Traspaso masivo</button>
       <button id="transfer-submit" type="submit" class="mb-0">Crear traspaso</button>

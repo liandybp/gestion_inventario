@@ -69,3 +69,25 @@ def test_bulk_transfer_error_keeps_modal_open(live_server: str, page: Page) -> N
 
     expect(page.locator("#transfer-bulk-modal")).to_be_visible()
     expect(page.locator("#transfer-bulk-modal").locator("text=Error en traspaso")).to_be_visible()
+
+
+def test_bulk_modal_uses_selected_locations(live_server: str, page: Page) -> None:
+    """Regresión: el modal debe usar el origen/destino seleccionados en el form principal."""
+    base_url = live_server
+    page.goto(f"{base_url}/ui/login")
+    page.fill('input[name="username"]', "admin")
+    page.fill('input[name="password"]', "admin")
+    page.click('button[type="submit"]')
+    page.wait_for_url(f"{base_url}/ui/dashboard**")
+    page.click("#tab-transfers")
+    expect(page.locator("button[hx-get='/ui/transfers/bulk']")).to_be_visible()
+
+    page.select_option('select[name="from_location_code"]', "POS1")
+    page.select_option('select[name="to_location_code"]', "POS2")
+
+    page.click("button[hx-get='/ui/transfers/bulk']")
+    expect(page.locator("#transfer-bulk-modal")).to_be_visible()
+
+    summary = page.locator("#transfer-bulk-modal p.muted").inner_text()
+    assert "Punto de venta Playa" in summary  # POS1
+    assert "Taller Boyeros" in summary        # POS2
