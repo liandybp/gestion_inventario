@@ -6,7 +6,7 @@ from app.services.inventory_service import InventoryService
 
 
 def test_tool_schemas_count():
-    assert len(tool_schemas()) == 27
+    assert len(tool_schemas()) == 29
 
 
 def test_inventory_value_total_payload(db_session, business_id):

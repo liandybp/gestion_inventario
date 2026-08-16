@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.0` (ver `VERSION`)
+- **Versión actual:** `0.4.1` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (108 tests unitarios, SQLite en memoria, cobertura 85%) + Playwright e2e (`tests/e2e`) |
+| Testing | pytest (149 unit + 16 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -44,14 +44,13 @@ gestion_inventario/
 │   ├── utils.py             ← Utilities
 │   ├── settings.py          ← Config centralizada (env vars, H-008)
 │   ├── agent/               ← Copiloto IA (LangGraph + LLM): graph, tools,
-│   │                           runner, widgets, schemas, prompts, llm
-│   ├── repositories/        ← Data access layer
-│   │   ├── inventory_repository.py
-│   │   └── product_repository.py
-│   ├── services/            ← Business logic
-│   │   ├── inventory_service.py
-│   │   └── product_service.py
-│   ├── routers/             ← 18 routers (API + UI, incl. ui_agent)
+│   │                           runner, widgets, schemas, prompts, llm,
+│   │                           config, chat_store, circuit_breaker
+│   ├── repositories/        ← Data access layer (business, customer, inventory,
+│   │                           location, product, purchase, user)
+│   ├── services/            ← Business logic (finance, inventory, product,
+│   │                           reporting, sales_document)
+│   ├── routers/             ← ~25 routers (3 API JSON + ~22 UI HTMX)
 │   ├── templates/           ← Jinja2 + HTMX partials
 │   └── static/              ← CSS, JS, uploads
 ├── tests/
@@ -173,6 +172,13 @@ Archivo `app/business_config.conf` (INI):
 - [x] **Refactor Fase D (empujón al verde)** — API contract tests (RBAC + schemas + error paths), LLM retry con backoff exponencial + jitter (`AGENT_RETRY_*`), rate limiter login keyed por (IP real + username). Spec: `specs/refactor-fase-d/`. Auditoría **4.10** (`docs/auditorias/2026-08-15-fase-d.md`). 149 unit + 16 e2e verdes (4 e2e flaky con selectores rotos eliminados).
 - [ ] **Verde definitivo (≥4.2)** — timeout global del agente (`asyncio.wait_for` en `runner.run_agent`, dim5 4→5) + quirk panel ventas operador (T7). CSP `unsafe-inline` como W-1 (dim4 4→5).
 - [ ] Sistema agéntico con LLM local multi-tool (20+ tools, insights proactivos) — fase 2 planificada
+- [x] **Coach financiero y operativo** — CoachService (indicadores fin/op/clientes), motor de
+      reglas (5 reglas + logging), círculo cerrado [A]. Tab admin-only con score, recomendaciones
+      accionables (síntoma+causa+acción+impacto), burbuja chat vía agente existente. 24 task
+      envelopes + auditoría (3.65) + code-review (6 hallazgos, todos corregidos: guard de "sin
+      datos", ventanas de tiempo consistentes, cómputo cacheado, current_cash resiliente). 203
+      unit + 18 e2e verdes. v0.4.1. **Pendiente:** estacionalidad [B] (REQ-8) no se implementó
+      — ver `specs/coach-financiero-operativo/PAE-coach-financiero-operativo.md` §5.4.
 
 ## Sesiones
 

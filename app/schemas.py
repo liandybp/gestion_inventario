@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel
@@ -116,6 +116,36 @@ class MovementRead(BaseModel):
     note: Optional[str]
 
     model_config = {"from_attributes": True}
+
+
+class CashBaselineCreate(BaseModel):
+    baseline_date: datetime
+    amount: float
+
+    @_field_validator("amount")
+    def amount_not_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("amount must be >= 0")
+        return v
+
+    @_field_validator("baseline_date")
+    def date_not_future(cls, v: datetime) -> datetime:
+        now = datetime.now(timezone.utc)
+        v_cmp = v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
+        if v_cmp > now:
+            raise ValueError("baseline_date cannot be in the future")
+        return v
+
+
+class CoachActionUpdate(BaseModel):
+    rule_key: str
+    status: str
+
+    @_field_validator("status")
+    def status_whitelist(cls, v: str) -> str:
+        if v not in ("done", "dismissed"):
+            raise ValueError("status must be 'done' or 'dismissed'")
+        return v
 
 
 class MovementResult(BaseModel):

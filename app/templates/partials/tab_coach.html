@@ -1,0 +1,63 @@
+<div class="coach-tab" id="coach-tab" data-coach-tab>
+  <div class="coach-card">
+    <h2>Coach financiero operativo</h2>
+
+    {% if report.level == "unknown" %}
+      <p class="coach-score-unknown" data-coach-score>{{ report.message or "Sin datos suficientes" }}</p>
+    {% else %}
+      <div class="coach-score">
+        <span class="coach-score-value" data-coach-score>{{ "%.1f" | format(report.score) }}/10</span>
+        <span class="coach-score-level coach-level-{{ report.level }}">
+          {{ {'red': '🔴 Crítico', 'yellow': '🟡 Regular', 'green': '🟢 Saludable'}.get(report.level, '?') }}
+        </span>
+      </div>
+    {% endif %}
+
+    {% if report.whats_good %}
+      <h3>✅ Lo que vas bien</h3>
+      <ul class="coach-good">
+        {% for item in report.whats_good %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if report.cash.mode == "real" %}
+      <p class="coach-cash-amount">Caja estimada: {{ "%.2f" | format(report.cash.amount) }} €</p>
+    {% else %}
+      <p class="coach-cash-missing">Aún no has cargado tu caja inicial.</p>
+    {% endif %}
+
+    <div class="coach-cash-form">
+      <h3>💰 Base de caja</h3>
+      <form hx-post="/ui/coach/cash-baseline" hx-target="#coach-tab" hx-swap="outerHTML">
+        <label for="baseline_date">Fecha</label>
+        <input type="date" name="baseline_date" required>
+        <label for="amount">Saldo inicial (€)</label>
+        <input type="number" name="amount" step="0.01" min="0" required>
+        <button type="submit">Cargar Caja</button>
+      </form>
+    </div>
+
+    {% if recommendations %}
+      <h3>⚠️ Recomendaciones</h3>
+      <ul class="coach-rec-list">
+        {% for rec in recommendations %}
+          <li class="coach-rec severity-{{ rec.severity }}" data-rule-key="{{ rec.rule_key }}">
+            <p><strong>{{ rec.symptom }}</strong> — {{ rec.cause }}</p>
+            <p>👉 {{ rec.action }}</p>
+            {% if rec.impact_text %}<p class="coach-rec-impact">💰 {{ rec.impact_text }}</p>{% endif %}
+            <button hx-post="/ui/coach/action"
+                    hx-vals='{"rule_key": "{{ rec.rule_key }}", "status": "done"}'
+                    hx-target="#coach-tab" hx-swap="outerHTML">Hecho</button>
+            <button hx-post="/ui/coach/action"
+                    hx-vals='{"rule_key": "{{ rec.rule_key }}", "status": "dismissed"}'
+                    hx-target="#coach-tab" hx-swap="outerHTML">Descartar</button>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="coach-rec-none">Sin recomendaciones activas. ¡Todo en orden!</p>
+    {% endif %}
+  </div>
+</div>

@@ -1,6 +1,6 @@
 # gestion_inventario
 
-> Contexto de proyecto para OpenCode + GLM-4.7-Flash.
+> Contexto de proyecto para OpenCode + Qwen3.6-35B-A3B
 > Generado desde: ~/obsidian-lab/Templates/template-claude-md.md
 > Leer completo antes de tocar cualquier archivo.
 
@@ -45,39 +45,30 @@ gestion_inventario/
 │   ├── business_config.conf     # Config INI por defecto (Auto Sandero)
 │   ├── invoice_parsers.py       # Parseo de facturas PDF
 │   ├── sales_document_pdf.py    # Generación PDF de documentos de venta
-│   ├── routers/
-│   │   ├── health.py            # GET /health
-│   │   ├── products.py          # CRUD API JSON productos
-│   │   ├── inventory.py         # API JSON movimientos (purchase/sale/transfer/adjustment)
+│   ├── routers/                 # ~25 routers (3 API JSON + ~22 UI HTMX)
+│   │   ├── health.py, products.py, inventory.py   # API JSON
 │   │   ├── ui.py                # Mount point routers UI
-│   │   ├── ui_auth.py           # Login/logout, cambio contraseña obligatorio
-│   │   ├── ui_tabs.py           # Dashboard principal, 14 tabs, stock table (2392 líneas)
-│   │   ├── ui_products.py       # CRUD productos HTMX
-│   │   ├── ui_purchases.py      # Compras HTMX + labels
-│   │   ├── ui_sales.py          # Ventas HTMX + barcode
-│   │   ├── ui_transfers.py      # Transferencias HTMX
-│   │   ├── ui_expenses.py       # Gastos operativos HTMX
-│   │   ├── ui_extractions.py    # Extracciones de dinero HTMX
-│   │   ├── ui_customers.py      # Clientes HTMX
-│   │   ├── ui_users.py          # Gestión usuarios HTMX
-│   │   ├── ui_sales_documents.py # Documentos de venta + carrito HTMX
-│   │   └── ui_common.py         # Shared utils para routers UI
-│   ├── repositories/
-│   │   ├── inventory_repository.py
-│   │   └── product_repository.py
-│   ├── services/
-│   │   ├── inventory_service.py
-│   │   └── product_service.py
+│   │   ├── ui_auth.py, ui_home.py, ui_stock.py    # Dashboard + login
+│   │   ├── ui_products.py, ui_purchases.py, ui_sales.py
+│   │   ├── ui_transfers.py, ui_expenses.py, ui_extractions.py
+│   │   ├── ui_customers.py, ui_users.py, ui_businesses.py
+│   │   ├── ui_sales_documents.py, ui_dividends.py, ui_profit.py, ui_profit_items.py
+│   │   ├── ui_activity.py, ui_history.py, ui_agent.py, ui_coach.py
+│   │   └── ui_common.py, ui_tabs_common.py
+│   ├── repositories/            # business, customer, inventory,
+│   │   │                           location, product, purchase, user
+│   ├── services/                # coach, coach_rules, finance, inventory, product,
+│   │   │                           reporting, sales_document
 │   ├── static/                  # CSS, JS, uploads
 │   └── templates/               # Jinja2 templates (partials/, components/)
-├── tests/                       # ⚠️ VACÍO — no hay tests escritos
+├── tests/                       # 149 unit (SQLite memoria) + 16 e2e (Playwright)
 ├── docker-compose.yml           # ⚠️ No editar sin confirmación explícita
 ├── docker-compose-homelab.yml
 ├── Dockerfile
 ├── Caddyfile
 ├── requirements.txt
 ├── requirements-dev.txt
-├── VERSION                      # 0.3.4
+├── VERSION                      # 0.4.0
 ├── CHANGELOG.md
 └── .bumpversion.cfg
 ```
@@ -223,8 +214,8 @@ mount_ui_routers(app)
 ### Cómo se corren los tests
 
 ```bash
-# ⚠️ No hay tests escritos todavía. tests/ está vacío.
-# pytest no está en requirements-dev.txt
+SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: pytest -v
+# 149 tests unitarios (SQLite en memoria) + 16 e2e (Playwright), CI/CD Gitea verde.
 ```
 
 ### Cómo se levanta el proyecto en local
@@ -248,35 +239,38 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 4. **app/auth.py**: no cambiar la lógica de hash_password (PBKDF2 200k iteraciones) ni verify_password sin confirmación.
 5. **app/db.py**: todos los modelos heredan de `Base` de `app/db.py`. No crear bases alternativas.
 6. **app/deps.py**: no modificar require_user_api, require_admin_api, require_active_business_id — son el control de acceso centralizado.
-7. **app/routers/ui_tabs.py**: archivo de 2392 líneas, tocar con cuidado — contiene el dashboard principal.
+7. **Routers UI**: `ui_tabs.py` fue dividido en `ui_stock.py`/`ui_profit.py`/`ui_activity.py`/`ui_history.py`/`ui_dividends.py`/`ui_home.py`/`ui_tabs_common.py` (Fase B). El dashboard ya no es monolítico.
 8. **Migraciones**: no modificar archivos existentes en migrations — solo crear nuevos.
 
 ---
 
 ## Qué NO existe todavía
 
-- No hay tests — `tests/` está vacío, pytest no está en requirements-dev.txt
 - No hay sistema de roles/permisos granular por recurso (solo admin/owner/operator global)
-- No hay rate limiting
 - No hay caché Redis
 - No hay sistema de emails/notificaciones
 - No hay API REST documentada con OpenAPI tags organizados
-- No hay CI/CD pipeline
+- Fase 2 del agente (insights proactivos + LLM local multi-tool) — planificada (el copiloto ya tiene 27 tools Tier 1/2)
 
 ---
 
 ## Estado actual del proyecto
 
 ```
-Tests:        0 tests (tests/ vacío)
+Tests:        203 unit (SQLite en memoria) + 18 e2e (Playwright), CI/CD Gitea verde
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment)
-              UI HTMX: 14 tabs en dashboard, CRUD completo (products, purchases, sales,
-              transfers, expenses, extractions, customers, users, sales documents)
-Migraciones:  Seed manual via migrations.py (admin + operator users)
-Versión:      0.3.4
-Docker:       docker-compose.yml (postgres + app + caddy)
-Pendiente:    Tests, API docs, rate limiting
-Deuda téc.:   ui_tabs.py demasiado grande (2392 líneas), tests/ vacío
+              UI HTMX: dashboard completo + copiloto IA (29 tools) + tab Coach (score + recomendaciones)
+Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
+              .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
+Migraciones:  inline en migrations.py (schema_version=4, backfill config desde .conf)
+Versión:      0.4.1
+Docker:       docker-compose.yml (postgres + app + caddy) + docker-compose-homelab.yml
+Hecho (08-15): traspaso masivo, negocio sin POS, copiloto 27 tools, auditoría A/B/C/D (4.10)
+Hecho (08-16): coach financiero-operativo (determinista + chat vía agente), auditoría (3.65) +
+               code-review (6 hallazgos corregidos), 24 task envelopes, v0.4.1
+Pendiente:    verde definitivo ≥4.2, estacionalidad [B]/REQ-8 (no implementada), fase 2 agente,
+              renombrar .conf→.bak
+Deuda téc.:   ui_tabs.py dividido en ui_stock/ui_profit/... (Fase B) — ya no es monolítico
 ```
 
 ---

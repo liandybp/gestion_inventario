@@ -7,6 +7,7 @@ from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
 from app.services.sales_document_service import SalesDocumentService
+from app.services.coach_service import CoachService
 
 TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 
@@ -464,4 +465,22 @@ def purchases_by_month(service: InventoryService, args: dict) -> dict:
         "values": [s["total"] for s in series],
         "columns": ["Mes", "Compras"],
         "rows": [[s["month"], s["total"]] for s in series],
+    }
+
+
+@tool("coach_health_score", "Score de salud del negocio (1-10).",
+      {"type": "object", "properties": {}})
+def coach_health_score(service: InventoryService, args: dict) -> dict:
+    report = CoachService(service.db, service.business_id).health_score()
+    return {"value": report["score"], "label": report["level"]}
+
+
+@tool("coach_recommendations", "Recomendaciones activas del coach.",
+      {"type": "object", "properties": {}})
+def coach_recommendations(service: InventoryService, args: dict) -> dict:
+    coach = CoachService(service.db, service.business_id)
+    recommendations = coach.recommendations()
+    return {
+        "columns": ["Síntoma", "Acción", "Impacto"],
+        "rows": [[r["symptom"], r["action"], r.get("impact_text", "")] for r in recommendations],
     }

@@ -366,3 +366,39 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class CashBaseline(Base):
+    """Saldo inicial de caja; se usa el más reciente por negocio."""
+
+    __tablename__ = "cash_baselines"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id"), index=True)
+    baseline_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    amount: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False))
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class CoachActionLog(Base):
+    """Tracking de recomendaciones: abierta/hecha/descartada."""
+
+    __tablename__ = "coach_action_logs"
+    __table_args__ = (Index("ix_coach_action_business_rule", "business_id", "rule_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id"), index=True)
+    rule_key: Mapped[str] = mapped_column(String(128), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="open", server_default="open")
+    impact_estimate: Mapped[Optional[float]] = mapped_column(
+        Numeric(14, 4, asdecimal=False), nullable=True
+    )
+    marked_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    marked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_result: Mapped[Optional[float]] = mapped_column(
+        Numeric(14, 4, asdecimal=False), nullable=True
+    )
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

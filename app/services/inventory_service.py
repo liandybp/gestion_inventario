@@ -1265,6 +1265,37 @@ class InventoryService:
             stmt = stmt.where(InventoryLot.location_id == location_id)
         total = self._db.scalar(stmt)
         return float(total or 0)
+
+    def dead_stock(self, days: int = 90, now: Optional[datetime] = None) -> list[dict]:
+        from app.models import InventoryLot, Product, InventoryMovement
+        now_dt = now or datetime.now(timezone.utc)
+        cutoff = now_dt - timedelta(days=days)
+        lot_rows = self._db.execute(
+            select(InventoryLot.product_id, Product.sku, Product.name,
+                   func.sum(InventoryLot.qty_remaining * InventoryLot.unit_cost).label("value"))
+            .join(Product, Product.id == InventoryLot.product_id)
+            .where(and_(
+                InventoryLot.qty_remaining > 0, InventoryLot.received_at < cutoff,
+                True if self._business_id is None else (InventoryLot.business_id == self._business_id),
+            ))
+            .group_by(InventoryLot.product_id, Product.sku, Product.name)
+        ).all()
+        sold_ids = {pid for (pid,) in self._db.execute(
+            select(InventoryMovement.product_id).distinct().where(and_(
+                InventoryMovement.type == "sale", InventoryMovement.movement_date >= cutoff,
+                True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+            ))
+        ).all()}
+        return [{"sku": sku, "name": name, "value": float(value or 0)}
+                for pid, sku, name, value in lot_rows if pid not in sold_ids]
+
+    def inventory_turnover_days(self, monthly_cogs: float) -> Optional[float]:
+        if monthly_cogs <= 0:
+            return None
+        inv_value = self.inventory_value_total()
+        cogs_daily = monthly_cogs / 30.0
+        return inv_value / cogs_daily if cogs_daily > 0 else None
+
     def update_purchase(
         self,
         movement_id: int,

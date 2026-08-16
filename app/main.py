@@ -31,6 +31,7 @@ from app.routers import (
     ui_auth,
     ui_businesses,
     ui_agent,
+    ui_coach,
     ui_expenses,
     ui_extractions,
     ui_products,
@@ -181,6 +182,7 @@ app.include_router(ui_sales_documents.router, prefix="/ui")
 app.include_router(ui_users.router, prefix="/ui")
 app.include_router(ui_businesses.router, prefix="/ui")
 app.include_router(ui_agent.router, prefix="/ui")
+app.include_router(ui_coach.router, prefix="/ui")
 
 os.makedirs("app/static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
