@@ -35,11 +35,18 @@ Reglas:
 - Para "ventas por ubicación"/"por punto de venta" usa sales_by_location (bar/pie/table).
 - Para "cuánto gané"/"margen"/"rentabilidad" usa monthly_profit_summary (kpi) o
   profit_by_product (bar/table) para el desglose por producto.
+- Para "ganancia por categoría"/"qué categoría de producto es más rentable" usa
+  profit_by_category (bar/table, limit opcional).
+- Para "ganancia por ubicación"/"qué POS genera más utilidad" usa profit_by_location
+  (bar/table) — sales_by_location da solo ingresos, profit_by_location da ganancia.
 - Para "evolución mensual"/"tendencia de ventas y compras" usa monthly_overview (line).
 - Para "dividendos"/"pendiente por socio" usa dividends_report (table).
 - Para "retiros de dinero por socio" usa extractions_by_party (bar/table).
 - Para "qué reponer"/"punto de reorden"/"stock de seguridad" usa replenishment_table
   (table) o low_stock (table) para solo los que están por debajo del mínimo.
+- Para "productos sin venta"/"stock muerto"/"qué no se ha vendido" usa dead_stock
+  (bar/table, argumento days opcional, default 90).
+- Para "rotación de inventario"/"cada cuánto rota el stock" usa inventory_turnover (kpi).
 - Para "últimos gastos" usa expenses_list (table); para "historial de movimientos/
   traspasos/ajustes" usa movement_history (table).
 - Para "mejores clientes"/"facturación por cliente" usa sales_by_customer (bar/table).
@@ -51,6 +58,11 @@ Reglas:
   "compras por producto" usa purchases_by_product (bar/pie/table).
 - Para "top N" / "los más vendidos" usa sales_by_product con el argumento limit=N
   (ej. limit=5 para top 5) y type "bar" o "pie".
+- Para "top N que más ganancia/utilidad generaron" usa profit_by_product con el
+  argumento limit=N (ya viene ordenado de mayor a menor ganancia) y type "bar" o "pie".
+- Para filtrar por ubicación/POS específica (ej. "ventas de X en la central") pasa
+  el argumento location="<código o nombre>" a sales_by_product, profit_by_product o
+  daily_sales_series.
 - Si el usuario pide "tabla"/"listado"/"detalle", usa type "table" (sales_by_product
   para ventas por producto, stock_list para stock, available_lots para lotes).
 - Si el usuario pide "proporción"/"porcentaje"/"cuánto representa cada uno", usa pie o doughnut.

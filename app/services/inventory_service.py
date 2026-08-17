@@ -1545,6 +1545,14 @@ class InventoryService:
             loc_id = self._location_id_for_code(location_code)
         return self._inventory.fifo_lots_for_product_id(product.id, location_id=loc_id)
 
+    def resolve_location_id(self, code: str, *, auto_create: bool = False) -> int:
+        """API pública de solo lectura por defecto para código/prefijo -> id
+        (delega en LocationRepository, incluido su fallback de prefijo por negocio).
+        A diferencia de los flujos de escritura (compra/venta/traspaso), los
+        llamadores de solo lectura (ej. el copiloto) deben pasar auto_create=False
+        para no crear ubicaciones fantasma a partir de un código mal formado."""
+        return self._locations.location_id_for_code(code, auto_create=auto_create)
+
     def transfer(self, payload: TransferCreate) -> TransferResult:
         self._invalidate_metrics_cache()
         if not payload.lines:
