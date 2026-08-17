@@ -31,7 +31,7 @@ def _static_asset_version() -> str:
     """
     digest = hashlib.sha1()
     static_dir = Path(__file__).resolve().parent.parent / "static"
-    for rel in ("css/app.css", "js/app.js"):
+    for rel in ("css/app.css", "js/app.js", "js/htmx.min.js"):
         try:
             digest.update((static_dir / rel).read_bytes())
         except OSError:

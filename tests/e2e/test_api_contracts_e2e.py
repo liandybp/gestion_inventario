@@ -33,6 +33,7 @@ def _login(page: Page, live_server: str, user: tuple[str, str]) -> None:
     page.fill('input[name="password"]', p)
     page.click('button[type="submit"]')
     page.wait_for_url(f"{live_server}/ui/dashboard**")
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
 
 def _post_json(page: Page, live_server: str, path: str, payload: dict):

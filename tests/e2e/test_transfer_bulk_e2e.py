@@ -18,6 +18,7 @@ def _login_and_open_bulk(page: Page, base_url: str) -> None:
     page.fill('input[name="password"]', "admin")
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
     page.click("#tab-transfers")
     expect(page.locator("button[hx-get='/ui/transfers/bulk']")).to_be_visible()

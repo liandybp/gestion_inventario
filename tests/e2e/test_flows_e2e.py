@@ -25,6 +25,9 @@ def _login(page: Page, base_url: str) -> None:
     page.fill('input[name="password"]', "admin")
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
+    # HTMX se inicializa tras cargar su script; sin esto, un click a un tab puede
+    # ocurrir antes de que HTMX registre sus listeners y perderse (flake CI).
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
 
 def test_extraction_create_updates_dividends(live_server: str, page: Page) -> None:

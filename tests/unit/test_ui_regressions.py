@@ -35,7 +35,8 @@ def test_static_asset_version_derives_from_file_content():
     static_dir = Path(ui_common.__file__).resolve().parent.parent / "static"
     css = (static_dir / "css/app.css").read_bytes()
     js = (static_dir / "js/app.js").read_bytes()
-    expected = hashlib.sha1(css + js).hexdigest()[:8]
+    htmx = (static_dir / "js/htmx.min.js").read_bytes()
+    expected = hashlib.sha1(css + js + htmx).hexdigest()[:8]
     assert ui_common._static_asset_version() == expected
 
 

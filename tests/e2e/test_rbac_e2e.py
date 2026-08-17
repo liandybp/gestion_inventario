@@ -24,6 +24,7 @@ def _login(page: Page, base_url: str, username: str, password: str) -> None:
     page.fill('input[name="password"]', password)
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
 
 def test_operator_cannot_adjust_stock_via_api(live_server: str, page: Page) -> None:
