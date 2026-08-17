@@ -179,9 +179,16 @@ Archivo `app/business_config.conf` (INI):
       datos", ventanas de tiempo consistentes, cómputo cacheado, current_cash resiliente). 203
       unit + 18 e2e verdes. v0.4.1. **Pendiente:** estacionalidad [B] (REQ-8) no se implementó
       — ver `specs/coach-financiero-operativo/PAE-coach-financiero-operativo.md` §5.4.
+- [x] **Fix regresión Fase C en compras** — `_generate_auto_sku()` desempaquetaba mal lista de
+      SKU tras refactor f6e25dd. ValueError cada vez que se registraba compra como producto nuevo
+      sin SKU. También scope `list_sku_prefixes()` por `business_id` para evitar numeración
+      compartida entre negocios. E2e regression + 205 unit + 20 e2e verdes. v0.4.1.
+- [x] **Coach restricción RBAC temporal** — admin-only (era admin/owner) mientras se valida con
+      otros roles en dev. Visible en sidebar solo para admin. Commit `27f9da2`.
 
 ## Sesiones
 
+- **2026-08-17 (sesión 6)** — **Fixes prod + Coach admin-only + deploy develop**: (1) regresión Fase C en compras (SKU auto-generado fallaba registrando producto nuevo sin SKU manual; desempaquetado mal en `_generate_auto_sku()` tras f6e25dd), (2) scope `list_sku_prefixes()` por business_id evita numeración SKU compartida, (3) Coach restricción RBAC temporal a admin (validación previa), (4) investigación fuga ubicaciones en Cerveza = sin bug (datos limpios en BD, probable caché cliente). 205 unit + 20 e2e verdes. Commit `27f9da2` pusheado a `gitea/develop` (dispara CI/CD automático). Detalle: `.claude/session-notes.md`.
 - **2026-08-15 (sesión 4)** — **Fases B/C/D del refactor de auditoría** (SDD → OpenCode): B (SoC/capas, services extraídos) 3.85, C (RBAC API + escalabilidad + repos + e2e en CI) 4.00, D (contract tests + backoff LLM + rate limiter IP+user) 4.10. **Arreglo pipeline CI/CD (4 causas raíz)**: el "CI verde" documentado nunca funcionó en el runner host (los deploys eran manuales) — `apt-get` sin sudo, `--no-cov` sin `pytest-cov`, test en `runs-on: ubuntu-latest` (inexistente), 4 e2e flaky eliminados. 149 unit + 16 e2e verdes. Deploy dev + prod `success`. Detalle en `.claude/session-notes.md`
 - **2026-08-15 (sesión 3)** — **Negocio sin POS** (Cervezas Mariela, deploy prod: `CERVEZA_MARIELA_POS1` eliminada) + **auditoría quick wins** (XSS H-029/034, credenciales H-036 fail-fast, índices H-053) + **code-review (8 ángulos)** que encontró y corrigió 11 hallazgos propios (dropdown Documentos vacío, traspasos 422 sin-POS, "None" en edit form, Location vacía, default POS1, seed log-only, `.conf` legacy, etc.) + **auditoría 2.95** (`docs/auditorias/2026-08-15-negocio-sin-pos.md`). Detalle en `.claude/session-notes.md`
 - **2026-08-15 (sesión 2)** — Traspaso masivo (modal + 6 fixes + campo fecha) + code-review + e2e Playwright (institucionalizado en DoD) + copiloto (3 bugs + Tier 1/2 = 27 tools) + despliegue CD con Gitea Actions (runners self-hosted + systemd + test-gate; cron watcher y Dokploy eliminados). Detalle en `.claude/session-notes.md`
