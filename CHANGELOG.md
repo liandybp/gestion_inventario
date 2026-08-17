@@ -2,6 +2,15 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.3 (2026-08-17)
+
+- feat(agent): 4 tools nuevas para el copiloto IA — `dead_stock` (productos sin venta
+  reciente y valor inmovilizado), `inventory_turnover` (rotación de inventario en días),
+  `profit_by_category` y `profit_by_location` (ganancia agrupada por categoría/ubicación,
+  hasta ahora solo disponible por producto).
+- feat(agent): `sales_by_product`, `profit_by_product` y `daily_sales_series` aceptan un
+  argumento opcional `location` (código o nombre de ubicación) para filtrar por POS/central.
+
 ## Unreleased
 
 - chore(ui): se elimina del tab de inventario el bloque temporal de traspaso general CENTRAL -> POS.
