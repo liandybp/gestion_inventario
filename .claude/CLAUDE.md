@@ -257,19 +257,24 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        203 unit (SQLite en memoria) + 18 e2e (Playwright), CI/CD Gitea verde
+Tests:        221 unit (SQLite en memoria) + 20 e2e (Playwright), CI/CD Gitea verde
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment)
-              UI HTMX: dashboard completo + copiloto IA (29 tools) + tab Coach (score + recomendaciones)
+              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach (score + recomendaciones)
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema_version=4, backfill config desde .conf)
-Versión:      0.4.1
+Versión:      0.4.4
 Docker:       docker-compose.yml (postgres + app + caddy) + docker-compose-homelab.yml
 Hecho (08-15): traspaso masivo, negocio sin POS, copiloto 27 tools, auditoría A/B/C/D (4.10)
 Hecho (08-16): coach financiero-operativo (determinista + chat vía agente), auditoría (3.65) +
                code-review (6 hallazgos corregidos), 24 task envelopes, v0.4.1
+Hecho (08-17): copiloto 27→33 tools (dead_stock, inventory_turnover, profit_by_category,
+               profit_by_location + filtro location), auditoría 3.20→4.05 (7 hallazgos
+               corregidos), v0.4.3. Fix bug de prod: PlanModel.tool sin widgets (chat sin
+               gráfica) → retry+síntesis en _plan_node, v0.4.4.
 Pendiente:    verde definitivo ≥4.2, estacionalidad [B]/REQ-8 (no implementada), fase 2 agente,
-              renombrar .conf→.bak
+              renombrar .conf→.bak, Dockerfile no copia VERSION (health siempre "unknown"),
+              healthcheck agent_llm sin auth header (falso "degraded" en prod)
 Deuda téc.:   ui_tabs.py dividido en ui_stock/ui_profit/... (Fase B) — ya no es monolítico
 ```
 

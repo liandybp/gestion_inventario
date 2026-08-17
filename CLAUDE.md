@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.1` (ver `VERSION`)
+- **Versión actual:** `0.4.4` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (149 unit + 16 e2e Playwright) |
+| Testing | pytest (221 unit + 20 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -185,9 +185,41 @@ Archivo `app/business_config.conf` (INI):
       compartida entre negocios. E2e regression + 205 unit + 20 e2e verdes. v0.4.1.
 - [x] **Coach restricción RBAC temporal** — admin-only (era admin/owner) mientras se valida con
       otros roles en dev. Visible en sidebar solo para admin. Commit `27f9da2`.
+- [x] **Copiloto: 4 tools nuevas + filtro location (v0.4.3)** — auditoría de cobertura de tools
+      (29→33): `dead_stock` (productos sin venta reciente), `inventory_turnover` (rotación en
+      días), `profit_by_category`/`profit_by_location` (ganancia agrupada, antes solo por
+      producto, con `GROUP BY` SQL en `ReportingService`, no agregación Python per-línea).
+      `sales_by_product`/`profit_by_product`/`daily_sales_series` aceptan `location` opcional
+      (nuevo `InventoryService.resolve_location_id`, API pública de solo lectura, nunca
+      autocrea). Generado vía SDD-Agent (`specs/agent-tools-p0-p1/`), `/code-review` (5
+      hallazgos) + `auditoria-ingenieria` (10 dimensiones, 3.20→4.05) — los 7 hallazgos
+      corregidos en la misma sesión. 219 unit verdes.
+- [x] **Fix: copiloto respondía texto sin gráfica (v0.4.4, bug de prod)** — el LLM puede llenar
+      `tool`/`tool_args` a nivel de `PlanModel` y dejar `widgets` vacío; `_execute_node` solo
+      itera `widgets`, así que ese caso no ejecutaba ninguna tool ni renderizaba nada (el chat
+      mostraba el `reply` sin gráfica/tabla). Reportado en vivo en prod tras el deploy de
+      0.4.3, con la pregunta original de esta sesión ("5 productos que más utilidades...").
+      Fix en `app/agent/graph.py::_plan_node`: se trata como error de formato retryable (mismo
+      mecanismo que un JSON inválido) y, si el modelo insiste tras agotar los reintentos, se
+      sintetiza un widget con la tool que sí eligió. 221 unit verdes (2 nuevos).
 
 ## Sesiones
 
+- **2026-08-17 (sesión 7)** — **Auditoría de cobertura de tools + 4 tools nuevas + fix bug de
+  prod (v0.4.2→0.4.4)**: fix inicial de `profit_by_product` (ignoraba `limit`, ordenaba por
+  ventas no ganancia) → auditoría de cobertura de las 29 tools del copiloto contra el modelo →
+  SDD-Agent genera PAE para P0/P1 (`specs/agent-tools-p0-p1/`) → OpenCode-style: 4 tools nuevas
+  (`dead_stock`, `inventory_turnover`, `profit_by_category`, `profit_by_location`) + filtro
+  `location` en 3 tools existentes → `/code-review` (5 hallazgos) + `auditoria-ingenieria`
+  (3.20→4.05/5.00) → deploy dev → **deploy prod → bug en vivo reportado por el usuario**
+  (chat responde texto pero sin gráfica) → diagnosticado (`PlanModel.tool` vs `widgets`
+  desincronizados) y corregido con retry+síntesis de widget → deploy dev → deploy prod (0.4.4).
+  **Aprendizaje de proceso**: se saltó la validación en dev antes del primer deploy a prod
+  ("ponemos en producción" sin confirmar el paso intermedio) y así llegó el bug — la segunda
+  vuelta si esperó confirmación explícita en dev antes de mergear a `main`. 221 unit verdes
+  (200 unit del arranque de sesión). Ambos deploys via `develop` → `main` (el trabajo había
+  quedado sobre `main` local por error de rama, corregido con `git stash`+`checkout develop`
+  antes de cada commit). Detalle: `.claude/session-notes.md`.
 - **2026-08-17 (sesión 6)** — **Fixes prod + Coach admin-only + deploy develop**: (1) regresión Fase C en compras (SKU auto-generado fallaba registrando producto nuevo sin SKU manual; desempaquetado mal en `_generate_auto_sku()` tras f6e25dd), (2) scope `list_sku_prefixes()` por business_id evita numeración SKU compartida, (3) Coach restricción RBAC temporal a admin (validación previa), (4) investigación fuga ubicaciones en Cerveza = sin bug (datos limpios en BD, probable caché cliente). 205 unit + 20 e2e verdes. Commit `27f9da2` pusheado a `gitea/develop` (dispara CI/CD automático). Detalle: `.claude/session-notes.md`.
 - **2026-08-15 (sesión 4)** — **Fases B/C/D del refactor de auditoría** (SDD → OpenCode): B (SoC/capas, services extraídos) 3.85, C (RBAC API + escalabilidad + repos + e2e en CI) 4.00, D (contract tests + backoff LLM + rate limiter IP+user) 4.10. **Arreglo pipeline CI/CD (4 causas raíz)**: el "CI verde" documentado nunca funcionó en el runner host (los deploys eran manuales) — `apt-get` sin sudo, `--no-cov` sin `pytest-cov`, test en `runs-on: ubuntu-latest` (inexistente), 4 e2e flaky eliminados. 149 unit + 16 e2e verdes. Deploy dev + prod `success`. Detalle en `.claude/session-notes.md`
 - **2026-08-15 (sesión 3)** — **Negocio sin POS** (Cervezas Mariela, deploy prod: `CERVEZA_MARIELA_POS1` eliminada) + **auditoría quick wins** (XSS H-029/034, credenciales H-036 fail-fast, índices H-053) + **code-review (8 ángulos)** que encontró y corrigió 11 hallazgos propios (dropdown Documentos vacío, traspasos 422 sin-POS, "None" en edit form, Location vacía, default POS1, seed log-only, `.conf` legacy, etc.) + **auditoría 2.95** (`docs/auditorias/2026-08-15-negocio-sin-pos.md`). Detalle en `.claude/session-notes.md`
