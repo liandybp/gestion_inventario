@@ -31,6 +31,35 @@ def _parse_end(value: str) -> datetime:
     return dt
 
 
+def _resolve_location_id(service: InventoryService, location: str) -> int:
+    """Código/nombre -> id, solo lectura, scoped a business_id. Primero intenta la
+    resolución canónica vía InventoryService.resolve_location_id (incluye el
+    fallback de prefijo por negocio, sin autocrear); si no matchea, cae a un
+    fallback propio case-insensitive por código o nombre en una sola query. Nunca
+    autocrea: un código alucinado por el LLM debe fallar con 404, no crear una
+    ubicación fantasma."""
+    from fastapi import HTTPException
+    from sqlalchemy import func, or_, select
+
+    from app.models import Location
+
+    value = (location or "").strip()
+    try:
+        return service.resolve_location_id(value, auto_create=False)
+    except HTTPException:
+        pass
+
+    loc_id = service.db.scalar(
+        select(Location.id).where(
+            Location.business_id == service.business_id,
+            or_(func.lower(Location.code) == value.lower(), func.lower(Location.name) == value.lower()),
+        )
+    )
+    if loc_id is None:
+        raise HTTPException(status_code=404, detail=f"Ubicación no encontrada: {location}")
+    return int(loc_id)
+
+
 def tool(name: str, description: str, params: dict) -> Callable:
     def deco(fn: Callable) -> Callable:
         TOOL_REGISTRY[name] = {"description": description, "params": params, "fn": fn}
@@ -91,12 +120,15 @@ def tool_schemas() -> list[dict]:
             for name, spec in TOOL_REGISTRY.items()]
 
 
-@tool("sales_by_product", "Ventas desglose por producto (start/end ISO; limit opcional = top N por ventas).",
-      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"}},
+@tool("sales_by_product", "Ventas desglose por producto (start/end ISO; limit opcional = top N por ventas; "
+      "location opcional = código o nombre de ubicación para filtrar).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"},
+                                          "location": {"type": "string"}},
        "required": ["start", "end"]})
 def sales_by_product(service: InventoryService, args: dict) -> dict:
     reporting = ReportingService(service.db, service.business_id)
-    _total, items = reporting.sales_by_product(_iso(args["start"]), _parse_end(args["end"]))
+    location_id = _resolve_location_id(service, args["location"]) if args.get("location") else None
+    _total, items = reporting.sales_by_product(_iso(args["start"]), _parse_end(args["end"]), location_id=location_id)
     limit = args.get("limit")
     if limit:
         items = items[: int(limit)]
@@ -110,11 +142,14 @@ def sales_by_product(service: InventoryService, args: dict) -> dict:
     }
 
 
-@tool("daily_sales_series", "Serie diaria de ventas entre start y end ISO.",
-      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}, "required": ["start", "end"]})
+@tool("daily_sales_series", "Serie diaria de ventas entre start y end ISO (location opcional = código "
+      "o nombre de ubicación para filtrar).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "location": {"type": "string"}},
+       "required": ["start", "end"]})
 def daily_sales_series(service: InventoryService, args: dict) -> dict:
     reporting = ReportingService(service.db, service.business_id)
-    series = reporting.daily_sales_series(_iso(args["start"]), _parse_end(args["end"]))
+    location_id = _resolve_location_id(service, args["location"]) if args.get("location") else None
+    series = reporting.daily_sales_series(_iso(args["start"]), _parse_end(args["end"]), location_id=location_id)
     return {"labels": [d["day"] for d in series], "values": [d["sales"] for d in series]}
 
 
@@ -260,14 +295,23 @@ def monthly_profit_summary(service: InventoryService, args: dict) -> dict:
     }
 
 
-@tool("profit_by_product", "Ganancia y margen por producto en un período (start/end ISO opcionales).",
-      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
+@tool("profit_by_product", "Ganancia y margen por producto en un período, ordenado de mayor a menor ganancia "
+      "(start/end ISO opcionales; limit opcional = top N por ganancia; location opcional = código o "
+      "nombre de ubicación para filtrar).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"},
+                                          "location": {"type": "string"}}})
 def profit_by_product(service: InventoryService, args: dict) -> dict:
     reporting = ReportingService(service.db, service.business_id)
+    location_id = _resolve_location_id(service, args["location"]) if args.get("location") else None
     _summary, items = reporting.monthly_profit_report(
         start=_iso(args["start"]) if args.get("start") else None,
         end=_parse_end(args["end"]) if args.get("end") else None,
+        location_id=location_id,
     )
+    items = sorted(items, key=lambda i: i["gross"], reverse=True)
+    limit = args.get("limit")
+    if limit:
+        items = items[: int(limit)]
     return {
         "labels": [i["name"] for i in items],
         "values": [float(i["gross"]) for i in items],
@@ -483,4 +527,92 @@ def coach_recommendations(service: InventoryService, args: dict) -> dict:
     return {
         "columns": ["Síntoma", "Acción", "Impacto"],
         "rows": [[r["symptom"], r["action"], r.get("impact_text", "")] for r in recommendations],
+    }
+
+
+@tool("dead_stock", "Productos sin venta reciente y su valor inmovilizado a costo (days opcional, default 90).",
+      {"type": "object", "properties": {"days": {"type": "integer"}}})
+def dead_stock(service: InventoryService, args: dict) -> dict:
+    raw_days = args.get("days")
+    days = int(raw_days) if raw_days is not None else 90
+    items = sorted(service.dead_stock(days=days), key=lambda i: i["value"], reverse=True)
+    return {
+        "labels": [i["name"] for i in items],
+        "values": [float(i["value"]) for i in items],
+        "columns": ["SKU", "Nombre", "Valor inmovilizado"],
+        "rows": [[i["sku"], i["name"], float(i["value"])] for i in items],
+    }
+
+
+@tool("inventory_turnover", "Rotación de inventario en días, según el costo de ventas del período "
+      "(start/end ISO opcionales, default mes actual).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
+def inventory_turnover(service: InventoryService, args: dict) -> dict:
+    reporting = ReportingService(service.db, service.business_id)
+    summary, _items = reporting.monthly_profit_report(
+        start=_iso(args["start"]) if args.get("start") else None,
+        end=_parse_end(args["end"]) if args.get("end") else None,
+    )
+    cogs_total = float(summary["cogs_total"])
+    if cogs_total <= 0:
+        return {"value": 0.0, "label": "Sin datos suficientes", "currency": False}
+    # No reusa InventoryService.inventory_turnover_days (asume siempre /30 días,
+    # correcto solo para su otro consumidor CoachService que siempre pasa un mes
+    # completo). Aquí start/end pueden ser cualquier rango, así que se calcula con
+    # el largo real del período pedido.
+    period_days = max((summary["month_end"] - summary["month_start"]).days, 1)
+    cogs_daily = cogs_total / period_days
+    inv_value = service.inventory_value_total()
+    turnover = inv_value / cogs_daily if cogs_daily > 0 else None
+    if turnover is None:
+        return {"value": 0.0, "label": "Sin datos suficientes", "currency": False}
+    return {"value": round(float(turnover), 1), "label": None, "currency": False}
+
+
+def _profit_rows(items: list[dict], key: str) -> list[list]:
+    """Formatea items de ReportingService.profit_by_category/profit_by_location
+    (ya agregados y ordenados por ganancia en SQL) a filas de tabla."""
+    return [
+        [i[key], float(i["qty"]), float(i["sales"]), float(i["cogs"]),
+         float(i["profit"]), round(float(i["margin_pct"]), 1)]
+        for i in items
+    ]
+
+
+@tool("profit_by_category", "Ganancia y margen agrupados por categoría de producto en un período, "
+      "ordenado de mayor a menor ganancia (start/end ISO opcionales; limit opcional = top N).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}, "limit": {"type": "integer"}}})
+def profit_by_category(service: InventoryService, args: dict) -> dict:
+    reporting = ReportingService(service.db, service.business_id)
+    items = reporting.profit_by_category(
+        start=_iso(args["start"]) if args.get("start") else None,
+        end=_parse_end(args["end"]) if args.get("end") else None,
+    )
+    limit = args.get("limit")
+    if limit:
+        items = items[: int(limit)]
+    rows = _profit_rows(items, "category")
+    return {
+        "labels": [r[0] for r in rows],
+        "values": [r[4] for r in rows],
+        "columns": ["Categoría", "Cantidad", "Ventas", "Costo", "Ganancia", "Margen %"],
+        "rows": rows,
+    }
+
+
+@tool("profit_by_location", "Ganancia y margen agrupados por ubicación/POS en un período, "
+      "ordenado de mayor a menor ganancia (start/end ISO opcionales).",
+      {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}})
+def profit_by_location(service: InventoryService, args: dict) -> dict:
+    reporting = ReportingService(service.db, service.business_id)
+    items = reporting.profit_by_location(
+        start=_iso(args["start"]) if args.get("start") else None,
+        end=_parse_end(args["end"]) if args.get("end") else None,
+    )
+    rows = _profit_rows(items, "location")
+    return {
+        "labels": [r[0] for r in rows],
+        "values": [r[4] for r in rows],
+        "columns": ["Ubicación", "Cantidad", "Ventas", "Costo", "Ganancia", "Margen %"],
+        "rows": rows,
     }

@@ -574,6 +574,139 @@ class ReportingService:
 
         return summary, items
 
+    def profit_by_category(
+        self,
+        now: Optional[datetime] = None,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> list[dict]:
+        """Ganancia agrupada por categoría de producto (GROUP BY en SQL, no por línea)."""
+        now_dt = now or datetime.now(timezone.utc)
+        if start is None or end is None:
+            month_start, month_end = self._month_range(now_dt)
+            start = month_start if start is None else start
+            end = month_end if end is None else end
+
+        category_expr = func.coalesce(Product.category, "Sin categoría")
+        filters = (
+            InventoryMovement.type == "sale",
+            InventoryMovement.movement_date >= start,
+            InventoryMovement.movement_date < end,
+            True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+        )
+
+        sales_rows = self._db.execute(
+            select(
+                category_expr.label("category"),
+                func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                func.coalesce(
+                    func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0)),
+                    0,
+                ).label("sales"),
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(and_(*filters))
+            .group_by(category_expr)
+        ).all()
+
+        cogs_rows = self._db.execute(
+            select(
+                category_expr.label("category"),
+                func.coalesce(func.sum(MovementAllocation.quantity * MovementAllocation.unit_cost), 0).label("cogs"),
+            )
+            .select_from(MovementAllocation)
+            .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(and_(*filters))
+            .group_by(category_expr)
+        ).all()
+
+        cogs_by_category = {cat: float(cogs or 0) for cat, cogs in cogs_rows}
+        items = []
+        for cat, qty, sales in sales_rows:
+            sales_f = float(sales or 0)
+            cogs_f = cogs_by_category.get(cat, 0.0)
+            profit = sales_f - cogs_f
+            items.append({
+                "category": cat,
+                "qty": float(qty or 0),
+                "sales": sales_f,
+                "cogs": cogs_f,
+                "profit": profit,
+                "margin_pct": (profit / sales_f * 100.0) if sales_f else 0.0,
+            })
+        items.sort(key=lambda r: r["profit"], reverse=True)
+        return items
+
+    def profit_by_location(
+        self,
+        now: Optional[datetime] = None,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> list[dict]:
+        """Ganancia agrupada por ubicación/POS (GROUP BY en SQL, no por línea)."""
+        now_dt = now or datetime.now(timezone.utc)
+        if start is None or end is None:
+            month_start, month_end = self._month_range(now_dt)
+            start = month_start if start is None else start
+            end = month_end if end is None else end
+
+        loc = aliased(Location)
+        location_expr = func.coalesce(loc.name, loc.code, "Sin ubicación")
+        filters = (
+            InventoryMovement.type == "sale",
+            InventoryMovement.movement_date >= start,
+            InventoryMovement.movement_date < end,
+            True if self._business_id is None else (InventoryMovement.business_id == self._business_id),
+        )
+
+        sales_rows = self._db.execute(
+            select(
+                location_expr.label("location"),
+                func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                func.coalesce(
+                    func.sum(func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0)),
+                    0,
+                ).label("sales"),
+            )
+            .select_from(InventoryMovement)
+            .outerjoin(loc, loc.id == InventoryMovement.location_id)
+            .where(and_(*filters))
+            .group_by(location_expr)
+        ).all()
+
+        cogs_rows = self._db.execute(
+            select(
+                location_expr.label("location"),
+                func.coalesce(func.sum(MovementAllocation.quantity * MovementAllocation.unit_cost), 0).label("cogs"),
+            )
+            .select_from(MovementAllocation)
+            .join(InventoryMovement, InventoryMovement.id == MovementAllocation.movement_id)
+            .outerjoin(loc, loc.id == InventoryMovement.location_id)
+            .where(and_(*filters))
+            .group_by(location_expr)
+        ).all()
+
+        cogs_by_location = {name: float(cogs or 0) for name, cogs in cogs_rows}
+        items = []
+        for name, qty, sales in sales_rows:
+            sales_f = float(sales or 0)
+            cogs_f = cogs_by_location.get(name, 0.0)
+            profit = sales_f - cogs_f
+            items.append({
+                "location": name,
+                "qty": float(qty or 0),
+                "sales": sales_f,
+                "cogs": cogs_f,
+                "profit": profit,
+                "margin_pct": (profit / sales_f * 100.0) if sales_f else 0.0,
+            })
+        items.sort(key=lambda r: r["profit"], reverse=True)
+        return items
+
     def monthly_profit_items_report(
         self,
         now: Optional[datetime] = None,
