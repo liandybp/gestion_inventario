@@ -14,7 +14,7 @@ from app.agent import config
 from app.agent.circuit_breaker import breaker
 from app.agent.llm import build_planner
 from app.agent.prompts import build_system_prompt
-from app.agent.schemas import PlanModel
+from app.agent.schemas import PlanModel, WidgetSpec
 from app.agent.tools import TOOL_REGISTRY
 from app.logger import get_logger
 from app.services.inventory_service import InventoryService
@@ -85,6 +85,10 @@ def _plan_node(state: AgentState) -> AgentState:
         )
         return state
     error: Optional[str] = None
+    # Guarda el último plan válido (PlanModel bien formado) que eligió una tool
+    # pero dejó `widgets` vacío, para poder sintetizar un widget de rescate si
+    # los reintentos se agotan sin que el modelo corrija el formato (ver abajo).
+    last_tool_without_widget: Optional[PlanModel] = None
     for attempt in range(config.MAX_RETRIES + 1):
         if attempt > 0:
             backoff = min(config.RETRY_BASE_S * (2 ** (attempt - 1)), config.RETRY_MAX_S)
@@ -98,6 +102,19 @@ def _plan_node(state: AgentState) -> AgentState:
             if not isinstance(plan, PlanModel):
                 raise OutputParserException(
                     f"El planner devolvió {type(plan).__name__}, se esperaba PlanModel"
+                )
+            # El modelo puede rellenar tool/tool_args a nivel de plan y dejar
+            # `widgets` vacío: _execute_node solo itera `plan.widgets`, así que
+            # ese caso no ejecuta nada ni renderiza ningún widget — el chat
+            # muestra el `reply` ("Voy a obtener los datos...") pero ninguna
+            # gráfica/tabla aparece. Tratarlo como error de formato retryable,
+            # igual que un JSON inválido.
+            if plan.tool and not plan.widgets:
+                last_tool_without_widget = plan
+                raise OutputParserException(
+                    f"Se seleccionó la tool '{plan.tool}' pero 'widgets' quedó vacío; "
+                    "todo tool_args debe reflejarse también en un widget con su "
+                    "type y title."
                 )
             state["plan"] = plan
             state["error"] = None
@@ -117,6 +134,19 @@ def _plan_node(state: AgentState) -> AgentState:
             )
             return state
     state["error"] = error
+    if last_tool_without_widget is not None:
+        # Los reintentos se agotaron y el modelo insistió en no llenar `widgets`.
+        # La tool/tool_args que sí eligió son válidas (ya se ejecutarían bien),
+        # así que se sintetiza el widget en vez de descartar todo y mostrar solo
+        # el reply sin ninguna gráfica/tabla.
+        p = last_tool_without_widget
+        state["plan"] = PlanModel(
+            tool=p.tool,
+            tool_args=p.tool_args,
+            reply=p.reply,
+            widgets=[WidgetSpec(type="table", title=p.tool, tool=p.tool, tool_args=p.tool_args)],
+        )
+        return state
     state["plan"] = PlanModel(tool=None, widgets=[], reply="No pude interpretar tu consulta.")
     return state
 

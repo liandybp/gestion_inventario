@@ -140,6 +140,66 @@ def test_graph_degrades_when_planner_returns_none(db_session, business_id):
         g._PLANNER = original
 
 
+def test_plan_retries_when_tool_set_but_widgets_empty(db_session, business_id, monkeypatch):
+    """Regression (prod): el modelo puede rellenar tool/tool_args a nivel de
+    plan y dejar 'widgets' vacío -> _execute_node no ejecuta nada y el chat
+    muestra el reply ("Voy a obtener los datos...") sin ninguna gráfica. Debe
+    reintentar con feedback, igual que un JSON inválido, en vez de degradar."""
+    registry = {"fake_tool": {"fn": lambda svc, args: {"value": 42.0}, "description": "", "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    monkeypatch.setattr(g.config, "RETRY_BASE_S", 0.0)
+    monkeypatch.setattr(g.config, "RETRY_JITTER", 0.0)
+
+    calls = {"n": 0}
+
+    class _FlakyPlanner:
+        def invoke(self, messages):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return PlanModel(tool="fake_tool", tool_args={"x": 1}, widgets=[], reply="Voy a obtenerlo.")
+            return PlanModel(
+                tool="fake_tool", tool_args={"x": 1},
+                widgets=[WidgetSpec(type="kpi", title="Valor", tool="fake_tool", tool_args={"x": 1})],
+                reply="Acá está.",
+            )
+
+    original = g._PLANNER
+    g._PLANNER = _FlakyPlanner()
+    try:
+        graph = build_graph()
+        result = graph.invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+        assert calls["n"] == 2  # reintentó una vez tras el plan con widgets vacío
+        assert len(result["widgets"]) == 1
+        assert result["widgets"][0]["payload"] == {"value": 42.0}
+    finally:
+        g._PLANNER = original
+
+
+def test_plan_synthesizes_widget_when_retries_exhausted(db_session, business_id, monkeypatch):
+    """Si el modelo insiste en dejar 'widgets' vacío tras agotar los reintentos,
+    se sintetiza un widget con la tool que sí eligió en vez de mostrar solo el
+    reply sin ninguna gráfica/tabla."""
+    registry = {"fake_tool": {"fn": lambda svc, args: {"columns": ["A"], "rows": [[1]]}, "description": "", "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    monkeypatch.setattr(g.config, "RETRY_BASE_S", 0.0)
+    monkeypatch.setattr(g.config, "RETRY_JITTER", 0.0)
+
+    class _AlwaysNoWidgetPlanner:
+        def invoke(self, messages):
+            return PlanModel(tool="fake_tool", tool_args={"x": 1}, widgets=[], reply="Voy a obtenerlo.")
+
+    original = g._PLANNER
+    g._PLANNER = _AlwaysNoWidgetPlanner()
+    try:
+        graph = build_graph()
+        result = graph.invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+        assert len(result["widgets"]) == 1
+        assert result["widgets"][0]["tool"] == "fake_tool"
+        assert result["widgets"][0]["payload"] == {"columns": ["A"], "rows": [[1]]}
+    finally:
+        g._PLANNER = original
+
+
 def test_tighten_schema_marks_closed_and_required():
     """El schema que se envía al LLM (json_schema, no strict) se endurece como hint:
     additionalProperties:false + required completo, también en modelos anidados."""
