@@ -36,7 +36,9 @@ def test_static_asset_version_derives_from_file_content():
     css = (static_dir / "css/app.css").read_bytes()
     js = (static_dir / "js/app.js").read_bytes()
     htmx = (static_dir / "js/htmx.min.js").read_bytes()
-    expected = hashlib.sha1(css + js + htmx).hexdigest()[:8]
+    chart = (static_dir / "js/chart.umd.min.js").read_bytes()
+    barcode = (static_dir / "js/JsBarcode.all.min.js").read_bytes()
+    expected = hashlib.sha1(css + js + htmx + chart + barcode).hexdigest()[:8]
     assert ui_common._static_asset_version() == expected
 
 
