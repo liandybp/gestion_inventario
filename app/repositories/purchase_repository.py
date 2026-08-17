@@ -29,5 +29,8 @@ class PurchaseRepository:
         return self._db.scalar(stmt)
 
     def list_sku_prefixes(self, prefix: str) -> list[str]:
-        rows = self._db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
+        stmt = select(Product.sku).where(
+            Product.sku.ilike(f"{prefix}%"), Product.business_id == self._business_id
+        )
+        rows = self._db.execute(stmt).all()
         return [str(sku or "") for (sku,) in rows]

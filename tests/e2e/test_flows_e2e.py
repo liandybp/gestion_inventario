@@ -75,6 +75,36 @@ def test_purchase_flow_increases_stock(live_server: str, page: Page) -> None:
     expect(page.locator("#purchase-panel").locator("text=E2E-SKU2").first).to_be_visible()
 
 
+def test_purchase_flow_new_product_without_sku(live_server: str, page: Page) -> None:
+    """Registrar una compra dejando 'Artículo' en blanco y solo 'Nombre (si es nuevo)'
+    debe crear el producto con SKU autogenerado, no romper con un 500 (regresión
+    Fase C: list_sku_prefixes ya devuelve list[str], pero _generate_auto_sku volvía
+    a desempaquetar cada string como tupla — solo se dispara si ya existe al menos
+    un producto con prefijo SKU, como ocurre en producción con cientos de productos
+    SKU0000xx)."""
+    _login(page, live_server)
+    page.click("#tab-purchases")
+    expect(page.locator("#purchase-panel")).to_be_visible()
+
+    # Primero, un producto con SKU explícito con el prefijo por defecto ("SKU..."),
+    # para que list_sku_prefixes("SKU") no esté vacío al generar el siguiente SKU.
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="product"]', "SKU000001")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="product_name"]', "Producto Base E2E")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="quantity"]', "1")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="unit_cost"]', "1.00")
+    page.click('#purchase-panel form[hx-post="/ui/purchase"] button[type="submit"]')
+    expect(page.locator("#purchase-panel").locator("text=Compra registrada").first).to_be_visible()
+
+    # Ahora, un producto nuevo sin indicar SKU manualmente: dispara _generate_auto_sku.
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="product_name"]', "Producto Nuevo E2E Sin SKU")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="quantity"]', "2")
+    page.fill('#purchase-panel form[hx-post="/ui/purchase"] input[name="unit_cost"]', "5.00")
+    page.click('#purchase-panel form[hx-post="/ui/purchase"] button[type="submit"]')
+
+    expect(page.locator("#purchase-panel").locator("text=Compra registrada").first).to_be_visible()
+    expect(page.locator("#purchase-panel").locator("text=Producto Nuevo E2E Sin SKU").first).to_be_visible()
+
+
 def test_document_issue_flow(live_server: str, page: Page) -> None:
     """Emitir un documento de venta crea el doc (SalesDocumentService / tab-documents)."""
     _login(page, live_server)

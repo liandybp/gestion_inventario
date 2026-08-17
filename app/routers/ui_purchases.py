@@ -344,7 +344,7 @@ def purchase(
 
     def _generate_auto_sku(prefix: str = "SKU", width: int = 6) -> str:
         rows = PurchaseRepository(db, bid).list_sku_prefixes(prefix)
-        existing = [str(sku or "") for (sku,) in rows]
+        existing = [str(sku or "") for sku in rows]
         max_n = 0
         for s in existing:
             suffix = s[len(prefix) :]

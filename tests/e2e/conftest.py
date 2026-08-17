@@ -93,6 +93,17 @@ def _seed_stock(db_path: str) -> None:
             op.role = "operator"
             op.is_active = True
             op.business_id = biz.id
+        # Owner de prueba: acceso multi-negocio, pero Coach queda admin-only (H-0xx).
+        ow = db.scalar(select(User).where(User.username == "owner"))
+        if ow is None:
+            ow = User(username="owner", password_hash=hash_password("owner"),
+                      role="owner", is_active=True, business_id=biz.id)
+            db.add(ow)
+        else:
+            ow.password_hash = hash_password("owner")
+            ow.role = "owner"
+            ow.is_active = True
+            ow.business_id = biz.id
         db.commit()
     finally:
         db.close()

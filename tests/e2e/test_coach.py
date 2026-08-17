@@ -68,3 +68,13 @@ def test_operator_has_no_coach_access(live_server: str, page: Page) -> None:
 
     response = page.goto(f"{live_server}/ui/tabs/coach")
     assert response.status == 403
+
+
+def test_owner_has_no_coach_access(live_server: str, page: Page) -> None:
+    """Coach queda restringido a admin mientras se valida con el resto de roles."""
+    _login(page, live_server, "owner", "owner")
+
+    assert page.locator("#tab-coach").count() == 0
+
+    response = page.goto(f"{live_server}/ui/tabs/coach")
+    assert response.status == 403

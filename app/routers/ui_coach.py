@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import CashBaseline
-from app.routers.ui_common import ensure_admin_or_owner, templates
+from app.routers.ui_common import ensure_admin, templates
 from app.schemas import CashBaselineCreate, CoachActionUpdate
 from app.security import get_current_user_from_session, require_active_business_id
 from app.services.coach_service import CoachService
@@ -20,7 +20,7 @@ router = APIRouter(tags=["ui-coach"])
 
 @router.get("/tabs/coach", response_class=HTMLResponse)
 def tab_coach(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     business_id = require_active_business_id(db, request)
     service = CoachService(db, business_id)
     report = service.health_score()
@@ -38,7 +38,7 @@ def set_cash_baseline(
     amount: float = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     business_id = require_active_business_id(db, request)
     try:
         payload = CashBaselineCreate(
@@ -74,7 +74,7 @@ def update_action(
     status: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ensure_admin(db, request)
     business_id = require_active_business_id(db, request)
     try:
         payload = CoachActionUpdate(rule_key=rule_key, status=status)

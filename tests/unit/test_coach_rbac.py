@@ -37,6 +37,15 @@ def test_operator_gets_403_on_tab(db_session, business_id):
     assert exc.value.status_code == 403
 
 
+def test_owner_gets_403_on_tab(db_session, business_id):
+    """Coach queda admin-only mientras se valida con el resto de roles (H-0xx)."""
+    _user(db_session, "owner", "owner", business_id)
+    req = _request("owner", business_id)
+    with pytest.raises(HTTPException) as exc:
+        ui_coach.tab_coach(req, db=db_session)
+    assert exc.value.status_code == 403
+
+
 def test_admin_gets_200_on_tab(db_session, business_id):
     _user(db_session, "admin", "admin", business_id)
     req = _request("admin", business_id)
@@ -48,6 +57,16 @@ def test_admin_gets_200_on_tab(db_session, business_id):
 def test_operator_gets_403_on_cash_baseline(db_session, business_id):
     _user(db_session, "operator", "operator", business_id)
     req = _request("operator", business_id)
+    with pytest.raises(HTTPException) as exc:
+        ui_coach.set_cash_baseline(
+            req, baseline_date="2026-01-01T00:00:00", amount=100, db=db_session
+        )
+    assert exc.value.status_code == 403
+
+
+def test_owner_gets_403_on_cash_baseline(db_session, business_id):
+    _user(db_session, "owner", "owner", business_id)
+    req = _request("owner", business_id)
     with pytest.raises(HTTPException) as exc:
         ui_coach.set_cash_baseline(
             req, baseline_date="2026-01-01T00:00:00", amount=100, db=db_session
