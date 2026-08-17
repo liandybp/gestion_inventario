@@ -2,6 +2,16 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.4 (2026-08-17)
+
+- fix(agent): el copiloto podía responder con el texto de la reply
+  ("Voy a obtener los datos...") sin renderizar ninguna gráfica/tabla. Causa: el
+  LLM puede rellenar `tool`/`tool_args` a nivel de plan y dejar el array `widgets`
+  vacío; `_execute_node` solo itera `widgets`, así que ese caso no ejecutaba nada.
+  Ahora se reintenta con feedback (igual que un JSON inválido) y, si el modelo
+  insiste tras agotar los reintentos, se sintetiza un widget con la tool que sí
+  eligió en vez de mostrar solo el reply sin nada.
+
 ## 0.4.3 (2026-08-17)
 
 - feat(agent): 4 tools nuevas para el copiloto IA — `dead_stock` (productos sin venta
