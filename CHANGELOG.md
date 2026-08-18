@@ -2,6 +2,25 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.5 (2026-08-18)
+
+- fix(locations): `get_business_locations()` dejaba que la inferencia legacy
+  (filas `role=NULL` cuyo código termina en `_CENTRAL`) sobreescribiera sin
+  condición una central ya resuelta por `role='central'` explícito. Si un
+  negocio tenía una ubicación huérfana con ese patrón de código, la app
+  resolvía la ubicación por defecto de venta hacia la huérfana (0 stock) en
+  vez de la central real, dejando el panel de venta sin sugerencias de
+  artículos. Reportado en vivo en prod (negocio Bazar Mariela).
+- fix(locations): `LocationRepository.location_id_for_code()` auto-creaba
+  ubicaciones nuevas con el prefijo literal `BUSINESS_` en vez del código real
+  del negocio cuando no se le pasaba `business_code` explícito (ocurría desde
+  `InventoryService`, que siempre lo dejaba en `None`). Esto es lo que generó
+  la ubicación huérfana en primer lugar, y puede haber generado ubicaciones
+  fantasma similares en otros negocios. Ahora resuelve el código real desde
+  `businesses` cuando no se lo pasan.
+- data(prod): eliminada la ubicación huérfana `BUSINESS_CENTRAL` (id=147,
+  sin movimientos/lotes/documentos asociados) del negocio Bazar Mariela.
+
 ## 0.4.4 (2026-08-17)
 
 - fix(agent): el copiloto podía responder con el texto de la reply

@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.models import Location
+from app.models import Business, Location
 from app.repositories.business_repository import get_business_config
 
 
@@ -33,6 +33,10 @@ class LocationRepository:
 
         cfg = get_business_config(self._db, self._business_id)
         business_code = (self._business_code or "").strip()
+        if not business_code:
+            business_code = str(
+                self._db.scalar(select(Business.code).where(Business.id == self._business_id)) or ""
+            ).strip()
         prefix = "".join(ch if ch.isalnum() else "_" for ch in (business_code.upper() or "BUSINESS"))
         alt_code = c if c.startswith(f"{prefix}_") else f"{prefix}_{c}"
 

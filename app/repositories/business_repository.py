@@ -55,13 +55,16 @@ def get_business_locations(db: Session, business_id: int) -> LocationsConfig:
             pos.append(LocationSpec(code=r.code, name=r.name))
             if r.is_default:
                 default_pos = r.code
-        else:
-            # legacy (role NULL): inferir por convención de código
+        elif central is None:
+            # legacy (role NULL): inferir por convención de código, solo si no
+            # hay ya una central explícita (role='central') resuelta antes.
             upper = (r.code or "").upper()
             if upper == "CENTRAL" or upper.endswith("_CENTRAL"):
                 central = LocationSpec(code=r.code, name=r.name)
             else:
                 pos.append(LocationSpec(code=r.code, name=r.name))
+        else:
+            pos.append(LocationSpec(code=r.code, name=r.name))
 
     if central is None:
         central = LocationSpec(code="CENTRAL", name="Almacén Central")

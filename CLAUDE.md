@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.4` (ver `VERSION`)
+- **Versión actual:** `0.4.5` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -202,9 +202,32 @@ Archivo `app/business_config.conf` (INI):
       Fix en `app/agent/graph.py::_plan_node`: se trata como error de formato retryable (mismo
       mecanismo que un JSON inválido) y, si el modelo insiste tras agotar los reintentos, se
       sintetiza un widget con la tool que sí eligió. 221 unit verdes (2 nuevos).
+- [x] **Fix: sugerencias de artículos vacías en venta (v0.4.5, bug de prod)** — `get_business_locations()`
+      dejaba que la inferencia legacy (filas `role=NULL` con código terminado en `_CENTRAL`)
+      sobreescribiera sin condición una central ya resuelta por `role='central'` explícito; una
+      ubicación huérfana (`role=NULL`, 0 stock) generada por otro bug (`LocationRepository`
+      auto-creaba ubicaciones con prefijo literal `BUSINESS_` cuando `InventoryService` no le
+      pasaba el código real del negocio) terminaba "ganando" como central por defecto, dejando el
+      panel de venta sin sugerencias. Reportado en vivo en prod (Bazar Mariela). Fix en
+      `business_repository.py::get_business_locations` (no pisar central ya resuelta) +
+      `location_repository.py::location_id_for_code` (resuelve `business_code` desde `businesses`
+      si no se lo pasan, en vez de caer a `"BUSINESS"`). Dato huérfano borrado en prod
+      (`locations.id=147`, sin movimientos/lotes/documentos asociados). 254 unit verdes.
 
 ## Sesiones
 
+- **2026-08-18 (sesión 8)** — **Fix bug de prod: sugerencias de venta vacías en Bazar Mariela
+  (v0.4.5)**: diagnóstico inicial equivocado en dev (asumí problema de `is_default` mal
+  configurado, corregido en la BD de dev) hasta notar que ningún request de la sesión del
+  usuario llegaba al servidor dev — el usuario operaba en producción. En prod, el negocio bazar
+  tenía dos ubicaciones "central": una con el stock real (`role='central'`, 5255 uds/154 lotes)
+  y una huérfana con 0 stock (`role=NULL`, código `BUSINESS_CENTRAL`) creada por un bug de
+  auto-creación de ubicaciones (`LocationRepository` usaba el prefijo `BUSINESS_` en vez del
+  código real del negocio porque `InventoryService` nunca le pasaba `business_code`). Una segunda
+  bug en `get_business_locations()` dejaba que esa huérfana "ganara" como central resuelta por
+  coincidir con la convención de código `_CENTRAL`, así que el panel de venta arrancaba
+  apuntando a la ubicación vacía. Fix de datos inmediato en prod (borrado de la huérfana, sin
+  datos asociados) + fix de los 2 bugs de código + versión 0.4.5. 254 unit verdes.
 - **2026-08-17 (sesión 7)** — **Auditoría de cobertura de tools + 4 tools nuevas + fix bug de
   prod (v0.4.2→0.4.4)**: fix inicial de `profit_by_product` (ignoraba `limit`, ordenaba por
   ventas no ganancia) → auditoría de cobertura de las 29 tools del copiloto contra el modelo →
