@@ -4,9 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import InventoryLot, InventoryMovement, Product
+from app.models import Business, InventoryLot, InventoryMovement, Product
 from app.repositories.inventory_repository import InventoryRepository, _query_match
 from app.repositories.product_repository import ProductRepository
+from app.repositories.purchase_repository import PurchaseRepository
 
 
 def _create_product(db: Session, business_id: int, sku: str, name: str) -> Product:
@@ -35,6 +36,27 @@ def test_product_repository_search_is_case_and_accent_insensitive(db_session: Se
     rows = repo.search("camiseta", limit=10)
     assert len(rows) == 1
     assert rows[0].sku == "SKU1"
+
+
+def test_list_sku_prefixes_spans_all_businesses(db_session: Session, business_id: int) -> None:
+    """products.sku es unique=True GLOBAL (migrations.py: ux_products_sku), no compuesto
+    por business_id. Si list_sku_prefixes() se filtrara por negocio, el candidato
+    autogenerado de un negocio con pocos productos (ej. SKU000502) puede coincidir con
+    un SKU ya usado por otro negocio -> IntegrityError repetido -> 409 (bug de prod
+    2026-08-19, regresión del fix 27f9da2 que sí scopeaba por business_id)."""
+    other_biz = Business(code="otro", name="Otro Negocio")
+    db_session.add(other_biz)
+    db_session.commit()
+    db_session.refresh(other_biz)
+
+    _create_product(db_session, business_id, "SKU000001", "Producto negocio 1")
+    _create_product(db_session, int(other_biz.id), "SKU000002", "Producto negocio 2")
+
+    repo = PurchaseRepository(db_session, business_id)
+    prefixes = repo.list_sku_prefixes("SKU")
+
+    assert "SKU000001" in prefixes
+    assert "SKU000002" in prefixes
 
 
 def test_inventory_repository_query_match_helper() -> None:

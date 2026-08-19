@@ -257,13 +257,13 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        254 unit (SQLite en memoria) + 20 e2e (Playwright), CI/CD Gitea verde
+Tests:        222 unit (SQLite en memoria) + 20 e2e (Playwright), CI/CD Gitea verde
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment)
               UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach (score + recomendaciones)
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema_version=4, backfill config desde .conf)
-Versión:      0.4.5
+Versión:      0.4.6
 Docker:       docker-compose.yml (postgres + app + caddy) + docker-compose-homelab.yml
 Hecho (08-15): traspaso masivo, negocio sin POS, copiloto 27 tools, auditoría A/B/C/D (4.10)
 Hecho (08-16): coach financiero-operativo (determinista + chat vía agente), auditoría (3.65) +
@@ -278,10 +278,26 @@ Hecho (08-18): fix bug de prod: sugerencias de artículos vacías en venta (Baza
                "ganaba" como central por convención de código en `get_business_locations()`.
                Fix en business_repository.py + location_repository.py, dato huérfano borrado
                en prod, v0.4.5.
-Pendiente:    verde definitivo ≥4.2, estacionalidad [B]/REQ-8 (no implementada), fase 2 agente,
-              renombrar .conf→.bak, Dockerfile no copia VERSION (health siempre "unknown"),
-              healthcheck agent_llm sin auth header (falso "degraded" en prod), auditar otros
-              negocios por ubicaciones huérfanas similares (mismo patrón de bug)
+PAE generado (08-18, sesión 9): sale-payment-method — checkbox "pagado por transferencia"
+               en venta rápida (InventoryMovement, no SalesDocument), desmarcado por defecto,
+               editable, visible y filtrable en historial. specs/sale-payment-method/ (14
+               task envelopes vía SDD-Agent), sin implementar todavía — sin commitear.
+Hecho (08-19): fix bug de prod: compra de producto nuevo bloqueada (v0.4.6). Regresión del
+               fix 27f9da2 (08-17): list_sku_prefixes() pasó a filtrar por business_id, pero
+               products.sku es unique=True GLOBAL (no compuesto, pese a lo documentado antes
+               en CLAUDE.md raíz). El candidato de SKU autogenerado de un negocio con pocos
+               productos colisionaba con SKUs de otro negocio → 409 en 5/5 negocios menos el
+               de mayor SKU global. Revertido a numeración global en
+               purchase_repository.py::list_sku_prefixes. Regression test añadido. 222 unit
+               verdes (conteo real verificado; "254 unit" de sesiones previas era incorrecto).
+Pendiente:    fix estructural (SKU único compuesto (business_id, sku) + migración + auditar
+              call sites que asumen sku global en ui_common.py/ui_products.py — decisión
+              explícita del usuario de posponerlo), implementar specs/sale-payment-method/
+              (14 envelopes), verde definitivo ≥4.2, estacionalidad [B]/REQ-8 (no
+              implementada), fase 2 agente, renombrar .conf→.bak, Dockerfile no copia VERSION
+              (health siempre "unknown"), healthcheck agent_llm sin auth header (falso
+              "degraded" en prod), auditar otros negocios por ubicaciones huérfanas similares
+              (mismo patrón de bug)
 Deuda téc.:   ui_tabs.py dividido en ui_stock/ui_profit/... (Fase B) — ya no es monolítico
 ```
 

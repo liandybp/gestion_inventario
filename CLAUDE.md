@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.5` (ver `VERSION`)
+- **Versión actual:** `0.4.6` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (221 unit + 20 e2e Playwright) |
+| Testing | pytest (222 unit + 20 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -116,7 +116,12 @@ Archivo `app/business_config.conf` (INI):
 - SQLite en modo WAL para dev
 - PostgreSQL en producción vía Docker Compose
 - Migraciones inline en `migrations.py` (se ejecutan en startup)
-- Constraints unique compuestos por `(business_id, sku)` y `(business_id, lot_code)`
+- ⚠️ `products.sku` y `inventory_lots.lot_code` son `unique=True` **globales** (`ux_products_sku`,
+  `ux_inventory_lots_lot_code` en `migrations.py`), **NO** compuestos por `business_id` — pese a
+  que este documento lo dijo así hasta v0.4.5. Confirmado como causa raíz del bug de v0.4.6
+  (numeración de SKU autogenerado colisionaba entre negocios). Hay índices compuestos
+  `(business_id, sku)` para performance (`ix_products_business_sku`, H-053) pero **no** son
+  `UNIQUE`. Migrar a unicidad compuesta real queda pendiente (ver Estado actual).
 
 ### Multi-negocio
 - `business_id` en todas las tablas
@@ -213,9 +218,49 @@ Archivo `app/business_config.conf` (INI):
       `location_repository.py::location_id_for_code` (resuelve `business_code` desde `businesses`
       si no se lo pasan, en vez de caer a `"BUSINESS"`). Dato huérfano borrado en prod
       (`locations.id=147`, sin movimientos/lotes/documentos asociados). 254 unit verdes.
+- [ ] **PAE generado: método de pago (transferencia) en venta rápida** — checkbox "Pagado
+      por transferencia" en `InventoryMovement` (endpoints `/ui/sale`, `/ui/sale/barcode`,
+      `/ui/movement/sale/{id}/update`), desmarcado por defecto, editable, visible y
+      filtrable en el historial de ventas (tab Ventas). **NO** aplica a `SalesDocument`
+      (facturas/presupuestos) — confirmado con el usuario. Generado vía SDD-Agent
+      (`specs/sale-payment-method/`, 14 task envelopes: modelo + migración SQLite/PG +
+      schemas + repo + service + 2 routers + 3 templates + tests unit/e2e + version bump).
+      Decisión de diseño clave: `InventoryService.update_sale()` recibe
+      `paid_by_transfer: Optional[bool] = None` (no `bool` obligatorio) porque tiene un
+      segundo caller (`ui_profit_items.py`, tab "Ganancia por artículo") que no pasa el
+      campo — un default `False` fijo hubiera reseteado el valor en cada edición desde ese
+      tab. **Sin implementar todavía** — PAE aprobado por el usuario, ejecución con
+      OpenCode pendiente para la próxima sesión.
+- [x] **Fix bug de prod: compra de producto nuevo bloqueada (v0.4.6)** — regresión del fix
+      `27f9da2` (2026-08-17): `list_sku_prefixes()` pasó a filtrar por `business_id` para
+      "no compartir numeración entre negocios", pero `products.sku` tiene `unique=True`
+      **global** (no compuesto por `business_id` pese a lo que decía este documento). El
+      candidato autogenerado de un negocio con pocos productos caía en un rango ya ocupado
+      por otro negocio → `IntegrityError` idéntico en los 5 reintentos → 409 "No se pudo
+      generar un SKU automáticamente", bloqueando la compra de producto nuevo sin SKU manual
+      en todos los negocios excepto el de mayor SKU global (confirmado con datos reales:
+      `cerveza_mariela` chocaba con `bazar` en `SKU000502`). Revertido a numeración global en
+      `purchase_repository.py::list_sku_prefixes` (coincide con el constraint real de la BD).
+      Regression test en `tests/unit/test_repositories.py`. 222 unit verdes. **Pendiente**:
+      fix estructural (SKU único compuesto `(business_id, sku)` + migración + auditar 2
+      call sites que asumen SKU global en `ui_common.py`/`ui_products.py`) — decisión
+      explícita del usuario de aplicar solo el hotfix por ahora.
 
 ## Sesiones
 
+- **2026-08-18 (sesión 9)** — **PAE: método de pago (transferencia) en venta rápida** —
+  usuario pidió poder identificar si una venta se pagó por transferencia. Exploración del
+  flujo real de venta (`ui_sales.py` → `InventoryService.sale/update_sale` →
+  `InventoryMovement`, no `SalesDocument`) + 3 preguntas de alcance al usuario (scope
+  solo venta rápida, visible+filtrable en historial, editable después) → SDD-Agent (4
+  fases: requirements con 8 REQs Gherkin, design con pre-mortem de las 10 dimensiones de
+  auditoría, 14 task envelopes, PAE assembly). Hallazgo del pre-mortem: `update_sale()`
+  tiene un segundo caller no evidente a primera vista (`ui_profit_items.py`) que hubiera
+  sufrido una regresión silenciosa sin el trade-off `Optional[bool] = None` (documentado
+  como D3 en `design.md` y REQ-8 de no-regresión). Ninguna línea de código de producción
+  tocada esta sesión — solo planificación. PAE en `specs/sale-payment-method/`, sin
+  commitear (decisión explícita del usuario: revisar/ajustar mañana antes de
+  implementar). Detalle: `.claude/session-notes.md`.
 - **2026-08-18 (sesión 8)** — **Fix bug de prod: sugerencias de venta vacías en Bazar Mariela
   (v0.4.5)**: diagnóstico inicial equivocado en dev (asumí problema de `is_default` mal
   configurado, corregido en la BD de dev) hasta notar que ningún request de la sesión del
