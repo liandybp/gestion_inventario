@@ -248,6 +248,28 @@ Archivo `app/business_config.conf` (INI):
 
 ## Sesiones
 
+- **2026-08-19 (sesión 10)** — **Fix bug de prod: compra de producto nuevo bloqueada
+  (v0.4.6) + arreglo de Cloudflare Access sobre el runner de CD compartido**: usuario
+  reportó el mismo síntoma que el bug de `27f9da2` (17-ago) pero causa distinta —
+  `list_sku_prefixes()` scopeaba por `business_id` desde ese fix, pero `products.sku`
+  (y `inventory_lots.lot_code`) son `unique=True` **global** en la BD, no compuestos
+  (documentación previa de este archivo era incorrecta en ese punto, ya corregida).
+  Confirmado con datos reales de prod: `cerveza_mariela` (SKU000496–501) chocaba con
+  `bazar` (SKU000354–509) en el candidato `SKU000502` — bloqueaba la compra de producto
+  nuevo en todos los negocios menos el de mayor SKU global. Revertido a numeración
+  global (decisión explícita del usuario, ver ADR-012 en Obsidian). 222 unit verdes,
+  verificado en vivo en dev (curl login+compra) y prod (health + BD sin colisiones).
+  En paralelo, el deploy automático estaba roto: Cloudflare Access puesto delante de
+  `gitea.legatumbp.com` (hardening del lab, sesión distinta) bloqueaba tanto el
+  `FetchTask` del runner de Gitea Actions como el `git fetch` del checkout de cada
+  workflow — afecta a **todos** los repos que comparten ese runner, no solo este.
+  Guiado el arreglo por chat (política Bypass + 3 Destinations: `api/actions/*`,
+  `info/refs`, `git-upload-pack`) tras varias vueltas por cambios no documentados en la
+  UI de Cloudflare. Pipeline push→test→deploy-dev verificado de punta a punta sin
+  intervención manual tras el fix. Deploy a prod (`develop`→`main`, `73b912a`) se hizo
+  manualmente (bypass temporal, mismos pasos que haría el CD) antes de que el runner
+  quedara sano — no se re-verificó el job `deploy-prod` automático después. Detalle:
+  `.claude/session-notes.md`, `~/obsidian-lab/00-Inicio/problemas-conocidos.md`.
 - **2026-08-18 (sesión 9)** — **PAE: método de pago (transferencia) en venta rápida** —
   usuario pidió poder identificar si una venta se pagó por transferencia. Exploración del
   flujo real de venta (`ui_sales.py` → `InventoryService.sale/update_sale` →
