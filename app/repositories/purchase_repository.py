@@ -29,8 +29,9 @@ class PurchaseRepository:
         return self._db.scalar(stmt)
 
     def list_sku_prefixes(self, prefix: str) -> list[str]:
-        stmt = select(Product.sku).where(
-            Product.sku.ilike(f"{prefix}%"), Product.business_id == self._business_id
-        )
+        # products.sku es unique=True global (no compuesto por business_id, ver
+        # migrations.py ux_products_sku): el candidato autogenerado debe calcularse
+        # sobre TODOS los negocios o choca con SKUs de otros negocios (409 recurrente).
+        stmt = select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
         rows = self._db.execute(stmt).all()
         return [str(sku or "") for (sku,) in rows]

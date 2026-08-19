@@ -2,6 +2,23 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.6 (2026-08-19)
+
+- fix(purchases): `PurchaseRepository.list_sku_prefixes()` filtraba por
+  `business_id` (fix `27f9da2`, 2026-08-17) para "no compartir numeración
+  entre negocios", pero `products.sku` tiene un `unique=True` **global**
+  (`ux_products_sku`, no compuesto por `business_id` pese a lo documentado).
+  El candidato de SKU autogenerado de un negocio con pocos productos caía en
+  un rango ya ocupado por otro negocio (ej. `SKU000502` de "cerveza_mariela"
+  ya usado por "bazar") → `IntegrityError` idéntico en los 5 reintentos (el
+  scope por negocio no cambia entre intentos) → 409 "No se pudo generar un
+  SKU automáticamente". Bloqueaba el registro de compras de producto nuevo
+  sin SKU manual en **todos los negocios excepto el que tenía el SKU global
+  más alto**. Reportado en vivo en prod. Revertido a numeración global
+  (coincide con el constraint real de la BD). Fix estructural (SKU único
+  compuesto `(business_id, sku)`) queda pendiente, ver "Pendiente" en
+  `CLAUDE.md`.
+
 ## 0.4.5 (2026-08-18)
 
 - fix(locations): `get_business_locations()` dejaba que la inferencia legacy
