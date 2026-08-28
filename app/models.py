@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -402,3 +413,34 @@ class CoachActionLog(Base):
         Numeric(14, 4, asdecimal=False), nullable=True
     )
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SyncEvent(Base):
+    """Outbox local de eventos offline pendientes de sincronizar (append-only).
+
+    En el nodo desktop guarda ventas/altas de cliente hechas sin conexión, con un
+    hash encadenado que detecta manipulación. En el servidor central la tabla queda
+    inerte hasta que P2/P3 la usen.
+    """
+
+    __tablename__ = "pending_sync_events"
+    __table_args__ = (
+        Index("ix_pending_sync_events_business_seq", "business_id", "seq"),
+        # H-004: dos escrituras concurrentes al mismo negocio no pueden duplicar seq
+        # — el segundo insert falla con IntegrityError en vez de corromper la cadena.
+        UniqueConstraint("business_id", "seq", name="ux_pending_sync_events_business_seq"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    business_id: Mapped[int] = mapped_column(Integer, index=True)
+    location_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    event_type: Mapped[str] = mapped_column(String(32), index=True)
+    payload: Mapped[str] = mapped_column(Text)
+    seq: Mapped[int] = mapped_column(Integer, index=True)
+    prev_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

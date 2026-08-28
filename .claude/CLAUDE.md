@@ -307,8 +307,26 @@ Pendiente:    verificar que deploy-prod también corre solo tras el fix de Acces
               implementada), fase 2 agente, renombrar .conf→.bak, Dockerfile no copia VERSION
               (health siempre "unknown"), healthcheck agent_llm sin auth header (falso
               "degraded" en prod), auditar otros negocios por ubicaciones huérfanas similares
-              (mismo patrón de bug)
+              (mismo patrón de bug), CORREGIR HALLAZGOS DE AUDITORÍA DE P1 (ver abajo) antes
+              de generar P2 del épico offline-desktop-sync
 Deuda téc.:   ui_tabs.py dividido en ui_stock/ui_profit/... (Fase B) — ya no es monolítico
+
+Épico offline-desktop-sync (08-28): 5 PAEs generados vía SDD-Agent en
+              specs/offline-desktop-sync/ (P1 Fundamentos, P2 Backend de sync central, P3
+              Cliente+escritura offline, P4 Desktop Windows+cifrado SQLCipher/DPAPI, P5 e2e
+              multi-nodo), 47 task envelopes. P1 (outbox pending_sync_events con hash
+              encadenado + rangos de SKU 10k/negocio) implementado por OpenCode: 233 unit
+              verdes, scope respetado (10 archivos exactos). /code-review + auditoria-
+              ingenieria sobre el código real → score 2.90/5.00 🔴, NO mergeado a develop.
+              H-001 (crítico): next_sku_in_range tiene boundary bug (`n < ceiling` estricto)
+              que causa colisión de SKU PERMANENTE al SKU #10.000 de un negocio — reproduce
+              el incidente v0.4.6 (SKU) que este código debía prevenir. H-002/H-003/H-004
+              (altos): hash del outbox no cubre business_id/seq/status (integridad
+              incompleta), cero try/except+logging en app/sync/ (contradice el pre-mortem
+              del propio design.md §2.9), race condition latente en append_event (sin
+              constraint único en seq). Informe completo:
+              docs/auditorias/2026-08-28-p1-foundations-offline-sync.md. Próximo paso: 4
+              quick wins (~1h) + re-auditar (objetivo ≥3.8) antes de generar P2.
 ```
 
 ---

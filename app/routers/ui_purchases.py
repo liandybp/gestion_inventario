@@ -19,6 +19,7 @@ from app.schemas import PurchaseCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.services.sku_range import SKURangeExhausted, next_sku_in_range
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
@@ -345,12 +346,7 @@ def purchase(
     def _generate_auto_sku(prefix: str = "SKU", width: int = 6) -> str:
         rows = PurchaseRepository(db, bid).list_sku_prefixes(prefix)
         existing = [str(sku or "") for sku in rows]
-        max_n = 0
-        for s in existing:
-            suffix = s[len(prefix) :]
-            if suffix.isdigit():
-                max_n = max(max_n, int(suffix))
-        return f"{prefix}{str(max_n + 1).zfill(width)}"
+        return next_sku_in_range(existing, bid, prefix=prefix, width=width)
 
     sku = extract_sku(product)
     try:
@@ -364,7 +360,10 @@ def purchase(
             parsed_cost = parse_optional_float(unit_cost)
             last_error: Exception | None = None
             for _ in range(5):
-                auto_sku = _generate_auto_sku()
+                try:
+                    auto_sku = _generate_auto_sku()
+                except SKURangeExhausted as e:
+                    raise HTTPException(status_code=409, detail=str(e)) from e
                 created_product = Product(
                     business_id=int(bid),
                     sku=auto_sku,

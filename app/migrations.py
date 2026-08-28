@@ -38,7 +38,7 @@ from app.models import (
 )
 
 
-_LATEST_SCHEMA_VERSION = 4
+_LATEST_SCHEMA_VERSION = 5
 
 # Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
 _BUSINESS_CONFIG_COLS = [
@@ -292,6 +292,26 @@ def _run_sqlite_schema_migrations() -> int:
             if col not in loc_cols:
                 conn.exec_driver_sql(f"ALTER TABLE locations ADD COLUMN {col} {ddl}")
 
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS pending_sync_events ("
+            "id INTEGER PRIMARY KEY, event_id VARCHAR(64), business_id INTEGER, "
+            "location_id INTEGER, event_type VARCHAR(32), payload TEXT, seq INTEGER, "
+            "prev_hash VARCHAR(64), event_hash VARCHAR(64), "
+            "status VARCHAR(16) DEFAULT 'pending', created_at TIMESTAMP)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_event_id "
+            "ON pending_sync_events(event_id)"
+        )
+        conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_pending_sync_events_business_seq "
+            "ON pending_sync_events(business_id, seq)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_business_seq "
+            "ON pending_sync_events(business_id, seq)"
+        )
+
         if schema_version < 1:
             _set_schema_version(conn, 1)
             schema_version = 1
@@ -454,6 +474,26 @@ def _run_postgresql_schema_migrations() -> int:
             conn.exec_driver_sql(f"ALTER TABLE businesses ADD COLUMN IF NOT EXISTS {col} {ddl}")
         for col, ddl in _LOCATION_COLS:
             conn.exec_driver_sql(f"ALTER TABLE locations ADD COLUMN IF NOT EXISTS {col} {ddl}")
+
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS pending_sync_events ("
+            "id SERIAL PRIMARY KEY, event_id VARCHAR(64), business_id INTEGER, "
+            "location_id INTEGER, event_type VARCHAR(32), payload TEXT, seq INTEGER, "
+            "prev_hash VARCHAR(64), event_hash VARCHAR(64), "
+            "status VARCHAR(16) DEFAULT 'pending', created_at TIMESTAMPTZ)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_event_id "
+            "ON pending_sync_events(event_id)"
+        )
+        conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_pending_sync_events_business_seq "
+            "ON pending_sync_events(business_id, seq)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_business_seq "
+            "ON pending_sync_events(business_id, seq)"
+        )
 
         if schema_version < 1:
             _set_schema_version(conn, 1)

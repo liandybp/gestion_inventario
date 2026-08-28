@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import InventoryLot, InventoryMovement, Product
 from app.repositories.product_repository import ProductRepository
 from app.schemas import ProductCreate, ProductUpdate
+from app.services.sku_range import SKURangeExhausted, next_sku_in_range
 
 
 class ProductService:
@@ -25,12 +26,7 @@ class ProductService:
     def _generate_sku(self, prefix: str = "SKU", width: int = 6) -> str:
         rows = self._db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
         existing = [str(sku or "") for (sku,) in rows]
-        max_n = 0
-        for sku in existing:
-            suffix = sku[len(prefix) :]
-            if suffix.isdigit():
-                max_n = max(max_n, int(suffix))
-        return f"{prefix}{str(max_n + 1).zfill(width)}"
+        return next_sku_in_range(existing, self._business_id, prefix=prefix, width=width)
 
     def create(self, payload: ProductCreate) -> Product:
         if not payload.name.strip():
@@ -64,7 +60,10 @@ class ProductService:
         attempts = 5 if auto_sku else 1
         last_error: Exception | None = None
         for _ in range(attempts):
-            sku = sku_raw or self._generate_sku()
+            try:
+                sku = sku_raw or self._generate_sku()
+            except SKURangeExhausted as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
 
             product = Product(
                 business_id=self._business_id,

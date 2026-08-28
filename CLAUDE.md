@@ -245,9 +245,39 @@ Archivo `app/business_config.conf` (INI):
       fix estructural (SKU único compuesto `(business_id, sku)` + migración + auditar 2
       call sites que asumen SKU global en `ui_common.py`/`ui_products.py`) — decisión
       explícita del usuario de aplicar solo el hotfix por ahora.
+- [ ] **Épico offline-desktop-sync (app de escritorio offline-first + sync bidireccional)**
+      — 5 PAEs generados vía SDD-Agent en `specs/offline-desktop-sync/` (P1 Fundamentos, P2
+      Backend de sync, P3 Cliente+escritura offline, P4 Desktop+cifrado Windows, P5 e2e
+      multi-nodo). **P1 implementado por OpenCode pero NO mergeado** — auditoría (score
+      2.90/5.00 🔴) encontró un boundary bug crítico en la numeración de SKU por rango
+      (`next_sku_in_range`, colisión permanente al SKU #10.000 de un negocio) + 3 hallazgos
+      altos (hash de integridad del outbox incompleto, cero logging, race condition
+      latente). Ver `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. Pendiente:
+      aplicar los 4 quick wins y re-auditar antes de generar P2.
 
 ## Sesiones
 
+- **2026-08-28 (sesión 11)** — **Épico offline-desktop-sync: brainstorming + 5 PAEs vía
+  SDD-Agent + implementación P1 + auditoría (score 2.90 🔴, no mergeado):** brainstorming
+  completo de la nueva app de escritorio Windows offline-first con sync bidireccional
+  (alcance: venta+cliente offline, compras/traspasos/LLM online-only, rangos de SKU 10k por
+  negocio, dedup de clientes por teléfono/email, pywebview + SQLCipher/DPAPI). Design doc en
+  `docs/plans/2026-08-28-app-escritorio-offline-sync-design.md`. SDD-Agent generó el épico
+  completo en `specs/offline-desktop-sync/`: `requirements.md` (20 REQs) descompuesto en
+  **5 PAEs secuenciales** (P1 Fundamentos, P2 Backend de sync, P3 Cliente+escritura offline,
+  P4 Desktop+cifrado, P5 e2e multi-nodo), 47 task envelopes en total. OpenCode implementó
+  **P1** (outbox `pending_sync_events` con hash encadenado + rangos de SKU de 10k por
+  negocio) — 233 unit verdes, scope respetado. `/code-review` (8 ángulos, 1-vote verify) +
+  `auditoria-ingenieria` (10 dimensiones) sobre el código real: **score 2.90/5.00 🔴**,
+  **NO mergeado**. Hallazgo crítico **H-001**: `next_sku_in_range` tiene un boundary bug
+  (`n < ceiling` estricto) que causa colisión de SKU **permanente** al llegar al SKU #10.000
+  de un negocio — reproduce la misma clase de incidente que este código debía prevenir
+  (v0.4.6). Más 3 hallazgos altos (H-002 hash del outbox no cubre todos los campos, H-003
+  cero logging/try-except en `app/sync/` pese a que el propio pre-mortem del diseño lo
+  exigía, H-004 race condition latente en `append_event`). Informe completo:
+  `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. **Pendiente:** corregir
+  H-001/H-002/H-003/H-006 (quick wins, ~1h) antes de avanzar a P2. Detalle:
+  `.claude/session-notes.md`.
 - **2026-08-19 (sesión 10)** — **Fix bug de prod: compra de producto nuevo bloqueada
   (v0.4.6) + arreglo de Cloudflare Access sobre el runner de CD compartido**: usuario
   reportó el mismo síntoma que el bug de `27f9da2` (17-ago) pero causa distinta —
