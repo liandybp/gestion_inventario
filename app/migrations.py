@@ -38,7 +38,7 @@ from app.models import (
 )
 
 
-_LATEST_SCHEMA_VERSION = 6
+_LATEST_SCHEMA_VERSION = 7
 
 # Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
 _BUSINESS_CONFIG_COLS = [
@@ -339,6 +339,13 @@ def _run_sqlite_schema_migrations() -> int:
             "resolved BOOLEAN DEFAULT false, created_at TIMESTAMP)"
         )
 
+        # v7: tabla sync_state (nodo desktop offline)
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS sync_state ("
+            "id INTEGER PRIMARY KEY, last_synced_at TIMESTAMP, server_url VARCHAR(255), "
+            "device_token VARCHAR(128), updated_at TIMESTAMP)"
+        )
+
         if schema_version < 1:
             _set_schema_version(conn, 1)
             schema_version = 1
@@ -547,6 +554,13 @@ def _run_postgresql_schema_migrations() -> int:
             "id SERIAL PRIMARY KEY, business_id INTEGER, device_id INTEGER, "
             "event_id VARCHAR(64), kind VARCHAR(32), detail TEXT, "
             "resolved BOOLEAN DEFAULT false, created_at TIMESTAMPTZ)"
+        )
+
+        # v7: tabla sync_state (nodo desktop offline)
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS sync_state ("
+            "id INTEGER PRIMARY KEY, last_synced_at TIMESTAMPTZ, server_url VARCHAR(255), "
+            "device_token VARCHAR(128), updated_at TIMESTAMPTZ)"
         )
 
         if schema_version < 1:

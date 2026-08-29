@@ -39,6 +39,7 @@ from app.routers import (
     ui_purchases,
     ui_sales,
     ui_sales_documents,
+    ui_sync,
     ui_transfers,
     ui_users,
 )
@@ -177,6 +178,7 @@ app.include_router(ui_auth.router, prefix="/ui")
 app.include_router(ui_products.router, prefix="/ui")
 app.include_router(ui_purchases.router, prefix="/ui")
 app.include_router(ui_sales.router, prefix="/ui")
+app.include_router(ui_sync.router, prefix="/ui")
 app.include_router(ui_transfers.router, prefix="/ui")
 app.include_router(ui_expenses.router, prefix="/ui")
 app.include_router(ui_extractions.router, prefix="/ui")

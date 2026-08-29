@@ -147,3 +147,38 @@ def verify_chain(db: Session, business_id: int) -> bool:
     except Exception as e:
         _log.error(f"verify_chain falló business_id={business_id}: {e}", exc_info=True)
         raise
+
+
+def rehash_chain(db: Session, business_id: int) -> None:
+    """Recalcula event_hash/prev_hash de todos los eventos del negocio en orden de seq.
+
+    Necesario tras cambiar el `status` de cualquier evento (ej. pending -> synced en
+    P3): compute_event_hash incluye status en el material hasheado, así que un cambio
+    de estado sin recalcular deja el event_hash desincronizado y verify_chain reporta
+    manipulación en un evento que nunca fue alterado. No hace commit (lo hace el caller).
+    """
+    try:
+        events = list(
+            db.scalars(
+                select(SyncEvent)
+                .where(SyncEvent.business_id == int(business_id))
+                .order_by(SyncEvent.seq.asc())
+            )
+        )
+        prev_hash: Optional[str] = None
+        for ev in events:
+            ev.prev_hash = prev_hash
+            ev.event_hash = compute_event_hash(
+                prev_hash,
+                ev.event_id,
+                ev.event_type,
+                ev.payload,
+                business_id=ev.business_id,
+                location_id=ev.location_id,
+                seq=ev.seq,
+                status=ev.status,
+            )
+            prev_hash = ev.event_hash
+    except Exception as e:
+        _log.error(f"rehash_chain falló business_id={business_id}: {e}", exc_info=True)
+        raise

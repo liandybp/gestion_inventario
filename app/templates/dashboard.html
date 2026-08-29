@@ -59,14 +59,17 @@
                   hx-get="/ui/tabs/home" hx-target="#tab-content" hx-swap="innerHTML">
             Inicio
           </button>
+          {% if app_mode != 'desktop' %}
           <button class="sidebar-item" id="tab-agent" aria-selected="false"
                   hx-get="/ui/tabs/agent" hx-target="#tab-content" hx-swap="innerHTML">
             Dashboard Dinámico
           </button>
+          {% endif %}
           <button class="sidebar-item" id="tab-inventory" aria-selected="false"
                   hx-get="/ui/tabs/inventory" hx-target="#tab-content" hx-swap="innerHTML">
             Inventario
           </button>
+          {% if app_mode != 'desktop' %}
           <button class="sidebar-item" id="tab-purchases" aria-selected="false"
                   hx-get="/ui/tabs/purchases" hx-target="#tab-content" hx-swap="innerHTML">
             Compras
@@ -75,6 +78,7 @@
                   hx-get="/ui/tabs/transfers" hx-target="#tab-content" hx-swap="innerHTML">
             Traspasos
           </button>
+          {% endif %}
           {% endif %}
 
           {% if user_role == 'admin' %}
@@ -146,6 +150,8 @@
       </aside>
 
       <main class="main-content">
+        {% include "partials/sync_status.html" %}
+
         <div id="tab-content"
              hx-get="{% if user and (user.role or '')|lower == 'operator' %}/ui/tabs/sales{% else %}/ui/tabs/home{% endif %}" hx-trigger="load" hx-swap="innerHTML">
         </div>
@@ -158,7 +164,7 @@
     {% endif %}
 
     {% set user_role = (user.role or '')|lower %}
-    {% if user_role in ('admin', 'owner') %}
+    {% if user_role in ('admin', 'owner') and app_mode != 'desktop' %}
     <button id="agent-fab" class="agent-fab" onclick="toggleAgentPanel()" aria-label="Abrir chat del copiloto" title="Copiloto">
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

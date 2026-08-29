@@ -20,6 +20,7 @@ from app.security import get_active_business_code, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.services.sku_range import SKURangeExhausted, next_sku_in_range
+from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
@@ -60,6 +61,8 @@ def purchase_from_invoice(
     invoice_pdf: UploadFile = File(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(db, request)
@@ -340,6 +343,8 @@ def purchase(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
@@ -567,6 +572,8 @@ def purchase_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
@@ -636,6 +643,8 @@ def purchase_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
@@ -714,6 +723,8 @@ def purchase_delete_selected(
     movement_ids: list[int] = Form([]),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)

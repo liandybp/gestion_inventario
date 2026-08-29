@@ -23,6 +23,8 @@ from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
 from app.services.product_service import ProductService
 from app.utils import month_range
+from app.settings import app_mode_label, is_desktop
+from app.sync.client import get_sync_state
 
 from .ui_common import (
     dt_to_local_input,
@@ -189,6 +191,9 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "businesses": businesses,
             "active_business_id": active_business_id,
             "active_business": active_business,
+            "app_mode": app_mode_label(),
+            "state": get_sync_state(db) if is_desktop() else None,
+            "result": None,
         },
     )
 

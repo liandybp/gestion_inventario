@@ -66,6 +66,17 @@ UPLOAD_MAX_MB = int(env("UPLOAD_MAX_MB", "10"))
 DEV_ACTIONS_ENABLED = env("DEV_ACTIONS_ENABLED", "1") == "1"
 INVENTORY_METRICS_TTL = int(env("INVENTORY_METRICS_TTL", "300"))
 
+# ── Modo de ejecución: "server" (central) | "desktop" (nodo offline) ───────────
+APP_MODE = env("APP_MODE", "server")
+
+def is_desktop() -> bool:
+    return APP_MODE.strip().lower() == "desktop"
+
+
+def app_mode_label() -> str:
+    return "desktop" if is_desktop() else "server"
+
+
 # ── Sync de escritorio (H-007: hardening del token de dispositivo) ───────────
 DEVICE_RATE_LIMIT = int(env("DEVICE_RATE_LIMIT", "20"))
 DEVICE_RATE_WINDOW = int(env("DEVICE_RATE_WINDOW", "300"))

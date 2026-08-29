@@ -415,6 +415,26 @@ class CoachActionLog(Base):
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class SyncState(Base):
+    """Estado local de sincronización del nodo desktop (fila única, id=1).
+
+    Almacena la fecha de la última sincronización, la URL del servidor y el token
+    del dispositivo. Siempre hay una fila (id=1) creada en la migración v7.
+    """
+
+    __tablename__ = "sync_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    server_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    device_token: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class SyncEvent(Base):
     """Outbox local de eventos offline pendientes de sincronizar (append-only).
 

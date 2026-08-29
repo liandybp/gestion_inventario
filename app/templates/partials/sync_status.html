@@ -1,0 +1,26 @@
+<div id="sync-banner" class="sync-banner">
+  {% if app_mode == 'desktop' %}
+    {% if state and state.server_url and state.device_token %}
+      {% if state.last_synced_at %}
+        <span>Última sincronización: {{ state.last_synced_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      {% else %}
+        <span class="warn">Nunca sincronizado</span>
+      {% endif %}
+      <button hx-post="/ui/sync" hx-target="#sync-banner" hx-swap="outerHTML">Sincronizar</button>
+      {% if result %}
+        <span class="{{ 'ok' if result.ok else 'error' }}">
+          {% if result.ok %}Aplicados: {{ result.applied }} · Conflictos: {{ result.conflicts }}{% else %}{{ result.error }}{% endif %}
+        </span>
+      {% endif %}
+    {% else %}
+      <span class="warn">Nodo no aprovisionado</span>
+      {% if user and (user.role or '')|lower == 'admin' %}
+      <form hx-post="/ui/sync/provision" hx-target="#sync-banner" hx-swap="outerHTML" class="sync-provision-form">
+        <input type="text" name="server_url" placeholder="https://servidor-central" required>
+        <input type="text" name="device_token" placeholder="Token de dispositivo" required>
+        <button type="submit">Aprovisionar</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+</div>

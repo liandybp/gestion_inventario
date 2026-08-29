@@ -19,6 +19,7 @@ from app.schemas import TransferCreate, TransferLineCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.models import InventoryMovement, Product
+from app.settings import is_desktop
 
 from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, month_range, parse_dt, templates
 from .ui_tabs_common import _location_id_for_code
@@ -133,6 +134,8 @@ def transfer_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
@@ -279,6 +282,8 @@ def transfer_delete_selected(
     movement_ids: list[int] = Form([]),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
@@ -395,6 +400,8 @@ def transfer_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
@@ -487,6 +494,8 @@ def transfer_delete(
 
 @router.post("/transfers", response_class=HTMLResponse)
 async def create_transfer(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
@@ -883,6 +892,8 @@ async def transfer_bulk_execute(
     request: Request,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     service = InventoryService(db, business_id=bid)
