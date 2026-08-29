@@ -2,6 +2,20 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.8 (2026-08-29)
+
+- feat(sync): backend P2 del épico offline-desktop-sync — `DeviceToken` revocable
+  con rate limit y expiración por inactividad, `SyncService` (replay idempotente
+  vía `InventoryService.sale`, dedup de clientes por teléfono/email), endpoints
+  `POST /sync/register|push`, `GET /sync/conflicts`. Corregidos 3 hallazgos
+  críticos de aislamiento multi-tenant encontrados en auditoría (IDOR en
+  `register_device`, `password_hash` sin cifrar en el pull, tablas de detalle
+  volcadas sin filtro de negocio) más una regresión propia (dedup de
+  `client_id` scopeado por negocio pese a ser único global, misma familia de
+  bug que el SKU de P1/ADR-012).
+- fix(purchases): `_zara_pdf_diagnostics()` dejaba de filtrar por emisor real
+  del PDF y pegaba texto de debug de ZARA en importaciones de facturas AUTODOC.
+
 ## 0.4.6 (2026-08-19)
 
 - fix(purchases): `PurchaseRepository.list_sku_prefixes()` filtraba por
