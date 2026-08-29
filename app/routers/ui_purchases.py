@@ -114,6 +114,9 @@ def purchase_from_invoice(
         try:
             with pdfplumber.open(invoice_pdf.file) as pdf:
                 ref_re = re.compile(r"\b\d+/\d{3,5}/\d{3}\b")
+                full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                if "ZARA" not in full_text.upper():
+                    return None
                 per_page: list[str] = []
                 for idx, page in enumerate(pdf.pages, 1):
                     text = page.extract_text() or ""
