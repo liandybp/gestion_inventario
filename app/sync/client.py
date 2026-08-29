@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import hash_password
 from app.logger import get_logger
+from app.migrations import _LATEST_SCHEMA_VERSION
 from app.models import (
     AuditLog, Business, CashBaseline, ChatMessage, CoachActionLog, Customer,
     DashboardWidget, InventoryLot, InventoryMovement, Location, MoneyExtraction,
@@ -185,7 +186,7 @@ def sync(db: Session) -> dict:
     try:
         resp = httpx.post(
             f"{state.server_url.rstrip('/')}/sync/push",
-            json={"app_schema_version": 7, "events": events},
+            json={"app_schema_version": _LATEST_SCHEMA_VERSION, "events": events},
             headers={"X-Sync-Token": state.device_token},
             timeout=30.0,
         )

@@ -407,3 +407,51 @@ Archivo `app/business_config.conf` (INI):
 8. **Flujo de cambios (permanente)** — los cambios van **siempre a `develop`**, se prueban en el entorno de desarrollo (`dev.gestion.legatumbp.com`, LAN interno), y solo después se mergean a `main` y se despliegan en producción (`gestion.legatumbp.com`). Nunca directo a `main`.
 9. **Modelo de ejecución** — Claude Code (DeepSeek API `deepseek-v4-pro[1m]`) planifica y genera el SDD/PAE; OpenCode + modelo local **Qwen3.6-35B-A3B** (`qwen36_35b_coder_mtp` vía llama-swap) implementa los task envelopes. El modelo local NO es GLM (GLM-4.7-Flash quedó como legado/fallback desde 2026-07-25).
 10. **Copiloto IA en runtime** — el copiloto usa **modelo local en dev** (default `AGENT_LLM_BASE_URL=http://localhost:8080/v1`, `AGENT_LLM_MODEL=qwen3_8b_instruct`) y **API LLM externa en producción** (env `AGENT_LLM_*` en `docker-compose-homelab.yml`). Las env vars viven en `app/settings.py`.
+
+## Épico offline-desktop-sync (v0.4.8) — estado real por slice
+
+**Score integrado (2026-08-29, re-auditoría tras corregir P4 por completo):
+🟢 4.05/5.00** (antes 2.15/5.00 🔴 el mismo día — ver
+`docs/auditorias/2026-08-29-offline-desktop-sync-epic-full-audit{,-reaudit}.md`).
+
+| PAE | slice | Estado | Comentario |
+|-----|-------|--------|------------|
+| **P1** | Fundamentos | 🟡 3.80/5.00 | Outbox `pending_sync_events` + rangos SKU 10k. Commiteado (`2dbad8a`) |
+| **P2** | Backend de sync | 🟡 3.70/5.00 | `SyncService`, endpoints `/sync/*`. Commiteado (`e4e03a2`) |
+| **P3** | Cliente de sync | 🟡 funcional | `sync()`/`apply_pull` con 3 bugs reales adicionales encontrados por e2e y corregidos (2026-08-29). Commiteado (`41adf1d`, `13f7af1`, `88edf08`) |
+| **P4** | Empaquetado desktop | 🟢 dentro del score integrado | Auditado por primera vez el 2026-08-29 (nunca antes): 5 bugs de crash garantizado (derivación de clave SQLCipher, launcher, `desktop.spec`, `installer.iss`) + 7 hallazgos de una segunda ronda de code-review — **todos corregidos y verificados por ejecución directa** (incluida una conexión SQLite real de punta a punta en modo desktop). **Sin commitear** |
+| **P5** | e2e multi-nodo | 🟢 dentro del score integrado | Auditado en 1.40/5.00 🔴 (el test nunca había corrido), reescrito por completo, verde. **Sin commitear** |
+
+**Versión actual:** `v0.4.8` (ver `VERSION`) — no re-bumpear sin instrucción explícita del
+usuario (regla dura del `CLAUDE.md` global: todo incremento es PATCH salvo pedido explícito).
+
+**Build Windows:** el instalador se construye manualmente en Windows usando
+`pyinstaller --spec-file packaging/desktop.spec` + Inno Setup (`packaging/README-desktop.md`).
+`desktop.spec`/`installer.iss` se reescribieron contra la sintaxis real de ambas herramientas
+(la versión anterior usaba API inventada, no hubiera compilado), pero **ninguna de las dos
+build reales se pudo ejecutar en este entorno** (Linux, sin PyInstaller ni Inno Setup
+instalados) — sigue siendo, por diseño del propio épico, una validación manual en Windows
+antes de confiar en que el instalador funciona de punta a punta.
+
+**Script de verificación:** `specs/offline-desktop-sync/verify.sh` corre unit (286 tests) +
+e2e de sync (`test_sync_e2e.py` + `test_sync_multinode_e2e.py`, 2 tests) con `set -e` como
+único gate real. **Corre de punta a punta con exit 0 por primera vez en su historia**
+(2026-08-29) — antes fallaba siempre en el paso 1 (test roto de P4) o nunca llegaba a ejecutar
+el e2e (afirmaba validarlo sin hacerlo).
+
+**Documentación viva:** esta sección se corrigió dos veces el 2026-08-29: primero para
+reflejar que "P5 🟢 Verde" era falso (el test nunca había corrido), después para reflejar que
+P4 — nunca antes auditado — estaba igual de roto y ya se corrigió. Lección para sesiones
+futuras: no declarar un slice "verde" en este archivo sin haber corrido el comando que lo
+prueba, y auditar TODO el alcance de un épico, no solo las partes que ya tuvieron atención.
+
+**Pendiente antes de considerar el épico 100% cerrado:**
+1. Validación manual real en Windows de `desktop.spec` (PyInstaller) e `installer.iss`
+   (Inno Setup) — inherentemente fuera del alcance de este entorno Linux.
+2. Verificar la derivación de clave y `PRAGMA key` contra SQLCipher real
+   (`sqlcipher3-binary`), no solo contra stock `sqlite3` (que ignora `PRAGMA key`
+   silenciosamente y no puede detectar un fallo real de cifrado).
+3. Decidir si P1-P3 (🟡, sin llegar a 🟢 individualmente) necesitan otra pasada de auditoría
+   antes de mergear `develop`→`main`, o si el score integrado del épico (4.05 🟢) es
+   suficiente para el usuario.
+4. Commitear P4 y P5 (working tree, sin commitear todavía).

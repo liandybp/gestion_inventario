@@ -1,7 +1,7 @@
 """E2e del flujo de sync offline-desktop (P3, docs/auditorias/2026-08-29-p3-sync-client-offline-sync{,-reaudit}.md).
 
 Cubre H-009 (cobertura e2e faltante): levanta DOS servidores reales
-(`central_server` en modo server, `desktop_server` en modo desktop, cada uno
+(`p3_central_server` en modo server, `desktop_server` en modo desktop, cada uno
 con su propia BD SQLite temporal) y valida el flujo completo de usuario:
 
     login (central) -> registrar dispositivo -> login (desktop) ->
@@ -162,7 +162,7 @@ def _central_sale_movements(db_path: str, business_id: int) -> list:
 
 
 @pytest.fixture(scope="function")
-def central_server():
+def p3_central_server():
     base_url, db_path, proc = _boot_server(app_mode="server")
     business_id = _seed_central_stock(db_path)
     try:
@@ -199,12 +199,12 @@ def _login(page: Page, base_url: str, *, username: str = "admin", password: str 
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
 
-def test_offline_sale_syncs_to_central_server(
-    central_server: dict, desktop_server: dict, page: Page,
+def test_offline_sale_syncs_to_p3_central_server(
+    p3_central_server: dict, desktop_server: dict, page: Page,
 ) -> None:
-    central_url = central_server["url"]
+    central_url = p3_central_server["url"]
     desktop_url = desktop_server["url"]
-    business_id = central_server["business_id"]
+    business_id = p3_central_server["business_id"]
 
     # 1. Admin se loguea en el servidor central y registra el nodo desktop.
     _login(page, central_url)
@@ -255,7 +255,7 @@ def test_offline_sale_syncs_to_central_server(
 
     # 7. La venta offline se replicó de verdad en el servidor central
     #    (InventoryService.sale() corrió ahí, no solo localmente).
-    sales = _central_sale_movements(central_server["db_path"], business_id)
+    sales = _central_sale_movements(p3_central_server["db_path"], business_id)
     assert len(sales) == 1
     assert float(sales[0].quantity) == -1.0
 

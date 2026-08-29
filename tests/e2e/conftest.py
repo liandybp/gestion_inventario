@@ -110,10 +110,15 @@ def _seed_stock(db_path: str) -> None:
         engine.dispose()
 
 
-@pytest.fixture(scope="function")
-def live_server() -> str:
-    """Levanta la app contra un SQLite temporal y siembra stock. Devuelve la URL base."""
-    tmp = tempfile.mkdtemp(prefix="inventario-e2e-")
+def _boot_temp_server(prefix: str, *, extra_env: dict | None = None) -> tuple[str, str, subprocess.Popen, str]:
+    """Arranca uvicorn real contra un SQLite temporal aislado en un puerto libre dinámico.
+
+    Compartido por `live_server` y `central_server` — NUNCA apuntar un fixture de e2e a
+    `app.settings.DATABASE_URL` ni a un puerto fijo: eso apuntaría a la BD real de dev/prod
+    y podría colisionar con el servidor real corriendo en ese puerto (H-002/H-005 de la
+    auditoría 2026-08-29, `docs/auditorias/2026-08-29-p5-multinode-e2e-offline-sync.md`).
+    """
+    tmp = tempfile.mkdtemp(prefix=prefix)
     db_path = os.path.join(tmp, "e2e.db")
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
@@ -126,6 +131,8 @@ def live_server() -> str:
         "ADMIN_USERNAME": "admin",
         "ADMIN_PASSWORD": "admin",
     })
+    if extra_env:
+        env.update(extra_env)
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app",
@@ -135,8 +142,37 @@ def live_server() -> str:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    _wait_ready(base_url)
+    return base_url, db_path, proc, tmp
+
+
+@pytest.fixture(scope="function")
+def central_server() -> tuple[str, str]:
+    """Servidor central real (subproceso uvicorn) para e2e multi-nodo. Devuelve (base_url, db_path).
+
+    SQLite temporal aislado por test (mismo patrón que `live_server`), con stock ya sembrado
+    vía `_seed_stock` — los "nodos" del e2e multi-nodo son emisores de eventos HTTP contra
+    este servidor (POST /sync/push con su propio device token), no procesos separados: el
+    valor de REQ-20 es la convergencia del servidor, ya cubierta por device tokens distintos.
+    """
+    base_url, db_path, proc, tmp = _boot_temp_server("inventario-e2e-central-")
     try:
-        _wait_ready(base_url)
+        _seed_stock(db_path)
+        yield base_url, db_path
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.fixture(scope="function")
+def live_server() -> str:
+    """Levanta la app contra un SQLite temporal y siembra stock. Devuelve la URL base."""
+    base_url, db_path, proc, tmp = _boot_temp_server("inventario-e2e-")
+    try:
         _seed_stock(db_path)
         yield base_url
     finally:
