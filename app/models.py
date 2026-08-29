@@ -444,3 +444,61 @@ class SyncEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class DeviceToken(Base):
+    """Token por dispositivo del nodo desktop (revocable sin borrar, auditable)."""
+
+    __tablename__ = "device_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    business_id: Mapped[int] = mapped_column(Integer, index=True)
+    location_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    label: Mapped[str] = mapped_column(String(128))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AppliedSyncEvent(Base):
+    """Ledger de idempotencia del servidor: qué eventos offline ya se aplicaron.
+
+    event_id es único por negocio (no global): dos negocios distintos pueden
+    generar el mismo event_id (colisión de UUID, o un device probando IDs)
+    sin que uno bloquee la sincronización del otro (H-004).
+    """
+
+    __tablename__ = "applied_sync_events"
+    __table_args__ = (
+        UniqueConstraint("business_id", "event_id", name="ux_applied_sync_events_business_event"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(64), index=True)
+    device_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    business_id: Mapped[int] = mapped_column(Integer, index=True)
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class SyncConflict(Base):
+    """Conflicto registrado durante el replay (stock insuficiente, client_id colisiona)."""
+
+    __tablename__ = "sync_conflicts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(Integer, index=True)
+    device_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    event_id: Mapped[str] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    detail: Mapped[str] = mapped_column(Text)
+    resolved: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

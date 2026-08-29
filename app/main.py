@@ -24,6 +24,7 @@ if __name__ == "__main__" and __package__ is None:
 from app.routers.health import router as health_router
 from app.routers.inventory import router as inventory_router
 from app.routers.products import router as products_router
+from app.routers.sync import router as sync_router
 from app.routers.ui import router as ui_router
 from app.routers import (
     inventory,
@@ -170,6 +171,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(products_router)
 app.include_router(inventory_router)
+app.include_router(sync_router)
 app.include_router(ui_router)
 app.include_router(ui_auth.router, prefix="/ui")
 app.include_router(ui_products.router, prefix="/ui")

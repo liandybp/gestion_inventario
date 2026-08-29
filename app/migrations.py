@@ -38,7 +38,7 @@ from app.models import (
 )
 
 
-_LATEST_SCHEMA_VERSION = 5
+_LATEST_SCHEMA_VERSION = 6
 
 # Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
 _BUSINESS_CONFIG_COLS = [
@@ -311,6 +311,33 @@ def _run_sqlite_schema_migrations() -> int:
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_business_seq "
             "ON pending_sync_events(business_id, seq)"
         )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS device_tokens ("
+            "id INTEGER PRIMARY KEY, token VARCHAR(128), business_id INTEGER, "
+            "location_id INTEGER, label VARCHAR(128), revoked BOOLEAN DEFAULT false, "
+            "created_at TIMESTAMP, last_seen_at TIMESTAMP)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_device_tokens_token ON device_tokens(token)"
+        )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS applied_sync_events ("
+            "id INTEGER PRIMARY KEY, event_id VARCHAR(64), device_id INTEGER, "
+            "business_id INTEGER, applied_at TIMESTAMP)"
+        )
+        conn.exec_driver_sql(
+            "DROP INDEX IF EXISTS ux_applied_sync_events_event_id"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_applied_sync_events_business_event "
+            "ON applied_sync_events(business_id, event_id)"
+        )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS sync_conflicts ("
+            "id INTEGER PRIMARY KEY, business_id INTEGER, device_id INTEGER, "
+            "event_id VARCHAR(64), kind VARCHAR(32), detail TEXT, "
+            "resolved BOOLEAN DEFAULT false, created_at TIMESTAMP)"
+        )
 
         if schema_version < 1:
             _set_schema_version(conn, 1)
@@ -493,6 +520,33 @@ def _run_postgresql_schema_migrations() -> int:
         conn.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_sync_events_business_seq "
             "ON pending_sync_events(business_id, seq)"
+        )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS device_tokens ("
+            "id SERIAL PRIMARY KEY, token VARCHAR(128), business_id INTEGER, "
+            "location_id INTEGER, label VARCHAR(128), revoked BOOLEAN DEFAULT false, "
+            "created_at TIMESTAMPTZ, last_seen_at TIMESTAMPTZ)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_device_tokens_token ON device_tokens(token)"
+        )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS applied_sync_events ("
+            "id SERIAL PRIMARY KEY, event_id VARCHAR(64), device_id INTEGER, "
+            "business_id INTEGER, applied_at TIMESTAMPTZ)"
+        )
+        conn.exec_driver_sql(
+            "DROP INDEX IF EXISTS ux_applied_sync_events_event_id"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_applied_sync_events_business_event "
+            "ON applied_sync_events(business_id, event_id)"
+        )
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS sync_conflicts ("
+            "id SERIAL PRIMARY KEY, business_id INTEGER, device_id INTEGER, "
+            "event_id VARCHAR(64), kind VARCHAR(32), detail TEXT, "
+            "resolved BOOLEAN DEFAULT false, created_at TIMESTAMPTZ)"
         )
 
         if schema_version < 1:
