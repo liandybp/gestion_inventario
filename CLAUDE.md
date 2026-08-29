@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.6` (ver `VERSION`)
+- **Versión actual:** `0.4.7` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -245,18 +245,41 @@ Archivo `app/business_config.conf` (INI):
       fix estructural (SKU único compuesto `(business_id, sku)` + migración + auditar 2
       call sites que asumen SKU global en `ui_common.py`/`ui_products.py`) — decisión
       explícita del usuario de aplicar solo el hotfix por ahora.
-- [ ] **Épico offline-desktop-sync (app de escritorio offline-first + sync bidireccional)**
-      — 5 PAEs generados vía SDD-Agent en `specs/offline-desktop-sync/` (P1 Fundamentos, P2
-      Backend de sync, P3 Cliente+escritura offline, P4 Desktop+cifrado Windows, P5 e2e
-      multi-nodo). **P1 implementado por OpenCode pero NO mergeado** — auditoría (score
-      2.90/5.00 🔴) encontró un boundary bug crítico en la numeración de SKU por rango
-      (`next_sku_in_range`, colisión permanente al SKU #10.000 de un negocio) + 3 hallazgos
-      altos (hash de integridad del outbox incompleto, cero logging, race condition
-      latente). Ver `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. Pendiente:
-      aplicar los 4 quick wins y re-auditar antes de generar P2.
+- [x] **Épico offline-desktop-sync — P1 (Fundamentos)** — 5 PAEs generados vía SDD-Agent en
+      `specs/offline-desktop-sync/` (P1 Fundamentos, P2 Backend de sync, P3 Cliente+escritura
+      offline, P4 Desktop+cifrado Windows, P5 e2e multi-nodo). P1 (outbox `pending_sync_events`
+      + rangos de SKU 10k) implementado por OpenCode, auditado en rojo (2.90/5.00 — boundary
+      bug crítico en `next_sku_in_range`), **corregido y re-auditado a 3.80/5.00 🟡**, **commiteado**
+      (`2dbad8a`, en `develop`, sin mergear a `main` todavía). 241 unit verdes en ese commit.
+- [ ] **Épico offline-desktop-sync — P2 (Backend de sync)** — `SyncService` (idempotencia,
+      replay vía `InventoryService.sale`, dedup de clientes, `build_pull`) + endpoints
+      `/sync/register|push|conflicts`. Implementado por OpenCode, auditado en rojo
+      (2.50/5.00 — 3 hallazgos **críticos** de aislamiento multi-tenant: IDOR en
+      `register_device`, `password_hash` sin cifrar en el pull, `movement_allocations`/
+      `sales_document_items` sin filtro de negocio). **Corregido directamente por Claude**
+      (no vía OpenCode) + re-review con mutation-testing (detectó y corrigió una regresión
+      propia: scope de `client_id` roto por el mismo patrón que el ADR-012 de SKU) +
+      **re-auditado a 3.70/5.00 🟡**. 267 unit verdes. Ver
+      `docs/auditorias/2026-08-28-p2-sync-backend-offline-sync*.md`.
+      **⚠️ SIN COMMITEAR — decisión de commit pendiente del usuario, retomar próxima sesión.**
+- [x] **Fix bug de prod: diagnóstico ZARA irrelevante en factura AUTODOC** — `_zara_pdf_diagnostics()`
+      en `ui_purchases.py` se disparaba en cualquier importación con ≤3 líneas sin verificar
+      que el PDF fuera realmente de ZARA (debug leftover). Gateado a `"ZARA" in full_text`.
+      261 unit verdes. **Sin commitear** (mismo working tree que P2, misma decisión pendiente).
 
 ## Sesiones
 
+- **2026-08-29 (sesión 12)** — **Fix bug de prod: diagnóstico ZARA irrelevante en importación
+  de factura AUTODOC**: usuario reportó texto de debug (`Diagnóstico ZARA: p1: refs_text=0
+  refs_words=0 words=211`) pegado al mensaje de éxito al importar una factura del negocio de
+  recambios. Causa real: `_zara_pdf_diagnostics()` en `ui_purchases.py` se disparaba en
+  cualquier importación con ≤3 líneas, sin verificar si el PDF era de ZARA — debug leftover
+  del parser de ZARA nunca gateado. `parse_invoice_pdf()` en sí funcionaba bien (prueba
+  H&M → ZARA → AUTODOC, cayó correctamente a AUTODOC, 3 líneas importadas OK); el bug era
+  puramente de UI. Fix: la función retorna `None` si el texto extraído no contiene "ZARA"
+  (+3 líneas, diff aislado). 261 unit verdes. **Sin commitear** — mismo working tree que P2
+  (sesión 11, también sin commitear); decisión de commit pendiente del usuario para ambos.
+  Detalle: `.claude/session-notes.md`.
 - **2026-08-28 (sesión 11)** — **Épico offline-desktop-sync: brainstorming + 5 PAEs vía
   SDD-Agent + implementación P1 + auditoría (score 2.90 🔴, no mergeado):** brainstorming
   completo de la nueva app de escritorio Windows offline-first con sync bidireccional
@@ -275,8 +298,29 @@ Archivo `app/business_config.conf` (INI):
   (v0.4.6). Más 3 hallazgos altos (H-002 hash del outbox no cubre todos los campos, H-003
   cero logging/try-except en `app/sync/` pese a que el propio pre-mortem del diseño lo
   exigía, H-004 race condition latente en `append_event`). Informe completo:
-  `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. **Pendiente:** corregir
-  H-001/H-002/H-003/H-006 (quick wins, ~1h) antes de avanzar a P2. Detalle:
+  `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. **P1 corregido y
+  commiteado** en el resto de la sesión — re-auditoría 3.80/5.00 🟡 (informe
+  `-reaudit.md`), commit `2dbad8a` en `develop` (241 unit verdes).
+  **Continuación (misma sesión) — P2 implementado, auditado, corregido y re-auditado:**
+  OpenCode implementó P2 (`SyncService`, endpoints `/sync/register|push|conflicts`).
+  `/code-review` + `auditoria-ingenieria` (score **2.50/5.00 🔴**) encontraron 3 hallazgos
+  **críticos** de aislamiento multi-tenant: IDOR en `register_device` (no validaba
+  pertenencia del `business_id`, cualquier admin/owner podía aprovisionar un token para el
+  negocio de otro), `password_hash` de usuarios viajando sin cifrar en el pull, y
+  `movement_allocations`/`sales_document_items` volcados **sin filtro de negocio** (fuga de
+  datos comerciales entre todos los negocios del sistema en cada sincronización). Más 3
+  altos (`event_id` único global permitía bloqueo cruzado entre negocios, `device.location_id`
+  nunca se usaba para restringir ventas, token de dispositivo sin rate limit ni expiración).
+  Informe: `docs/auditorias/2026-08-28-p2-sync-backend-offline-sync.md`. **Claude corrigió
+  los 8 hallazgos directamente** (sin pasar por OpenCode, a pedido del usuario). Una segunda
+  ronda de `/code-review` con **mutation-testing real** (revertir cada fix y confirmar que
+  el test falla) detectó que la propia corrección había introducido una **regresión**: el
+  chequeo de colisión de `client_id` se scopeó por negocio, pero `Customer.client_id` sigue
+  siendo `unique=True` **global** (misma familia de bug que el ADR-012 de SKU, la tercera
+  vez que este patrón aparece en el proyecto) — corregida en el mismo ciclo, con test de
+  regresión añadido. Re-auditoría: **3.70/5.00 🟡** (informe `-reaudit.md`), 267 unit verdes.
+  **P2 queda sin commitear** — el usuario cerró la sesión antes de confirmar el commit;
+  retomar la decisión la próxima sesión antes de avanzar a P3. Detalle completo:
   `.claude/session-notes.md`.
 - **2026-08-19 (sesión 10)** — **Fix bug de prod: compra de producto nuevo bloqueada
   (v0.4.6) + arreglo de Cloudflare Access sobre el runner de CD compartido**: usuario
