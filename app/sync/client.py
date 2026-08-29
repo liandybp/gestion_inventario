@@ -2,41 +2,51 @@ from __future__ import annotations
 
 import json
 import secrets
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import Date, DateTime, select
 from sqlalchemy.orm import Session
 
 from app.auth import hash_password
 from app.logger import get_logger
 from app.models import (
-    Business, CashBaseline, Customer, InventoryLot, InventoryMovement, Location,
-    MoneyExtraction, MovementAllocation, OperatingExpense, Product, SalesDocument,
-    SalesDocumentItem, SyncEvent, SyncState, User,
+    AuditLog, Business, CashBaseline, ChatMessage, CoachActionLog, Customer,
+    DashboardWidget, InventoryLot, InventoryMovement, Location, MoneyExtraction,
+    MovementAllocation, OperatingExpense, Product, SalesDocument, SalesDocumentItem,
+    SyncEvent, SyncState, User, UserBusiness,
 )
 from app.sync.outbox import rehash_chain
+from app.sync.tables import SYNC_TABLE_ORDER
 
 _log = get_logger(__name__)
 
+_MODEL_BY_TABLE: dict[str, type] = {
+    "businesses": Business,
+    "locations": Location,
+    "products": Product,
+    "customers": Customer,
+    "users": User,
+    "sales_documents": SalesDocument,
+    "inventory_movements": InventoryMovement,
+    "inventory_lots": InventoryLot,
+    "movement_allocations": MovementAllocation,
+    "sales_document_items": SalesDocumentItem,
+    "money_extractions": MoneyExtraction,
+    "operating_expenses": OperatingExpense,
+    "cash_baselines": CashBaseline,
+}
+assert set(_MODEL_BY_TABLE) == set(SYNC_TABLE_ORDER), (
+    "app/sync/client.py::_MODEL_BY_TABLE desincronizado de "
+    "app/sync/tables.py::SYNC_TABLE_ORDER — agregá la tabla nueva a ambos lados."
+)
 
-# Orden de dependencia FK (padres antes que hijos). apply_pull inserta en este
-# orden y borra en el orden inverso — evita IntegrityError bajo PRAGMA
-# foreign_keys=ON (H-001 de la auditoría 2026-08-29).
+# Orden de dependencia FK (padres antes que hijos), derivado de la fuente única
+# app/sync/tables.py::SYNC_TABLE_ORDER. apply_pull inserta en este orden y borra
+# en el orden inverso — evita IntegrityError bajo PRAGMA foreign_keys=ON
+# (H-001 de la auditoría 2026-08-29).
 _PULL_ORDER: list[tuple[str, type]] = [
-    ("businesses", Business),
-    ("locations", Location),
-    ("products", Product),
-    ("customers", Customer),
-    ("users", User),
-    ("sales_documents", SalesDocument),
-    ("inventory_movements", InventoryMovement),
-    ("inventory_lots", InventoryLot),
-    ("movement_allocations", MovementAllocation),
-    ("sales_document_items", SalesDocumentItem),
-    ("money_extractions", MoneyExtraction),
-    ("operating_expenses", OperatingExpense),
-    ("cash_baselines", CashBaseline),
+    (table, _MODEL_BY_TABLE[table]) for table in SYNC_TABLE_ORDER
 ]
 
 
@@ -73,6 +83,53 @@ def _pending_events(db: Session) -> list[dict]:
     return out
 
 
+# Tablas locales (NO sincronizadas — no están en SYNC_TABLE_ORDER) que igual
+# referencian `users.id` por FK. Si tienen filas, bloquean `db.query(User).delete()`
+# bajo PRAGMA foreign_keys=ON. Descubierto por el e2e de sync (login real escribe
+# un audit_logs.user_id antes del primer sync) — el mismo patrón que ya se usaba
+# para el borrado de usuario (ui_users.py) se generaliza acá para las 4 tablas
+# nullable + user_businesses, que no es nullable y por eso se borra entera (sus
+# filas quedan de todas formas obsoletas: los ids de `users` cambian con el pull).
+def _detach_local_user_references(db: Session) -> None:
+    db.query(AuditLog).filter(AuditLog.user_id.isnot(None)).update(
+        {AuditLog.user_id: None}, synchronize_session=False
+    )
+    db.query(DashboardWidget).filter(DashboardWidget.created_by.isnot(None)).update(
+        {DashboardWidget.created_by: None}, synchronize_session=False
+    )
+    db.query(ChatMessage).filter(ChatMessage.user_id.isnot(None)).update(
+        {ChatMessage.user_id: None}, synchronize_session=False
+    )
+    db.query(CoachActionLog).filter(CoachActionLog.marked_by.isnot(None)).update(
+        {CoachActionLog.marked_by: None}, synchronize_session=False
+    )
+    db.query(UserBusiness).delete()
+
+
+def _coerce_datetimes(model: type, data: dict) -> dict:
+    """Parsea de vuelta a `date`/`datetime` los valores que llegaron como string
+    ISO por el viaje JSON (push/pull cruzan HTTP: `resp.json()` no reconstruye
+    tipos Python, solo str/int/float/bool/None). Sin esto, `model(**data)`
+    fallaba con `TypeError: SQLite DateTime type only accepts Python datetime
+    and date objects` en cualquier tabla con una columna DateTime/Date — es
+    decir, en un pull real (encontrado por el e2e de sync, no por los tests
+    unitarios: estos siempre pasaban dicts con objetos datetime nativos, nunca
+    el snapshot ya serializado/deserializado que realmente cruza la red)."""
+    columns = model.__table__.columns
+    out = dict(data)
+    for key, value in out.items():
+        if not isinstance(value, str):
+            continue
+        col = columns.get(key)
+        if col is None:
+            continue
+        if isinstance(col.type, DateTime):
+            out[key] = datetime.fromisoformat(value)
+        elif isinstance(col.type, Date):
+            out[key] = date.fromisoformat(value)
+    return out
+
+
 def apply_pull(db: Session, snapshot: dict) -> None:
     """Reemplazo transaccional de las tablas de lectura con las filas del snapshot.
 
@@ -91,19 +148,28 @@ def apply_pull(db: Session, snapshot: dict) -> None:
         preserved_hashes: dict[str, str] = {
             u.username: u.password_hash for u in db.scalars(select(User))
         }
+        if any(model is User for _table, model in present):
+            _detach_local_user_references(db)
         for _table, model in reversed(present):
             db.query(model).delete()
         for table, model in present:
             rows = snapshot.get(table) or []
             cols = {c.name for c in model.__table__.columns}
             for row in rows:
-                data = {k: v for k, v in row.items() if k in cols}
+                data = _coerce_datetimes(model, {k: v for k, v in row.items() if k in cols})
                 if model is User:
                     data["password_hash"] = preserved_hashes.get(
                         data.get("username"), hash_password(secrets.token_urlsafe(32))
                     )
                 db.add(model(**data))
-        db.flush()
+            # Flush por tabla (no uno solo al final): sin `relationship()` ORM
+            # declaradas entre estos modelos, el unit-of-work de SQLAlchemy NO
+            # reordena los INSERT por dependencia FK entre tablas distintas en
+            # un único flush — encontrado por el e2e de sync (inventory_lots
+            # referenciando un inventory_movements recién insertado en el
+            # mismo flush fallaba con IntegrityError pese a que _PULL_ORDER ya
+            # tenía el orden correcto).
+            db.flush()
     except Exception:  # noqa: BLE001
         db.rollback()
         _log.error("apply_pull falló; rollback", exc_info=True)

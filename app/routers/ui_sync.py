@@ -28,7 +28,7 @@ def do_sync(request: Request, db: Session = Depends(session_dep)) -> HTMLRespons
         result = {"ok": False, "error": "Fallo interno durante la sincronización, ver logs."}
     return templates.TemplateResponse(
         request=request, name="partials/sync_status.html",
-        context={"result": result, "state": get_sync_state(db), "app_mode": "desktop", "user": user},
+        context={"result": result, "state": get_sync_state(db), "app_mode": app_mode_label(), "user": user},
     )
 
 
@@ -61,5 +61,5 @@ def provision(
     user = get_current_user_from_session(db, request)
     return templates.TemplateResponse(
         request=request, name="partials/sync_status.html",
-        context={"result": None, "state": get_sync_state(db), "app_mode": "desktop", "user": user},
+        context={"result": None, "state": get_sync_state(db), "app_mode": app_mode_label(), "user": user},
     )

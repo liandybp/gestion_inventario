@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
@@ -7,7 +9,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.auth import hash_password, verify_password
 from app.db import Base
-from app.models import Business, Location, Product, SyncEvent, SyncState, User
+from app.models import (
+    AuditLog, Business, InventoryLot, InventoryMovement, Location, Product,
+    SyncEvent, SyncState, User,
+)
 from app.sync.client import _pending_events, apply_pull, sync
 from app.sync.outbox import append_event, verify_chain
 
@@ -123,6 +128,106 @@ def test_apply_pull_preserves_local_password_hash_for_existing_user(fk_db_sessio
 
     reloaded = fk_db_session.query(User).filter_by(username="admin").one()
     assert verify_password("secret123", reloaded.password_hash)
+
+
+def test_apply_pull_survives_local_audit_log_referencing_user(fk_db_session):
+    """H-e2e-1: en un nodo real, cualquier login local escribe un audit_logs.user_id
+    ANTES del primer sync. audit_logs no es una tabla sincronizada (no está en
+    SYNC_TABLE_ORDER), pero su FK a users.id igual bloqueaba
+    `db.query(User).delete()` bajo PRAGMA foreign_keys=ON — encontrado por el
+    e2e real de sync (tests/e2e/test_sync_e2e.py), no por los tests unitarios
+    anteriores porque ninguno creaba un AuditLog junto al User."""
+    biz = Business(code="t", name="Test")
+    fk_db_session.add(biz)
+    fk_db_session.commit()
+    user = User(username="admin", password_hash=hash_password("secret123"),
+                business_id=biz.id, role="admin")
+    fk_db_session.add(user)
+    fk_db_session.commit()
+    fk_db_session.add(AuditLog(user_id=user.id, username="admin", action="login",
+                                entity_type="user", entity_id=str(user.id), detail="{}"))
+    fk_db_session.commit()
+
+    snapshot = {
+        "businesses": [{"id": biz.id, "code": "t", "name": "Test"}],
+        "users": [{"id": user.id, "business_id": biz.id, "username": "admin",
+                   "role": "admin", "is_active": True, "must_change_password": False}],
+    }
+    apply_pull(fk_db_session, snapshot)  # antes del fix: IntegrityError acá
+    fk_db_session.commit()
+
+    reloaded = fk_db_session.query(User).filter_by(username="admin").one()
+    assert verify_password("secret123", reloaded.password_hash)
+    log = fk_db_session.query(AuditLog).one()
+    assert log.user_id is None  # detach, no se pierde la fila de auditoría
+
+
+def test_apply_pull_parses_json_datetime_strings(fk_db_session):
+    """H-e2e-2: el snapshot real cruza HTTP (`httpx.post(json=...)` /
+    `resp.json()`), así que sus valores datetime llegan como string ISO, no
+    como objetos `datetime` de Python — `model(**data)` fallaba con
+    `TypeError: SQLite DateTime type only accepts Python datetime and date
+    objects`. Los tests anteriores de apply_pull nunca lo detectaron porque
+    siempre pasaban dicts con datetimes nativos, no el snapshot ya
+    serializado/deserializado que realmente viaja por la red (encontrado por
+    tests/e2e/test_sync_e2e.py)."""
+    biz = Business(code="t", name="Test")
+    fk_db_session.add(biz)
+    fk_db_session.commit()
+
+    snapshot = {
+        "businesses": [{
+            "id": biz.id, "code": "t", "name": "Test",
+            "created_at": "2026-08-29T14:52:36",
+        }],
+    }
+    apply_pull(fk_db_session, snapshot)  # antes del fix: TypeError acá
+    fk_db_session.commit()
+
+    reloaded = fk_db_session.query(Business).one()
+    assert isinstance(reloaded.created_at, datetime)
+
+
+def test_apply_pull_inserts_fk_dependent_rows_in_same_pull(fk_db_session):
+    """H-e2e-3: sin `relationship()` ORM declaradas entre InventoryMovement e
+    InventoryLot, un único `db.flush()` al final de todo el loop no reordena
+    los INSERT por dependencia FK entre tablas distintas — un lot referenciando
+    un movement recién traído en el MISMO pull fallaba con IntegrityError pese
+    a que _PULL_ORDER ya tenía el orden de tablas correcto (movements antes que
+    lots). El fix flushea una vez por tabla, no una sola vez al final."""
+    biz = Business(code="t", name="Test")
+    fk_db_session.add(biz)
+    fk_db_session.commit()
+    loc = Location(business_id=biz.id, code="CENTRAL", name="Central")
+    prod = Product(business_id=biz.id, sku="X", name="X", min_stock=0,
+                    unit_of_measure="ud", default_purchase_cost=1.0,
+                    default_sale_price=2.0, lead_time_days=0)
+    fk_db_session.add_all([loc, prod])
+    fk_db_session.commit()
+
+    snapshot = {
+        "businesses": [{"id": biz.id, "code": "t", "name": "Test"}],
+        "locations": [{"id": loc.id, "business_id": biz.id, "code": "CENTRAL", "name": "Central"}],
+        "products": [{"id": prod.id, "business_id": biz.id, "sku": "X", "name": "X",
+                      "min_stock": 0, "unit_of_measure": "ud", "default_purchase_cost": 1.0,
+                      "default_sale_price": 2.0, "lead_time_days": 0}],
+        "inventory_movements": [{
+            "id": 1, "business_id": biz.id, "product_id": prod.id, "location_id": loc.id,
+            "type": "purchase", "quantity": 10.0, "unit_cost": 1.0, "unit_price": None,
+            "movement_date": "2026-08-29T14:52:45.719646", "note": None,
+        }],
+        "inventory_lots": [{
+            "id": 1, "business_id": biz.id, "movement_id": 1, "product_id": prod.id,
+            "location_id": loc.id, "lot_code": "L1",
+            "received_at": "2026-08-29T14:52:45.719646", "unit_cost": 1.0,
+            "qty_received": 10.0, "qty_remaining": 10.0,
+        }],
+    }
+    apply_pull(fk_db_session, snapshot)  # antes del fix: IntegrityError acá
+    fk_db_session.commit()
+
+    assert fk_db_session.query(InventoryMovement).count() == 1
+    assert fk_db_session.query(InventoryLot).one().movement_id == 1
 
 
 def test_apply_pull_assigns_usable_hash_to_brand_new_user(fk_db_session):

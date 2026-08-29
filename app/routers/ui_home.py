@@ -193,7 +193,6 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "active_business": active_business,
             "app_mode": app_mode_label(),
             "state": get_sync_state(db) if is_desktop() else None,
-            "result": None,
         },
     )
 

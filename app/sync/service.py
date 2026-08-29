@@ -31,6 +31,7 @@ from app.repositories.customer_repository import CustomerRepository
 from app.repositories.location_repository import LocationRepository
 from app.schemas import SaleCreate
 from app.services.inventory_service import InventoryService
+from app.sync.tables import SYNC_TABLE_ORDER
 
 _log = get_logger(__name__)
 
@@ -267,4 +268,8 @@ class SyncService:
             "cash_baselines": self._dump(CashBaseline, CashBaseline.business_id == bid),
             "users": self._dump(User, User.business_id == bid),
         }
+        assert set(snap) == set(SYNC_TABLE_ORDER), (
+            "SyncService.build_pull() desincronizado de app/sync/tables.py::SYNC_TABLE_ORDER "
+            f"— faltan {set(SYNC_TABLE_ORDER) - set(snap)}, sobran {set(snap) - set(SYNC_TABLE_ORDER)}."
+        )
         return {"snapshot": snap, "server_time": datetime.now(timezone.utc)}
