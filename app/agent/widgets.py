@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -38,6 +39,43 @@ def list_widgets(db: Session, business_id: int) -> list[DashboardWidget]:
         .where(DashboardWidget.business_id == int(business_id))
         .order_by(DashboardWidget.position.asc(), DashboardWidget.id.asc())
     ).all())
+
+
+def latest_widget_meta(
+    db: Session, business_id: int, *, since: Optional[datetime] = None
+) -> Optional[dict]:
+    """Tool/tool_args/type del último widget persistido del negocio, o None (REQ-3).
+
+    Si `since` se pasa, solo se considera un widget creado en o después de esa
+    fecha — evita anclar a un widget de una conversación anterior (H-001: un
+    `prior` no vacío no implica que ESTA conversación haya producido su propio
+    widget, así que sin este filtro se podía filtrar el widget más reciente del
+    negocio aunque viniera de una conversación ya cerrada).
+    """
+    widget = db.scalar(
+        select(DashboardWidget)
+        .where(DashboardWidget.business_id == int(business_id))
+        .order_by(DashboardWidget.position.desc(), DashboardWidget.id.desc())
+        .limit(1)
+    )
+    if widget is None:
+        return None
+    # Comparar en Python, no en SQL: SQLite/SQLAlchemy formatea CURRENT_TIMESTAMP
+    # sin microsegundos pero un datetime bindeado como parámetro SIEMPRE lleva
+    # ".000000" — el WHERE created_at >= :since compara strings y falla incluso
+    # para instantes iguales (verificado: bug real, no hipotético).
+    if since is not None and widget.created_at < since:
+        return None
+    try:
+        params = json.loads(widget.params or "{}")
+    except (TypeError, ValueError):
+        # Mismo patrón defensivo que widgets_with_payload: params corrupto no
+        # debe romper el chat, solo perder el contexto de continuidad.
+        return None
+    tool = params.get("tool")
+    if not tool:
+        return None
+    return {"tool": tool, "tool_args": params.get("tool_args") or {}, "type": widget.type}
 
 
 def widgets_with_payload(db: Session, business_id: int) -> list[dict]:

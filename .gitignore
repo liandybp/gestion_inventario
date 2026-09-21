@@ -24,6 +24,9 @@ app/static/uploads/
 .coverage
 htmlcov/
 
+# Eval reports (generados, no versionar)
+tests/eval/results_latest.json
+
 # AI tooling (local-only)
 .opencode
 .claude

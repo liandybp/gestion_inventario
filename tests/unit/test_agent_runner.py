@@ -41,3 +41,19 @@ def test_run_agent_propagates_error_when_llm_unavailable(monkeypatch):
     assert "no está disponible" in result["reply"]
     assert result["error"] is not None
     assert "LLM no disponible" in result["error"]
+
+
+def test_run_agent_forwards_last_tool_to_planner_prompt(monkeypatch):
+    """REQ-3: last_tool llega al system prompt que ve el LLM."""
+    captured = {}
+
+    class _CaptureSystemPlanner:
+        def invoke(self, messages):
+            captured["system"] = messages[0].content
+            return PlanModel(tool=None, widgets=[], reply="ok")
+
+    monkeypatch.setattr(g, "_PLANNER", _CaptureSystemPlanner())
+    last_tool = {"tool": "sales_by_product", "tool_args": {"start": "2026-01-01"}, "type": "bar"}
+    result = asyncio.run(runner.run_agent(1, "¿y por ubicación?", last_tool=last_tool))
+    assert result["error"] is None
+    assert "sales_by_product" in captured["system"]

@@ -112,7 +112,15 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
     # para que el modelo responda con memoria de la conversación.
     prior = chat_store.list_messages(db, business_id)[:-1]
     history = [{"role": m.role, "content": m.content} for m in prior]
-    result = await runner.run_agent(business_id, message, history=history)
+    # Memoria de tool previa (REQ-3): solo widgets creados en o después del
+    # primer turno de ESTA conversación — evita anclar a un widget de una
+    # conversación anterior (H-001: `prior` no vacío no implica que esta
+    # conversación haya producido su propio widget, hay que comparar fechas).
+    last_tool = (
+        widget_store.latest_widget_meta(db, business_id, since=prior[0].created_at)
+        if prior else None
+    )
+    result = await runner.run_agent(business_id, message, history=history, last_tool=last_tool)
     for w in result["widgets"]:
         widget_store.add_widget(db, business_id, type=w["type"], title=w["title"],
                                 tool=w["tool"], tool_args=w["tool_args"], payload=w.get("payload", {}),
