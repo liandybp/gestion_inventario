@@ -23,9 +23,27 @@ from app.sync.outbox import append_event
 
 _log = get_logger(__name__)
 
+
+def _dt_to_local_input_s(dt: datetime) -> str:
+    """Igual que `dt_to_local_input` pero con milisegundos.
+
+    `dt_to_local_input` formatea solo hasta el minuto; `InventoryService.update_sale()`
+    pasa ese valor truncado de vuelta a `_rebuild_product_fifo()`, que reordena TODOS
+    los movimientos del producto por `movement_date`. Si una compra y una venta caen
+    en la misma ventana truncada, la venta puede quedar ANTES que la compra en ese
+    reordenamiento, y el rebuild rechaza la edición con "Insufficient stock" aunque el
+    stock real sea suficiente — descubierto por el e2e de sale-payment-method. Con
+    segundos enteros seguía siendo reproducible bajo carga (navegador ya "caliente"
+    tras correr el resto de la suite e2e, interacción de UI completada en <1s); con
+    milisegundos la ventana de colisión es inferior al overhead real de red/render.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+
+
 from .ui_common import (
     barcode_to_sku,
-    dt_to_local_input,
     ensure_admin,
     ensure_admin_or_owner,
     extract_sku,
@@ -35,10 +53,7 @@ from .ui_common import (
     templates,
 )
 from .ui_tabs_common import _location_id_for_code
-from app.logger import get_logger
 from app.utils import query_match
-
-_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -172,6 +187,7 @@ def sale(
     unit_price: str = Form(""),
     movement_date: Optional[str] = Form(None),
     note: Optional[str] = Form(None),
+    paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -202,6 +218,7 @@ def sale(
                 movement_date=parse_dt(movement_date),
                 note=note or None,
                 location_code=selected_location_code,
+                paid_by_transfer=paid_by_transfer,
             )
         )
         if is_desktop():
@@ -211,7 +228,8 @@ def sale(
                     payload={"sku": sku, "quantity": quantity,
                              "unit_price": parse_optional_float(unit_price),
                              "movement_date": movement_date, "note": note or None,
-                             "location_code": selected_location_code},
+                             "location_code": selected_location_code,
+                             "paid_by_transfer": paid_by_transfer},
                 )
                 db.commit()
             except Exception:  # noqa: BLE001
@@ -229,7 +247,7 @@ def sale(
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -248,7 +266,7 @@ def sale(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -267,6 +285,7 @@ def sale_barcode(
     unit_price: str = Form(""),
     movement_date: Optional[str] = Form(None),
     note: Optional[str] = Form(None),
+    paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -297,6 +316,7 @@ def sale_barcode(
                 movement_date=parse_dt(movement_date),
                 note=note or None,
                 location_code=selected_location_code,
+                paid_by_transfer=paid_by_transfer,
             )
         )
         if is_desktop():
@@ -306,7 +326,8 @@ def sale_barcode(
                     payload={"sku": sku, "quantity": quantity,
                              "unit_price": parse_optional_float(unit_price),
                              "movement_date": movement_date, "note": note or None,
-                             "location_code": selected_location_code},
+                             "location_code": selected_location_code,
+                             "paid_by_transfer": paid_by_transfer},
                 )
                 db.commit()
             except Exception:  # noqa: BLE001
@@ -324,7 +345,7 @@ def sale_barcode(
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -342,7 +363,7 @@ def sale_barcode(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -362,7 +383,7 @@ def sale_barcode(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -392,7 +413,7 @@ def sale_edit_form(
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
-            "movement_date_value": dt_to_local_input(mv.movement_date),
+            "movement_date_value": _dt_to_local_input_s(mv.movement_date),
             "product_options": product_service.search(query="", limit=200),
         },
     )
@@ -407,6 +428,7 @@ def sale_update(
     unit_price: float = Form(...),
     movement_date: Optional[str] = Form(None),
     note: Optional[str] = Form(None),
+    paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ensure_admin_or_owner(db, request)
@@ -423,6 +445,7 @@ def sale_update(
             unit_price=unit_price,
             movement_date=parse_dt(movement_date),
             note=note or None,
+            paid_by_transfer=paid_by_transfer,
         )
 
         user = get_current_user_from_session(db, request)
@@ -446,7 +469,7 @@ def sale_update(
                 "message_class": "ok" if not result.warning else "warn",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -465,7 +488,7 @@ def sale_update(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -509,7 +532,7 @@ def sale_delete(
                 "message_class": "ok",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -528,7 +551,7 @@ def sale_delete(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -549,7 +572,7 @@ def sale_delete(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -584,7 +607,7 @@ def sale_delete_selected(
                     "message_class": "warn",
                     "sales": service.recent_sales(limit=20),
                     "product_options": product_options,
-                    "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                    "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                     "pos_locations": pos_locations,
                     "default_sale_location_code": default_sale_location_code,
                     "sale_location_code": selected_location_code,
@@ -630,7 +653,7 @@ def sale_delete_selected(
                 "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -649,7 +672,7 @@ def sale_delete_selected(
                 "message_class": "error",
                 "sales": service.recent_sales(limit=20),
                 "product_options": product_options,
-                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
@@ -669,6 +692,7 @@ def tab_sales(
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    payment_method: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
@@ -767,6 +791,9 @@ def tab_sales(
         business_id=bid,
         business_code=business_code,
     )
+    selected_payment_method = (payment_method or "").strip().lower()
+    if selected_payment_method not in ("transfer", "cash"):
+        selected_payment_method = ""
 
     product_options = [
         p
@@ -786,6 +813,7 @@ def tab_sales(
                 month=filter_month,
                 year=filter_year,
                 location_id=selected_filter_location_id,
+                payment_method=selected_payment_method or None,
             ),
             "filter_month": display_month,
             "filter_year": display_year,
@@ -794,8 +822,9 @@ def tab_sales(
             "filter_end_date": end_date or "",
             "filter_show_all": bool(show_all),
             "filter_location_code": selected_filter_location_code,
+            "filter_payment_method": selected_payment_method,
             "product_options": product_options,
-            "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+            "movement_date_default": _dt_to_local_input_s(datetime.now(timezone.utc)),
             "pos_locations": pos_locations,
             "default_sale_location_code": default_sale_location_code,
             "sale_location_code": default_sale_location_code,

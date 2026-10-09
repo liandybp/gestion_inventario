@@ -21,6 +21,14 @@ def test_sale_create_requires_positive_quantity() -> None:
         assert "quantity must be greater than 0" in str(exc)
 
 
+def test_sale_create_paid_by_transfer_defaults_to_false() -> None:
+    assert SaleCreate(sku="A1", quantity=1).paid_by_transfer is False
+
+
+def test_sale_create_accepts_paid_by_transfer_true() -> None:
+    assert SaleCreate(sku="A1", quantity=1, paid_by_transfer=True).paid_by_transfer is True
+
+
 def test_supplier_return_requires_positive_quantity() -> None:
     try:
         SupplierReturnLotCreate(lot_id=1, quantity=0)

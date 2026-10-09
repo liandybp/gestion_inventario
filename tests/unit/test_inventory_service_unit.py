@@ -123,5 +123,87 @@ def test_sale_fails_if_location_has_no_enough_stock_even_with_stock_elsewhere(db
     assert "POS1" in str(exc.value.detail)
     assert service.stock_for_location("SKU-TST", "CENTRAL") == 3
     assert service.stock_for_location("SKU-TST", "POS1") == 2
-    assert pos1.id > 0
+
+
+def test_sale_defaults_paid_by_transfer_to_false(db_session: Session, business_id: int) -> None:
+    service = InventoryService(db_session, business_id=business_id)
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+
+    result = service.sale(SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL"))
+
+    assert result.movement.paid_by_transfer is False
+
+
+def test_sale_can_mark_paid_by_transfer(db_session: Session, business_id: int) -> None:
+    service = InventoryService(db_session, business_id=business_id)
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+
+    result = service.sale(
+        SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL", paid_by_transfer=True)
+    )
+
+    assert result.movement.paid_by_transfer is True
+
+
+def test_update_sale_can_set_paid_by_transfer(db_session: Session, business_id: int) -> None:
+    service = InventoryService(db_session, business_id=business_id)
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+    created = service.sale(SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL"))
+
+    result = service.update_sale(
+        movement_id=created.movement.id,
+        sku="SKU-TST",
+        quantity=1,
+        unit_price=2.0,
+        movement_date=None,
+        note=None,
+        paid_by_transfer=True,
+    )
+
+    assert result.movement.paid_by_transfer is True
+
+
+def test_update_sale_with_none_does_not_reset_paid_by_transfer(db_session: Session, business_id: int) -> None:
+    """REQ-8: profit_items_sale_update no manda paid_by_transfer — no debe resetearlo a False."""
+    service = InventoryService(db_session, business_id=business_id)
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+    created = service.sale(
+        SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL", paid_by_transfer=True)
+    )
+
+    result = service.update_sale(
+        movement_id=created.movement.id,
+        sku="SKU-TST",
+        quantity=1,
+        unit_price=2.0,
+        movement_date=None,
+        note=None,
+    )
+
+    assert result.movement.paid_by_transfer is True
+
+
+def test_recent_sales_filters_by_payment_method(db_session: Session, business_id: int) -> None:
+    service = InventoryService(db_session, business_id=business_id)
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+    service.sale(SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL", paid_by_transfer=True))
+    service.sale(SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL", paid_by_transfer=False))
+
+    transfers = service.recent_sales(payment_method="transfer")
+    cash = service.recent_sales(payment_method="cash")
+    all_sales = service.recent_sales()
+
+    assert len(transfers) == 1
+    assert len(cash) == 1
+    assert len(all_sales) == 2
 

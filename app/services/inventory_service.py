@@ -1364,6 +1364,7 @@ class InventoryService:
         unit_price: float,
         movement_date: Optional[datetime],
         note: Optional[str],
+        paid_by_transfer: Optional[bool] = None,
     ) -> MovementResult:
         self._invalidate_metrics_cache()
         mv = self._db.get(InventoryMovement, movement_id)
@@ -1382,6 +1383,8 @@ class InventoryService:
         mv.unit_price = unit_price
         mv.movement_date = self._movement_datetime(movement_date)
         mv.note = note
+        if paid_by_transfer is not None:
+            mv.paid_by_transfer = paid_by_transfer
 
         self._db.flush()
 
@@ -1755,6 +1758,7 @@ class InventoryService:
             quantity=-payload.quantity,
             unit_cost=None,
             unit_price=unit_price,
+            paid_by_transfer=payload.paid_by_transfer,
             movement_date=movement_dt,
             note=payload.note,
         )
@@ -1989,6 +1993,7 @@ class InventoryService:
         month: Optional[str] = None,
         year: Optional[int] = None,
         location_id: Optional[int] = None,
+        payment_method: Optional[str] = None,
     ) -> list[tuple]:
         return self._inventory.recent_sales(
             query=query,
@@ -1998,6 +2003,7 @@ class InventoryService:
             month=month,
             year=year,
             location_id=location_id,
+            payment_method=payment_method,
         )
 
     def movement_history(

@@ -120,6 +120,37 @@ def test_sale_out_of_stock_registers_sale_stock_conflict(db_session, business_id
     assert conflicts[0].kind == "sale_stock"
 
 
+def test_apply_sale_propagates_paid_by_transfer_from_payload(db_session, business_id):
+    central = Location(business_id=business_id, code="CENTRAL", name="Central", role="central")
+    db_session.add(central)
+    db_session.flush()
+    product = Product(business_id=business_id, sku="SKU000002", name="Prod", min_stock=0,
+                       default_purchase_cost=1.0, default_sale_price=2.0, lead_time_days=0)
+    db_session.add(product)
+    db_session.flush()
+    mv = InventoryMovement(business_id=business_id, product_id=product.id,
+                            location_id=central.id, type="purchase", quantity=5, unit_cost=1.0)
+    db_session.add(mv)
+    db_session.flush()
+    lot = InventoryLot(business_id=business_id, movement_id=mv.id, product_id=product.id,
+                        location_id=central.id, lot_code="LOT-1",
+                        received_at=mv.movement_date, unit_cost=1.0, qty_received=5, qty_remaining=5)
+    db_session.add(lot)
+    db_session.commit()
+
+    svc = SyncService(db_session, _device(db_session, business_id))
+    ev = {"event_id": "s5", "event_type": "sale", "seq": 1,
+          "payload": {"sku": "SKU000002", "quantity": 2, "location_code": "CENTRAL",
+                      "paid_by_transfer": True}}
+    res = svc.push(6, [ev])
+
+    assert "s5" in res["applied_event_ids"]
+    applied_mv = db_session.query(InventoryMovement).filter(
+        InventoryMovement.business_id == business_id, InventoryMovement.type == "sale"
+    ).one()
+    assert applied_mv.paid_by_transfer is True
+
+
 def test_sale_location_mismatch_registers_conflict_without_touching_stock(db_session, business_id):
     # H-005: un device scoped a una ubicación no puede vender contra otra.
     central = Location(business_id=business_id, code="CENTRAL", name="Central", role="central")

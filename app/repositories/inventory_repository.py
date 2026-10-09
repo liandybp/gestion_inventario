@@ -231,6 +231,7 @@ class InventoryRepository:
         month: Optional[str] = None,
         year: Optional[int] = None,
         location_id: Optional[int] = None,
+        payment_method: Optional[str] = None,
     ) -> list[tuple]:
         q = query.strip()
         prefetch_limit = max(int(limit or 0) * 10, 500) if q else int(limit or 0)
@@ -252,6 +253,7 @@ class InventoryRepository:
                 InventoryMovement.unit_price,
                 Location.name,
                 lot_codes_expr,
+                InventoryMovement.paid_by_transfer,
             )
             .select_from(InventoryMovement)
             .join(Product, Product.id == InventoryMovement.product_id)
@@ -275,6 +277,10 @@ class InventoryRepository:
                 func.extract('year', InventoryMovement.movement_date) == year,
                 func.extract('month', InventoryMovement.movement_date) == int(month)
             )
+        if payment_method == "transfer":
+            stmt = stmt.where(InventoryMovement.paid_by_transfer.is_(True))
+        elif payment_method == "cash":
+            stmt = stmt.where(InventoryMovement.paid_by_transfer.is_(False))
         rows = list(self._db.execute(stmt).all())
         if q:
             rows = [r for r in rows if _query_match(q, str(r[2] or ""), str(r[3] or ""))]

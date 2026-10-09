@@ -25,8 +25,9 @@
       </div>
       <div class="row"><label id="sale-qty-label">Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
       <div class="row"><label>Precio unitario</label><input id="sale-unit-price" name="unit_price" type="number" step="0.0001" min="0" /></div>
-      <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" value="{{ movement_date_default or '' }}" /></div>
+      <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" step="0.001" value="{{ movement_date_default or '' }}" /></div>
       <div class="row"><label>Nota</label><input name="note" placeholder="(opcional)" /></div>
+      <div class="row"><label>Pagado por transferencia</label><input type="checkbox" name="paid_by_transfer" value="1" /></div>
       <button type="submit">Registrar venta</button>
     </form>
   </div>
@@ -49,7 +50,7 @@
   <h3 style="margin-top:16px;">Historial de ventas</h3>
   
   <form hx-get="/ui/tabs/sales" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="card mb-12"
-        hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-show-all">
+        hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-payment, change from:#sales-filter-show-all">
     <div class="flex gap-12 items-center flex-wrap">
       <div>
         <label class="filter-label">Buscar artículo</label>
@@ -62,6 +63,14 @@
           {% for loc in pos_locations %}
             <option value="{{ loc['code'] }}" {% if (filter_location_code or '') == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
           {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Método de pago</label>
+        <select id="sales-filter-payment" name="payment_method">
+          <option value="" {% if not (filter_payment_method or '') %}selected{% endif %}>Todos</option>
+          <option value="transfer" {% if (filter_payment_method or '') == 'transfer' %}selected{% endif %}>Transferencia</option>
+          <option value="cash" {% if (filter_payment_method or '') == 'cash' %}selected{% endif %}>Efectivo/otro</option>
         </select>
       </div>
       <div>

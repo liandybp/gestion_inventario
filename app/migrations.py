@@ -38,7 +38,7 @@ from app.models import (
 )
 
 
-_LATEST_SCHEMA_VERSION = 7
+_LATEST_SCHEMA_VERSION = 8
 
 # Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
 _BUSINESS_CONFIG_COLS = [
@@ -254,6 +254,10 @@ def _run_sqlite_schema_migrations() -> int:
         if "location_id" not in mv_cols:
             conn.exec_driver_sql(
                 "ALTER TABLE inventory_movements ADD COLUMN location_id INTEGER"
+            )
+        if "paid_by_transfer" not in mv_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE inventory_movements ADD COLUMN paid_by_transfer BOOLEAN DEFAULT 0"
             )
 
         try:
@@ -485,6 +489,16 @@ def _run_postgresql_schema_migrations() -> int:
         except SQLAlchemyError as e:
             raise RuntimeError(
                 "No se pudo crear la columna location_id en inventory_movements."
+            ) from e
+
+        try:
+            conn.exec_driver_sql(
+                "ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS "
+                "paid_by_transfer BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                "No se pudo crear la columna paid_by_transfer en inventory_movements."
             ) from e
 
         try:
