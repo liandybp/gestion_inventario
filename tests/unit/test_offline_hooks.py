@@ -60,7 +60,7 @@ def test_sale_in_desktop_mode_enqueues_outbox_event(db_session, business_id, des
 
     ui_sales.sale(
         request=request, product="SKU-OFFLINE", location_code="CENTRAL", quantity=1,
-        unit_price="", movement_date=None, note=None, db=db_session,
+        unit_price="", movement_date=None, note=None, paid_by_transfer=False, db=db_session,
     )
 
     events = db_session.query(SyncEvent).filter(SyncEvent.business_id == business_id).all()
@@ -80,7 +80,7 @@ def test_sale_in_server_mode_does_not_enqueue(db_session, business_id, monkeypat
 
     ui_sales.sale(
         request=request, product="SKU-OFFLINE", location_code="CENTRAL", quantity=1,
-        unit_price="", movement_date=None, note=None, db=db_session,
+        unit_price="", movement_date=None, note=None, paid_by_transfer=False, db=db_session,
     )
 
     assert db_session.query(SyncEvent).count() == 0
@@ -102,7 +102,7 @@ def test_sale_offline_hook_failure_does_not_break_the_response(
 
     response = ui_sales.sale(
         request=request, product="SKU-OFFLINE", location_code="CENTRAL", quantity=1,
-        unit_price="", movement_date=None, note=None, db=db_session,
+        unit_price="", movement_date=None, note=None, paid_by_transfer=False, db=db_session,
     )
     assert response.status_code == 200
     # La venta al inventario ya había commiteado; no debe quedar ningún evento a medias.

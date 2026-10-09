@@ -259,6 +259,9 @@ class InventoryMovement(Base):
     unit_price: Mapped[Optional[float]] = mapped_column(
         Numeric(14, 4, asdecimal=False), nullable=True
     )
+    paid_by_transfer: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     movement_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

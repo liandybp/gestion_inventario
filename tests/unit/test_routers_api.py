@@ -81,6 +81,7 @@ class InventoryServiceFake:
             quantity=qty,
             unit_cost=1.0,
             unit_price=2.0,
+            paid_by_transfer=False,
             movement_date=datetime.now(timezone.utc),
             note=None,
         )

@@ -87,6 +87,7 @@ class SaleCreate(BaseModel):
     movement_date: Optional[datetime] = None
     note: Optional[str] = None
     location_code: Optional[str] = None
+    paid_by_transfer: bool = False
 
     @_field_validator("quantity")
     def quantity_must_be_positive(cls, v: float) -> float:
@@ -112,6 +113,7 @@ class MovementRead(BaseModel):
     quantity: float
     unit_cost: Optional[float]
     unit_price: Optional[float]
+    paid_by_transfer: bool
     movement_date: datetime
     note: Optional[str]
 

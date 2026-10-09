@@ -2,6 +2,20 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.10 (2026-10-09)
+
+- feat(sales): nuevo campo `paid_by_transfer` en el panel de venta rápida
+  (`InventoryMovement`) — checkbox "Pagado por transferencia", desmarcado por
+  defecto, editable después de creada la venta, visible y filtrable en el
+  historial de ventas. Propagado también al outbox de sync (`offline-desktop-sync`)
+  para que las ventas de un nodo desktop no pierdan el dato al sincronizar. No
+  aplica a Documentos de venta (facturas/presupuestos).
+- fix(sales): `_rebuild_product_fifo` podía rechazar la edición de una venta
+  válida con "Insufficient stock" si una compra y la venta caían en el mismo
+  minuto — el redondeo a minuto del campo "Fecha" en el formulario de edición
+  invertía su orden cronológico real. Descubierto por el e2e nuevo de
+  `paid_by_transfer`; el campo ahora conserva milisegundos en el panel de venta.
+
 ## 0.4.8 (2026-08-29)
 
 - feat(sync): backend P2 del épico offline-desktop-sync — `DeviceToken` revocable

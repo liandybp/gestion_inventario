@@ -151,6 +151,7 @@ class SyncService:
                 movement_date=p.get("movement_date"),
                 note=p.get("note"),
                 location_code=location_code,
+                paid_by_transfer=bool(p.get("paid_by_transfer", False)),
             )
             InventoryService(self._db, business_id=self._business_id).sale(payload)
             return True
