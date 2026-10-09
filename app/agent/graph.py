@@ -54,6 +54,7 @@ class AgentState(TypedDict, total=False):
     business_id: int
     message: str
     history: list[dict]
+    last_tool: Optional[dict]
     plan: Optional[PlanModel]
     tool_results: list[dict]
     widgets: list[dict]
@@ -68,7 +69,7 @@ def _plan_node(state: AgentState) -> AgentState:
     # para no inflar el prompt.
     # La fecha se calcula en CADA llamada (no se cachea) para que las fechas
     # relativas del modelo sean correctas aunque el server corra días (A1).
-    messages = [SystemMessage(content=build_system_prompt())]
+    messages = [SystemMessage(content=build_system_prompt(last_tool=state.get("last_tool")))]
     for turn in (state.get("history") or [])[-20:]:
         content = turn.get("content", "")
         if turn.get("role") == "assistant":
@@ -116,18 +117,24 @@ def _plan_node(state: AgentState) -> AgentState:
                     "todo tool_args debe reflejarse también en un widget con su "
                     "type y title."
                 )
+            _log_agent.info(
+                "agent_plan message=%r tool=%s tool_args=%s widgets=%d attempt=%d",
+                state["message"], plan.tool, plan.tool_args, len(plan.widgets), attempt + 1,
+            )
             state["plan"] = plan
             state["error"] = None
             return state
         except (OutputParserException, ValidationError) as exc:
             # Parse/validation errors are retryable with feedback (D1).
             error = str(exc)
+            _log_agent.warning("agent_plan_retry attempt=%d error=%s", attempt + 1, error)
             messages.append(HumanMessage(content=f"Error de formato: {error}. Devuelve JSON válido."))
         except Exception as exc:
             # Hard failure (network/auth/timeout): do not burn retries on a
             # dead endpoint; degrade immediately and surface the reason.
             # (reply must be non-empty: PlanModel enforces min_length=1.)
             breaker.record_failure()
+            _log_agent.error("agent_plan_llm_failure error=%s", exc, exc_info=True)
             state["error"] = f"LLM no disponible: {exc}"
             state["plan"] = PlanModel(
                 tool=None, widgets=[], reply="El copiloto no está disponible en este momento."
@@ -140,6 +147,7 @@ def _plan_node(state: AgentState) -> AgentState:
         # así que se sintetiza el widget en vez de descartar todo y mostrar solo
         # el reply sin ninguna gráfica/tabla.
         p = last_tool_without_widget
+        _log_agent.warning("agent_plan_synthesized_widget tool=%s", p.tool)
         state["plan"] = PlanModel(
             tool=p.tool,
             tool_args=p.tool_args,
@@ -147,8 +155,19 @@ def _plan_node(state: AgentState) -> AgentState:
             widgets=[WidgetSpec(type="table", title=p.tool, tool=p.tool, tool_args=p.tool_args)],
         )
         return state
+    _log_agent.warning("agent_plan_unparseable message=%r last_error=%s", state["message"], error)
     state["plan"] = PlanModel(tool=None, widgets=[], reply="No pude interpretar tu consulta.")
     return state
+
+
+def _resolve_widget_tool_args(plan: PlanModel, widget: WidgetSpec) -> dict:
+    """tool_args del widget, o los del plan si el widget usa la MISMA tool (C4).
+
+    Extraído como función propia (antes inline en _execute_node) para que
+    tests/eval/test_agent_tool_selection_eval.py pueda importarla en vez de
+    reimplementar el mismo fallback por su cuenta.
+    """
+    return widget.tool_args or (plan.tool_args if widget.tool == plan.tool else {})
 
 
 def _execute_node(state: AgentState) -> AgentState:
@@ -170,8 +189,7 @@ def _execute_node(state: AgentState) -> AgentState:
         if not tool_name or tool_name not in TOOL_REGISTRY:
             results.append({})
             continue
-        # tool_args del plan solo se usan si el widget usa la MISMA tool (C4).
-        tool_args = w.tool_args or (plan.tool_args if w.tool == plan.tool else {})
+        tool_args = _resolve_widget_tool_args(plan, w)
         try:
             results.append(TOOL_REGISTRY[tool_name]["fn"](service, tool_args))
         except HTTPException as exc:

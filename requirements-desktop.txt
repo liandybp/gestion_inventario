@@ -1,0 +1,4 @@
+pywebview
+pyinstaller
+sqlcipher3-binary
+pywin32

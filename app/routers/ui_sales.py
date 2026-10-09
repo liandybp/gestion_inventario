@@ -12,11 +12,16 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
+from app.logger import get_logger
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.settings import is_desktop
+from app.sync.outbox import append_event
+
+_log = get_logger(__name__)
 
 from .ui_common import (
     barcode_to_sku,
@@ -199,6 +204,21 @@ def sale(
                 location_code=selected_location_code,
             )
         )
+        if is_desktop():
+            try:
+                append_event(
+                    db, business_id=bid, event_type="sale",
+                    payload={"sku": sku, "quantity": quantity,
+                             "unit_price": parse_optional_float(unit_price),
+                             "movement_date": movement_date, "note": note or None,
+                             "location_code": selected_location_code},
+                )
+                db.commit()
+            except Exception:  # noqa: BLE001
+                db.rollback()
+                _log.error(
+                    "No se pudo encolar la venta %s en el outbox offline", sku, exc_info=True
+                )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -279,6 +299,21 @@ def sale_barcode(
                 location_code=selected_location_code,
             )
         )
+        if is_desktop():
+            try:
+                append_event(
+                    db, business_id=bid, event_type="sale",
+                    payload={"sku": sku, "quantity": quantity,
+                             "unit_price": parse_optional_float(unit_price),
+                             "movement_date": movement_date, "note": note or None,
+                             "location_code": selected_location_code},
+                )
+                db.commit()
+            except Exception:  # noqa: BLE001
+                db.rollback()
+                _log.error(
+                    "No se pudo encolar la venta %s en el outbox offline", sku, exc_info=True
+                )
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",

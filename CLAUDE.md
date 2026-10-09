@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.6` (ver `VERSION`)
+- **Versión actual:** `0.4.7` (ver `VERSION`)
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -254,9 +254,105 @@ caducidad FEFO) → P1 → P2 → P3.
       fix estructural (SKU único compuesto `(business_id, sku)` + migración + auditar 2
       call sites que asumen SKU global en `ui_common.py`/`ui_products.py`) — decisión
       explícita del usuario de aplicar solo el hotfix por ahora.
+- [x] **Épico offline-desktop-sync — P1 (Fundamentos)** — 5 PAEs generados vía SDD-Agent en
+      `specs/offline-desktop-sync/` (P1 Fundamentos, P2 Backend de sync, P3 Cliente+escritura
+      offline, P4 Desktop+cifrado Windows, P5 e2e multi-nodo). P1 (outbox `pending_sync_events`
+      + rangos de SKU 10k) implementado por OpenCode, auditado en rojo (2.90/5.00 — boundary
+      bug crítico en `next_sku_in_range`), **corregido y re-auditado a 3.80/5.00 🟡**, **commiteado**
+      (`2dbad8a`, en `develop`, sin mergear a `main` todavía). 241 unit verdes en ese commit.
+- [ ] **Épico offline-desktop-sync — P2 (Backend de sync)** — `SyncService` (idempotencia,
+      replay vía `InventoryService.sale`, dedup de clientes, `build_pull`) + endpoints
+      `/sync/register|push|conflicts`. Implementado por OpenCode, auditado en rojo
+      (2.50/5.00 — 3 hallazgos **críticos** de aislamiento multi-tenant: IDOR en
+      `register_device`, `password_hash` sin cifrar en el pull, `movement_allocations`/
+      `sales_document_items` sin filtro de negocio). **Corregido directamente por Claude**
+      (no vía OpenCode) + re-review con mutation-testing (detectó y corrigió una regresión
+      propia: scope de `client_id` roto por el mismo patrón que el ADR-012 de SKU) +
+      **re-auditado a 3.70/5.00 🟡**. 267 unit verdes. Ver
+      `docs/auditorias/2026-08-28-p2-sync-backend-offline-sync*.md`.
+      **⚠️ SIN COMMITEAR — decisión de commit pendiente del usuario, retomar próxima sesión.**
+- [x] **Fix bug de prod: diagnóstico ZARA irrelevante en factura AUTODOC** — `_zara_pdf_diagnostics()`
+      en `ui_purchases.py` se disparaba en cualquier importación con ≤3 líneas sin verificar
+      que el PDF fuera realmente de ZARA (debug leftover). Gateado a `"ZARA" in full_text`.
+      261 unit verdes. **Sin commitear** (mismo working tree que P2, misma decisión pendiente).
 
 ## Sesiones
 
+- **2026-08-29 (sesión 12)** — **Fix bug de prod: diagnóstico ZARA irrelevante en importación
+  de factura AUTODOC**: usuario reportó texto de debug (`Diagnóstico ZARA: p1: refs_text=0
+  refs_words=0 words=211`) pegado al mensaje de éxito al importar una factura del negocio de
+  recambios. Causa real: `_zara_pdf_diagnostics()` en `ui_purchases.py` se disparaba en
+  cualquier importación con ≤3 líneas, sin verificar si el PDF era de ZARA — debug leftover
+  del parser de ZARA nunca gateado. `parse_invoice_pdf()` en sí funcionaba bien (prueba
+  H&M → ZARA → AUTODOC, cayó correctamente a AUTODOC, 3 líneas importadas OK); el bug era
+  puramente de UI. Fix: la función retorna `None` si el texto extraído no contiene "ZARA"
+  (+3 líneas, diff aislado). 261 unit verdes. **Sin commitear** — mismo working tree que P2
+  (sesión 11, también sin commitear); decisión de commit pendiente del usuario para ambos.
+  Detalle: `.claude/session-notes.md`.
+- **2026-08-28 (sesión 11)** — **Épico offline-desktop-sync: brainstorming + 5 PAEs vía
+  SDD-Agent + implementación P1 + auditoría (score 2.90 🔴, no mergeado):** brainstorming
+  completo de la nueva app de escritorio Windows offline-first con sync bidireccional
+  (alcance: venta+cliente offline, compras/traspasos/LLM online-only, rangos de SKU 10k por
+  negocio, dedup de clientes por teléfono/email, pywebview + SQLCipher/DPAPI). Design doc en
+  `docs/plans/2026-08-28-app-escritorio-offline-sync-design.md`. SDD-Agent generó el épico
+  completo en `specs/offline-desktop-sync/`: `requirements.md` (20 REQs) descompuesto en
+  **5 PAEs secuenciales** (P1 Fundamentos, P2 Backend de sync, P3 Cliente+escritura offline,
+  P4 Desktop+cifrado, P5 e2e multi-nodo), 47 task envelopes en total. OpenCode implementó
+  **P1** (outbox `pending_sync_events` con hash encadenado + rangos de SKU de 10k por
+  negocio) — 233 unit verdes, scope respetado. `/code-review` (8 ángulos, 1-vote verify) +
+  `auditoria-ingenieria` (10 dimensiones) sobre el código real: **score 2.90/5.00 🔴**,
+  **NO mergeado**. Hallazgo crítico **H-001**: `next_sku_in_range` tiene un boundary bug
+  (`n < ceiling` estricto) que causa colisión de SKU **permanente** al llegar al SKU #10.000
+  de un negocio — reproduce la misma clase de incidente que este código debía prevenir
+  (v0.4.6). Más 3 hallazgos altos (H-002 hash del outbox no cubre todos los campos, H-003
+  cero logging/try-except en `app/sync/` pese a que el propio pre-mortem del diseño lo
+  exigía, H-004 race condition latente en `append_event`). Informe completo:
+  `docs/auditorias/2026-08-28-p1-foundations-offline-sync.md`. **P1 corregido y
+  commiteado** en el resto de la sesión — re-auditoría 3.80/5.00 🟡 (informe
+  `-reaudit.md`), commit `2dbad8a` en `develop` (241 unit verdes).
+  **Continuación (misma sesión) — P2 implementado, auditado, corregido y re-auditado:**
+  OpenCode implementó P2 (`SyncService`, endpoints `/sync/register|push|conflicts`).
+  `/code-review` + `auditoria-ingenieria` (score **2.50/5.00 🔴**) encontraron 3 hallazgos
+  **críticos** de aislamiento multi-tenant: IDOR en `register_device` (no validaba
+  pertenencia del `business_id`, cualquier admin/owner podía aprovisionar un token para el
+  negocio de otro), `password_hash` de usuarios viajando sin cifrar en el pull, y
+  `movement_allocations`/`sales_document_items` volcados **sin filtro de negocio** (fuga de
+  datos comerciales entre todos los negocios del sistema en cada sincronización). Más 3
+  altos (`event_id` único global permitía bloqueo cruzado entre negocios, `device.location_id`
+  nunca se usaba para restringir ventas, token de dispositivo sin rate limit ni expiración).
+  Informe: `docs/auditorias/2026-08-28-p2-sync-backend-offline-sync.md`. **Claude corrigió
+  los 8 hallazgos directamente** (sin pasar por OpenCode, a pedido del usuario). Una segunda
+  ronda de `/code-review` con **mutation-testing real** (revertir cada fix y confirmar que
+  el test falla) detectó que la propia corrección había introducido una **regresión**: el
+  chequeo de colisión de `client_id` se scopeó por negocio, pero `Customer.client_id` sigue
+  siendo `unique=True` **global** (misma familia de bug que el ADR-012 de SKU, la tercera
+  vez que este patrón aparece en el proyecto) — corregida en el mismo ciclo, con test de
+  regresión añadido. Re-auditoría: **3.70/5.00 🟡** (informe `-reaudit.md`), 267 unit verdes.
+  **P2 queda sin commitear** — el usuario cerró la sesión antes de confirmar el commit;
+  retomar la decisión la próxima sesión antes de avanzar a P3. Detalle completo:
+  `.claude/session-notes.md`.
+- **2026-08-19 (sesión 10)** — **Fix bug de prod: compra de producto nuevo bloqueada
+  (v0.4.6) + arreglo de Cloudflare Access sobre el runner de CD compartido**: usuario
+  reportó el mismo síntoma que el bug de `27f9da2` (17-ago) pero causa distinta —
+  `list_sku_prefixes()` scopeaba por `business_id` desde ese fix, pero `products.sku`
+  (y `inventory_lots.lot_code`) son `unique=True` **global** en la BD, no compuestos
+  (documentación previa de este archivo era incorrecta en ese punto, ya corregida).
+  Confirmado con datos reales de prod: `cerveza_mariela` (SKU000496–501) chocaba con
+  `bazar` (SKU000354–509) en el candidato `SKU000502` — bloqueaba la compra de producto
+  nuevo en todos los negocios menos el de mayor SKU global. Revertido a numeración
+  global (decisión explícita del usuario, ver ADR-012 en Obsidian). 222 unit verdes,
+  verificado en vivo en dev (curl login+compra) y prod (health + BD sin colisiones).
+  En paralelo, el deploy automático estaba roto: Cloudflare Access puesto delante de
+  `gitea.legatumbp.com` (hardening del lab, sesión distinta) bloqueaba tanto el
+  `FetchTask` del runner de Gitea Actions como el `git fetch` del checkout de cada
+  workflow — afecta a **todos** los repos que comparten ese runner, no solo este.
+  Guiado el arreglo por chat (política Bypass + 3 Destinations: `api/actions/*`,
+  `info/refs`, `git-upload-pack`) tras varias vueltas por cambios no documentados en la
+  UI de Cloudflare. Pipeline push→test→deploy-dev verificado de punta a punta sin
+  intervención manual tras el fix. Deploy a prod (`develop`→`main`, `73b912a`) se hizo
+  manualmente (bypass temporal, mismos pasos que haría el CD) antes de que el runner
+  quedara sano — no se re-verificó el job `deploy-prod` automático después. Detalle:
+  `.claude/session-notes.md`, `~/obsidian-lab/00-Inicio/problemas-conocidos.md`.
 - **2026-08-18 (sesión 9)** — **PAE: método de pago (transferencia) en venta rápida** —
   usuario pidió poder identificar si una venta se pagó por transferencia. Exploración del
   flujo real de venta (`ui_sales.py` → `InventoryService.sale/update_sale` →
@@ -320,3 +416,51 @@ caducidad FEFO) → P1 → P2 → P3.
 8. **Flujo de cambios (permanente)** — los cambios van **siempre a `develop`**, se prueban en el entorno de desarrollo (`dev.gestion.legatumbp.com`, LAN interno), y solo después se mergean a `main` y se despliegan en producción (`gestion.legatumbp.com`). Nunca directo a `main`.
 9. **Modelo de ejecución** — Claude Code (DeepSeek API `deepseek-v4-pro[1m]`) planifica y genera el SDD/PAE; OpenCode + modelo local **Qwen3.6-35B-A3B** (`qwen36_35b_coder_mtp` vía llama-swap) implementa los task envelopes. El modelo local NO es GLM (GLM-4.7-Flash quedó como legado/fallback desde 2026-07-25).
 10. **Copiloto IA en runtime** — el copiloto usa **modelo local en dev** (default `AGENT_LLM_BASE_URL=http://localhost:8080/v1`, `AGENT_LLM_MODEL=qwen3_8b_instruct`) y **API LLM externa en producción** (env `AGENT_LLM_*` en `docker-compose-homelab.yml`). Las env vars viven en `app/settings.py`.
+
+## Épico offline-desktop-sync (v0.4.8) — estado real por slice
+
+**Score integrado (2026-08-29, re-auditoría tras corregir P4 por completo):
+🟢 4.05/5.00** (antes 2.15/5.00 🔴 el mismo día — ver
+`docs/auditorias/2026-08-29-offline-desktop-sync-epic-full-audit{,-reaudit}.md`).
+
+| PAE | slice | Estado | Comentario |
+|-----|-------|--------|------------|
+| **P1** | Fundamentos | 🟡 3.80/5.00 | Outbox `pending_sync_events` + rangos SKU 10k. Commiteado (`2dbad8a`) |
+| **P2** | Backend de sync | 🟡 3.70/5.00 | `SyncService`, endpoints `/sync/*`. Commiteado (`e4e03a2`) |
+| **P3** | Cliente de sync | 🟡 funcional | `sync()`/`apply_pull` con 3 bugs reales adicionales encontrados por e2e y corregidos (2026-08-29). Commiteado (`41adf1d`, `13f7af1`, `88edf08`) |
+| **P4** | Empaquetado desktop | 🟢 dentro del score integrado | Auditado por primera vez el 2026-08-29 (nunca antes): 5 bugs de crash garantizado (derivación de clave SQLCipher, launcher, `desktop.spec`, `installer.iss`) + 7 hallazgos de una segunda ronda de code-review — **todos corregidos y verificados por ejecución directa** (incluida una conexión SQLite real de punta a punta en modo desktop). **Sin commitear** |
+| **P5** | e2e multi-nodo | 🟢 dentro del score integrado | Auditado en 1.40/5.00 🔴 (el test nunca había corrido), reescrito por completo, verde. **Sin commitear** |
+
+**Versión actual:** `v0.4.8` (ver `VERSION`) — no re-bumpear sin instrucción explícita del
+usuario (regla dura del `CLAUDE.md` global: todo incremento es PATCH salvo pedido explícito).
+
+**Build Windows:** el instalador se construye manualmente en Windows usando
+`pyinstaller --spec-file packaging/desktop.spec` + Inno Setup (`packaging/README-desktop.md`).
+`desktop.spec`/`installer.iss` se reescribieron contra la sintaxis real de ambas herramientas
+(la versión anterior usaba API inventada, no hubiera compilado), pero **ninguna de las dos
+build reales se pudo ejecutar en este entorno** (Linux, sin PyInstaller ni Inno Setup
+instalados) — sigue siendo, por diseño del propio épico, una validación manual en Windows
+antes de confiar en que el instalador funciona de punta a punta.
+
+**Script de verificación:** `specs/offline-desktop-sync/verify.sh` corre unit (286 tests) +
+e2e de sync (`test_sync_e2e.py` + `test_sync_multinode_e2e.py`, 2 tests) con `set -e` como
+único gate real. **Corre de punta a punta con exit 0 por primera vez en su historia**
+(2026-08-29) — antes fallaba siempre en el paso 1 (test roto de P4) o nunca llegaba a ejecutar
+el e2e (afirmaba validarlo sin hacerlo).
+
+**Documentación viva:** esta sección se corrigió dos veces el 2026-08-29: primero para
+reflejar que "P5 🟢 Verde" era falso (el test nunca había corrido), después para reflejar que
+P4 — nunca antes auditado — estaba igual de roto y ya se corrigió. Lección para sesiones
+futuras: no declarar un slice "verde" en este archivo sin haber corrido el comando que lo
+prueba, y auditar TODO el alcance de un épico, no solo las partes que ya tuvieron atención.
+
+**Pendiente antes de considerar el épico 100% cerrado:**
+1. Validación manual real en Windows de `desktop.spec` (PyInstaller) e `installer.iss`
+   (Inno Setup) — inherentemente fuera del alcance de este entorno Linux.
+2. Verificar la derivación de clave y `PRAGMA key` contra SQLCipher real
+   (`sqlcipher3-binary`), no solo contra stock `sqlite3` (que ignora `PRAGMA key`
+   silenciosamente y no puede detectar un fallo real de cifrado).
+3. Decidir si P1-P3 (🟡, sin llegar a 🟢 individualmente) necesitan otra pasada de auditoría
+   antes de mergear `develop`→`main`, o si el score integrado del épico (4.05 🟢) es
+   suficiente para el usuario.
+4. Commitear P4 y P5 (working tree, sin commitear todavía).

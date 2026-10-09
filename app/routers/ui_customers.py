@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
+from app.logger import get_logger
 from app.repositories.customer_repository import CustomerRepository
 from app.models import Customer
 from app.security import (
@@ -17,8 +18,12 @@ from app.security import (
     get_current_user_from_session,
     require_active_business_id,
 )
+from app.settings import is_desktop
+from app.sync.outbox import append_event
 
 from .ui_common import ensure_admin, templates
+
+_log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -73,6 +78,22 @@ def customer_create(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Ya existe un cliente con ese ID")
+
+    if is_desktop():
+        try:
+            append_event(
+                db, business_id=bid, event_type="customer",
+                payload={"client_id": client_id, "name": name,
+                         "address": (address or "").strip() or None,
+                         "phone": (phone or "").strip() or None,
+                         "email": (email or "").strip() or None},
+            )
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            _log.error(
+                "No se pudo encolar el cliente %s en el outbox offline", client_id, exc_info=True
+            )
 
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(

@@ -17,7 +17,10 @@ _GRAPH = build_graph()
 _semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY)
 
 
-async def run_agent(business_id: int, message: str, history: Optional[list[dict]] = None) -> dict:
+async def run_agent(
+    business_id: int, message: str, history: Optional[list[dict]] = None,
+    last_tool: Optional[dict] = None,
+) -> dict:
     """Run the agent graph on a worker thread with its own DB session.
 
     A fresh session is opened and closed entirely inside the worker thread:
@@ -34,6 +37,7 @@ async def run_agent(business_id: int, message: str, history: Optional[list[dict]
                     "business_id": int(business_id),
                     "message": message,
                     "history": history or [],
+                    "last_tool": last_tool,
                 }
                 return _GRAPH.invoke(state)
             finally:

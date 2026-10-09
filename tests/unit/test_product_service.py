@@ -33,8 +33,8 @@ def test_create_product_auto_sku_increments(db_session: Session, business_id: in
     p1 = service.create(_payload(name="A"))
     p2 = service.create(_payload(name="B"))
 
-    assert p1.sku == "SKU000001"
-    assert p2.sku == "SKU000002"
+    assert p1.sku == "SKU010001"
+    assert p2.sku == "SKU010002"
 
 
 def test_create_product_validates_name(db_session: Session, business_id: int) -> None:

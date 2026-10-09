@@ -19,6 +19,8 @@ from app.schemas import PurchaseCreate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.services.sku_range import SKURangeExhausted, next_sku_in_range
+from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
@@ -59,6 +61,8 @@ def purchase_from_invoice(
     invoice_pdf: UploadFile = File(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(db, request)
@@ -113,6 +117,9 @@ def purchase_from_invoice(
         try:
             with pdfplumber.open(invoice_pdf.file) as pdf:
                 ref_re = re.compile(r"\b\d+/\d{3,5}/\d{3}\b")
+                full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                if "ZARA" not in full_text.upper():
+                    return None
                 per_page: list[str] = []
                 for idx, page in enumerate(pdf.pages, 1):
                     text = page.extract_text() or ""
@@ -336,6 +343,8 @@ def purchase(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ensure_admin_or_owner(db, request)
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
@@ -345,12 +354,7 @@ def purchase(
     def _generate_auto_sku(prefix: str = "SKU", width: int = 6) -> str:
         rows = PurchaseRepository(db, bid).list_sku_prefixes(prefix)
         existing = [str(sku or "") for sku in rows]
-        max_n = 0
-        for s in existing:
-            suffix = s[len(prefix) :]
-            if suffix.isdigit():
-                max_n = max(max_n, int(suffix))
-        return f"{prefix}{str(max_n + 1).zfill(width)}"
+        return next_sku_in_range(existing, bid, prefix=prefix, width=width)
 
     sku = extract_sku(product)
     try:
@@ -364,7 +368,10 @@ def purchase(
             parsed_cost = parse_optional_float(unit_cost)
             last_error: Exception | None = None
             for _ in range(5):
-                auto_sku = _generate_auto_sku()
+                try:
+                    auto_sku = _generate_auto_sku()
+                except SKURangeExhausted as e:
+                    raise HTTPException(status_code=409, detail=str(e)) from e
                 created_product = Product(
                     business_id=int(bid),
                     sku=auto_sku,
@@ -565,6 +572,8 @@ def purchase_update(
     note: Optional[str] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
@@ -634,6 +643,8 @@ def purchase_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
@@ -712,6 +723,8 @@ def purchase_delete_selected(
     movement_ids: list[int] = Form([]),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)

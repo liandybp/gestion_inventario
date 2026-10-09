@@ -1,7 +1,7 @@
 """Acceso a datos de clientes (extraído de ui_customers, H-028)."""
 from __future__ import annotations
 from typing import Optional
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.utils import query_match
@@ -32,6 +32,26 @@ class CustomerRepository:
 
     def get(self, customer_id: int) -> Optional[Customer]:
         return self._db.get(Customer, int(customer_id))
+
+    def find_by_contact(self, phone: Optional[str], email: Optional[str]) -> Optional[Customer]:
+        """Cliente del negocio cuyo teléfono O email coincide (no vacío). El más antiguo si varios."""
+        p = (phone or "").strip()
+        e = (email or "").strip()
+        if not p and not e:
+            return None
+        conds = []
+        if p:
+            conds.append(Customer.phone == p)
+        if e:
+            conds.append(Customer.email == e)
+        stmt = (
+            select(Customer)
+            .where(Customer.business_id == self._business_id)
+            .where(or_(*conds))
+            .order_by(Customer.created_at.asc(), Customer.id.asc())
+            .limit(1)
+        )
+        return self._db.scalar(stmt)
 
     def create(
         self,

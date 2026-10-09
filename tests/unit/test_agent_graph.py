@@ -265,3 +265,44 @@ def test_execute_plan_args_only_for_same_tool(db_session, business_id, monkeypat
     state = g._execute_node({"db": db_session, "business_id": business_id, "plan": plan})
     assert state["tool_results"][0] == {"got": {"plan_arg": 1}}
     assert state["tool_results"][1] == {"got": {}}
+
+
+def test_plan_node_logs_successful_plan(db_session, business_id, caplog):
+    import logging
+    original = g._PLANNER
+    g._PLANNER = _FakePlanner(PlanModel(
+        tool="total_sales", tool_args={"start": "2026-01-01", "end": "2026-01-31"},
+        widgets=[WidgetSpec(type="kpi", title="Ventas", tool="total_sales",
+                            tool_args={"start": "2026-01-01", "end": "2026-01-31"})],
+        reply="ok",
+    ))
+    try:
+        with caplog.at_level(logging.INFO, logger="app.agent.graph"):
+            graph = build_graph()
+            graph.invoke({"db": db_session, "business_id": business_id, "message": "ventas de enero", "history": []})
+        assert any("agent_plan" in r.message and "total_sales" in r.message for r in caplog.records)
+    finally:
+        g._PLANNER = original
+
+
+def test_plan_node_includes_last_tool_in_system_prompt(db_session, business_id):
+    captured = {}
+
+    class _CaptureSystemPlanner:
+        def invoke(self, messages):
+            captured["system"] = messages[0].content
+            return PlanModel(tool=None, widgets=[], reply="ok")
+
+    original = g._PLANNER
+    g._PLANNER = _CaptureSystemPlanner()
+    try:
+        graph = build_graph()
+        graph.invoke({
+            "db": db_session, "business_id": business_id, "message": "¿y por ubicación?",
+            "history": [{"role": "user", "content": "ventas de enero"}],
+            "last_tool": {"tool": "sales_by_product", "tool_args": {"start": "2026-01-01"}, "type": "bar"},
+        })
+        assert "sales_by_product" in captured["system"]
+        assert "Contexto adicional" in captured["system"]
+    finally:
+        g._PLANNER = original

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from typing import Optional
 
 from app.agent.tools import tool_schemas
 
@@ -74,9 +75,19 @@ Tools (name, description, parameters):
 """
 
 
-def build_system_prompt() -> str:
+def build_system_prompt(last_tool: Optional[dict] = None) -> str:
     # Fecha fresca en cada llamada: el modelo necesita saber qué día es para
     # resolver fechas relativas correctamente (ej. "mes anterior" -> 2026-07,
     # no 2023-10 como salía antes por no tener contexto de fecha).
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return SYSTEM_PROMPT_TEMPLATE.format(schemas=_TOOL_SCHEMAS_JSON, today=today)
+    prompt = SYSTEM_PROMPT_TEMPLATE.format(schemas=_TOOL_SCHEMAS_JSON, today=today)
+    if last_tool:
+        prompt += (
+            "\n\nContexto adicional: el último widget mostrado en esta conversación usó "
+            f"la tool \"{last_tool['tool']}\" con tool_args "
+            f"{json.dumps(last_tool['tool_args'], ensure_ascii=False)} (type \"{last_tool['type']}\"). "
+            "Si el mensaje actual es una pregunta de seguimiento (ej. \"¿y por ubicación?\", "
+            "\"¿y el mes pasado?\"), parte de esa tool/args como base y ajusta solo lo que "
+            "el usuario pide cambiar."
+        )
+    return prompt
