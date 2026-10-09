@@ -61,12 +61,42 @@ jobs:
     if: gitea.ref == 'refs/heads/main'
     runs-on: [prod]
     steps:
-      - name: Deploy to prod (vm-apps)
+      # laptop-server: sin clave SSH ni Node; el stack vive en ~/apps/docker-compose.yml
+      # y usa la imagen local gestion_inventario-app:latest que se construye aquí.
+      - name: Deploy to prod (laptop-server)
+        env:
+          GIT_TOKEN: ${{ gitea.token }}
+          REPO_URL: http://192.168.1.21:3001/${{ gitea.repository }}.git
+          IMAGE: gestion_inventario-app
         run: |
-          set -e
-          cd ~/PyCharmMiscProject/gestion_inventario
-          git pull
-          docker compose -f docker-compose-homelab.yml up -d --build
-          sleep 6
-          curl -fsS http://localhost:10000/health
-          echo "OK: prod desplegado"
+          set -euo pipefail
+          SRC=~/src/gestion_inventario
+          AUTH="Authorization: Basic $(printf 'x-access-token:%s' "$GIT_TOKEN" | base64 -w0)"
+          [ -d "$SRC/.git" ] || git init -q "$SRC"
+          cd "$SRC"
+          git -c http.extraHeader="$AUTH" fetch --depth 1 "$REPO_URL" "${{ gitea.ref }}"
+          git reset -q --hard FETCH_HEAD
+          EXPECTED=$(cat VERSION)
+
+          docker image inspect "$IMAGE:latest" >/dev/null 2>&1 \
+            && docker tag "$IMAGE:latest" "$IMAGE:previous"
+          docker build -q -t "$IMAGE:latest" .
+
+          health() {
+            docker exec gestion_inventario python -c "import json,urllib.request;d=json.load(urllib.request.urlopen('http://localhost:10000/health',timeout=5));print(d);assert d['version']=='$EXPECTED'"
+          }
+          wait_healthy() {
+            for _ in $(seq 1 20); do health && return 0; sleep 3; done; return 1
+          }
+
+          cd ~/apps
+          docker compose up -d --no-deps gestion_inventario
+          if wait_healthy; then
+            echo "OK: prod desplegado $EXPECTED"
+          else
+            echo "FALLO: health KO, rollback a $IMAGE:previous"
+            docker logs --tail 50 gestion_inventario || true
+            docker tag "$IMAGE:previous" "$IMAGE:latest"
+            docker compose up -d --no-deps gestion_inventario
+            exit 1
+          fi
