@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.7` (ver `VERSION`)
+- **Versión actual:** `0.4.10` (ver `VERSION`) — desplegada en dev y prod
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -218,19 +218,27 @@ Archivo `app/business_config.conf` (INI):
       `location_repository.py::location_id_for_code` (resuelve `business_code` desde `businesses`
       si no se lo pasan, en vez de caer a `"BUSINESS"`). Dato huérfano borrado en prod
       (`locations.id=147`, sin movimientos/lotes/documentos asociados). 254 unit verdes.
-- [ ] **PAE generado: método de pago (transferencia) en venta rápida** — checkbox "Pagado
-      por transferencia" en `InventoryMovement` (endpoints `/ui/sale`, `/ui/sale/barcode`,
-      `/ui/movement/sale/{id}/update`), desmarcado por defecto, editable, visible y
-      filtrable en el historial de ventas (tab Ventas). **NO** aplica a `SalesDocument`
-      (facturas/presupuestos) — confirmado con el usuario. Generado vía SDD-Agent
-      (`specs/sale-payment-method/`, 14 task envelopes: modelo + migración SQLite/PG +
-      schemas + repo + service + 2 routers + 3 templates + tests unit/e2e + version bump).
-      Decisión de diseño clave: `InventoryService.update_sale()` recibe
-      `paid_by_transfer: Optional[bool] = None` (no `bool` obligatorio) porque tiene un
-      segundo caller (`ui_profit_items.py`, tab "Ganancia por artículo") que no pasa el
-      campo — un default `False` fijo hubiera reseteado el valor en cada edición desde ese
-      tab. **Sin implementar todavía** — PAE aprobado por el usuario, ejecución con
-      OpenCode pendiente para la próxima sesión.
+- [x] **Método de pago (transferencia) en venta rápida (v0.4.10, 2026-10-09)** — checkbox
+      "Pagado por transferencia" en `InventoryMovement` (endpoints `/ui/sale`,
+      `/ui/sale/barcode`, `/ui/movement/sale/{id}/update`), desmarcado por defecto,
+      editable, visible y filtrable en el historial de ventas (tab Ventas). **NO** aplica
+      a `SalesDocument` (facturas/presupuestos). PAE del 2026-08-18 (`specs/sale-payment-method/`)
+      ejecutado 7 semanas después — auditado contra el código real primero (firmas sin
+      cambios, solo líneas), implementado **directamente por Claude Code**, no vía
+      OpenCode. `InventoryService.update_sale()` usa `paid_by_transfer: Optional[bool] = None`
+      (no tocar si `None`) para no resetear el valor en ediciones desde
+      `ui_profit_items.py`. Propagado también al outbox de `offline-desktop-sync`
+      (`app/sync/service.py::_apply_sale`, no existía cuando se escribió el PAE). **Bug
+      real descubierto por el e2e nuevo**: `_rebuild_product_fifo` podía rechazar una
+      edición de venta válida con "Insufficient stock" si una compra y la venta caían en
+      el mismo minuto (el form de edición solo tenía precisión de minuto en la fecha,
+      invirtiendo el orden cronológico real al reconstruir el FIFO) — corregido con
+      milisegundos de precisión, acotado a `ui_sales.py`/`sale_panel.html`/
+      `sale_edit_form.html` (el mismo bug late sin corregir en compras/traspasos/gastos/
+      extracciones/dividendos, que comparten el helper `dt_to_local_input` de
+      `ui_common.py` — pendiente). 304 unit + 24 e2e verdes. Commit `a2f6c21` en
+      `develop`, mergeado a `main` (`ce3ccf6`), desplegado y verificado en vivo en dev y
+      prod. Detalle completo: `.claude/session-notes.md`.
 - [x] **Fix bug de prod: compra de producto nuevo bloqueada (v0.4.6)** — regresión del fix
       `27f9da2` (2026-08-17): `list_sku_prefixes()` pasó a filtrar por `business_id` para
       "no compartir numeración entre negocios", pero `products.sku` tiene `unique=True`
@@ -251,7 +259,7 @@ Archivo `app/business_config.conf` (INI):
       + rangos de SKU 10k) implementado por OpenCode, auditado en rojo (2.90/5.00 — boundary
       bug crítico en `next_sku_in_range`), **corregido y re-auditado a 3.80/5.00 🟡**, **commiteado**
       (`2dbad8a`, en `develop`, sin mergear a `main` todavía). 241 unit verdes en ese commit.
-- [ ] **Épico offline-desktop-sync — P2 (Backend de sync)** — `SyncService` (idempotencia,
+- [x] **Épico offline-desktop-sync — P2 (Backend de sync)** — `SyncService` (idempotencia,
       replay vía `InventoryService.sale`, dedup de clientes, `build_pull`) + endpoints
       `/sync/register|push|conflicts`. Implementado por OpenCode, auditado en rojo
       (2.50/5.00 — 3 hallazgos **críticos** de aislamiento multi-tenant: IDOR en
@@ -261,14 +269,123 @@ Archivo `app/business_config.conf` (INI):
       propia: scope de `client_id` roto por el mismo patrón que el ADR-012 de SKU) +
       **re-auditado a 3.70/5.00 🟡**. 267 unit verdes. Ver
       `docs/auditorias/2026-08-28-p2-sync-backend-offline-sync*.md`.
-      **⚠️ SIN COMMITEAR — decisión de commit pendiente del usuario, retomar próxima sesión.**
+      **Commiteado** (`e4e03a2`, en `develop`).
 - [x] **Fix bug de prod: diagnóstico ZARA irrelevante en factura AUTODOC** — `_zara_pdf_diagnostics()`
       en `ui_purchases.py` se disparaba en cualquier importación con ≤3 líneas sin verificar
       que el PDF fuera realmente de ZARA (debug leftover). Gateado a `"ZARA" in full_text`.
-      261 unit verdes. **Sin commitear** (mismo working tree que P2, misma decisión pendiente).
+      261 unit verdes. **Commiteado** (`b5c1c85`, en `develop`).
+- [x] **Épico offline-desktop-sync — P3, P4, P5 + auditoría integral (2026-08-29)** — ver
+      sesión del mismo día más abajo para el detalle completo. Resumen: P3 cerrado (3 bugs
+      reales encontrados por e2e y corregidos), P5 reescrito de cero (auditado 1.40/5.00 🔴,
+      el test nunca había corrido), P4 auditado por primera vez y encontrado ~100% roto (5
+      bugs de crash garantizado + 7 más en una segunda ronda, todos corregidos). Auditoría
+      integral del épico completo: **2.15/5.00 🔴 → 4.05/5.00 🟢**. Todo commiteado
+      (`41adf1d`, `13f7af1`, `88edf08`, `cb83e2e`, en `develop`). **Pendiente:** validación
+      manual en Windows de `packaging/desktop.spec`/`installer.iss` (PyInstaller/Inno Setup no
+      instalables en este entorno Linux) y de SQLCipher real (verificado solo contra stock
+      `sqlite3`, que ignora `PRAGMA key` silenciosamente). Informes:
+      `docs/auditorias/2026-08-29-offline-desktop-sync-epic-full-audit{,-reaudit}.md`.
+- [x] **Serena MCP habilitado para el proyecto (2026-08-29)** — onboarding corrido, memorias
+      escritas (`core`, `tech_stack`, `suggested_commands`, `conventions`, `task_completion`,
+      `known_bug_patterns`) en `.serena/memories/`. Decisión del usuario: uso obligatorio de
+      las tools de Serena (símbolos/referencias/edición semántica) en vez de `Read`/`Grep`/
+      `Edit` nativos para explorar y editar código en todo proyecto, no solo este.
 
 ## Sesiones
 
+- **2026-10-09 (sesión 16)** — **Deploy a producción del backlog acumulado +
+  `paid_by_transfer` + fix de CD de prod.** La nota de Obsidian del proyecto estaba
+  desactualizada (decía P2 del épico offline-desktop-sync sin commitear; en realidad
+  P1-P5 llevaban commiteados en `develop` desde el 2026-08-29, y la sesión 15 del
+  copiloto tampoco se había pusheado). Al intentar desplegar a `main`, el job
+  `deploy-prod` de `.gitea/workflows/deploy.yml` seguía apuntando a la ruta de la VM
+  vieja `vm-apps` (`~/PyCharmMiscProject/gestion_inventario`) — nunca se había
+  actualizado tras la migración a `laptop-server` del 2026-09-07 porque no hubo
+  ningún push a `main` desde entonces. Reescrito para clonar por HTTP-git en LAN con
+  el token del job (sin SSH keys), construir la imagen en el host, recrear solo el
+  contenedor en `~/apps`, verificar health con la versión esperada y rollback
+  automático a la imagen anterior si falla — probado dos veces en producción real
+  (v0.4.9 y v0.4.10), ambas con éxito. `Dockerfile` ahora copia `VERSION` (cierra uno
+  de los 2 bugs de healthcheck pendientes desde hacía semanas). Con el CD arreglado:
+  deploy de v0.4.9 a prod (esquema v4→v7, código de agosto→septiembre). Después,
+  implementación completa de `paid_by_transfer` a partir del PAE del 2026-08-18
+  nunca ejecutado (ver entrada en Estado actual arriba para el detalle, incluido el
+  bug real de FIFO/fecha descubierto por el e2e nuevo) — v0.4.10, también desplegado
+  y verificado en vivo en dev y prod. De paso: una falsa alarma de seguridad
+  (`admin`/`admin` funcionaba en prod en una verificación, no en la siguiente — el
+  usuario había borrado esa cuenta manualmente entre ambas pruebas, confirmado
+  leyendo `users` en prod directamente). Detalle completo: `.claude/session-notes.md`.
+- **2026-09-21 (sesión 15)** — **Copiloto: diagnóstico + memoria de tool previa + eval
+  de precisión.** Usuario reportó que el copiloto del dashboard dinámico "a veces da
+  resultados que no pide". Recap de arquitectura (LangGraph, `_plan_node` →
+  `_execute_node` → `_build_node` → `_narrate_node`, prompt heurístico de ~30 reglas,
+  33 tools) → auditoría de `app/agent/` con `auditoria-ingenieria`
+  (`docs/auditorias/2026-09-21-agent-copiloto.md`, 2.85/5.00 🔴, 8 hallazgos) →
+  usuario aprobó atacar 3: H-001 (logging), H-005 (memoria de tool previa), H-004
+  (eval set) → PAE vía SDD-Agent (`specs/agent-copiloto-diagnostico/`, 8 task
+  envelopes) → **implementado directamente por Claude Code** (pedido explícito del
+  usuario — "arranca tu mismo", no vía OpenCode, excepción puntual al flujo estándar
+  del proyecto). Verificación: 295 unit + 22 e2e verdes, eval real contra Qwen3-8B
+  local (96% tool / 96% type / 88% args accuracy). `/code-review` (medium, primera
+  ronda) encontró 5 hallazgos: el más grave, `app/routers/ui_agent.py:117`, el guard
+  de `last_tool` solo protegía el primer turno tras "nueva conversación" — turnos
+  posteriores sin widget propio en esa conversación seguían filtrando el widget más
+  reciente del negocio (de cualquier conversación, incluso ya cerrada). Corregido
+  comparando `widget.created_at` contra `prior[0].created_at` (primer turno de ESTA
+  conversación) — al implementar el fix se descubrió y reprodujo un bug real de
+  infraestructura: SQLite/SQLAlchemy formatea `CURRENT_TIMESTAMP` sin microsegundos
+  pero bindea cualquier `datetime` Python como parámetro **siempre con** `.000000`,
+  rompiendo la comparación de fechas en SQL incluso para instantes idénticos (no
+  aplica a PostgreSQL/prod) — resuelto comparando en Python tras el fetch en vez de
+  en el `WHERE`. Los otros 4 hallazgos: test de regresión sin cobertura del
+  escenario real (agregado), y 3 gaps de calidad en el eval (duplicaba
+  `app/utils.py::month_range` y el fallback de `_execute_node`, no detectaba
+  circuit-breaker-cooldown como fallo de conectividad, recompilaba el grafo 24
+  veces) — los 4 corregidos. Segunda ronda de `/code-review`: **0 hallazgos**.
+  Re-auditoría: **4.35/5.00 🟢** (era 2.85 🔴). 2 commits en `develop` (`eb8509a`
+  feature, `1fc4d7c` bump 0.4.8→0.4.9), **sin push** (pendiente de confirmación del
+  usuario). Pendiente explícito: decisión sobre H-003 (routing en dos pasos /
+  few-shot para el prompt heurístico), ahora con baseline real del eval. Informes:
+  `docs/auditorias/2026-09-21-agent-copiloto{,-diagnostico-postimpl,-diagnostico-reaudit}.md`.
+  Detalle completo: `.claude/session-notes.md`.
+- **2026-08-29 (sesión 13)** — **Cierre del épico offline-desktop-sync (P3/P4/P5) + auditoría
+  integral + Serena habilitado.** Continuación de la sesión 12 el mismo día. Cuatro tramos:
+  (1) **P3 cierre**: `/code-review` + `auditoria-ingenieria` sobre el commit `41adf1d` (3
+  quick wins: `app_mode` hardcodeado, `_PULL_ORDER` sin fuente compartida con
+  `SyncService.build_pull()` → nuevo `app/sync/tables.py::SYNC_TABLE_ORDER`, dead init) + e2e
+  Playwright nuevo (`tests/e2e/test_sync_e2e.py`) que encontró **3 bugs reales adicionales**
+  en `apply_pull()` que 15 tests unitarios nunca habían detectado: FK bloqueada por tablas
+  locales no sincronizadas (`audit_logs` et al., nunca antes ejercitado porque ningún test
+  creaba una fila de auditoría junto al usuario), datetimes llegando como string ISO tras
+  cruzar JSON por HTTP (`TypeError` en SQLite), e inserts cross-tabla sin `relationship()`
+  ORM que un solo `flush()` final no reordenaba por FK. Commiteado (`13f7af1`, `88edf08`).
+  (2) **Auditoría del épico completo** (los 5 slices como sistema integrado, no uno por uno)
+  pedida por el usuario: **2.15/5.00 🔴** — reveló que **P4 nunca había sido auditado ni
+  ejecutado por nadie**. (3) **Corrección de P5**: `tests/e2e/test_sync_multinode_e2e.py`
+  nunca había corrido con éxito (`NameError` inmediato); su fixture `central_server` apuntaba
+  a la BD real de dev + el puerto 10000 del servidor de dev real corriendo; `verify.sh` nunca
+  ejecutaba el e2e pese a afirmarlo. Reescrito de punta a punta (nodos como emisores HTTP
+  contra un servidor central real aislado, mismo patrón seguro que `live_server`).
+  (4) **Corrección de P4** (auditado por primera vez, encontrado ~100% roto): derivación de
+  clave SQLCipher crasheaba garantizado (`Path.as_bytes()` no existe), launcher.py crasheaba
+  garantizado (`__import__` mal usado), `desktop.spec`/`installer.iss` con API de
+  PyInstaller/Inno Setup inventada — 5 hallazgos críticos, todos corregidos y verificados por
+  ejecución directa (conexión SQLite real de punta a punta en modo desktop). Una segunda
+  ronda de `/code-review` sobre esos fixes encontró 7 hallazgos más (fuga de estado entre
+  tests, hilo de uvicorn muriendo en silencio, orden de PRAGMA vs SQLCipher, clave de entorno
+  sin normalizar, fallback DPAPI→base64 peligroso, hidden imports de pywebview faltantes),
+  todos corregidos. Re-auditoría del épico completo: **4.05/5.00 🟢**. Todo commiteado
+  (`cb83e2e`). 286 unit + 22 e2e verdes al cierre (era 265 al inicio de la sesión 12).
+  Informes: `docs/auditorias/2026-08-29-{p3-sync-client-offline-sync-closeout,
+  p5-multinode-e2e-offline-sync{,-closeout},offline-desktop-sync-epic-full-audit{,-reaudit}}.md`.
+  **Fuera de alcance de este entorno** (documentado explícitamente, no oculto): build real de
+  PyInstaller/Inno Setup y verificación contra SQLCipher real requieren una máquina Windows.
+  **Serena habilitado**: instalado a nivel `user` (todos los proyectos), onboarding corrido
+  para este repo, memorias escritas en `.serena/memories/` (ver `mem:core` y demás) —
+  decisión del usuario de usar sus tools de código semántico en vez de `Read`/`Grep`/`Edit`
+  nativos de acá en adelante, en todo proyecto. `.serena/` **sin commitear** (working tree
+  local, decisión de commit no pedida esta sesión). Detalle completo:
+  `.claude/session-notes.md`.
 - **2026-08-29 (sesión 12)** — **Fix bug de prod: diagnóstico ZARA irrelevante en importación
   de factura AUTODOC**: usuario reportó texto de debug (`Diagnóstico ZARA: p1: refs_text=0
   refs_words=0 words=211`) pegado al mensaje de éxito al importar una factura del negocio de
@@ -408,22 +525,52 @@ Archivo `app/business_config.conf` (INI):
 9. **Modelo de ejecución** — Claude Code (DeepSeek API `deepseek-v4-pro[1m]`) planifica y genera el SDD/PAE; OpenCode + modelo local **Qwen3.6-35B-A3B** (`qwen36_35b_coder_mtp` vía llama-swap) implementa los task envelopes. El modelo local NO es GLM (GLM-4.7-Flash quedó como legado/fallback desde 2026-07-25).
 10. **Copiloto IA en runtime** — el copiloto usa **modelo local en dev** (default `AGENT_LLM_BASE_URL=http://localhost:8080/v1`, `AGENT_LLM_MODEL=qwen3_8b_instruct`) y **API LLM externa en producción** (env `AGENT_LLM_*` en `docker-compose-homelab.yml`). Las env vars viven en `app/settings.py`.
 
+- [x] **Copiloto: diagnóstico + memoria de tool previa + eval de precisión (v0.4.9)** —
+      usuario reportó que el copiloto "a veces da resultados que no pide". Auditoría
+      de `app/agent/` (`docs/auditorias/2026-09-21-agent-copiloto.md`, 2.85/5.00 🔴,
+      8 hallazgos) → PAE vía SDD-Agent (`specs/agent-copiloto-diagnostico/`) para 3
+      de ellos: **H-001** logging estructurado en `_plan_node` (mensaje, tool,
+      tool_args, reintentos — antes 1 sola línea de log en todo el módulo);
+      **H-005** memoria de la tool/args del turno anterior de la MISMA conversación,
+      vía nuevo `app/agent/widgets.py::latest_widget_meta(db, business_id, since=...)`
+      pasado a `build_system_prompt(last_tool=...)`; **H-004** eval set de 24 casos
+      dorados (`tests/eval/test_agent_tool_selection_eval.py`, marker `agent_eval`,
+      `pytest tests/eval -m agent_eval -v -s`) corrido contra el LLM real, resultado
+      96% tool / 96% type / 88% args accuracy — baseline para decidir sobre H-003
+      (routing en dos pasos / few-shot para el prompt heurístico de 33 tools, aún
+      pendiente). **Implementado directamente por Claude Code**, no vía OpenCode
+      (pedido explícito del usuario, excepción puntual al flujo estándar). Dos
+      rondas de `/code-review` + `auditoria-ingenieria`: la primera encontró que el
+      guard de `last_tool` solo protegía el primer turno tras "nueva conversación"
+      (turnos posteriores sin widget propio seguían filtrando el widget más
+      reciente del negocio, de cualquier conversación) — corregido comparando
+      fechas **en Python, no en SQL**, tras descubrir un bug real de
+      SQLite/SQLAlchemy (`CURRENT_TIMESTAMP` se guarda sin microsegundos pero un
+      `datetime` bindeado como parámetro siempre lleva `.000000`, así que
+      `WHERE created_at >= :since` fallaba incluso para instantes iguales — no
+      aplica a PostgreSQL/prod). Segunda ronda: 0 hallazgos. Auditoría final
+      **4.35/5.00 🟢**. 295 unit + 22 e2e verdes. 2 commits en `develop`
+      (`eb8509a`, `1fc4d7c`, bump 0.4.8→0.4.9), **sin push**.
+
 ## Épico offline-desktop-sync (v0.4.8) — estado real por slice
 
 **Score integrado (2026-08-29, re-auditoría tras corregir P4 por completo):
 🟢 4.05/5.00** (antes 2.15/5.00 🔴 el mismo día — ver
 `docs/auditorias/2026-08-29-offline-desktop-sync-epic-full-audit{,-reaudit}.md`).
 
+**⚠️ CAMBIO DE REQUERIMIENTO (2026-09-07):** usuario solicitó que **gastos operativos** también funcionen en offline (actualmente están marcados como "online-only" en los specs). Pendiente de especificación formal vía SDD-Agent antes de implementar.
+
 | PAE | slice | Estado | Comentario |
 |-----|-------|--------|------------|
 | **P1** | Fundamentos | 🟡 3.80/5.00 | Outbox `pending_sync_events` + rangos SKU 10k. Commiteado (`2dbad8a`) |
 | **P2** | Backend de sync | 🟡 3.70/5.00 | `SyncService`, endpoints `/sync/*`. Commiteado (`e4e03a2`) |
 | **P3** | Cliente de sync | 🟡 funcional | `sync()`/`apply_pull` con 3 bugs reales adicionales encontrados por e2e y corregidos (2026-08-29). Commiteado (`41adf1d`, `13f7af1`, `88edf08`) |
-| **P4** | Empaquetado desktop | 🟢 dentro del score integrado | Auditado por primera vez el 2026-08-29 (nunca antes): 5 bugs de crash garantizado (derivación de clave SQLCipher, launcher, `desktop.spec`, `installer.iss`) + 7 hallazgos de una segunda ronda de code-review — **todos corregidos y verificados por ejecución directa** (incluida una conexión SQLite real de punta a punta en modo desktop). **Sin commitear** |
-| **P5** | e2e multi-nodo | 🟢 dentro del score integrado | Auditado en 1.40/5.00 🔴 (el test nunca había corrido), reescrito por completo, verde. **Sin commitear** |
+| **P4** | Empaquetado desktop | 🟢 dentro del score integrado | Auditado por primera vez el 2026-08-29 (nunca antes): 5 bugs de crash garantizado (derivación de clave SQLCipher, launcher, `desktop.spec`, `installer.iss`) + 7 hallazgos de una segunda ronda de code-review — **todos corregidos y verificados por ejecución directa** (incluida una conexión SQLite real de punta a punta en modo desktop). Commiteado (`cb83e2e`) |
+| **P5** | e2e multi-nodo | 🟢 dentro del score integrado | Auditado en 1.40/5.00 🔴 (el test nunca había corrido), reescrito por completo, verde. Commiteado (`cb83e2e`) |
 
-**Versión actual:** `v0.4.8` (ver `VERSION`) — no re-bumpear sin instrucción explícita del
-usuario (regla dura del `CLAUDE.md` global: todo incremento es PATCH salvo pedido explícito).
+**Épico completo desplegado en producción el 2026-10-09** (v0.4.9, esquema v7) —
+ver sesión 16. **Versión actual del repo:** `0.4.10` (ver `VERSION`) — todo incremento
+sigue siendo PATCH salvo pedido explícito del usuario (regla dura del `CLAUDE.md` global).
 
 **Build Windows:** el instalador se construye manualmente en Windows usando
 `pyinstaller --spec-file packaging/desktop.spec` + Inno Setup (`packaging/README-desktop.md`).

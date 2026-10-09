@@ -257,90 +257,76 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        222 unit (SQLite en memoria) + 20 e2e (Playwright), CI/CD Gitea verde
-Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment)
-              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach (score + recomendaciones)
+Tests:        304 unit (SQLite en memoria) + 24 e2e (Playwright), todos verdes
+              + eval de precisión del copiloto (tests/eval/, marker agent_eval,
+              corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
+Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
+              /sync/{register,push,conflicts} (offline-desktop-sync)
+              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach + sync banner
+              + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
-Migraciones:  inline en migrations.py (schema_version=4, backfill config desde .conf)
-Versión:      0.4.6
+Migraciones:  inline en migrations.py (schema v8: sync_state + device_tokens + paid_by_transfer)
+Versión:      0.4.10 (ver VERSION) — commiteado en main (ce3ccf6), DESPLEGADO Y VERIFICADO
+              en dev (ai-lab-home) y prod (laptop-server, gestion.legatumbp.com) el 2026-10-09
 Docker:       docker-compose.yml (postgres + app + caddy) + docker-compose-homelab.yml
-Hecho (08-15): traspaso masivo, negocio sin POS, copiloto 27 tools, auditoría A/B/C/D (4.10)
-Hecho (08-16): coach financiero-operativo (determinista + chat vía agente), auditoría (3.65) +
-               code-review (6 hallazgos corregidos), 24 task envelopes, v0.4.1
-Hecho (08-17): copiloto 27→33 tools (dead_stock, inventory_turnover, profit_by_category,
-               profit_by_location + filtro location), auditoría 3.20→4.05 (7 hallazgos
-               corregidos), v0.4.3. Fix bug de prod: PlanModel.tool sin widgets (chat sin
-               gráfica) → retry+síntesis en _plan_node, v0.4.4.
-Hecho (08-18): fix bug de prod: sugerencias de artículos vacías en venta (Bazar Mariela) —
-               ubicación huérfana (`role=NULL`) generada por `LocationRepository` auto-creando
-               con prefijo `BUSINESS_` (InventoryService nunca pasaba business_code real)
-               "ganaba" como central por convención de código en `get_business_locations()`.
-               Fix en business_repository.py + location_repository.py, dato huérfano borrado
-               en prod, v0.4.5.
-PAE generado (08-18, sesión 9): sale-payment-method — checkbox "pagado por transferencia"
-               en venta rápida (InventoryMovement, no SalesDocument), desmarcado por defecto,
-               editable, visible y filtrable en historial. specs/sale-payment-method/ (14
-               task envelopes vía SDD-Agent), sin implementar todavía — sin commitear.
-Hecho (08-19): fix bug de prod: compra de producto nuevo bloqueada (v0.4.6). Regresión del
-               fix 27f9da2 (08-17): list_sku_prefixes() pasó a filtrar por business_id, pero
-               products.sku es unique=True GLOBAL (no compuesto, pese a lo documentado antes
-               en CLAUDE.md raíz). El candidato de SKU autogenerado de un negocio con pocos
-               productos colisionaba con SKUs de otro negocio → 409 en 5/5 negocios menos el
-               de mayor SKU global. Revertido a numeración global en
-               purchase_repository.py::list_sku_prefixes. Regression test añadido. 222 unit
-               verdes (conteo real verificado; "254 unit" de sesiones previas era incorrecto).
-               Deploy dev+prod verificado en vivo. Misma sesión: Cloudflare Access puesto
-               delante de gitea.legatumbp.com (sesión de hardening del lab en paralelo) rompió
-               el runner de CD compartido (FetchTask + git checkout de todos los repos, no solo
-               este) — arreglado con 3 excepciones de Bypass (api/actions/*, info/refs,
-               git-upload-pack), pipeline push→test→deploy-dev verificado sin intervención
-               manual. Deploy a main se hizo manual antes del fix de Access (mismos pasos que
-               el CD), sin re-verificar el job deploy-prod automático después. Ver
-               ~/obsidian-lab/00-Inicio/problemas-conocidos.md y
-               ~/obsidian-lab/04-Harness/deploy-gitea-actions.md (sección 5).
-Pendiente:    verificar que deploy-prod también corre solo tras el fix de Access, fix
-              estructural (SKU único compuesto (business_id, sku) + migración + auditar
-              call sites que asumen sku global en ui_common.py/ui_products.py — decisión
-              explícita del usuario de posponerlo), implementar specs/sale-payment-method/
-              (14 envelopes), verde definitivo ≥4.2, estacionalidad [B]/REQ-8 (no
-              implementada), fase 2 agente, renombrar .conf→.bak, Dockerfile no copia VERSION
-              (health siempre "unknown"), healthcheck agent_llm sin auth header (falso
-              "degraded" en prod), auditar otros negocios por ubicaciones huérfanas similares
-              (mismo patrón de bug), COMMITEAR P2 del épico offline-desktop-sync (ver abajo,
-              código ya corregido y re-auditado 3.70/5.00, esperando confirmación del
-              usuario) antes de generar el detalle de P3
-Deuda téc.:   ui_tabs.py dividido en ui_stock/ui_profit/... (Fase B) — ya no es monolítico
-
-Épico offline-desktop-sync (08-28): 5 PAEs generados vía SDD-Agent en
-              specs/offline-desktop-sync/ (P1 Fundamentos, P2 Backend de sync central, P3
-              Cliente+escritura offline, P4 Desktop Windows+cifrado SQLCipher/DPAPI, P5 e2e
-              multi-nodo), 47 task envelopes.
-              P1 (outbox pending_sync_events + rangos de SKU 10k/negocio): implementado por
-              OpenCode → auditado en rojo (2.90/5.00, H-001 crítico: next_sku_in_range con
-              boundary bug que causaba colisión de SKU PERMANENTE al SKU #10.000 de un
-              negocio, mismo incidente que v0.4.6) → CORREGIDO y re-auditado a 3.80/5.00 🟡
-              → COMMITEADO (2dbad8a, en develop). 241 unit verdes en ese commit. Informes:
-              docs/auditorias/2026-08-28-p1-foundations-offline-sync{,-reaudit}.md.
-              P2 (SyncService: idempotencia, replay vía InventoryService.sale, dedup de
-              clientes, build_pull; endpoints /sync/register|push|conflicts): implementado
-              por OpenCode → auditado en rojo (2.50/5.00, PEOR que P1 — 3 hallazgos
-              CRÍTICOS de aislamiento multi-tenant: IDOR en register_device sin validar
-              pertenencia del business_id, password_hash de usuarios viajando sin cifrar en
-              el pull, movement_allocations/sales_document_items volcados SIN filtro de
-              negocio — fuga de datos comerciales entre todos los negocios del sistema) →
-              CORREGIDO DIRECTAMENTE POR CLAUDE (no vía OpenCode, a pedido del usuario) →
-              segunda ronda de /code-review con mutation-testing real detectó que la propia
-              corrección había introducido una REGRESIÓN (client_id de Customer scopeado por
-              negocio pese a ser unique=True GLOBAL — mismo patrón que el ADR-012 de SKU,
-              tercera vez que aparece este tipo de bug en el proyecto) → regresión corregida
-              en el mismo ciclo con test de regresión añadido → re-auditado a 3.70/5.00 🟡.
-              267 unit verdes. Informes:
-              docs/auditorias/2026-08-28-p2-sync-backend-offline-sync{,-reaudit}.md.
-              **P2 SIN COMMITEAR** — sesión cerrada antes de confirmar el commit (usuario
-              dijo "cerramos" sin responder sí/no a la pregunta de commitear). Retomar la
-              decisión de commit ANTES de tocar más código la próxima sesión.
+CD prod:      `.gitea/workflows/deploy.yml::deploy-prod` reescrito 2026-10-09 para la
+              estructura real de laptop-server (clona por git-HTTP en LAN, build local,
+              recrea el contenedor en ~/apps, rollback automático si el health falla) —
+              el job viejo apuntaba a la ruta de la VM vm-apps, eliminada en septiembre,
+              y nunca se había vuelto a probar por falta de push a main hasta hoy.
+Serena:       MCP habilitado 2026-08-29, memorias en .serena/memories/ (mem:core es el punto
+              de entrada) — usar sus tools (find_symbol/get_symbols_overview/
+              replace_symbol_body) en vez de Read/Grep/Edit nativos para código.
 ```
+
+## Copiloto IA — observabilidad y memoria de conversación (2026-09-21)
+
+`app/agent/graph.py::_plan_node` loguea (INFO/WARNING/ERROR) el plan elegido, los
+reintentos por formato, los fallos duros de LLM y los widgets sintetizados en cada
+turno de chat — antes de esta sesión solo había una línea de log en todo `app/agent/`.
+El planner también recibe, cuando corresponde, la tool/args del último widget de
+**esta misma conversación** (`app/agent/widgets.py::latest_widget_meta(db,
+business_id, since=...)`, filtrado por fecha en Python — no en SQL, por un bug real
+de comparación de `DateTime` en SQLite/SQLAlchemy, ver
+`docs/auditorias/2026-09-21-agent-copiloto-diagnostico-reaudit.md`). Auditoría del
+diff: 4.35/5.00 🟢. Pendiente: decisión sobre H-003 (reescribir el prompt heurístico
+de 33 tools / routing en dos pasos) usando `tests/eval/test_agent_tool_selection_eval.py`
+como vara de medir (baseline: 96% tool / 88% args accuracy).
+
+## Épico offline-desktop-sync — resumen (detalle completo en CLAUDE.md raíz)
+
+Los 5 slices (P1-P5) están commiteados en `develop` (`2dbad8a`, `e4e03a2`, `41adf1d`,
+`13f7af1`, `88edf08`, `cb83e2e`). Auditoría integral del épico completo (2026-08-29):
+**2.15/5.00 🔴 → 4.05/5.00 🟢** tras corregir P4 (nunca antes auditado, encontrado ~100%
+roto: derivación de clave SQLCipher, launcher, `desktop.spec`/`installer.iss` todos con bugs
+de crash garantizado) y reescribir P5 por completo (su e2e nunca había corrido con éxito).
+Informes: `docs/auditorias/2026-08-29-offline-desktop-sync-epic-full-audit{,-reaudit}.md`.
+
+**Pendiente, fuera de alcance de este entorno Linux:** validación manual en Windows de
+`packaging/desktop.spec` (PyInstaller) e `installer.iss` (Inno Setup), y verificación contra
+SQLCipher real (`sqlcipher3-binary`) — solo probado contra stock `sqlite3` hasta ahora.
+
+**Épico desplegado en producción el 2026-10-09** (v0.4.9, esquema v4→v7) junto con la
+sesión 15 del copiloto — ver sesión 16 en `CLAUDE.md` raíz y `.claude/session-notes.md`.
+
+## `paid_by_transfer` en venta rápida (v0.4.10, 2026-10-09)
+
+PAE de `specs/sale-payment-method/` (2026-08-18) ejecutado 7 semanas después —
+checkbox en `InventoryMovement`, filtro en el historial, propagado al outbox de sync.
+Bug real descubierto por el e2e nuevo: `_rebuild_product_fifo` podía rechazar una
+edición de venta válida ("Insufficient stock") si una compra y la venta caían en el
+mismo minuto — el round-trip del campo Fecha por el form de edición tenía solo
+precisión de minuto. Corregido con milisegundos, **acotado a `ui_sales.py` +
+`sale_panel.html` + `sale_edit_form.html`** — el mismo helper `dt_to_local_input`
+(sin el fix) sigue en uso por compras/traspasos/gastos/extracciones/dividendos, con
+el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesión).
+
+**Otros pendientes acumulados de sesiones previas:** fix estructural de SKU único
+compuesto `(business_id, sku)` pospuesto por decisión explícita del usuario; verde
+definitivo del copiloto (≥4.2, timeout global del agente); `.conf` legacy sin
+renombrar a `.bak`; probe `agent_llm` del healthcheck sin auth header (1 de 2 bugs de
+healthcheck corregido esta sesión — `Dockerfile` ya copia `VERSION`).
 
 ---
 
