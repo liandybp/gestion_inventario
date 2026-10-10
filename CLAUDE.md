@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.12` (ver `VERSION`) — commiteada en `develop` el 2026-10-10 junto con `0.4.11`, **sin push** (pendiente de probar en dev); `0.4.10` es la desplegada en dev y prod
+- **Versión actual:** `0.4.12` (ver `VERSION`) — pusheada a `develop` y desplegada en dev el 2026-10-10 junto con `0.4.11` (pruebas manuales pendientes); `0.4.10` es la desplegada en dev y prod
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
