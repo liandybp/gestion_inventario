@@ -2,6 +2,35 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.11 (2026-10-10)
+
+- feat(purchases): una sola vía de creación de producto en la pestaña Compras. Se
+  elimina el formulario "Crear producto manualmente" y la ruta `POST /ui/product`;
+  "Registrar compra" gana el campo opcional "Precio de venta (si es nuevo)". La
+  creación pasa a `ProductService.create_for_purchase` (validaciones únicas, SKU
+  automático con reintentos).
+- fix(purchases): una compra rechazada (costo vacío, cantidad 0, lote duplicado) dejaba
+  el producto nuevo creado (huérfano, y duplicados al reintentar). Producto, auditoría y
+  compra se confirman ahora en un único commit, con rollback si la compra falla. La
+  importación de facturas PDF usa el mismo servicio, con transacción por línea.
+- fix(products): "Importar productos desde factura" creaba los productos sin `business_id`
+  (invisibles para todos los negocios y con el SKU global bloqueado) y no hacía rollback
+  por línea. Ahora usa `ProductService` con el negocio activo.
+- fix(audit): `log_event(..., isolated=True)` usa un SAVEPOINT: un fallo de auditoría ya no
+  revierte el producto/compra del llamador (opt-in, solo en compras e importación).
+- fix(purchases): cantidad 0 o fecha inválida daban un 500 sin mensaje; ahora 422 con panel.
+- fix(inventory): `InventoryService.purchase` rechaza cantidad o costo `nan`/`inf`
+  (Pydantic los aceptaba y se guardaba stock NaN).
+- fix(purchases): la creación sin SKU no registraba `product_create` en `audit_logs`;
+  la lista de sugerencias de "Artículo" y el historial de productos no se refrescaban
+  tras crear un producto; `nan`/`inf` se aceptaban como precio o costo; aviso cuando
+  el precio se ignora porque el producto ya existe.
+- fix(ui): los paneles de error 4xx ("Error en compra", ventas, gastos, extracciones,
+  productos) nunca se mostraban porque htmx no hace swap de respuestas >= 400. Handler
+  global `htmx:beforeSwap` en `app.js` (solo HTML; el chat del copiloto se excluye). Los
+  modales de edición se cierran si el error se pinta en el panel de detrás, y el
+  formulario de compra conserva lo tecleado tras un error.
+
 ## 0.4.10 (2026-10-09)
 
 - feat(sales): nuevo campo `paid_by_transfer` en el panel de venta rápida
