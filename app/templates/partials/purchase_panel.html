@@ -36,7 +36,7 @@
     <p class="muted" style="margin-top:0;margin-bottom:10px;">Registro manual: el costo se guarda tal como lo introduces (sin conversión automática).</p>
     <div class="row">
       <label>Artículo</label>
-      <input name="product" list="product-options" placeholder="Busca por nombre o SKU" value="{{ fv.get('product', '') }}"
+      <input name="product" list="product-options" data-product-suggest="label" placeholder="Busca por nombre o SKU" value="{{ fv.get('product', '') }}"
              hx-get="/ui/product-defaults/purchase" hx-trigger="change" hx-target="#purchase-defaults" hx-swap="innerHTML" />
     </div>
     <div class="row"><label>Nombre (si es nuevo)</label><input name="product_name" placeholder="Solo si el SKU no existe" value="{{ fv.get('product_name', '') }}" /></div>

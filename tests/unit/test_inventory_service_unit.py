@@ -225,3 +225,77 @@ def test_purchase_rejects_non_finite_quantity_or_cost(
         service.purchase(PurchaseCreate(sku="SKU-TST", quantity=quantity, unit_cost=unit_cost))
 
     assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("quantity", "unit_price"),
+    [(float("nan"), 2.0), (float("inf"), 2.0), (1.0, float("nan")), (1.0, float("inf"))],
+)
+def test_sale_rejects_non_finite_quantity_or_price(
+    db_session: Session, business_id: int, quantity: float, unit_price: float
+) -> None:
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service = InventoryService(db_session, business_id=business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+
+    with pytest.raises(HTTPException) as exc:
+        service.sale(SaleCreate(sku="SKU-TST", quantity=quantity, unit_price=unit_price, location_code="CENTRAL"))
+
+    assert exc.value.status_code == 422
+
+
+_NON_FINITE_EDITS = [(float("nan"), 1.0), (float("inf"), 1.0), (1.0, float("nan")), (1.0, float("inf"))]
+
+
+@pytest.mark.parametrize(("quantity", "amount"), _NON_FINITE_EDITS)
+def test_update_purchase_rejects_non_finite(db_session: Session, business_id: int, quantity: float, amount: float) -> None:
+    """H-205: las rutas de edición usan Form(float), que acepta "nan"/"inf"."""
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service = InventoryService(db_session, business_id=business_id)
+    created = service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+
+    with pytest.raises(HTTPException) as exc:
+        service.update_purchase(
+            movement_id=created.movement.id, sku="SKU-TST", quantity=quantity, unit_cost=amount,
+            movement_date=None, lot_code=None, note=None,
+        )
+
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize(("quantity", "amount"), _NON_FINITE_EDITS)
+def test_update_sale_rejects_non_finite(db_session: Session, business_id: int, quantity: float, amount: float) -> None:
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service = InventoryService(db_session, business_id=business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+    created = service.sale(SaleCreate(sku="SKU-TST", quantity=1, location_code="CENTRAL"))
+
+    with pytest.raises(HTTPException) as exc:
+        service.update_sale(
+            movement_id=created.movement.id, sku="SKU-TST", quantity=quantity, unit_price=amount,
+            movement_date=None, note=None,
+        )
+
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize("quantity", [float("nan"), float("inf")])
+def test_supplier_return_by_lot_rejects_non_finite(db_session: Session, business_id: int, quantity: float) -> None:
+    from sqlalchemy import select
+
+    from app.models import InventoryLot
+    from app.schemas import SupplierReturnLotCreate
+
+    _create_locations(db_session, business_id)
+    product = _create_product(db_session, business_id)
+    service = InventoryService(db_session, business_id=business_id)
+    service.purchase(PurchaseCreate(sku="SKU-TST", quantity=5, unit_cost=1.0))
+    lot = db_session.scalars(select(InventoryLot).where(InventoryLot.product_id == product.id)).first()
+
+    with pytest.raises(HTTPException) as exc:
+        service.supplier_return_by_lot(SupplierReturnLotCreate(lot_id=lot.id, quantity=quantity))
+
+    assert exc.value.status_code == 422

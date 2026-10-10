@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.models import Business, InventoryLot, InventoryMovement, Product
 from app.repositories.inventory_repository import InventoryRepository, _query_match
 from app.repositories.product_repository import ProductRepository
-from app.repositories.purchase_repository import PurchaseRepository
 
 
 def _create_product(db: Session, business_id: int, sku: str, name: str) -> Product:
@@ -52,7 +51,7 @@ def test_list_sku_prefixes_spans_all_businesses(db_session: Session, business_id
     _create_product(db_session, business_id, "SKU000001", "Producto negocio 1")
     _create_product(db_session, int(other_biz.id), "SKU000002", "Producto negocio 2")
 
-    repo = PurchaseRepository(db_session, business_id)
+    repo = ProductRepository(db_session, business_id=business_id)
     prefixes = repo.list_sku_prefixes("SKU")
 
     assert "SKU000001" in prefixes

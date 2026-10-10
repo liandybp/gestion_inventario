@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.11` (ver `VERSION`) — **sin commitear ni desplegar** (2026-10-10); `0.4.10` es la desplegada en dev y prod
+- **Versión actual:** `0.4.12` (ver `VERSION`) — commiteada en `develop` el 2026-10-10 junto con `0.4.11`, **sin push** (pendiente de probar en dev); `0.4.10` es la desplegada en dev y prod
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (323 unit + 39 e2e Playwright) |
+| Testing | pytest (377 unit + 44 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -138,6 +138,23 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Sugerencias dinámicas de productos + deuda de v0.4.11 (v0.4.12, 2026-10-10)** — PAE vía
+      SDD-Agent (`specs/audit-debt-product-suggest/`, 27 envelopes, validado antes en un worktree) implementado por
+      `cc_local` en 61 min: `GET /ui/product-suggest` + listener `data-product-suggest` en `app.js` (H-012),
+      no finitos rechazados (H-104), mensaje de SKU en otro negocio (H-105), `_insert_with_sku_retry` único y
+      `list_sku_prefixes` en `ProductRepository` (H-106), error dentro del modal de edición (H-108), sin
+      `product_options` sin uso (H-109). 350 unit (cov 86%) + 41 e2e. `/code-review` + auditoría **3.75 🟡**
+      (`docs/auditorias/2026-10-10-audit-debt-product-suggest.md`): **error de diseño del PAE** — Ventas y
+      Traspasos filtran sus sugerencias por stock en la ubicación (`ui_sales.py:83`, `ui_transfers.py:641`), la
+      búsqueda dinámica les quita ese filtro (H-201/202/206); elegir una sugerencia vacía el datalist (H-203);
+      `nan` en precio de venta pasa en silencio (H-204); resto H-205..H-210. **Corregidos todos el mismo día por
+      Claude Code** dentro de 0.4.12: Ventas/Traspasos vuelven a su lista filtrada por stock (sin búsqueda
+      dinámica), `app.js` restaura la lista inicial y no la vacía al elegir, `parse_typed_float` (tecleado
+      inválido → 422) en compras/ventas/edición de producto, `isfinite` en ediciones y devoluciones, búsqueda
+      sobre columnas, sin imágenes huérfanas. Re-auditoría **4.15 🟡** sin hallazgos abiertos del diff
+      (lo que falta para 🟢 es previo: CSP `unsafe-inline`, búsqueda O(N) en Python). 377 unit + 44 e2e
+      (e2e validados por mutación). **Pendiente:** push a `develop` y prueba manual en dev (Ventas con un POS
+      sin stock de un producto; Compras con un producto posterior al 200).
 - [x] **Quitar "Crear producto manualmente" de la pestaña Compras (v0.4.11, 2026-10-10)** — PAE vía SDD-Agent
       (`specs/remove-duplicate-product-creation/`) implementado por `cc_local` (Claude Code + Qwen3.6 local,
       piloto, un envelope por sesión). Se elimina el form y la ruta `POST /ui/product`; "Registrar compra" gana
@@ -309,6 +326,15 @@ Archivo `app/business_config.conf` (INI):
 
 ## Sesiones
 
+- **2026-10-10 (sesión 17)** — **Piloto de `cc_local` (Claude Code + Qwen3.6 local) como ejecutor de PAEs.**
+  (1) v0.4.11: quitar "Crear producto manualmente" de Compras; tres rondas de review + re-auditoría (3.95 🟡);
+  commiteado (`9b4b430`, `6fce595`), sin push. (2) v0.4.12: PAE de los pendientes (H-012 con búsqueda
+  dinámica, H-104..H-109), validado en un worktree (encontró 2 bugs del propio PAE: T9b y T16) e implementado
+  por `cc_local` en 61 min, fiel al PAE. Review + auditoría 3.75 🟡 con H-201..H-210 (el principal, error de
+  diseño del PAE: Ventas/Traspasos filtran por stock). Corregidos todos por Claude Code el mismo día
+  (re-auditoría 4.15 🟡, 377 unit + 44 e2e), sin subir versión; commiteado en `develop`, sin push.
+  Conclusión del piloto: `cc_local` ejecuta bien; los fallos vienen del diseño del PAE. Detalle:
+  `.claude/session-notes.md`.
 - **2026-10-09 (sesión 16)** — **Deploy a producción del backlog acumulado +
   `paid_by_transfer` + fix de CD de prod.** La nota de Obsidian del proyecto estaba
   desactualizada (decía P2 del épico offline-desktop-sync sin commitear; en realidad

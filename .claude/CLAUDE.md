@@ -257,7 +257,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        323 unit (SQLite en memoria) + 39 e2e (Playwright), todos verdes
+Tests:        377 unit (SQLite en memoria) + 44 e2e (Playwright), todos verdes
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
@@ -265,10 +265,13 @@ Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/trans
               UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach + sync banner
               + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
               + creación de producto solo desde "Registrar compra" con precio de venta opcional (v0.4.11)
+              + GET /ui/product-suggest (sugerencias dinámicas al teclear, v0.4.12; NO en Ventas ni
+                Traspasos, cuyas listas filtran por stock en la ubicación)
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema v8: sync_state + device_tokens + paid_by_transfer)
-Versión:      0.4.11 (ver VERSION) — SIN COMMITEAR (2026-10-10). 0.4.10 commiteado en main (ce3ccf6), DESPLEGADO Y VERIFICADO
+Versión:      0.4.12 (ver VERSION) — commiteada en develop, SIN PUSH; re-auditoría 4.15
+              (docs/auditorias/2026-10-10-audit-debt-product-suggest.md §10). 0.4.11 también en develop. 0.4.10 commiteado en main (ce3ccf6), DESPLEGADO Y VERIFICADO
               en dev (ai-lab-home) y prod (laptop-server, gestion.legatumbp.com) el 2026-10-09
 Docker:       docker-compose.yml (postgres + app + caddy) + docker-compose-homelab.yml
 CD prod:      `.gitea/workflows/deploy.yml::deploy-prod` reescrito 2026-10-09 para la

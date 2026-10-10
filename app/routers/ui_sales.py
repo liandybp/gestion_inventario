@@ -49,7 +49,7 @@ from .ui_common import (
     extract_sku,
     month_range,
     parse_dt,
-    parse_optional_float,
+    parse_typed_float,
     templates,
 )
 from .ui_tabs_common import _location_id_for_code
@@ -200,6 +200,7 @@ def sale(
     )
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
+        parsed_price = parse_typed_float(unit_price, "El precio unitario debe ser un número mayor o igual que 0")
         sku = _resolve_sale_sku(db, business_id=bid, product_input=product)
         if user is not None:
             log_event(
@@ -208,13 +209,13 @@ def sale(
                 action="sale_create",
                 entity_type="movement",
                 entity_id=None,
-                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
+                detail={"sku": sku, "quantity": quantity, "unit_price": parsed_price},
             )
         result = service.sale(
             SaleCreate(
                 sku=sku,
                 quantity=quantity,
-                unit_price=parse_optional_float(unit_price),
+                unit_price=parsed_price,
                 movement_date=parse_dt(movement_date),
                 note=note or None,
                 location_code=selected_location_code,
@@ -226,7 +227,7 @@ def sale(
                 append_event(
                     db, business_id=bid, event_type="sale",
                     payload={"sku": sku, "quantity": quantity,
-                             "unit_price": parse_optional_float(unit_price),
+                             "unit_price": parsed_price,
                              "movement_date": movement_date, "note": note or None,
                              "location_code": selected_location_code,
                              "paid_by_transfer": paid_by_transfer},
@@ -297,6 +298,7 @@ def sale_barcode(
     )
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
+        parsed_price = parse_typed_float(unit_price, "El precio unitario debe ser un número mayor o igual que 0")
         sku = barcode_to_sku(db, barcode, business_id=bid)
         user = get_current_user_from_session(db, request)
         if user is not None:
@@ -306,13 +308,13 @@ def sale_barcode(
                 action="sale_create",
                 entity_type="movement",
                 entity_id=None,
-                detail={"sku": sku, "quantity": quantity, "unit_price": parse_optional_float(unit_price)},
+                detail={"sku": sku, "quantity": quantity, "unit_price": parsed_price},
             )
         result = service.sale(
             SaleCreate(
                 sku=sku,
                 quantity=quantity,
-                unit_price=parse_optional_float(unit_price),
+                unit_price=parsed_price,
                 movement_date=parse_dt(movement_date),
                 note=note or None,
                 location_code=selected_location_code,
@@ -324,7 +326,7 @@ def sale_barcode(
                 append_event(
                     db, business_id=bid, event_type="sale",
                     payload={"sku": sku, "quantity": quantity,
-                             "unit_price": parse_optional_float(unit_price),
+                             "unit_price": parsed_price,
                              "movement_date": movement_date, "note": note or None,
                              "location_code": selected_location_code,
                              "paid_by_transfer": paid_by_transfer},

@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import InventoryMovement, Product
+from app.models import Business, InventoryMovement, Product
 from app.schemas import ProductCreate, ProductUpdate
 from app.services.product_service import ProductService
 
@@ -171,3 +171,80 @@ def test_create_for_purchase_existing_sku_returns_409(db_session: Session, busin
         service.create_for_purchase(name="Otro", sku="DUP-1", purchase_cost=1.0, sale_price=None)
 
     assert exc.value.status_code == 409
+
+
+# --- Mensajes de conflicto de SKU (REQ-5) y no finitos (REQ-4) ---
+
+
+def test_create_explicit_sku_same_business_conflict_message(db_session: Session, business_id: int) -> None:
+    service = ProductService(db_session, business_id=business_id)
+    service.create(_payload(sku="DUP-2", name="Uno"))
+
+    with pytest.raises(HTTPException) as exc:
+        service.create(_payload(sku="DUP-2", name="Dos"))
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "El SKU 'DUP-2' ya existe"
+
+
+def test_sku_in_other_business_conflict_message(db_session: Session, business_id: int) -> None:
+    other = Business(code="otro", name="Otro negocio")
+    db_session.add(other)
+    db_session.commit()
+    ProductService(db_session, business_id=other.id).create(_payload(sku="AJENO-1", name="Ajeno"))
+    service = ProductService(db_session, business_id=business_id)
+
+    with pytest.raises(HTTPException) as exc:
+        service.create_for_purchase(name="Mío", sku="AJENO-1", purchase_cost=1.0, sale_price=None)
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "El SKU 'AJENO-1' ya está en uso en otro negocio"
+
+
+def test_update_sku_conflict_message(db_session: Session, business_id: int) -> None:
+    service = ProductService(db_session, business_id=business_id)
+    service.create(_payload(sku="UPD-A", name="A"))
+    service.create(_payload(sku="UPD-B", name="B"))
+
+    with pytest.raises(HTTPException) as exc:
+        service.update("UPD-A", ProductUpdate(sku="UPD-B", name="A"))
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "El SKU 'UPD-B' ya existe"
+
+
+def test_update_integrity_error_without_sku_change_is_not_blamed_on_sku(
+    db_session: Session, business_id: int, monkeypatch
+) -> None:
+    """H-210: sin cambio de SKU, un IntegrityError no puede ser un SKU duplicado."""
+    from sqlalchemy.exc import IntegrityError
+
+    service = ProductService(db_session, business_id=business_id)
+    service.create(_payload(sku="UPD-C", name="C"))
+
+    def _fail_commit() -> None:
+        raise IntegrityError("UPDATE products", {}, Exception("otra restricción"))
+
+    monkeypatch.setattr(db_session, "commit", _fail_commit)
+    with pytest.raises(HTTPException) as exc:
+        service.update("UPD-C", ProductUpdate(sku="", name="C2"))
+
+    assert exc.value.status_code == 409
+    assert "SKU" not in exc.value.detail
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"min_stock": float("nan")}, {"default_purchase_cost": float("inf")}, {"default_sale_price": float("nan")}],
+)
+def test_create_and_update_reject_non_finite(db_session: Session, business_id: int, overrides) -> None:
+    service = ProductService(db_session, business_id=business_id)
+    with pytest.raises(HTTPException) as exc:
+        service.create(_payload(name="NoFinito", **overrides))
+    assert exc.value.status_code == 422
+    assert "must be a finite number" in str(exc.value.detail)
+
+    service.create(_payload(sku="FIN-1", name="Finito"))
+    with pytest.raises(HTTPException) as exc2:
+        service.update("FIN-1", ProductUpdate(name="Finito", **overrides))
+    assert exc2.value.status_code == 422

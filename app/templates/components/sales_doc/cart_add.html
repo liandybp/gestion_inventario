@@ -5,7 +5,7 @@
   <form id="sales-doc-cart-add-form" hx-post="/ui/sales-doc/cart/add" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false">
     <div class="row">
       <label>Producto</label>
-      <input name="product" list="product-options" placeholder="SKU - Nombre (o texto libre)" required
+      <input name="product" list="product-options" data-product-suggest="label" placeholder="SKU - Nombre (o texto libre)" required
              hx-get="/ui/sales-doc/product-defaults" hx-trigger="change" hx-target="#sales-doc-defaults" hx-swap="innerHTML" />
     </div>
     <div class="row">

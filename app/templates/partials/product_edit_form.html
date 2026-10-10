@@ -6,8 +6,12 @@
         <button type="button" class="modal-close" data-modal-close="product-edit-modal">&times;</button>
       </div>
 
+      {% if form_error %}
+        <div class="error" style="padding:10px;border-radius:8px;margin-bottom:10px;"><strong>Error al actualizar producto</strong><div>{{ form_error }}</div></div>
+      {% endif %}
+
       <form hx-post="/ui/product/{{ product.sku }}/update" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
-        <div class="row"><label>SKU</label><input name="new_sku" value="{{ product.sku }}" /></div>
+        <div class="row"><label>SKU</label><input name="new_sku" value="{{ new_sku_value if new_sku_value is defined else product.sku }}" /></div>
         <div class="row"><label>Nombre</label><input name="name" value="{{ product.name }}" required /></div>
         <div class="row"><label>Unidad</label><input name="unit_of_measure" value="{{ product.unit_of_measure or '' }}" /></div>
         <div class="row">

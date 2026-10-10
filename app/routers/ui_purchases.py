@@ -29,7 +29,7 @@ from .ui_common import (
     extract_sku,
     month_range,
     parse_dt,
-    parse_optional_float,
+    parse_typed_float,
     templates,
 )
 from app.logger import get_logger
@@ -52,6 +52,19 @@ def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optio
     currency_code = str(getattr(cfg.currency, "code", "") or "").strip().upper() or "EUR"
     currency_symbol = str(getattr(cfg.currency, "symbol", "") or "").strip() or "€"
     return vat_rate, fx_rate, currency_code, currency_symbol
+
+
+def _product_panel_refresh(product_service: ProductService) -> dict:
+    """Contexto para refrescar #product-panel (historial + datalist inicial) vía hx-swap-oob.
+
+    El datalist inicial trae los 200 primeros productos; el recién creado se encuentra al
+    teclear gracias a las sugerencias dinámicas (GET /ui/product-suggest).
+    """
+    return {
+        "refresh_product_panel": True,
+        "products": product_service.recent(limit=20),
+        "product_options": product_service.search(query="", limit=200),
+    }
 
 
 @router.post("/purchase/from-invoice", response_class=HTMLResponse)
@@ -309,18 +322,8 @@ def purchase_from_invoice(
         message_class = "ok" if not errors else "warn"
         status = 200
 
-    # Productos nuevos: refrescar #product-panel (datalist + historial) vía hx-swap-oob.
-    invoice_refresh: dict = {}
-    if created_products:
-        new_skus = {p["sku"] for p in created_products}
-        options = product_service.search(query="", limit=200)
-        seen = {p.sku for p in options}
-        options += [p for p in product_service.recent(limit=len(new_skus) + 20) if p.sku in new_skus - seen]
-        invoice_refresh = {
-            "refresh_product_panel": True,
-            "product_options": options,
-            "products": product_service.recent(limit=20),
-        }
+    # Productos nuevos: refrescar #product-panel vía hx-swap-oob.
+    invoice_refresh = _product_panel_refresh(product_service) if created_products else {}
 
     return templates.TemplateResponse(
         request=request,
@@ -363,8 +366,6 @@ def purchase(
     product_service = ProductService(db, business_id=bid)
 
     sku = extract_sku(product)
-    parsed_cost = parse_optional_float(unit_cost)
-    parsed_sale_price = parse_optional_float(sale_price)
     try:
         # PurchaseCreate valida quantity con un validador Pydantic (ValidationError, no
         # HTTPException) y parse_dt lanza ValueError: sin estas comprobaciones, cantidad 0
@@ -375,6 +376,9 @@ def purchase(
             movement_dt = parse_dt(movement_date)
         except ValueError as e:
             raise HTTPException(status_code=422, detail="Fecha inválida") from e
+        # Un valor tecleado que no se puede usar (texto, nan, inf) es un error, no un campo vacío.
+        parsed_cost = parse_typed_float(unit_cost, "El costo unitario debe ser un número mayor o igual que 0")
+        parsed_sale_price = parse_typed_float(sale_price, "El precio de venta debe ser un número mayor o igual que 0")
 
         user = get_current_user_from_session(db, request)
         existing_product = PurchaseRepository(db, bid).get_product_by_sku(sku) if sku else None
@@ -436,16 +440,7 @@ def purchase(
             message_detail = (
                 f"Producto creado: {created_product.sku} - {created_product.name}. " + message_detail
             )
-            # Refresca #product-panel (datalist de "Artículo" + historial) vía hx-swap-oob.
-            # search("") devuelve los 200 primeros por id: se garantiza el recién creado.
-            options = product_service.search(query="", limit=200)
-            if all(p.id != created_product.id for p in options):
-                options.append(created_product)
-            context = {
-                "refresh_product_panel": True,
-                "product_options": options,
-                "products": product_service.recent(limit=20),
-            }
+            context = _product_panel_refresh(product_service)
         elif (sale_price or "").strip():
             message_detail += ". Precio de venta ignorado: el producto ya existía (edítalo en Historial de productos)"
 
@@ -539,7 +534,6 @@ def purchase_edit_form(
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     product = repo.get_product(mv.product_id)
     lot = repo.get_lot_by_movement(mv.id)
-    product_service = ProductService(db, business_id=bid)
     _, _, currency_code, _ = _purchase_config_values(db, request)
     return templates.TemplateResponse(
         request=request,
@@ -549,7 +543,6 @@ def purchase_edit_form(
             "product_label": f"{product.sku} - {product.name}" if product else "",
             "movement_date_value": dt_to_local_input(mv.movement_date),
             "lot_code": lot.lot_code if lot else "",
-            "product_options": product_service.search(query="", limit=200),
             "purchase_currency_code": currency_code,
         },
     )
@@ -572,7 +565,6 @@ def purchase_update(
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
     ensure_admin_or_owner(db, request)
     sku = extract_sku(product)
     try:
@@ -606,7 +598,6 @@ def purchase_update(
                 "message_detail": f"Stock después: {result.stock_after}",
                 "message_class": "ok" if not result.warning else "warn",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -623,7 +614,6 @@ def purchase_update(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -643,7 +633,6 @@ def purchase_delete(
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
     try:
         ensure_admin_or_owner(db, request)
         service.delete_purchase_movement(movement_id)
@@ -667,7 +656,6 @@ def purchase_delete(
                 "message": "Compra eliminada",
                 "message_class": "ok",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -684,7 +672,6 @@ def purchase_delete(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -703,7 +690,6 @@ def purchase_delete(
                 "message_detail": str(e),
                 "message_class": "error",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -723,7 +709,6 @@ def purchase_delete_selected(
     bid = require_active_business_id(db, request)
     _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
     service = InventoryService(db, business_id=bid)
-    product_service = ProductService(db, business_id=bid)
     user = get_current_user_from_session(db, request)
 
     try:
@@ -785,7 +770,6 @@ def purchase_delete_selected(
                     "message_detail": detail,
                     "message_class": "warn",
                     "purchases": service.recent_purchases(limit=20),
-                    "product_options": product_service.search(query="", limit=200),
                     "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                     "purchase_currency_code": currency_code,
                     "purchase_currency_symbol": currency_symbol,
@@ -829,7 +813,6 @@ def purchase_delete_selected(
                 "message_detail": detail,
                 "message_class": "ok" if deleted > 0 and not errors else ("warn" if deleted > 0 else "error"),
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,
@@ -846,7 +829,6 @@ def purchase_delete_selected(
                 "message_detail": str(e.detail),
                 "message_class": "error",
                 "purchases": service.recent_purchases(limit=20),
-                "product_options": product_service.search(query="", limit=200),
                 "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
                 "purchase_currency_code": currency_code,
                 "purchase_currency_symbol": currency_symbol,

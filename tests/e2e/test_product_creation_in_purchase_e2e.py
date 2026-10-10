@@ -141,8 +141,8 @@ def test_purchase_error_keeps_typed_values(live_server: str, page: Page) -> None
     expect(page.locator(f'{FORM} input[name="note"]')).to_have_value("nota e2e")
 
 
-def test_product_edit_modal_closes_and_shows_error(live_server: str, page: Page) -> None:
-    """El error 4xx se pinta en #product-panel (detrás del modal): el modal debe cerrarse."""
+def test_product_edit_modal_keeps_values_and_shows_error(live_server: str, page: Page) -> None:
+    """REQ-3: el error de 'Guardar cambios' se ve dentro del modal y no se pierde lo tecleado."""
     _login(page, live_server)
     page.click("#tab-purchases")
     _history_row(page, "E2E-SKU1").locator('button:has-text("Edit")').click()
@@ -150,10 +150,13 @@ def test_product_edit_modal_closes_and_shows_error(live_server: str, page: Page)
     expect(modal).to_be_visible()
 
     modal.locator('input[name="new_sku"]').fill("E2E-SKU2")
+    modal.locator('input[name="name"]').fill("Nombre nuevo E2E")
     modal.locator('button[type="submit"]').click()
 
-    expect(page.locator("#product-panel").locator("text=Error al actualizar producto").first).to_be_visible()
-    expect(page.locator("#product-edit-modal")).to_have_count(0)
+    modal = page.locator("#product-edit-modal")
+    expect(modal.get_by_text("El SKU 'E2E-SKU2' ya existe")).to_be_visible()
+    expect(modal.locator('input[name="name"]')).to_have_value("Nombre nuevo E2E")
+    expect(modal.locator('input[name="new_sku"]')).to_have_value("E2E-SKU2")
 
 
 @pytest.mark.parametrize(
