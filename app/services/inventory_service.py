@@ -1415,7 +1415,8 @@ class InventoryService:
 
     def purchase(self, payload: PurchaseCreate) -> MovementResult:
         self._invalidate_metrics_cache()
-        if payload.quantity <= 0:
+        # math.isfinite: Pydantic acepta "nan"/"inf" como float y `nan <= 0` es False.
+        if not math.isfinite(payload.quantity) or payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
         product = self._get_product(payload.sku)
@@ -1424,7 +1425,7 @@ class InventoryService:
             unit_cost = product.default_purchase_cost
         if unit_cost is None:
             raise HTTPException(status_code=422, detail="unit_cost is required")
-        if unit_cost < 0:
+        if not math.isfinite(unit_cost) or unit_cost < 0:
             raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
 
         movement_dt = self._movement_datetime(payload.movement_date)

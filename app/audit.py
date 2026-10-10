@@ -18,6 +18,8 @@ def log_event(
     entity_type: str,
     entity_id: Optional[str] = None,
     detail: Optional[dict[str, Any]] = None,
+    *,
+    isolated: bool = False,
 ) -> None:
     """Registra un evento de auditoría en la MISMA transacción del caller.
 
@@ -25,6 +27,11 @@ def log_event(
     haga el caller. En ventas/traspasos se llama ANTES de la operación que
     commitea (atómico). En el resto es best-effort: el caller debe commitear
     tras llamarlo (o aceptar la pérdida si no lo hace).
+
+    `isolated=True`: el flush va dentro de un SAVEPOINT. Si falla, solo se descarta
+    el evento; la transacción del caller (p. ej. un producto ya flusheado) sigue
+    intacta. Sin él, el fallo hace rollback de TODO lo pendiente. Requiere que la
+    transacción ya esté iniciada (con SQLite/pysqlite el SAVEPOINT necesita un DML previo).
     """
     row = AuditLog(
         user_id=user.id if user is not None else None,
@@ -34,6 +41,14 @@ def log_event(
         entity_id=entity_id,
         detail=json.dumps(detail or {}, ensure_ascii=False) if detail is not None else None,
     )
+    if isolated:
+        try:
+            with db.begin_nested():
+                db.add(row)
+        except Exception:
+            _log.exception("Failed to persist audit event (isolated): action=%s entity=%s", action, entity_type)
+        return
+
     db.add(row)
     try:
         db.flush()

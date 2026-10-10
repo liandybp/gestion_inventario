@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -7,8 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, InventoryMovement, Product
 from app.repositories.product_repository import ProductRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import ProductCreate, ProductUpdate
 from app.services.sku_range import SKURangeExhausted, next_sku_in_range
+from app.logger import get_logger
+
+_log = get_logger(__name__)
 
 
 class ProductService:
@@ -24,8 +30,8 @@ class ProductService:
         return self._db
 
     def _generate_sku(self, prefix: str = "SKU", width: int = 6) -> str:
-        rows = self._db.execute(select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))).all()
-        existing = [str(sku or "") for (sku,) in rows]
+        # Numeración global: products.sku es unique=True global (ver PurchaseRepository.list_sku_prefixes).
+        existing = PurchaseRepository(self._db, self._business_id).list_sku_prefixes(prefix)
         return next_sku_in_range(existing, self._business_id, prefix=prefix, width=width)
 
     def create(self, payload: ProductCreate) -> Product:
@@ -93,6 +99,66 @@ class ProductService:
                     break
 
         raise HTTPException(status_code=409, detail="SKU already exists") from last_error
+
+    def create_for_purchase(
+        self,
+        *,
+        name: str,
+        sku: str | None,
+        purchase_cost: float | None,
+        sale_price: float | None,
+        category: str | None = None,
+    ) -> Product:
+        """Crea el producto nuevo de una compra manual sin confirmar la transacción.
+
+        Hace flush, no commit: el llamador confirma producto y compra en un único commit
+        (o hace rollback si la compra falla). Debe llamarse antes de cualquier otra
+        escritura pendiente en la sesión, porque una colisión de SKU hace rollback.
+        """
+        sku_raw = (sku or "").strip()
+        clean_name = (name or "").strip() or sku_raw
+        if not clean_name:
+            raise HTTPException(
+                status_code=422, detail="Debes ingresar 'Artículo' (SKU) o 'Nombre (si es nuevo)'"
+            )
+        if purchase_cost is None:
+            raise HTTPException(status_code=422, detail="Para un producto nuevo indica el costo unitario")
+        if not math.isfinite(purchase_cost) or purchase_cost < 0:
+            raise HTTPException(status_code=422, detail="El costo unitario debe ser un número mayor o igual que 0")
+        if sale_price is not None and (not math.isfinite(sale_price) or sale_price < 0):
+            raise HTTPException(status_code=422, detail="El precio de venta debe ser un número mayor o igual que 0")
+
+        auto_sku = not sku_raw
+        last_error: Exception | None = None
+        for _ in range(5 if auto_sku else 1):
+            try:
+                candidate = sku_raw or self._generate_sku()
+            except SKURangeExhausted as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
+            product = Product(
+                business_id=self._business_id,
+                sku=candidate,
+                name=clean_name,
+                category=(category or "").strip() or None,
+                min_stock=0,
+                unit_of_measure=None,
+                default_purchase_cost=purchase_cost,
+                default_sale_price=sale_price if sale_price is not None else 0,
+                lead_time_days=0,
+                image_url=None,
+            )
+            self._products.add(product)
+            try:
+                self._db.flush()
+                return product
+            except IntegrityError as e:
+                self._db.rollback()
+                last_error = e
+                _log.warning("SKU collision creating product from purchase: %r", candidate)
+
+        _log.error("Could not create product from purchase (sku=%r, auto=%s)", sku_raw, auto_sku)
+        detail = "No se pudo generar un SKU automáticamente" if auto_sku else f"El SKU '{sku_raw}' ya existe"
+        raise HTTPException(status_code=409, detail=detail) from last_error
 
     def get_by_sku(self, sku: str) -> Product:
         product = self._products.get_by_sku(sku)

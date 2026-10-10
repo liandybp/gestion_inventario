@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.10` (ver `VERSION`) — desplegada en dev y prod
+- **Versión actual:** `0.4.11` (ver `VERSION`) — **sin commitear ni desplegar** (2026-10-10); `0.4.10` es la desplegada en dev y prod
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (222 unit + 20 e2e Playwright) |
+| Testing | pytest (323 unit + 39 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -138,6 +138,22 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Quitar "Crear producto manualmente" de la pestaña Compras (v0.4.11, 2026-10-10)** — PAE vía SDD-Agent
+      (`specs/remove-duplicate-product-creation/`) implementado por `cc_local` (Claude Code + Qwen3.6 local,
+      piloto, un envelope por sesión). Se elimina el form y la ruta `POST /ui/product`; "Registrar compra" gana
+      "Precio de venta (si es nuevo)". `/code-review` + `auditoria-ingenieria` (3.70 🟡,
+      `docs/auditorias/2026-10-10-remove-duplicate-product-creation.md`) → corregidos todos los hallazgos:
+      creación unificada en `ProductService.create_for_purchase` (flush, sin commit), producto y compra en un
+      solo commit (antes una compra rechazada dejaba producto huérfano), `product_create` en ambas ramas,
+      `#product-panel` refrescado por `hx-swap-oob`, `nan`/`inf` rechazados; la importación de facturas usa
+      el mismo servicio con transacción por línea. Segunda ronda de `/code-review` (10 hallazgos) también
+      corregida. Tercera ronda + re-auditoría (`...-reaudit.md`, 3.35 🟡 → **3.95 🟡** tras corregir
+      H-101 cantidad 0 = 500 silencioso, regresión propia; H-102 "Importar productos desde factura" creaba
+      productos sin `business_id`; H-103 `log_event(isolated=True)` con SAVEPOINT). Resto (H-104..H-109) para
+      un PAE aparte. Pendiente de decisión: H-012 (los datalist de toda la app solo
+      muestran los 200 productos más antiguos). **Bug previo descubierto por el
+      e2e**: htmx no hace swap de respuestas >= 400, así que ningún panel de error 409/422 se mostraba
+      (compras, ventas, gastos, extracciones) — handler global `htmx:beforeSwap` en `app.js` (cualquier 4xx HTML; cierra modales). 323 unit + 39 e2e.
 - [x] CRUD completo: productos, clientes, ventas, compras, documentos
 - [x] Multi-negocio + multi-ubicación
 - [x] **Gestión de negocios desde frontend** (tab Negocios, admin-only, auto-crea ubicación CENTRAL)

@@ -207,3 +207,21 @@ def test_recent_sales_filters_by_payment_method(db_session: Session, business_id
     assert len(cash) == 1
     assert len(all_sales) == 2
 
+
+
+@pytest.mark.parametrize(
+    ("quantity", "unit_cost"),
+    [(float("nan"), 1.0), (float("inf"), 1.0), (1.0, float("nan")), (1.0, float("inf"))],
+)
+def test_purchase_rejects_non_finite_quantity_or_cost(
+    db_session: Session, business_id: int, quantity: float, unit_cost: float
+) -> None:
+    """Pydantic acepta "nan"/"inf" y `nan <= 0` es False: sin isfinite se guardaba stock NaN."""
+    _create_locations(db_session, business_id)
+    _create_product(db_session, business_id)
+    service = InventoryService(db_session, business_id=business_id)
+
+    with pytest.raises(HTTPException) as exc:
+        service.purchase(PurchaseCreate(sku="SKU-TST", quantity=quantity, unit_cost=unit_cost))
+
+    assert exc.value.status_code == 422

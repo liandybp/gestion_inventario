@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
-from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
+from app.repositories.purchase_repository import PurchaseRepository
+from app.schemas import AdjustmentCreate, ProductUpdate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
@@ -32,76 +33,6 @@ from app.logger import get_logger
 _log = get_logger(__name__)
 
 router = APIRouter()
-
-
-@router.post("/product", response_class=HTMLResponse)
-def create_product(
-    request: Request,
-    sku: str = Form(""),
-    name: str = Form(...),
-    unit_of_measure: str = Form(""),
-    image_file: Optional[UploadFile] = File(None),
-    category: Optional[str] = Form(None),
-    min_stock: float = Form(0),
-    default_purchase_cost: float = Form(...),
-    default_sale_price: float = Form(...),
-    db: Session = Depends(session_dep),
-) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    product_service = ProductService(db, business_id=bid)
-    try:
-        ensure_admin_or_owner(db, request)
-        image_url = save_product_image(image_file) if image_file is not None else None
-        created = product_service.create(
-            ProductCreate(
-                sku=sku or None,
-                name=name,
-                category=category or None,
-                min_stock=min_stock,
-                unit_of_measure=unit_of_measure or None,
-                default_purchase_cost=default_purchase_cost,
-                default_sale_price=default_sale_price,
-                image_url=image_url,
-            )
-        )
-
-        user = get_current_user_from_session(db, request)
-        if user is not None:
-            log_event(
-                db,
-                user,
-                action="product_create",
-                entity_type="product",
-                entity_id=created.sku,
-                detail={"name": created.name},
-            )
-            db.commit()
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/product_panel.html",
-            context={
-                "message": "Producto creado",
-                "message_detail": f"SKU: {created.sku}",
-                "message_class": "ok",
-                "products": product_service.recent(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "edit_product": None,
-            },
-        )
-    except HTTPException as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/product_panel.html",
-            context={
-                "message": "Error al crear producto",
-                "message_detail": str(e.detail),
-                "message_class": "error",
-                "products": product_service.recent(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "edit_product": None,
-            },
-            status_code=e.status_code,
-        )
 
 
 @router.post("/product/{sku:path}/delete", response_class=HTMLResponse)
@@ -495,6 +426,7 @@ def product_from_invoice(
     user = get_current_user_from_session(db, request)
 
     created_products: list[dict[str, str]] = []
+    created_objs: list[Product] = []
     skipped_products: list[str] = []
     errors: list[str] = []
 
@@ -516,28 +448,21 @@ def product_from_invoice(
             continue
 
         try:
-            # Check if product already exists
-            existing_product = db.scalar(select(Product).where(Product.sku == sku))
-            if existing_product is not None:
+            # Existencia en el negocio activo (antes se buscaba en TODOS los negocios).
+            if PurchaseRepository(db, bid).get_product_by_sku(sku) is not None:
                 skipped_products.append(f"{sku} - {name}")
                 continue
 
-            # Create new product
-            product = Product(
-                sku=sku,
+            # Antes: Product(...) sin business_id → producto sin negocio, invisible en
+            # historial y sugerencias y con el SKU (único global) bloqueado para todos.
+            product = product_service.create_for_purchase(
                 name=name,
-                category=None,
-                min_stock=0,
-                unit_of_measure="u",  # Default unit
-                default_purchase_cost=unit_cost_with_vat,
-                default_sale_price=None,  # Leave empty for user to fill
-                lead_time_days=0,
-                image_url=None,
+                sku=sku,
+                purchase_cost=unit_cost_with_vat,
+                sale_price=None,
             )
-            db.add(product)
-            db.commit()
-            db.refresh(product)
-            created_products.append({"sku": product.sku, "name": product.name})
+            product.unit_of_measure = "u"
+            product.default_sale_price = None  # lo completa el usuario (aviso en el panel)
 
             if user is not None:
                 log_event(
@@ -551,13 +476,20 @@ def product_from_invoice(
                         "source": "invoice_pdf",
                         "invoice_number": parsed.invoice_number,
                     },
+                    isolated=True,
                 )
-                db.commit()
+            # Commit por línea; si falla, el rollback del except deja la sesión usable.
+            db.commit()
+            created_objs.append(product)
+            created_products.append({"sku": product.sku, "name": product.name})
 
+        except HTTPException as e:
+            db.rollback()
+            errors.append(f"{sku}: {e.detail}")
         except Exception as e:
+            db.rollback()
             _log.exception("product_create desde invoice fallback %s: %s", sku, e)
             errors.append(f"{sku}: {str(e)}")
-            continue
 
     # Build message
     message_parts = []
@@ -581,6 +513,7 @@ def product_from_invoice(
         detail_parts.append("Errores: " + "; ".join(errors[:3]) + (f" (+{len(errors)-3} más)" if len(errors) > 3 else ""))
 
     message_detail = " | ".join(detail_parts) if detail_parts else None
+    options = product_service.search(query="", limit=200)
 
     return templates.TemplateResponse(
         request=request,
@@ -590,7 +523,8 @@ def product_from_invoice(
             "message_detail": message_detail,
             "message_class": message_class,
             "products": product_service.recent(limit=20),
-            "product_options": product_service.search(query="", limit=200),
+            # search("") devuelve los 200 primeros por id: se garantizan los recién creados.
+            "product_options": options + [p for p in created_objs if p.id not in {o.id for o in options}],
             "invoice_created_products": created_products,
         },
     )
