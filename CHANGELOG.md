@@ -2,6 +2,27 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.12 (2026-10-10)
+
+- feat(ui): sugerencias dinámicas de productos al teclear (`GET /ui/product-suggest`, mínimo
+  2 caracteres, 30 resultados, solo del negocio activo) en Compras, Documentos, edición de
+  compras, Beneficios y Devoluciones: antes solo se sugerían los 200 productos más antiguos.
+  Ventas y Traspasos mantienen su lista propia, filtrada por stock en la ubicación. Elegir
+  una sugerencia ya no vacía la lista y, al vaciar el campo, vuelve la lista inicial.
+- fix(products): el error al guardar en el modal de edición de producto se muestra dentro del
+  modal y conserva lo tecleado (antes se cerraba y se perdía). Si falla, la imagen recién
+  subida se borra.
+- fix: un precio o costo tecleado que no es un número (`nan`, `inf`, texto) da 422 en compras,
+  ventas y edición de producto, en vez de usar el valor por defecto sin avisar. `nan`/`inf`
+  también se rechazan en `ProductService.create/update`, `InventoryService.sale` y en las
+  ediciones de compra y venta y la devolución a proveedor.
+- fix(products): mensaje claro cuando el SKU está en uso en otro negocio (el SKU es único
+  global); un conflicto al editar sin cambiar el SKU ya no se atribuye al SKU.
+- refactor(products): un único bucle de asignación de SKU (`_insert_with_sku_retry`);
+  `list_sku_prefixes` pasa a `ProductRepository`; las respuestas de compras dejan de cargar
+  la lista de productos que no usan; la búsqueda filtra sobre (id, sku, nombre) y solo carga
+  los productos que coinciden.
+
 ## 0.4.11 (2026-10-10)
 
 - feat(purchases): una sola vía de creación de producto en la pestaña Compras. Se
