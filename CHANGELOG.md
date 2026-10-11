@@ -2,6 +2,17 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.14 (2026-10-11)
+
+- fix(coach): las extracciones a la etiqueta del negocio ("Negocio", configurable) ya no cuentan
+  como retiros ni restan de la caja disponible: no salen de la caja, solo marcan el coste y los
+  gastos recuperados para volver a comprar (misma lógica que el informe de dividendos).
+- fix(coach): la alerta "drena caja" (`partner_overdrawn`, antes `extraction_ratio_high`) solo salta
+  cuando un socio ha retirado más que su parte acumulada de la utilidad (pendiente negativo en
+  dividendos), con el socio y el importe. Antes comparaba lo retirado en el mes con la utilidad del
+  mes y avisaba cuando un socio cobraba lo acumulado de meses anteriores. El score resta 1 punto por
+  socio en negativo (máx. 2) en vez de penalizar el porcentaje mensual, que queda como dato informativo.
+
 ## 0.4.13 (2026-10-11)
 
 - feat(ui): la pestaña Compras deja de mostrar la sección "Producto" ("Importar productos desde
