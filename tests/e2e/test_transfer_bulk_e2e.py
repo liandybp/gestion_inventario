@@ -80,6 +80,7 @@ def test_bulk_modal_uses_selected_locations(live_server: str, page: Page) -> Non
     page.fill('input[name="password"]', "admin")
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
     page.click("#tab-transfers")
     expect(page.locator("button[hx-get='/ui/transfers/bulk']")).to_be_visible()
 
@@ -102,6 +103,7 @@ def test_transfer_locations_have_no_duplicates(live_server: str, page: Page) -> 
     page.fill('input[name="password"]', "admin")
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
+    page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
 
     page.click("#tab-transfers")
     expect(page.locator("#transfer-form")).to_be_visible()
