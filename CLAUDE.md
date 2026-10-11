@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.12` (ver `VERSION`) — pusheada a `develop` y desplegada en dev el 2026-10-10 junto con `0.4.11` (pruebas manuales pendientes); `0.4.10` es la desplegada en dev y prod
+- **Versión actual:** `0.4.13` (ver `VERSION`) — 0.4.11, 0.4.12 y 0.4.13 pasadas a `main` (producción) el 2026-10-11 tras prueba manual en dev
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (377 unit + 44 e2e Playwright) |
+| Testing | pytest (377 unit + 43 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -138,6 +138,13 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Compras sin la sección "Producto" (v0.4.13, 2026-10-11)** — a pedido del usuario, solo visual: fuera
+      "Importar productos desde factura", el historial de productos y sus acciones (editar/borrar). Se mantiene
+      "Importar compra desde factura". `partials/product_panel.html` queda como `#product-panel` invisible con el
+      datalist `#product-options` del campo "Artículo" (se sigue refrescando por `hx-swap-oob` al crear un producto
+      con una compra). Editar y borrar productos: pestaña Inventario. Las rutas `/ui/product/from-invoice`,
+      `/ui/product/{sku}/edit|update|delete` siguen en el backend sin enlace desde la UI. e2e: el precio de venta se
+      verifica por `GET /products`; eliminado el e2e del modal de edición (inalcanzable). 377 unit + 43 e2e.
 - [x] **Sugerencias dinámicas de productos + deuda de v0.4.11 (v0.4.12, 2026-10-10)** — PAE vía
       SDD-Agent (`specs/audit-debt-product-suggest/`, 27 envelopes, validado antes en un worktree) implementado por
       `cc_local` en 61 min: `GET /ui/product-suggest` + listener `data-product-suggest` en `app.js` (H-012),
@@ -153,8 +160,7 @@ Archivo `app/business_config.conf` (INI):
       inválido → 422) en compras/ventas/edición de producto, `isfinite` en ediciones y devoluciones, búsqueda
       sobre columnas, sin imágenes huérfanas. Re-auditoría **4.15 🟡** sin hallazgos abiertos del diff
       (lo que falta para 🟢 es previo: CSP `unsafe-inline`, búsqueda O(N) en Python). 377 unit + 44 e2e
-      (e2e validados por mutación). **Pendiente:** push a `develop` y prueba manual en dev (Ventas con un POS
-      sin stock de un producto; Compras con un producto posterior al 200).
+      (e2e validados por mutación). Probada a mano en dev y pasada a `main` el 2026-10-11.
 - [x] **Quitar "Crear producto manualmente" de la pestaña Compras (v0.4.11, 2026-10-10)** — PAE vía SDD-Agent
       (`specs/remove-duplicate-product-creation/`) implementado por `cc_local` (Claude Code + Qwen3.6 local,
       piloto, un envelope por sesión). Se elimina el form y la ruta `POST /ui/product`; "Registrar compra" gana
@@ -326,6 +332,10 @@ Archivo `app/business_config.conf` (INI):
 
 ## Sesiones
 
+- **2026-10-11 (sesión 18)** — Prueba manual de 0.4.12 en dev (sugerencias dinámicas en Compras: 138 → 8
+  opciones al teclear "amo", autocompleta el costo; una búsqueda sin resultados era de otro negocio, no un bug).
+  `develop` → `main` (0.4.11 + 0.4.12). Después, v0.4.13: quitar la sección "Producto" de Compras (ver Estado
+  actual), `develop` → dev → `main` → prod.
 - **2026-10-10 (sesión 17)** — **Piloto de `cc_local` (Claude Code + Qwen3.6 local) como ejecutor de PAEs.**
   (1) v0.4.11: quitar "Crear producto manualmente" de Compras; tres rondas de review + re-auditoría (3.95 🟡);
   commiteado (`9b4b430`, `6fce595`), sin push. (2) v0.4.12: PAE de los pendientes (H-012 con búsqueda

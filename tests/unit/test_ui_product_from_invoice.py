@@ -73,7 +73,5 @@ def test_product_from_invoice_uses_active_business_and_isolates_failed_lines(
     # La línea que choca con otro negocio falla sin envenenar la sesión para las siguientes.
     assert db_session.query(Product).filter(Product.sku == "INV-OTRO").count() == 1
     assert db_session.query(Product).filter(Product.business_id.is_(None)).count() == 0
-    body = response.body.decode("utf-8")
-    assert "1 productos creados" in body
-    assert "1 productos ya existían" in body
-    assert "INV-OTRO" in body  # reportado como error
+    # El panel de Compras ya no muestra mensajes de esta importación: solo el datalist refrescado.
+    assert "INV-NUEVO - Producto nuevo" in response.body.decode("utf-8")

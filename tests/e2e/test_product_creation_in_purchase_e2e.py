@@ -29,16 +29,21 @@ def _submit_purchase(page: Page, **fields: str) -> None:
     page.click(f'{FORM} button[type="submit"]')
 
 
-def _history_row(page: Page, text: str):
-    return page.locator("#product-panel tr", has_text=text)
+def _product(page: Page, base_url: str, key: str) -> dict | None:
+    """Producto del negocio activo por SKU o nombre (vía API: Compras ya no muestra el historial de productos)."""
+    resp = page.request.get(f"{base_url}/products")
+    assert resp.ok
+    return next((p for p in resp.json() if key in (p["sku"], p["name"])), None)
 
 
-def test_purchases_tab_has_no_manual_product_form(live_server: str, page: Page) -> None:
+def test_purchases_tab_has_no_product_section(live_server: str, page: Page) -> None:
     _login(page, live_server)
     page.click("#tab-purchases")
-    expect(page.locator("#product-panel")).to_be_visible()
+    expect(page.locator(FORM)).to_be_visible()
     expect(page.locator('form[hx-post="/ui/product"]')).to_have_count(0)
-    expect(page.locator('form[hx-post="/ui/product/from-invoice"]')).to_have_count(1)
+    expect(page.locator('form[hx-post="/ui/product/from-invoice"]')).to_have_count(0)
+    expect(page.locator('form[hx-post="/ui/purchase/from-invoice"]')).to_have_count(1)
+    expect(page.locator("text=Historial de productos")).to_have_count(0)
     expect(page.locator("datalist#product-options")).to_have_count(1)
 
 
@@ -53,7 +58,7 @@ def test_post_ui_product_route_removed(live_server: str, page: Page) -> None:
 
 
 def test_purchase_new_product_with_sale_price_refreshes_product_panel(live_server: str, page: Page) -> None:
-    """REQ-3 + H-008: precio guardado y #product-panel (datalist + historial) refrescado sin cambiar de pestaña."""
+    """REQ-3 + H-008: precio guardado y datalist #product-options refrescado sin cambiar de pestaña."""
     _login(page, live_server)
     page.click("#tab-purchases")
     _submit_purchase(page, product_name="Producto Precio E2E", sale_price="7.50", quantity="1", unit_cost="3.00")
@@ -61,7 +66,7 @@ def test_purchase_new_product_with_sale_price_refreshes_product_panel(live_serve
 
     expect(page.locator('datalist#product-options option[value*="Producto Precio E2E"]')).to_have_count(1)
     expect(page.locator("datalist#product-options")).to_have_count(1)
-    expect(_history_row(page, "Producto Precio E2E")).to_contain_text("7.50")
+    assert _product(page, live_server, "Producto Precio E2E")["default_sale_price"] == 7.5
 
 
 def test_purchase_new_product_without_sale_price_defaults_to_zero(live_server: str, page: Page) -> None:
@@ -69,7 +74,7 @@ def test_purchase_new_product_without_sale_price_defaults_to_zero(live_server: s
     page.click("#tab-purchases")
     _submit_purchase(page, product_name="Producto Sin Precio E2E", quantity="1", unit_cost="2.00")
     expect(page.locator("#purchase-panel").locator("text=Compra registrada").first).to_be_visible()
-    expect(_history_row(page, "Producto Sin Precio E2E")).to_contain_text("0.00")
+    assert _product(page, live_server, "Producto Sin Precio E2E")["default_sale_price"] == 0
 
 
 def test_purchase_existing_product_ignores_sale_price(live_server: str, page: Page) -> None:
@@ -79,11 +84,7 @@ def test_purchase_existing_product_ignores_sale_price(live_server: str, page: Pa
     _submit_purchase(page, product="E2E-SKU1", sale_price="9.99", quantity="1", unit_cost="1.00")
     expect(page.locator("#purchase-panel").locator("text=Precio de venta ignorado").first).to_be_visible()
 
-    page.click("#tab-inventory")
-    page.click("#tab-purchases")
-    row = _history_row(page, "E2E-SKU1")
-    expect(row).to_contain_text("2.00")
-    expect(row).not_to_contain_text("9.99")
+    assert _product(page, live_server, "E2E-SKU1")["default_sale_price"] == 2.0
 
 
 def test_failed_purchase_does_not_leave_orphan_product(live_server: str, page: Page) -> None:
@@ -94,10 +95,7 @@ def test_failed_purchase_does_not_leave_orphan_product(live_server: str, page: P
     expect(page.locator("#purchase-panel").locator("text=Error en compra").first).to_be_visible()
     expect(page.locator("#purchase-panel").locator("text=indica el costo unitario").first).to_be_visible()
 
-    page.click("#tab-inventory")
-    page.click("#tab-purchases")
-    expect(page.locator("#product-panel")).to_be_visible()
-    expect(_history_row(page, "Producto Huerfano E2E")).to_have_count(0)
+    assert _product(page, live_server, "Producto Huerfano E2E") is None
 
 
 @pytest.mark.parametrize("bad_price", ["-1", "nan", "inf"])
@@ -123,10 +121,7 @@ def test_purchase_failing_after_flush_rolls_back_new_product(live_server: str, p
     expect(page.locator("#purchase-panel").locator("text=Error en compra").first).to_be_visible()
     expect(page.locator("#purchase-panel").locator("text=Lote ya existe").first).to_be_visible()
 
-    page.click("#tab-inventory")
-    page.click("#tab-purchases")
-    expect(page.locator("#product-panel")).to_be_visible()
-    expect(_history_row(page, "Producto Lote Dup E2E")).to_have_count(0)
+    assert _product(page, live_server, "Producto Lote Dup E2E") is None
 
 
 def test_purchase_error_keeps_typed_values(live_server: str, page: Page) -> None:
@@ -139,24 +134,6 @@ def test_purchase_error_keeps_typed_values(live_server: str, page: Page) -> None
     expect(page.locator(f'{FORM} input[name="sale_price"]')).to_have_value("4.20")
     expect(page.locator(f'{FORM} input[name="quantity"]')).to_have_value("3.0")
     expect(page.locator(f'{FORM} input[name="note"]')).to_have_value("nota e2e")
-
-
-def test_product_edit_modal_keeps_values_and_shows_error(live_server: str, page: Page) -> None:
-    """REQ-3: el error de 'Guardar cambios' se ve dentro del modal y no se pierde lo tecleado."""
-    _login(page, live_server)
-    page.click("#tab-purchases")
-    _history_row(page, "E2E-SKU1").locator('button:has-text("Edit")').click()
-    modal = page.locator("#product-edit-modal")
-    expect(modal).to_be_visible()
-
-    modal.locator('input[name="new_sku"]').fill("E2E-SKU2")
-    modal.locator('input[name="name"]').fill("Nombre nuevo E2E")
-    modal.locator('button[type="submit"]').click()
-
-    modal = page.locator("#product-edit-modal")
-    expect(modal.get_by_text("El SKU 'E2E-SKU2' ya existe")).to_be_visible()
-    expect(modal.locator('input[name="name"]')).to_have_value("Nombre nuevo E2E")
-    expect(modal.locator('input[name="new_sku"]')).to_have_value("E2E-SKU2")
 
 
 @pytest.mark.parametrize(
