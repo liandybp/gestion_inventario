@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.14` (ver `VERSION`) — 0.4.11, 0.4.12 y 0.4.13 pasadas a `main` (producción) el 2026-10-11 tras prueba manual en dev; 0.4.14 (fix del coach) en `develop`
+- **Versión actual:** `0.4.14` (ver `VERSION`) — 0.4.11 a 0.4.14 desplegadas en dev y producción (`main`, `66cff9c`) el 2026-10-11
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -348,8 +348,9 @@ Archivo `app/business_config.conf` (INI):
   opciones al teclear "amo", autocompleta el costo; una búsqueda sin resultados era de otro negocio, no un bug).
   `develop` → `main` (0.4.11 + 0.4.12). Después, v0.4.13: quitar la sección "Producto" de Compras (ver Estado
   actual), `develop` → dev → `main` → prod. Fallo intermitente del CD de dev por una carrera htmx en 2 e2e de
-  Traspasos, corregido sin subir versión. v0.4.14: fix del coach (ver Estado actual); ideas de evolución del coach
-  con contexto del negocio, sin empezar.
+  Traspasos, corregido sin subir versión. v0.4.14: fix del coach (ver Estado actual), probado de punta a punta
+  sobre una copia de la BD de dev y desplegado en prod. Ideas de evolución del coach con contexto del negocio,
+  sin empezar. Detalle: `.claude/session-notes.md`.
 - **2026-10-10 (sesión 17)** — **Piloto de `cc_local` (Claude Code + Qwen3.6 local) como ejecutor de PAEs.**
   (1) v0.4.11: quitar "Crear producto manualmente" de Compras; tres rondas de review + re-auditoría (3.95 🟡);
   commiteado (`9b4b430`, `6fce595`), sin push. (2) v0.4.12: PAE de los pendientes (H-012 con búsqueda
