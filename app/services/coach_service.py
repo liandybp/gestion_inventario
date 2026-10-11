@@ -95,8 +95,9 @@ class CoachService:
             since = baseline.baseline_date
             # 4 subqueries escalares en un único SELECT -> 1 round-trip a BD en vez de 4
             # (H-003: antes eran 4 llamadas .scalar() separadas).
+            # Las ventas se guardan con cantidad negativa: abs() para que sumen a la caja.
             sales_subq = (
-                select(func.coalesce(func.sum(InventoryMovement.quantity * InventoryMovement.unit_price), 0))
+                select(func.coalesce(func.sum(func.abs(InventoryMovement.quantity) * InventoryMovement.unit_price), 0))
                 .where(and_(InventoryMovement.business_id == self._business_id,
                             InventoryMovement.type == "sale", InventoryMovement.movement_date >= since))
                 .scalar_subquery()

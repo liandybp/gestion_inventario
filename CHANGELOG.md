@@ -12,6 +12,8 @@ Este archivo se genera a partir del historial de Git (`git log`).
   dividendos), con el socio y el importe. Antes comparaba lo retirado en el mes con la utilidad del
   mes y avisaba cuando un socio cobraba lo acumulado de meses anteriores. El score resta 1 punto por
   socio en negativo (máx. 2) en vez de penalizar el porcentaje mensual, que queda como dato informativo.
+- fix(coach): la caja estimada restaba las ventas en vez de sumarlas (se guardan con cantidad
+  negativa); ahora usa `abs(quantity)` como el resto de informes.
 
 ## 0.4.13 (2026-10-11)
 

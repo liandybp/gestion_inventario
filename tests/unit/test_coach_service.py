@@ -202,6 +202,16 @@ def test_current_cash_ignores_business_extractions(db_session, seeded_business):
     assert CoachService(db_session, seeded_business.id).current_cash()["amount"] == 450.0
 
 
+def test_current_cash_adds_sales(db_session, seeded_business, sample_product):
+    """Las ventas se guardan con cantidad negativa y deben sumar a la caja; la compra resta su coste."""
+    now = datetime.now(timezone.utc)
+    db_session.add(CashBaseline(business_id=seeded_business.id, baseline_date=now - timedelta(days=1), amount=500.0))
+    _sale_with_net_six(db_session, seeded_business, sample_product, now)  # compra 10 x 1.0, venta 2 x 4.0
+    db_session.commit()
+
+    assert CoachService(db_session, seeded_business.id).current_cash()["amount"] == 500.0 + 8.0 - 10.0
+
+
 def test_operational_indicators_shape(db_session, seeded_business):
     svc = CoachService(db_session, seeded_business.id)
     financial = svc._financial_indicators()

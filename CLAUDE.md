@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (384 unit + 43 e2e Playwright) |
+| Testing | pytest (385 unit + 43 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -145,7 +145,9 @@ Archivo `app/business_config.conf` (INI):
       nueva para que los descartes de la alerta falsa no oculten la real) solo avisa si un socio tiene pendiente
       acumulado negativo en dividendos. El retiro del mes contra la utilidad del mes daba falsos positivos cuando un
       socio cobraba lo acumulado. Con datos reales de dev (may-sep, Recambios y Ropa) la alerta antigua saltaba en
-      varios meses y la nueva en ninguno. 384 unit (mutation-test de las 5 correcciones) + 43 e2e. Pendiente: la
+      varios meses y la nueva en ninguno. Probado de punta a punta sobre una copia de la BD de dev (código viejo y
+      nuevo lado a lado): esa prueba destapó que la caja estimada **restaba las ventas** (cantidad negativa en
+      `inventory_movements`), corregido con `abs()`. 385 unit (mutation-test de las 6 correcciones) + 43 e2e. Pendiente: la
       evolución del coach con contexto del negocio (perfil estructurado + motivo al descartar + chat LLM que propone
       ajustes; hoy "descartar" oculta una regla para siempre).
 - [x] **Compras sin la sección "Producto" (v0.4.13, 2026-10-11)** — a pedido del usuario, solo visual: fuera
