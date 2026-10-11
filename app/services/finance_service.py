@@ -17,6 +17,10 @@ from app.utils import month_range as utils_month_range
 from fastapi import HTTPException
 
 
+def _business_label(config) -> str:
+    return (config.dividends.business_label or "Negocio").strip() or "Negocio"
+
+
 class FinanceService:
     def __init__(self, db: Session, business_id: int):
         self._db = db
@@ -30,6 +34,10 @@ class FinanceService:
 
     def _config(self):
         return get_business_config(self._db, self._business_id)
+
+    def business_label(self) -> str:
+        """`party` de las extracciones que no salen del negocio: recuperan coste y gastos para recomprar."""
+        return _business_label(self._config())
 
 
     def create_expense(self, amount: float, concept: str, expense_date: Optional[datetime]) -> None:
@@ -242,7 +250,7 @@ class FinanceService:
             as_of_dt = now_dt
 
         config = self._config()
-        business_label = (config.dividends.business_label or "Negocio").strip() or "Negocio"
+        business_label = _business_label(config)
         partners = [p.strip() for p in (config.dividends.partners or []) if (p or "").strip()]
 
         opening_as_of_raw = str(getattr(config.dividends, "opening_pending_as_of", "") or "").strip()

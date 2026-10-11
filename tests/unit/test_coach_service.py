@@ -64,10 +64,8 @@ def test_growth_and_extraction_shape(db_session, seeded_business):
     assert "extraction_ratio" in result
 
 
-def test_extraction_ratio_uses_extractions_sum(db_session, seeded_business, sample_product):
-    from app.models import MoneyExtraction
-
-    now = datetime.now(timezone.utc)
+def _sale_with_net_six(db_session, seeded_business, sample_product, now):
+    """Venta de 2 a 4.0 con coste 1.0: net_total = ventas(8) - cogs(2) - gastos(0) = 6."""
     _pv, lot = _purchase_with_lot(db_session, seeded_business, sample_product, now)
     mv = InventoryMovement(
         business_id=seeded_business.id, product_id=sample_product.id, type="sale",
@@ -76,15 +74,97 @@ def test_extraction_ratio_uses_extractions_sum(db_session, seeded_business, samp
     db_session.add(mv)
     db_session.flush()
     db_session.add(MovementAllocation(movement_id=mv.id, lot_id=lot.id, quantity=2, unit_cost=1.0))
-    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Negocio",
+
+
+@pytest.mark.parametrize("business_label", ["Negocio", "Caja"])
+def test_extraction_ratio_counts_only_partner_withdrawals(db_session, seeded_business, sample_product, business_label):
+    """Las extracciones a la etiqueta del negocio recuperan coste para recomprar: no son retiros."""
+    from app.models import MoneyExtraction
+
+    now = datetime.now(timezone.utc)
+    seeded_business.dividends_partners = "Socio"
+    seeded_business.dividends_business_label = business_label
+    _sale_with_net_six(db_session, seeded_business, sample_product, now)
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party=business_label,
+                                   amount=5.0, concept="vuelve al ciclo de compra", extraction_date=now))
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Socio",
                                    amount=3.0, concept="retiro", extraction_date=now))
     db_session.commit()
 
     svc = CoachService(db_session, seeded_business.id)
-    financial = svc._financial_indicators(now)
-    result = svc._add_growth_and_extraction(financial, now)
-    # net_total = ventas(8) - cogs(2) - gastos(0) = 6; extracciones 3 → ratio 0.5
-    assert result["extraction_ratio"] == 0.5
+    result = svc._add_growth_and_extraction(svc._financial_indicators(now), now)
+    assert result["extraction_ratio"] == 0.5  # solo el retiro del socio: 3 / 6
+
+
+def test_business_extractions_alone_do_not_trigger_drain_alert(db_session, seeded_business, sample_product):
+    from app.models import MoneyExtraction
+
+    now = datetime.now(timezone.utc)
+    _sale_with_net_six(db_session, seeded_business, sample_product, now)
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Negocio",
+                                   amount=50.0, concept="vuelve al ciclo de compra", extraction_date=now))
+    db_session.commit()
+
+    svc = CoachService(db_session, seeded_business.id)
+    assert svc._add_growth_and_extraction(svc._financial_indicators(now), now)["extraction_ratio"] == 0
+    assert "partner_overdrawn" not in {r["rule_key"] for r in CoachService(db_session, seeded_business.id).recommendations(now)}
+
+
+@pytest.mark.parametrize(("withdrawn", "overdrawn"), [(5.0, []), (10.0, [{"party": "Socio", "amount": 4.0}])])
+def test_partner_overdrawn_only_when_withdrawals_exceed_accumulated_share(
+    db_session, seeded_business, sample_product, withdrawn, overdrawn
+):
+    """Con 1 socio y utilidad 6: retirar 5 (83% del mes) está dentro de su parte; retirar 10 se pasa en 4."""
+    from app.models import MoneyExtraction
+
+    # El pendiente acumulado cuenta lo anterior a `now` (estricto): movimientos 1 h antes, a mitad de mes.
+    now = datetime.now(timezone.utc).replace(day=15, hour=12, minute=0, second=0, microsecond=0)
+    when = now - timedelta(hours=1)
+    seeded_business.dividends_partners = "Socio"
+    _sale_with_net_six(db_session, seeded_business, sample_product, when)
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Socio",
+                                   amount=withdrawn, concept="retiro", extraction_date=when))
+    db_session.commit()
+
+    svc = CoachService(db_session, seeded_business.id)
+    assert svc._add_growth_and_extraction(svc._financial_indicators(now), now)["partners_overdrawn"] == overdrawn
+    svc = CoachService(db_session, seeded_business.id)
+    keys = {r["rule_key"] for r in svc.recommendations(now)}
+    assert ("partner_overdrawn" in keys) == bool(overdrawn)
+
+
+def test_business_label_negative_pending_is_not_a_partner_overdraw(db_session, seeded_business, sample_product):
+    """Extraer al negocio más de coste+gastos deja su pendiente en negativo, pero no es un retiro de socio."""
+    from app.models import MoneyExtraction
+
+    now = datetime.now(timezone.utc).replace(day=15, hour=12, minute=0, second=0, microsecond=0)
+    when = now - timedelta(hours=1)
+    seeded_business.dividends_partners = "Socio"
+    _sale_with_net_six(db_session, seeded_business, sample_product, when)
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Negocio",
+                                   amount=10.0, concept="vuelve al ciclo de compra", extraction_date=when))
+    db_session.commit()
+
+    svc = CoachService(db_session, seeded_business.id)
+    assert svc._finance.monthly_dividends_report(now)["pending"]["Negocio"] < 0
+    assert svc._add_growth_and_extraction(svc._financial_indicators(now), now)["partners_overdrawn"] == []
+
+
+def test_overdrawn_partner_lowers_health_score(db_session, seeded_business, sample_product):
+    from app.models import MoneyExtraction
+
+    # El pendiente acumulado cuenta lo anterior a `now` (estricto): movimientos 1 h antes, a mitad de mes.
+    now = datetime.now(timezone.utc).replace(day=15, hour=12, minute=0, second=0, microsecond=0)
+    when = now - timedelta(hours=1)
+    seeded_business.dividends_partners = "Socio"
+    _sale_with_net_six(db_session, seeded_business, sample_product, when)
+    db_session.commit()
+    base = CoachService(db_session, seeded_business.id).health_score(now)["score"]
+
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Socio",
+                                   amount=10.0, concept="retiro", extraction_date=when))
+    db_session.commit()
+    assert CoachService(db_session, seeded_business.id).health_score(now)["score"] == base - 1.0
 
 
 def test_current_cash_relative_without_baseline(db_session, seeded_business):
@@ -104,6 +184,22 @@ def test_current_cash_real_with_baseline(db_session, seeded_business):
     result = svc.current_cash()
     assert result["mode"] == "real"
     assert result["amount"] == 500.0
+
+
+def test_current_cash_ignores_business_extractions(db_session, seeded_business):
+    """Una extracción al negocio no saca dinero de la caja; la de un socio sí."""
+    from app.models import CashBaseline, MoneyExtraction
+
+    now = datetime.now(timezone.utc)
+    seeded_business.dividends_partners = "Socio"
+    db_session.add(CashBaseline(business_id=seeded_business.id, baseline_date=now - timedelta(days=1), amount=500.0))
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Negocio",
+                                   amount=100.0, concept="vuelve al ciclo de compra", extraction_date=now))
+    db_session.add(MoneyExtraction(business_id=seeded_business.id, party="Socio",
+                                   amount=50.0, concept="retiro", extraction_date=now))
+    db_session.commit()
+
+    assert CoachService(db_session, seeded_business.id).current_cash()["amount"] == 450.0
 
 
 def test_operational_indicators_shape(db_session, seeded_business):

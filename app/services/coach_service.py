@@ -59,14 +59,25 @@ class CoachService:
             else:
                 growth_pct = None
 
+            # Solo los retiros de socios salen del negocio; las extracciones a la etiqueta del negocio
+            # recuperan coste y gastos para volver a comprar (igual que en el informe de dividendos).
             dividends = self._finance.monthly_dividends_report(now_dt)
-            extractions_total = sum(
-                float(v or 0) for v in (dividends.get("extractions") or {}).values()
+            business_label = self._finance.business_label()
+            partner_extractions = sum(
+                float(v or 0) for party, v in (dividends.get("extractions") or {}).items() if party != business_label
             )
             net_total = financial["_summary"].get("net_total", 0)
-            extraction_ratio = (extractions_total / net_total) if net_total > 0 else None
+            # Informativo: un socio puede cobrar en un mes la utilidad acumulada de meses anteriores.
+            extraction_ratio = (partner_extractions / net_total) if net_total > 0 else None
+            # Drenaje real: un socio ha retirado más que su parte acumulada (pendiente negativo).
+            partners_overdrawn = [
+                {"party": party, "amount": -float(pending)}
+                for party, pending in (dividends.get("pending") or {}).items()
+                if party != business_label and float(pending or 0) < -0.005
+            ]
 
-            financial.update({"sales_growth_pct": growth_pct, "extraction_ratio": extraction_ratio})
+            financial.update({"sales_growth_pct": growth_pct, "extraction_ratio": extraction_ratio,
+                              "partners_overdrawn": partners_overdrawn})
             return financial
         except Exception as e:
             _log.error(f"Error en _add_growth_and_extraction: {e}", exc_info=True)
@@ -102,9 +113,11 @@ class CoachService:
                             OperatingExpense.expense_date >= since))
                 .scalar_subquery()
             )
+            # Las extracciones a la etiqueta del negocio no sacan dinero de la caja.
             extractions_subq = (
                 select(func.coalesce(func.sum(MoneyExtraction.amount), 0))
                 .where(and_(MoneyExtraction.business_id == self._business_id,
+                            MoneyExtraction.party != self._finance.business_label(),
                             MoneyExtraction.extraction_date >= since))
                 .scalar_subquery()
             )
@@ -210,9 +223,7 @@ class CoachService:
         score += 1.0 if (financial.get("margin_pct") is not None and financial["margin_pct"] > 0) else -1.0
         growth = financial.get("sales_growth_pct")
         score += 1.0 if growth is not None and growth > 0 else (-1.0 if growth is not None and growth < -10 else 0.0)
-        extractions = financial.get("extraction_ratio")
-        if extractions is not None:
-            score -= min(2.0, extractions / 0.25)
+        score -= min(2.0, float(len(financial.get("partners_overdrawn") or [])))
         dead_value = operational.get("dead_stock_value", 0)
         score -= min(1.0, dead_value / 1000.0)
         score = max(1.0, min(10.0, score))
