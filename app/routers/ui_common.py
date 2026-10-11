@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import shutil
 from datetime import datetime, timezone
@@ -137,9 +138,33 @@ def parse_optional_float(value: Optional[str]) -> Optional[float]:
     elif "," in s:
         s = s.replace(",", ".")
     try:
-        return float(s)
+        value = float(s)
     except ValueError:
         return None
+    # "nan"/"inf" son floats válidos para Python: se tratan como cualquier texto no numérico.
+    return value if math.isfinite(value) else None
+
+
+def parse_typed_float(value: Optional[str], error_detail: str) -> Optional[float]:
+    """Como `parse_optional_float`, pero un valor tecleado inutilizable es un 422.
+
+    `parse_optional_float` devuelve None tanto para un campo vacío como para texto no numérico
+    (incluidos "nan"/"inf"); en un precio eso haría que se usara el valor por defecto sin avisar.
+    """
+    parsed = parse_optional_float(value)
+    if parsed is None and (value or "").strip():
+        raise HTTPException(status_code=422, detail=error_detail)
+    return parsed
+
+
+def delete_uploaded_image(image_url: Optional[str]) -> None:
+    """Borra una imagen subida por `save_product_image` (p. ej. si la operación falló después)."""
+    if not image_url or not image_url.startswith("/static/uploads/"):
+        return
+    try:
+        (_UPLOAD_DIR / Path(image_url).name).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def barcode_to_sku(db: Session, barcode: str, business_id: Optional[int] = None) -> str:

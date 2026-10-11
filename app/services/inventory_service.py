@@ -1311,9 +1311,10 @@ class InventoryService:
         if mv is None or mv.type != "purchase":
             raise HTTPException(status_code=404, detail="Purchase movement not found")
 
-        if quantity <= 0:
+        # math.isfinite: las rutas usan Form(float), que acepta "nan"/"inf", y `nan <= 0` es False.
+        if not math.isfinite(quantity) or quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
-        if unit_cost < 0:
+        if not math.isfinite(unit_cost) or unit_cost < 0:
             raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
 
         old_product_id = mv.product_id
@@ -1371,9 +1372,9 @@ class InventoryService:
         if mv is None or mv.type != "sale":
             raise HTTPException(status_code=404, detail="Sale movement not found")
 
-        if quantity <= 0:
+        if not math.isfinite(quantity) or quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
-        if unit_price < 0:
+        if not math.isfinite(unit_price) or unit_price < 0:
             raise HTTPException(status_code=422, detail="unit_price must be >= 0")
 
         old_product_id = mv.product_id
@@ -1415,7 +1416,8 @@ class InventoryService:
 
     def purchase(self, payload: PurchaseCreate) -> MovementResult:
         self._invalidate_metrics_cache()
-        if payload.quantity <= 0:
+        # math.isfinite: Pydantic acepta "nan"/"inf" como float y `nan <= 0` es False.
+        if not math.isfinite(payload.quantity) or payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
         product = self._get_product(payload.sku)
@@ -1424,7 +1426,7 @@ class InventoryService:
             unit_cost = product.default_purchase_cost
         if unit_cost is None:
             raise HTTPException(status_code=422, detail="unit_cost is required")
-        if unit_cost < 0:
+        if not math.isfinite(unit_cost) or unit_cost < 0:
             raise HTTPException(status_code=422, detail="unit_cost must be >= 0")
 
         movement_dt = self._movement_datetime(payload.movement_date)
@@ -1482,7 +1484,7 @@ class InventoryService:
 
     def supplier_return_by_lot(self, payload: SupplierReturnLotCreate) -> MovementResult:
         self._invalidate_metrics_cache()
-        if payload.quantity <= 0:
+        if not math.isfinite(payload.quantity) or payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
         lot = self._db.get(InventoryLot, int(payload.lot_id))
@@ -1717,7 +1719,7 @@ class InventoryService:
 
     def sale(self, payload: SaleCreate) -> MovementResult:
         self._invalidate_metrics_cache()
-        if payload.quantity <= 0:
+        if not math.isfinite(payload.quantity) or payload.quantity <= 0:
             raise HTTPException(status_code=422, detail="quantity must be > 0")
 
         product = self._get_product(payload.sku)
@@ -1726,7 +1728,7 @@ class InventoryService:
             unit_price = product.default_sale_price
         if unit_price is None:
             raise HTTPException(status_code=422, detail="unit_price is required")
-        if unit_price < 0:
+        if not math.isfinite(unit_price) or unit_price < 0:
             raise HTTPException(status_code=422, detail="unit_price must be >= 0")
 
         movement_dt = self._movement_datetime(payload.movement_date)

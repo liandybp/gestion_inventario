@@ -1,5 +1,6 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
+from types import SimpleNamespace
 
 from datetime import datetime, timezone
 import html
@@ -12,7 +13,8 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
-from app.schemas import AdjustmentCreate, ProductCreate, ProductUpdate
+from app.repositories.purchase_repository import PurchaseRepository
+from app.schemas import AdjustmentCreate, ProductUpdate
 from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
@@ -23,7 +25,8 @@ from .ui_common import (
     barcode_to_sku,
     ensure_admin_or_owner,
     extract_sku,
-    parse_optional_float,
+    delete_uploaded_image,
+    parse_typed_float,
     save_product_image,
     templates,
 )
@@ -32,76 +35,6 @@ from app.logger import get_logger
 _log = get_logger(__name__)
 
 router = APIRouter()
-
-
-@router.post("/product", response_class=HTMLResponse)
-def create_product(
-    request: Request,
-    sku: str = Form(""),
-    name: str = Form(...),
-    unit_of_measure: str = Form(""),
-    image_file: Optional[UploadFile] = File(None),
-    category: Optional[str] = Form(None),
-    min_stock: float = Form(0),
-    default_purchase_cost: float = Form(...),
-    default_sale_price: float = Form(...),
-    db: Session = Depends(session_dep),
-) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    product_service = ProductService(db, business_id=bid)
-    try:
-        ensure_admin_or_owner(db, request)
-        image_url = save_product_image(image_file) if image_file is not None else None
-        created = product_service.create(
-            ProductCreate(
-                sku=sku or None,
-                name=name,
-                category=category or None,
-                min_stock=min_stock,
-                unit_of_measure=unit_of_measure or None,
-                default_purchase_cost=default_purchase_cost,
-                default_sale_price=default_sale_price,
-                image_url=image_url,
-            )
-        )
-
-        user = get_current_user_from_session(db, request)
-        if user is not None:
-            log_event(
-                db,
-                user,
-                action="product_create",
-                entity_type="product",
-                entity_id=created.sku,
-                detail={"name": created.name},
-            )
-            db.commit()
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/product_panel.html",
-            context={
-                "message": "Producto creado",
-                "message_detail": f"SKU: {created.sku}",
-                "message_class": "ok",
-                "products": product_service.recent(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "edit_product": None,
-            },
-        )
-    except HTTPException as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/product_panel.html",
-            context={
-                "message": "Error al crear producto",
-                "message_detail": str(e.detail),
-                "message_class": "error",
-                "products": product_service.recent(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "edit_product": None,
-            },
-            status_code=e.status_code,
-        )
 
 
 @router.post("/product/{sku:path}/delete", response_class=HTMLResponse)
@@ -203,10 +136,15 @@ def product_update(
 ) -> HTMLResponse:
     bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
+    new_image_url: Optional[str] = None
     try:
         ensure_admin_or_owner(db, request)
         existing = product_service.get_by_sku(sku)
-        image_url = save_product_image(image_file) if image_file is not None else existing.image_url
+        purchase_cost = parse_typed_float(default_purchase_cost, "El costo de compra debe ser un número")
+        sale_price = parse_typed_float(default_sale_price, "El precio de venta debe ser un número")
+        if image_file is not None:
+            new_image_url = save_product_image(image_file)
+        image_url = new_image_url or existing.image_url
         updated = product_service.update(
             sku,
             ProductUpdate(
@@ -215,8 +153,8 @@ def product_update(
                 category=category or None,
                 min_stock=min_stock,
                 unit_of_measure=unit_of_measure or None,
-                default_purchase_cost=parse_optional_float(default_purchase_cost),
-                default_sale_price=parse_optional_float(default_sale_price),
+                default_purchase_cost=purchase_cost,
+                default_sale_price=sale_price,
                 lead_time_days=lead_time_days,
                 image_url=image_url or None,
             ),
@@ -246,18 +184,31 @@ def product_update(
             },
         )
     except HTTPException as e:
+        db.rollback()
+        # La imagen nueva no quedó asociada a ningún producto: no dejarla huérfana en disco.
+        delete_uploaded_image(new_image_url)
+        # REQ-3: el error se muestra DENTRO del modal con lo tecleado (antes se pintaba en
+        # #product-panel detrás del modal y app.js lo cerraba, perdiendo los datos).
+        try:
+            image_url = product_service.get_by_sku(sku).image_url
+        except HTTPException:
+            image_url = None
+        form_product = SimpleNamespace(
+            sku=sku,
+            name=name,
+            unit_of_measure=unit_of_measure,
+            image_url=image_url,
+            category=category or "",
+            min_stock=min_stock,
+            default_purchase_cost=default_purchase_cost,
+            default_sale_price=default_sale_price,
+        )
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
-            context={
-                "message": "Error al actualizar producto",
-                "message_detail": str(e.detail),
-                "message_class": "error",
-                "products": product_service.recent(limit=20),
-                "product_options": product_service.search(query="", limit=200),
-                "edit_product": None,
-            },
+            name="partials/product_edit_form.html",
+            context={"product": form_product, "new_sku_value": new_sku or sku, "form_error": str(e.detail)},
             status_code=e.status_code,
+            headers={"HX-Retarget": "#product-edit-modal", "HX-Reswap": "outerHTML"},
         )
 
 
@@ -307,14 +258,18 @@ def product_update_inventory(
     bid = require_active_business_id(db, request)
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
+    unsaved_image_url: Optional[str] = None
     try:
         ensure_admin_or_owner(db, request)
         existing = product_service.get_by_sku(sku)
 
         loc = (location_code or "").strip() or None
         stock_before = inventory_service.stock(sku, location_code=loc).quantity
-        image_url = save_product_image(image_file) if image_file is not None else existing.image_url
-        parsed_purchase_cost = parse_optional_float(default_purchase_cost)
+        parsed_purchase_cost = parse_typed_float(default_purchase_cost, "El costo de compra debe ser un número")
+        parsed_sale_price = parse_typed_float(default_sale_price, "El precio de venta debe ser un número")
+        if image_file is not None:
+            unsaved_image_url = save_product_image(image_file)
+        image_url = unsaved_image_url or existing.image_url
         updated = product_service.update(
             sku,
             ProductUpdate(
@@ -324,11 +279,12 @@ def product_update_inventory(
                 min_stock=min_stock,
                 unit_of_measure=unit_of_measure or None,
                 default_purchase_cost=parsed_purchase_cost,
-                default_sale_price=parse_optional_float(default_sale_price),
+                default_sale_price=parsed_sale_price,
                 lead_time_days=lead_time_days,
                 image_url=image_url or None,
             ),
         )
+        unsaved_image_url = None  # update() hizo commit: la imagen ya es del producto
 
         if desired_stock is not None:
             desired = float(desired_stock)
@@ -416,6 +372,7 @@ def product_update_inventory(
             },
         )
     except HTTPException as e:
+        delete_uploaded_image(unsaved_image_url)
         config = get_active_business_config(db, request)
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
@@ -516,28 +473,21 @@ def product_from_invoice(
             continue
 
         try:
-            # Check if product already exists
-            existing_product = db.scalar(select(Product).where(Product.sku == sku))
-            if existing_product is not None:
+            # Existencia en el negocio activo (antes se buscaba en TODOS los negocios).
+            if PurchaseRepository(db, bid).get_product_by_sku(sku) is not None:
                 skipped_products.append(f"{sku} - {name}")
                 continue
 
-            # Create new product
-            product = Product(
-                sku=sku,
+            # Antes: Product(...) sin business_id → producto sin negocio, invisible en
+            # historial y sugerencias y con el SKU (único global) bloqueado para todos.
+            product = product_service.create_for_purchase(
                 name=name,
-                category=None,
-                min_stock=0,
-                unit_of_measure="u",  # Default unit
-                default_purchase_cost=unit_cost_with_vat,
-                default_sale_price=None,  # Leave empty for user to fill
-                lead_time_days=0,
-                image_url=None,
+                sku=sku,
+                purchase_cost=unit_cost_with_vat,
+                sale_price=None,
             )
-            db.add(product)
-            db.commit()
-            db.refresh(product)
-            created_products.append({"sku": product.sku, "name": product.name})
+            product.unit_of_measure = "u"
+            product.default_sale_price = None  # lo completa el usuario (aviso en el panel)
 
             if user is not None:
                 log_event(
@@ -551,13 +501,19 @@ def product_from_invoice(
                         "source": "invoice_pdf",
                         "invoice_number": parsed.invoice_number,
                     },
+                    isolated=True,
                 )
-                db.commit()
+            # Commit por línea; si falla, el rollback del except deja la sesión usable.
+            db.commit()
+            created_products.append({"sku": product.sku, "name": product.name})
 
+        except HTTPException as e:
+            db.rollback()
+            errors.append(f"{sku}: {e.detail}")
         except Exception as e:
+            db.rollback()
             _log.exception("product_create desde invoice fallback %s: %s", sku, e)
             errors.append(f"{sku}: {str(e)}")
-            continue
 
     # Build message
     message_parts = []
@@ -655,6 +611,35 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
     return HTMLResponse(
         f"<label id='sale-qty-label' hx-swap-oob='true'>{label}</label>"
         f"<input id='sale-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
+    )
+
+
+# Ventas y Traspasos NO usan esta búsqueda: sus datalist filtran por stock en la ubicación
+# (ui_sales.py::_sale_product_options, ui_transfers.py::transfer_product_options).
+_SUGGEST_FORMATS = {"label", "sku"}
+
+
+@router.get("/product-suggest", response_class=HTMLResponse)
+def product_suggest(
+    request: Request,
+    q: str = "",
+    fmt: str = "label",
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    """Sugerencias de producto al teclear (todos los roles; negocio activo).
+
+    Los datalist iniciales solo traen los 200 primeros productos: app.js sustituye su
+    contenido con esta respuesta (inputs con data-product-suggest).
+    """
+    business_id = require_active_business_id(db, request)
+    query = (q or "").strip()
+    if len(query) < 2:
+        return HTMLResponse("")
+    products = ProductService(db, business_id=business_id).search(query=query, limit=30)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/product_suggest_options.html",
+        context={"products": products, "fmt": fmt if fmt in _SUGGEST_FORMATS else "label"},
     )
 
 

@@ -49,7 +49,7 @@
         <div class="grid grid-3">
           <div class="row">
             <label>Producto (SKU o nombre)</label>
-            <input id="return-sku-input" name="sku" list="return-products-list" placeholder="Buscar por SKU o nombre" required />
+            <input id="return-sku-input" name="sku" list="return-products-list" data-product-suggest="sku" placeholder="Buscar por SKU o nombre" required />
             <datalist id="return-products-list">
               {% for p in product_options or [] %}
                 <option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>

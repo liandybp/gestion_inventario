@@ -1,0 +1,7 @@
+{% for p in products %}
+  {% if fmt == "sku" %}
+    <option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>
+  {% else %}
+    <option value="{{ p.sku }} - {{ p.name }}"></option>
+  {% endif %}
+{% endfor %}

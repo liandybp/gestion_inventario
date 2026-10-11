@@ -27,11 +27,3 @@ class PurchaseRepository:
     def get_lot_by_movement(self, movement_id: int) -> Optional[InventoryLot]:
         stmt = select(InventoryLot).where(InventoryLot.movement_id == int(movement_id))
         return self._db.scalar(stmt)
-
-    def list_sku_prefixes(self, prefix: str) -> list[str]:
-        # products.sku es unique=True global (no compuesto por business_id, ver
-        # migrations.py ux_products_sku): el candidato autogenerado debe calcularse
-        # sobre TODOS los negocios o choca con SKUs de otros negocios (409 recurrente).
-        stmt = select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
-        rows = self._db.execute(stmt).all()
-        return [str(sku or "") for (sku,) in rows]

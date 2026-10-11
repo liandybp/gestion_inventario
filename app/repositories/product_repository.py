@@ -38,25 +38,40 @@ class ProductRepository:
         rows = self._db.execute(stmt).all()
         return [sku for (sku,) in rows]
 
+    def list_sku_prefixes(self, prefix: str) -> list[str]:
+        # products.sku es unique=True GLOBAL (no compuesto por business_id, ver
+        # migrations.py ux_products_sku): el candidato autogenerado debe calcularse
+        # sobre TODOS los negocios o choca con SKUs de otros negocios (409 recurrente).
+        stmt = select(Product.sku).where(Product.sku.ilike(f"{prefix}%"))
+        rows = self._db.execute(stmt).all()
+        return [str(sku or "") for (sku,) in rows]
+
     def search(self, query: str, limit: int = 20) -> list[Product]:
         q = query.strip()
         if not q:
             return self.list()[:limit]
-        
+
         normalized_query = _normalize_text(q).lower()
-        
-        all_products = self.list()
-        matches = []
-        for product in all_products:
-            normalized_sku = _normalize_text(product.sku or "").lower()
-            normalized_name = _normalize_text(product.name or "").lower()
-            
-            if normalized_query in normalized_sku or normalized_query in normalized_name:
-                matches.append(product)
-                if len(matches) >= limit:
+
+        # Solo (id, sku, name) para filtrar: se ejecuta en cada pulsación (/ui/product-suggest) y
+        # cargar el catálogo entero como objetos ORM es lo caro. La normalización de tildes se
+        # hace en Python porque SQLite/PostgreSQL no la ofrecen de forma portable.
+        stmt = (
+            select(Product.id, Product.sku, Product.name)
+            .where(Product.business_id == self._business_id)
+            .order_by(Product.id)
+        )
+        match_ids: list[int] = []
+        for product_id, sku, name in self._db.execute(stmt):
+            if normalized_query in _normalize_text(sku or "").lower() or normalized_query in _normalize_text(name or "").lower():
+                match_ids.append(product_id)
+                if len(match_ids) >= limit:
                     break
-        
-        return matches
+        if not match_ids:
+            return []
+
+        by_id = {p.id: p for p in self._db.scalars(select(Product).where(Product.id.in_(match_ids)))}
+        return [by_id[i] for i in match_ids if i in by_id]
 
     def add(self, product: Product) -> None:
         self._db.add(product)
