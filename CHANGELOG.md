@@ -2,6 +2,14 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.13 (2026-10-11)
+
+- feat(ui): la pestaña Compras deja de mostrar la sección "Producto" ("Importar productos desde
+  factura", historial de productos y sus acciones). Se mantiene "Importar compra desde factura".
+  `#product-panel` queda como contenedor invisible del datalist `#product-options` del campo
+  "Artículo", que se sigue refrescando vía `hx-swap-oob` al crear un producto con una compra.
+  La edición y el borrado de productos siguen en la pestaña Inventario.
+
 ## 0.4.12 (2026-10-10)
 
 - feat(ui): sugerencias dinámicas de productos al teclear (`GET /ui/product-suggest`, mínimo

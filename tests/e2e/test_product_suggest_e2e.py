@@ -43,7 +43,7 @@ def test_sale_product_input_keeps_stock_filtered_list(live_server: str, page: Pa
 def test_purchase_product_input_fetches_suggestions(live_server: str, page: Page) -> None:
     _login(page, live_server)
     page.click("#tab-purchases")
-    expect(page.locator("#product-panel")).to_be_visible()
+    expect(page.locator("#purchase-panel")).to_be_visible()
     page.evaluate("document.getElementById('product-options').innerHTML = ''")
 
     page.fill('#purchase-panel input[name="product"]', "Producto E2E Uno")
@@ -55,7 +55,7 @@ def test_choosing_a_suggestion_keeps_the_list(live_server: str, page: Page) -> N
     """H-203: elegir una opción no vacía el datalist; vaciar el campo restaura la lista inicial."""
     _login(page, live_server)
     page.click("#tab-purchases")
-    expect(page.locator("#product-panel")).to_be_visible()
+    expect(page.locator("#purchase-panel")).to_be_visible()
     options = page.locator("datalist#product-options option")
     initial = options.count()
     assert initial >= 2

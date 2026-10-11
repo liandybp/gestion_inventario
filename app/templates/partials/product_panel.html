@@ -1,44 +1,8 @@
-<div class="card" id="product-panel"{% if oob %} hx-swap-oob="true"{% endif %}>
-  <h2>Producto</h2>
-
-  <h3 style="margin-top:0;">Importar productos desde factura (PDF)</h3>
-  <form hx-post="/ui/product/from-invoice" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
-    <div class="row">
-      <label>Factura (PDF)</label>
-      <input name="invoice_pdf" type="file" accept="application/pdf" required />
-    </div>
-    <button type="submit">Importar productos</button>
-  </form>
-
-  {% if invoice_created_products and invoice_created_products|length > 0 %}
-    <div class="warn" style="padding:12px;border-radius:10px;margin-top:12px;margin-bottom:14px;">
-      <strong>Productos creados desde factura</strong>
-      <div class="muted" style="margin-top:6px;">
-        Debes completar <strong>precio de venta</strong> y <strong>stock mínimo</strong> en estos productos.
-      </div>
-      <div style="margin-top:8px;">
-        {% for p in invoice_created_products %}
-          <div><code>{{ p.sku }}</code> - {{ p.name }}</div>
-        {% endfor %}
-      </div>
-    </div>
-  {% endif %}
-
+{# Sin contenido visible: solo el datalist inicial de "Artículo" en Compras, refrescado vía hx-swap-oob. #}
+<div id="product-panel"{% if oob %} hx-swap-oob="true"{% endif %}>
   <datalist id="product-options">
     {% for p in product_options %}
       <option value="{{ p.sku }} - {{ p.name }}"></option>
     {% endfor %}
   </datalist>
-
-  {% if message %}
-    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
-      <strong>{{ message }}</strong>
-      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
-    </div>
-  {% endif %}
-
-  <div id="product-edit" style="margin-top:12px;"></div>
-
-  <h3 style="margin-top:16px;">Historial de productos</h3>
-  {% include 'partials/products_history.html' %}
 </div>
