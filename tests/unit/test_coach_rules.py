@@ -26,14 +26,18 @@ def test_expense_ratio_red():
     assert any(r["rule_key"] == "expense_ratio_high" and r["severity"] == "red" for r in recs)
 
 
-def test_extraction_ratio_yellow():
-    recs = evaluate({"extraction_ratio": 0.90})
-    assert any(r["rule_key"] == "extraction_ratio_high" and r["severity"] == "yellow" for r in recs)
+def test_partner_overdrawn_alerts_with_names_and_amount():
+    recs = evaluate({"partners_overdrawn": [{"party": "Randy", "amount": 150.0}, {"party": "Liandy", "amount": 50.0}]})
+    rec = next(r for r in recs if r["rule_key"] == "partner_overdrawn")
+    assert rec["severity"] == "red"
+    assert "Randy (150.00)" in rec["symptom"] and "Liandy (50.00)" in rec["symptom"]
+    assert rec["impact_amount"] == 200.0
 
 
-def test_extraction_ratio_red():
-    recs = evaluate({"extraction_ratio": 1.2})
-    assert any(r["rule_key"] == "extraction_ratio_high" and r["severity"] == "red" for r in recs)
+def test_high_monthly_withdrawal_ratio_alone_does_not_alert():
+    """Cobrar en un mes la utilidad acumulada no es drenar caja."""
+    recs = evaluate({"extraction_ratio": 4.0, "partners_overdrawn": []})
+    assert not any(r["rule_key"] == "partner_overdrawn" for r in recs)
 
 
 def test_no_rule_without_crossing_threshold():

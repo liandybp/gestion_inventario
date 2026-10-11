@@ -14,11 +14,6 @@ MARGIN_DROP_RED_PP = 6.0
 EXPENSE_RATIO_YELLOW = 0.30
 EXPENSE_RATIO_RED = 0.45
 
-# Extracciones / utilidad neta. >=80% deja poco margen de reinversión; >=100% significa
-# que se está extrayendo más de lo que el negocio genera (drena caja).
-EXTRACTION_RATIO_YELLOW = 0.80
-EXTRACTION_RATIO_RED = 1.0
-
 # % de ventas del mes que representa el cliente principal. >=30% es dependencia relevante,
 # >=50% es riesgo alto si ese cliente se va.
 CUSTOMER_CONCENTRATION_YELLOW = 0.30
@@ -28,7 +23,7 @@ CUSTOMER_CONCENTRATION_RED = 0.50
 def evaluate(indicators: dict) -> list[dict]:
     """Evalúa indicadores contra reglas. Log errores, nunca alucina."""
     try:
-        checks = [_rule_margin, _rule_expense_ratio, _rule_extraction_ratio,
+        checks = [_rule_margin, _rule_expense_ratio, _rule_partner_overdrawn,
                   _rule_dead_stock, _rule_customer_concentration]
         recs = [r(indicators) for r in checks]
         return [r for r in recs if r is not None]
@@ -60,14 +55,20 @@ def _rule_expense_ratio(ind: dict) -> Optional[dict]:
             "action": "revisa tu gasto más alto", "impact_amount": None, "impact_text": "audit de gastos"}
 
 
-def _rule_extraction_ratio(ind: dict) -> Optional[dict]:
-    ratio = ind.get("extraction_ratio")
-    if ratio is None or ratio < EXTRACTION_RATIO_YELLOW:
+def _rule_partner_overdrawn(ind: dict) -> Optional[dict]:
+    """Un socio ha retirado más que su parte acumulada de la utilidad (pendiente negativo en dividendos).
+
+    No se compara el retiro del mes con la utilidad del mes: cobrar de golpe lo acumulado es normal.
+    """
+    overdrawn = ind.get("partners_overdrawn") or []
+    if not overdrawn:
         return None
-    severity = "red" if ratio >= EXTRACTION_RATIO_RED else "yellow"
-    return {"rule_key": "extraction_ratio_high", "severity": severity,
-            "symptom": f"Extracciones {ratio * 100:.0f}%", "cause": "drena caja",
-            "action": "reduce extracciones", "impact_amount": None, "impact_text": "compare vs utilidad"}
+    total = sum(o["amount"] for o in overdrawn)
+    who = ", ".join(f"{o['party']} ({o['amount']:,.2f})" for o in overdrawn)
+    return {"rule_key": "partner_overdrawn", "severity": "red",
+            "symptom": f"Retiros por encima de lo ganado: {who}", "cause": "drena caja",
+            "action": "frena retiros hasta compensar", "impact_amount": total,
+            "impact_text": f"{total:,.2f} retirados de más"}
 
 
 def _rule_dead_stock(ind: dict) -> Optional[dict]:

@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.13` (ver `VERSION`) — 0.4.11, 0.4.12 y 0.4.13 pasadas a `main` (producción) el 2026-10-11 tras prueba manual en dev
+- **Versión actual:** `0.4.14` (ver `VERSION`) — 0.4.11, 0.4.12 y 0.4.13 pasadas a `main` (producción) el 2026-10-11 tras prueba manual en dev; 0.4.14 (fix del coach) en `develop`
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -20,7 +20,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (377 unit + 43 e2e Playwright) |
+| Testing | pytest (385 unit + 43 e2e Playwright) |
 
 ## Estructura del proyecto
 
@@ -147,6 +147,18 @@ caducidad FEFO) → P1 → P2 → P3.
 
 ## Estado actual
 
+- [x] **Coach: extracciones al negocio y alerta "drena caja" (v0.4.14, 2026-10-11)** — falso positivo reportado
+      por el usuario. Las extracciones a la etiqueta del negocio (`FinanceService.business_label()`, "Negocio" por
+      defecto) no salen de la caja: marcan el coste y los gastos recuperados para recomprar. El coach las sumaba como
+      retiros y las restaba de la caja. Ahora la regla `partner_overdrawn` (sustituye a `extraction_ratio_high`, clave
+      nueva para que los descartes de la alerta falsa no oculten la real) solo avisa si un socio tiene pendiente
+      acumulado negativo en dividendos. El retiro del mes contra la utilidad del mes daba falsos positivos cuando un
+      socio cobraba lo acumulado. Con datos reales de dev (may-sep, Recambios y Ropa) la alerta antigua saltaba en
+      varios meses y la nueva en ninguno. Probado de punta a punta sobre una copia de la BD de dev (código viejo y
+      nuevo lado a lado): esa prueba destapó que la caja estimada **restaba las ventas** (cantidad negativa en
+      `inventory_movements`), corregido con `abs()`. 385 unit (mutation-test de las 6 correcciones) + 43 e2e. Pendiente: la
+      evolución del coach con contexto del negocio (perfil estructurado + motivo al descartar + chat LLM que propone
+      ajustes; hoy "descartar" oculta una regla para siempre).
 - [x] **Compras sin la sección "Producto" (v0.4.13, 2026-10-11)** — a pedido del usuario, solo visual: fuera
       "Importar productos desde factura", el historial de productos y sus acciones (editar/borrar). Se mantiene
       "Importar compra desde factura". `partials/product_panel.html` queda como `#product-panel` invisible con el
@@ -344,7 +356,9 @@ caducidad FEFO) → P1 → P2 → P3.
 - **2026-10-11 (sesión 18)** — Prueba manual de 0.4.12 en dev (sugerencias dinámicas en Compras: 138 → 8
   opciones al teclear "amo", autocompleta el costo; una búsqueda sin resultados era de otro negocio, no un bug).
   `develop` → `main` (0.4.11 + 0.4.12). Después, v0.4.13: quitar la sección "Producto" de Compras (ver Estado
-  actual), `develop` → dev → `main` → prod.
+  actual), `develop` → dev → `main` → prod. Fallo intermitente del CD de dev por una carrera htmx en 2 e2e de
+  Traspasos, corregido sin subir versión. v0.4.14: fix del coach (ver Estado actual); ideas de evolución del coach
+  con contexto del negocio, sin empezar.
 - **2026-10-10 (sesión 17)** — **Piloto de `cc_local` (Claude Code + Qwen3.6 local) como ejecutor de PAEs.**
   (1) v0.4.11: quitar "Crear producto manualmente" de Compras; tres rondas de review + re-auditoría (3.95 🟡);
   commiteado (`9b4b430`, `6fce595`), sin push. (2) v0.4.12: PAE de los pendientes (H-012 con búsqueda
