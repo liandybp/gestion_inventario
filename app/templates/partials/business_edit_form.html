@@ -206,7 +206,7 @@
           <div class="form-group">
             <label for="edit-dividends-opening-pending">Saldo pendiente inicial</label>
             <input type="text" id="edit-dividends-opening-pending" name="dividends_opening_pending" autocomplete="off"
-                   value="{{ config.dividends.opening_pending | tojson if config.dividends.opening_pending else '' }}" />
+                   value='{{ config.dividends.opening_pending | tojson if config.dividends.opening_pending else "" }}' />
             <small class="muted">Ej: {"Negocio": 1375, "Liandy": 2715} (JSON)</small>
           </div>
 
