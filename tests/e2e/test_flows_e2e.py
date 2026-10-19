@@ -28,6 +28,9 @@ def _login(page: Page, base_url: str) -> None:
     # HTMX se inicializa tras cargar su script; sin esto, un click a un tab puede
     # ocurrir antes de que HTMX registre sus listeners y perderse (flake CI).
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
+    # Espera a la carga inicial de #tab-content (hx-trigger=load): si se cambia de pestaña antes,
+    # esa respuesta llega después y sobrescribe la pestaña nueva (test intermitente).
+    page.locator("#tab-content > *").first.wait_for()
 
 
 def test_extraction_create_updates_dividends(live_server: str, page: Page) -> None:

@@ -197,6 +197,9 @@ def _login(page: Page, base_url: str, *, username: str = "admin", password: str 
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
+    # Espera a la carga inicial de #tab-content (hx-trigger=load): si se cambia de pestaña antes,
+    # esa respuesta llega después y sobrescribe la pestaña nueva (test intermitente).
+    page.locator("#tab-content > *").first.wait_for()
 
 
 def test_offline_sale_syncs_to_p3_central_server(
