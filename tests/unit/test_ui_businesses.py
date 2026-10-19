@@ -303,3 +303,52 @@ def test_prefix_location_code_no_double_prefix():
     # ya prefijado (minúsculas) -> sin cambios (no doble prefijo)
     assert _prefix_location_code("ropa_POST2", "ropa") == "ropa_POST2"
     assert _prefix_location_code("CENTRAL", "bazar") == "BAZAR_CENTRAL"
+
+
+class _InputValues(__import__("html.parser").parser.HTMLParser):
+    """Lee los value de los <input> como lo haría el navegador."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.values: dict[str, str] = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "input" and a.get("name"):
+            self.values[a["name"]] = a.get("value") or ""
+
+
+def test_saving_edit_form_keeps_dividends_opening_pending(admin_request, db_session, admin_user):
+    # Regresión 2026-10-19: el JSON iba en value="..." y el navegador lo cortaba en '{';
+    # cada guardado del formulario borraba el saldo inicial de dividendos.
+    import json
+
+    biz = Business(
+        code="recambios_test",
+        name="Recambios Test",
+        dividends_partners="Liandy,Randy",
+        dividends_opening_pending=json.dumps({"Negocio": 1375, "Liandy": 2715, "Randy": 0}),
+        dividends_opening_pending_as_of="2026-01-01",
+    )
+    db_session.add(biz)
+    db_session.commit()
+
+    form = business_edit_form(request=admin_request, business_id=biz.id, db=db_session)
+    parser = _InputValues()
+    parser.feed(form.body.decode())
+    sent = parser.values["dividends_opening_pending"]
+
+    business_update(
+        request=admin_request,
+        business_id=biz.id,
+        code=biz.code,
+        name=biz.name,
+        dividends_partners=parser.values["dividends_partners"],
+        dividends_opening_pending=sent,
+        dividends_opening_pending_as_of=parser.values["dividends_opening_pending_as_of"],
+        db=db_session,
+    )
+
+    db_session.refresh(biz)
+    assert json.loads(biz.dividends_opening_pending) == {"Negocio": 1375.0, "Liandy": 2715.0, "Randy": 0.0}
+    assert biz.dividends_opening_pending_as_of == "2026-01-01"

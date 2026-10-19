@@ -2,6 +2,13 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.4.15 (2026-10-19)
+
+- fix(negocios): guardar el formulario de edición de un negocio borraba el saldo inicial de
+  dividendos (`opening_pending`). El JSON iba en un atributo `value="..."` y `tojson` no escapa las
+  comillas dobles: el navegador lo cortaba en `{` y se guardaba `{}`. En Recambios se perdió el saldo
+  el 2026-10-18 y los pendientes de los socios pasaron a negativo. Test de ida y vuelta + e2e.
+
 ## 0.4.14 (2026-10-11)
 
 - fix(coach): las extracciones a la etiqueta del negocio ("Negocio", configurable) ya no cuentan

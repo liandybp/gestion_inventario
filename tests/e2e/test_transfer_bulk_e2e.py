@@ -19,6 +19,9 @@ def _login_and_open_bulk(page: Page, base_url: str) -> None:
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
+    # Espera a la carga inicial de #tab-content (hx-trigger=load): si se cambia de pestaña antes,
+    # esa respuesta llega después y sobrescribe la pestaña nueva (test intermitente).
+    page.locator("#tab-content > *").first.wait_for()
 
     page.click("#tab-transfers")
     expect(page.locator("button[hx-get='/ui/transfers/bulk']")).to_be_visible()
@@ -81,6 +84,9 @@ def test_bulk_modal_uses_selected_locations(live_server: str, page: Page) -> Non
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
+    # Espera a la carga inicial de #tab-content (hx-trigger=load): si se cambia de pestaña antes,
+    # esa respuesta llega después y sobrescribe la pestaña nueva (test intermitente).
+    page.locator("#tab-content > *").first.wait_for()
     page.click("#tab-transfers")
     expect(page.locator("button[hx-get='/ui/transfers/bulk']")).to_be_visible()
 
@@ -104,6 +110,9 @@ def test_transfer_locations_have_no_duplicates(live_server: str, page: Page) -> 
     page.click('button[type="submit"]')
     page.wait_for_url(f"{base_url}/ui/dashboard**")
     page.wait_for_function("typeof window.htmx !== 'undefined' && typeof window.htmx.trigger === 'function'")
+    # Espera a la carga inicial de #tab-content (hx-trigger=load): si se cambia de pestaña antes,
+    # esa respuesta llega después y sobrescribe la pestaña nueva (test intermitente).
+    page.locator("#tab-content > *").first.wait_for()
 
     page.click("#tab-transfers")
     expect(page.locator("#transfer-form")).to_be_visible()

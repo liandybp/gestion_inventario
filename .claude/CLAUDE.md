@@ -272,8 +272,8 @@ Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/trans
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema v8: sync_state + device_tokens + paid_by_transfer)
-Versión:      0.4.14 (ver VERSION) — 0.4.11, 0.4.12 y 0.4.13 pasadas a main (producción,
-              laptop-server, gestion.legatumbp.com) el 2026-10-11 tras prueba manual en dev.
+Versión:      0.4.14 (ver VERSION) — 0.4.11 a 0.4.14 desplegadas en dev y producción (main,
+              laptop-server, gestion.legatumbp.com) el 2026-10-11.
               0.4.14: el coach ya no trata las extracciones a "Negocio" como retiros y la alerta
               "drena caja" (partner_overdrawn) usa el pendiente acumulado por socio de dividendos;
               la caja estimada suma las ventas (antes las restaba)
