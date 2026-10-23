@@ -1,10 +1,6 @@
-<div class="modal-overlay" id="user-edit-modal">
-  <div class="modal-container">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Editar Usuario: {{ user.username }}</h3>
-        <button type="button" class="modal-close" data-modal-close="user-edit-modal">&times;</button>
-      </div>
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('user-edit-modal', 'Editar Usuario: ' ~ user.username) %}
 
       {% if message %}
       <div class="message {{ message_class }}">
@@ -14,7 +10,7 @@
       {% endif %}
 
       <form hx-post="/ui/user/{{ user.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
-        <div class="row"><label for="edit-username">Usuario *</label><input type="text" id="edit-username" name="username" value="{{ user.username }}" required autocomplete="off" /></div>
+        {{ field('Usuario *', 'username', type='text', id='edit-username', value=user.username, required=True, attrs={'autocomplete': 'off'}) }}
 
         <div class="row">
           <label for="edit-role">Rol *</label>
@@ -50,6 +46,4 @@
         <button type="submit">Guardar Cambios</button>
         <button type="button" class="btn-secondary ml-8" data-modal-close="user-edit-modal">Cancelar</button>
       </form>
-    </div>
-  </div>
-</div>
+{% endcall %}

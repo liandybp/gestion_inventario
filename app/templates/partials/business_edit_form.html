@@ -1,10 +1,5 @@
-<div class="modal-overlay" id="business-edit-modal">
-  <div class="modal-container modal-container-wide">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Editar Negocio</h2>
-        <button type="button" class="modal-close" data-modal-close="business-edit-modal" aria-label="Cerrar">&times;</button>
-      </div>
+{% from 'components/modal.html' import modal %}
+{% call modal('business-edit-modal', 'Editar Negocio', wide=True, heading='h2', close_label='Cerrar') %}
 
       {% if message %}
       <div class="message {{ message_class }}">
@@ -262,6 +257,4 @@
           <button type="button" class="btn-secondary" data-modal-close="business-edit-modal">Cancelar</button>
         </div>
       </form>
-    </div>
-  </div>
-</div>
+{% endcall %}

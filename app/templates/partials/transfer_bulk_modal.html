@@ -1,11 +1,6 @@
 {% from 'components/ui.html' import flash %}
-<div class="modal-overlay" id="transfer-bulk-modal">
-  <div class="modal-container" style="max-width: 760px;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Traspaso masivo</h3>
-        <button type="button" class="modal-close" data-modal-close="transfer-bulk-modal">&times;</button>
-      </div>
+{% from 'components/modal.html' import modal %}
+{% call modal('transfer-bulk-modal', 'Traspaso masivo', container_style='max-width: 760px;') %}
 
       {{ flash(message, message_class or '', message_detail) }}
 
@@ -82,6 +77,4 @@
           <span id="transfer-bulk-loading" class="htmx-indicator">Procesando...</span>
         </div>
       </form>
-    </div>
-  </div>
-</div>
+{% endcall %}

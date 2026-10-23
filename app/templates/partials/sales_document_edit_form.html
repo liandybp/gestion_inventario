@@ -1,18 +1,15 @@
-<div class="modal-overlay" id="sales-doc-edit-modal">
-  <div class="modal-container modal-container-wide">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Editar documento <code>{{ doc.code }}</code></h3>
-        <button type="button" class="modal-close" data-modal-close="sales-doc-edit-modal">&times;</button>
-      </div>
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% set doc_title %}Editar documento <code>{{ doc.code }}</code>{% endset %}
+{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
 
       <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
     <div class="grid grid-2">
-      <div class="row"><label>Cliente (Nombre)</label><input name="client_name" value="{{ doc.client_name }}" required /></div>
-      <div class="row"><label>Cliente (ID)</label><input name="client_id" value="{{ doc.client_id }}" required /></div>
+      {{ field('Cliente (Nombre)', 'client_name', value=doc.client_name, required=True) }}
+      {{ field('Cliente (ID)', 'client_id', value=doc.client_id, required=True) }}
     </div>
-    <div class="row"><label>Dirección (opcional)</label><input name="client_address" value="{{ doc.client_address or '' }}" /></div>
-    <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ doc.notes or '' }}" /></div>
+    {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
 
     <h4 style="margin-top:14px;">Items</h4>
     <div class="table-wrapper">
@@ -59,6 +56,4 @@
     <button type="submit" class="mt-12">Guardar cambios</button>
     <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
   </form>
-    </div>
-  </div>
-</div>
+{% endcall %}
