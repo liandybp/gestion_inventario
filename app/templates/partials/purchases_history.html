@@ -15,7 +15,7 @@
         {% if can_manage %}
         <th>
           <input type="checkbox" aria-label="Seleccionar todo"
-                 onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
+                 data-js-select-all="movement_ids" />
         </th>
         {% endif %}
         <th class="col-date">Fecha</th>

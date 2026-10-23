@@ -21,7 +21,7 @@
         <label>Artículo / código</label>
         <input name="product" list="product-options" placeholder="Nombre, SKU o barcode" autocomplete="off" required
                hx-get="/ui/product-defaults/sale" hx-trigger="change" hx-target="#sale-defaults" hx-swap="innerHTML"
-               onkeydown="if(event.key==='Enter'){event.preventDefault(); const q=this.form.querySelector('input[name=quantity]'); if(q){q.focus(); q.select && q.select();}}" />
+               data-js-enter-focus="quantity" />
       </div>
       <div class="row"><label id="sale-qty-label">Cantidad</label><input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
       <div class="row"><label>Precio unitario</label><input id="sale-unit-price" name="unit_price" type="number" step="0.0001" min="0" /></div>

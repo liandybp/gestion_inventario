@@ -44,15 +44,6 @@
         <button type="submit">Entrar</button>
       </form>
 
-      <script>
-        (function () {
-          var cb = document.getElementById('login-show-password');
-          var pw = document.getElementById('login-password');
-          if (!cb || !pw) return;
-          cb.addEventListener('change', function () {
-            pw.type = cb.checked ? 'text' : 'password';
-          });
-        })();
-      </script>
     </div>
+    <script type="module" src="/static/js/pages/login.js?v={{ static_version() }}"></script>
 {% endblock %}

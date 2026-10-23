@@ -24,10 +24,11 @@
         body { padding: 0; }
       }
     </style>
+    <script type="module" src="/static/js/pages/print.js?v={{ static_version() }}"></script>
 {% endblock %}
 {% block body %}
     <div class="toolbar">
-      <button type="button" onclick="window.print()">Imprimir</button>
+      <button type="button" data-js-print>Imprimir</button>
       <div class="muted">{% if selected_location_name %}{{ selected_location_name }}{% else %}General{% endif %}</div>
     </div>
 

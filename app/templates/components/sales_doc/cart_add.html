@@ -16,7 +16,7 @@
     <div class="row"><label>Precio unitario</label><input id="sales-doc-unit-price" name="unit_price" type="number" step="0.0001" min="0" value="0" /></div>
     <div class="row">
       <label>Moneda</label>
-      <select id="sales-doc-currency-code" name="currency_code" onchange="document.getElementById('sales-doc-currency-hidden').value=this.value">
+      <select id="sales-doc-currency-code" name="currency_code" data-js-mirror-to="sales-doc-currency-hidden">
         <option value="USD" {% if selected_currency_code == 'USD' %}selected{% endif %}>USD</option>
         <option value="EUR" {% if selected_currency_code == 'EUR' %}selected{% endif %}>Euro (€)</option>
         <option value="GEN" {% if selected_currency_code == 'GEN' %}selected{% endif %}>Moneda nacional (MN$)</option>

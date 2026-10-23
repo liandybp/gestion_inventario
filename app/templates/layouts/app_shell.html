@@ -1,18 +1,10 @@
-{# Layout de la app (dashboard): tema + htmx, Chart.js, JsBarcode, app.css, app.js. #}
+{# Layout de la app (dashboard): tema (theme-init.js) + htmx, Chart.js, JsBarcode, app.css y main.js (módulo). #}
 {% extends "base.html" %}
 {% block head %}
-    <script>
-      // Aplicar el tema guardado ANTES del paint (evita flash de color).
-      (function () {
-        try {
-          var t = localStorage.getItem("gi-theme") || "light";
-          document.documentElement.setAttribute("data-theme", t);
-        } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
-      })();
-    </script>
+    <script src="/static/js/theme-init.js?v={{ static_version() }}"></script>
     <script src="/static/js/htmx.min.js?v={{ static_version() }}"></script>
     <script src="/static/js/chart.umd.min.js?v={{ static_version() }}"></script>
     <script src="/static/js/JsBarcode.all.min.js?v={{ static_version() }}"></script>
     <link rel="stylesheet" href="/static/css/app.css?v={{ static_version() }}" />
-    <script src="/static/js/app.js?v={{ static_version() }}" defer></script>
+    <script type="module" src="/static/js/main.js?v={{ static_version() }}"></script>
 {% endblock %}
