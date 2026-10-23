@@ -306,3 +306,34 @@ def test_plan_node_includes_last_tool_in_system_prompt(db_session, business_id):
         assert "Contexto adicional" in captured["system"]
     finally:
         g._PLANNER = original
+
+
+def _run_synth(db_session, business_id, monkeypatch, description):
+    registry = {"fake_tool": {"fn": lambda svc, args: {"columns": ["A"], "rows": [[1]]},
+                              "description": description, "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    monkeypatch.setattr(g.config, "RETRY_BASE_S", 0.0)
+    monkeypatch.setattr(g.config, "RETRY_JITTER", 0.0)
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(
+        PlanModel(tool="fake_tool", tool_args={}, widgets=[], reply="Voy a obtenerlo.")))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    return result["widgets"][0]["title"]
+
+
+def test_synth_title_uses_tool_description(db_session, business_id, monkeypatch):
+    assert _run_synth(db_session, business_id, monkeypatch, "Ventas de prueba (start/end ISO).") == "Ventas de prueba"
+
+
+def test_synth_title_falls_back_to_tool_name(db_session, business_id, monkeypatch):
+    assert _run_synth(db_session, business_id, monkeypatch, "") == "fake_tool"
+
+
+def test_reply_warns_when_widget_tool_fails(db_session, business_id, monkeypatch):
+    plan = PlanModel(tool="stock", tool_args={"sku": "SKU-NO-EXISTE"},
+                     widgets=[WidgetSpec(type="kpi", title="Stock", tool="stock", tool_args={"sku": "SKU-NO-EXISTE"})],
+                     reply="Consultando.")
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(plan))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    assert result["reply"].startswith("Consultando.")
+    assert "No pude obtener los datos de este widget" in result["reply"]
+    assert "SKU-NO-EXISTE" not in result["reply"]

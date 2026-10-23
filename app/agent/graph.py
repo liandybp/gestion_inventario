@@ -152,12 +152,20 @@ def _plan_node(state: AgentState) -> AgentState:
             tool=p.tool,
             tool_args=p.tool_args,
             reply=p.reply,
-            widgets=[WidgetSpec(type="table", title=p.tool, tool=p.tool, tool_args=p.tool_args)],
+            widgets=[WidgetSpec(type="table", title=_synth_title(p.tool), tool=p.tool, tool_args=p.tool_args)],
         )
         return state
     _log_agent.warning("agent_plan_unparseable message=%r last_error=%s", state["message"], error)
     state["plan"] = PlanModel(tool=None, widgets=[], reply="No pude interpretar tu consulta.")
     return state
+
+
+def _synth_title(tool_name: str) -> str:
+    """Título legible del widget sintetizado (no el nombre interno de la tool):
+    la descripción hasta el primer " (" o ".", o el nombre si no hay descripción."""
+    spec = TOOL_REGISTRY.get(tool_name) or {}
+    desc = (spec.get("description") or "").split(" (")[0].split(".")[0].strip()
+    return desc[:255] or tool_name
 
 
 def _resolve_widget_tool_args(plan: PlanModel, widget: WidgetSpec) -> dict:
@@ -219,8 +227,15 @@ def _build_node(state: AgentState) -> AgentState:
     return state
 
 
+_TOOL_ERROR_NOTICE = "No pude obtener los datos de este widget; revisa el rango de fechas o los filtros."
+
+
 def _narrate_node(state: AgentState) -> AgentState:
-    state["reply"] = state["plan"].reply
+    reply = state["plan"].reply
+    # Si la tool del widget falló, avisar sin el detalle técnico de la excepción.
+    if (state.get("error") or "").startswith("Tool "):
+        reply = f"{reply}\n\n{_TOOL_ERROR_NOTICE}"
+    state["reply"] = reply
     return state
 
 
