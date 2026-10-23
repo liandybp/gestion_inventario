@@ -127,7 +127,11 @@ def test_no_debug_code_left() -> None:
     for rel in sorted(_js_files()):
         text = (JS_DIR / rel).read_text(encoding="utf-8")
         assert "debug" not in text.lower(), rel
-        assert "console." not in text, rel
+        # Permitir console.error solo en core/content.js para reportar fallos de enhancers
+        if rel == "core/content.js":
+            assert 'console.error(`Enhancer error:' in text
+        else:
+            assert "console." not in text, rel
     for path in _templates():
         assert "-debug" not in path.read_text(encoding="utf-8"), _rel(path)
 

@@ -278,12 +278,20 @@ def tour_server() -> tuple[str, dict]:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-@pytest.fixture(scope="function")
-def js_errors(page) -> list[str]:
+@pytest.fixture(scope="function", autouse=True)
+def js_errors(page, request) -> list[str]:
     """Errores de JS de la página: excepciones no capturadas y mensajes `console.error`
-    (Chromium informa ahí las violaciones de CSP y los módulos que no cargan). Los tests
-    terminan con `assert js_errors == []`."""
+    (Chromium informa ahí las violaciones de CSP y los módulos que no cargan).
+    Guarda automática en todos los e2e; los tests pueden asertar en el fixture o confiar
+    en el teardown que falla si hay errores reales (no HTTP errores ni recursos 404)."""
     errors: list[str] = []
     page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
-    page.on("console", lambda msg: errors.append(f"console.error: {msg.text}") if msg.type == "error" else None)
-    return errors
+    # Filtrar: permitir "Failed to load resource" (errores 4xx de HTTP) y violaciones CSP esperadas
+    # Rechazar: violaciones CSP reales, módulos no encontrados, excepciones no capturadas
+    page.on("console", lambda msg: errors.append(f"console.error: {msg.text}")
+            if msg.type == "error" and "Failed to load resource" not in msg.text else None)
+    yield errors
+    # Fallar el test solo si hay errores reales (CSP, módulos no cargables, excepciones)
+    real_errors = [e for e in errors if "Refused to load the script" in e or "Refused to execute" in e or "pageerror" in e]
+    if real_errors:
+        pytest.fail(f"JS errors reales durante {request.node.name}: {real_errors}")

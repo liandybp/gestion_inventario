@@ -9,7 +9,13 @@ export function onContent(fn) {
 }
 
 function run(root, fromSwap) {
-  enhancers.forEach((fn) => fn(root, fromSwap));
+  enhancers.forEach((fn) => {
+    try {
+      fn(root, fromSwap);
+    } catch (e) {
+      console.error(`Enhancer error: ${e.message}`, e);
+    }
+  });
 }
 
 export function init() {

@@ -31,7 +31,10 @@ function onTransferProductChange(evt) {
   }
 
   fetch(url)
-    .then((res) => res.text())
+    .then((res) => {
+      if (!res.ok || res.redirected) throw new Error(`${res.status}`);
+      return res.text();
+    })
     .then((stock) => {
       qtyInput.value = stock || '0';
     })
