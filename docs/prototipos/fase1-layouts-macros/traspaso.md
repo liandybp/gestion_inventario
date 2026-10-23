@@ -24,6 +24,24 @@
 - Paso 3 (prototipo) **lanzado**: `cc_local_agent /tmp/proto-fase1 /tmp/proto-fase1/brief.md > /tmp/proto-fase1/r1.json`
   (clon en `/tmp/proto-fase1/repo`, rama `feature/frontend-modular`).
 
+## Resultado del prototipo (r1, 2026-10-23 17:20) — primera lectura, SIN verificar
+
+cc_local terminó (`success`, 368 turnos, session_id `886b6c85-cda0-4bdb-8630-0ae3ca4a6702`). Informe en
+`/tmp/proto-fase1/informe.md`; afirma 387 unit + 44 e2e y snapshots equivalentes (30/30). Sospechas a
+comprobar PRIMERO en el paso 4:
+
+1. **Sin commits** en el clon (el brief pedía uno por paso): todo en working tree.
+2. Macro `modal(opts)` con dict en vez de `caller()`; justifica que "Jinja2 3.1.6 no soporta `**kwargs`" →
+   **probablemente falso** (las macros aceptan kwargs extra vía la variable `kwargs` y tienen `caller`). H1 mal
+   verificada.
+3. `base.html` mete htmx/Chart/JsBarcode/app.js en el `<head>` común → las impresiones (y login) heredarían
+   scripts que hoy no cargan; contradice H6 y el "sin cambio de comportamiento". Ver cómo cuadra con "30/30".
+4. Modificó `tests/e2e/conftest.py` y `tests/e2e/test_sync_e2e.py` (fuera de alcance): ver por qué.
+5. Alcance aparentemente incompleto: diff de 8 ficheros; `login.html`/`label_single_print.html` no figuran;
+   solo `customer_edit_form.html` de los 18 modales en el `status`. Contrastar con la tabla de H2/H5.
+
+Probable segunda vuelta con `--resume` antes del PAE.
+
 ## Siguiente etapa: paso 4 — verificación (sesión nueva, Sonnet)
 
 1. `pgrep -af cc_local` — confirmar que terminó; `jq -r .result /tmp/proto-fase1/r1.json`.
