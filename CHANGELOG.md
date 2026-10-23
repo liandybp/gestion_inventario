@@ -4,6 +4,14 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- feat(agent): nueva tool `sales_by_location_monthly` — ventas de cada punto de venta mes a mes
+  (una serie por ubicación, últimos N meses calendario incluyendo el actual). El copiloto ya puede
+  dibujar barras agrupadas por mes (antes devolvía el total del período, sin meses). 34 tools.
+- feat(ui): los gráficos de barras y líneas del Dashboard Dinámico aceptan varias series
+  (`payload.datasets`) con leyenda (`components/widget-chart.js`).
+- fix(agent): "últimos N meses" se resuelve como N meses calendario (antes el modelo tomaba N+1).
+- fix(agent): el reply avisa cuando no puede dar exactamente lo pedido o cuando falla la tool, y el
+  widget de rescate se titula con la descripción de la tool en vez de su nombre interno.
 - fix(inicio): XSS almacenado en los gráficos de Inicio. Los datos se volcaban con `json.dumps` +
   `|safe` dentro de `<script type="application/json">`; un nombre de producto con `</script>` (p. ej.
   desde una factura importada) cerraba el bloque y ejecutaba HTML/JS. Ahora el router pasa dicts y la
