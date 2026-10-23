@@ -2,6 +2,14 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
+
+- fix(inicio): XSS almacenado en los gráficos de Inicio. Los datos se volcaban con `json.dumps` +
+  `|safe` dentro de `<script type="application/json">`; un nombre de producto con `</script>` (p. ej.
+  desde una factura importada) cerraba el bloque y ejecutaba HTML/JS. Ahora el router pasa dicts y la
+  plantilla usa `tojson`, que escapa `< > & '`. Test de regresión en `test_ui_xss_escapes.py`.
+- docs: diagnóstico de arquitectura del frontend (`docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md`).
+
 ## 0.4.15 (2026-10-19)
 
 - fix(negocios): guardar el formulario de edición de un negocio borraba el saldo inicial de
