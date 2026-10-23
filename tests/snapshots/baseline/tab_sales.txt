@@ -37,7 +37,7 @@ Taller Cerro
 <label>
 Artículo / código
 </label>
-<input autocomplete="off" hx-get="/ui/product-defaults/sale" hx-swap="innerHTML" hx-target="#sale-defaults" hx-trigger="change" list="product-options" name="product" onkeydown="if(event.key==='Enter'){event.preventDefault(); const q=this.form.querySelector('input[name=quantity]'); if(q){q.focus(); q.select && q.select();}}" placeholder="Nombre, SKU o barcode" required>
+<input autocomplete="off" hx-get="/ui/product-defaults/sale" hx-swap="innerHTML" hx-target="#sale-defaults" hx-trigger="change" list="product-options" name="product" placeholder="Nombre, SKU o barcode" required>
 </div>
 <div class="row">
 <label id="sale-qty-label">
@@ -169,7 +169,7 @@ Eliminar seleccionados
 <thead>
 <tr>
 <th>
-<input aria-label="Seleccionar todo" onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=sale_ids]').forEach(cb=>cb.checked=this.checked);" type="checkbox">
+<input aria-label="Seleccionar todo" type="checkbox">
 </th>
 <th class="col-date">
 Fecha

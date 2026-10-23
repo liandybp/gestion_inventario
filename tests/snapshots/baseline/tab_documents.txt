@@ -75,7 +75,7 @@ Precio unitario
 <label>
 Moneda
 </label>
-<select id="sales-doc-currency-code" name="currency_code" onchange="document.getElementById('sales-doc-currency-hidden').value=this.value">
+<select id="sales-doc-currency-code" name="currency_code">
 <option selected value="USD">
 USD
 </option>

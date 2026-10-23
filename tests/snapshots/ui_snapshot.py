@@ -66,6 +66,7 @@ except ImportError:
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
+from app.agent.widgets import add_widget  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
@@ -103,27 +104,61 @@ def _norm(text: str) -> str:
     return text
 
 
+# Fase 2 (JS a módulos): el canónico ignora el cableado JS, que cambia a propósito, para que
+# la baseline generada con el código anterior a la fase siga sirviendo de referencia:
+# - <script> ejecutables (inline o con src) y su contenido; los <script type="application/json">
+#   (datos de los gráficos) sí cuentan. Qué scripts carga cada página lo fija un unit test.
+# - atributos on* (onclick=…) y data-js-* (los enganches que los sustituyen).
+# - los 3 <div id="…-debug"> de los gráficos de Inicio, eliminados en la fase 2.
+_REMOVED_DEBUG_IDS = {"monthly-chart-debug", "monthly-sales-daily-line-debug", "monthly-sales-pie-debug"}
+
+
+def _is_js_wiring_attr(name: str) -> bool:
+    return name.startswith("on") or name.startswith("data-js-")
+
+
 class _Canon(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.tokens: list[str] = []
+        self._skip_tag: str | None = None
 
     def handle_decl(self, decl: str) -> None:
         self.tokens.append(f"<!{_norm(decl).lower()}>")
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
+        if self._skip_tag:
+            return
+        attr_map = dict(attrs)
+        if tag == "script" and attr_map.get("type") != "application/json":
+            self._skip_tag = "script"
+            return
+        if tag == "div" and attr_map.get("id") in _REMOVED_DEBUG_IDS:
+            self._skip_tag = "div"
+            return
         parts = [tag]
         for name, value in sorted(attrs, key=lambda a: a[0]):
+            if _is_js_wiring_attr(name):
+                continue
             parts.append(name if value is None else f'{name}="{_norm(value)}"')
         self.tokens.append("<" + " ".join(parts) + ">")
 
     def handle_startendtag(self, tag: str, attrs: list) -> None:
         self.handle_starttag(tag, attrs)
+        if self._skip_tag == tag:
+            self._skip_tag = None
 
     def handle_endtag(self, tag: str) -> None:
+        if self._skip_tag:
+            # Los elementos omitidos no tienen hijos del mismo tag (script; div vacío).
+            if tag == self._skip_tag:
+                self._skip_tag = None
+            return
         self.tokens.append(f"</{tag}>")
 
     def handle_data(self, data: str) -> None:
+        if self._skip_tag:
+            return
         text = _norm(data)
         if text:
             self.tokens.append(text)
@@ -199,6 +234,8 @@ def _seed() -> dict:
                                  quantity=2, unit_price=2.0, line_total=4.0))
         user = db.scalar(select(User).where(User.username == "operator"))
         db.commit()
+        add_widget(db, bid, type="pie", title=_hostile("Widget"), tool="snapshot", tool_args={},
+                   payload={"labels": [_hostile("A"), "B"], "values": [1, 2]}, unit=None, created_by=None)
         transfer_in = db.scalar(
             select(InventoryMovement.id).where(
                 InventoryMovement.business_id == bid, InventoryMovement.type == "transfer_in"

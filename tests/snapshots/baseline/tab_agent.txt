@@ -6,8 +6,21 @@ Dashboard Dinámico
 El chat está en la burbuja 💬 (abajo a la derecha). Acá se acumulan los widgets que genera.
 </p>
 <div id="agent-grid">
-<p class="muted">
-Aún no hay widgets. Pregunta algo arriba para construir tu tablero.
-</p>
+<div class="widget-grid">
+<div class="widget-card" id="widget-1">
+<div class="widget-header">
+<span>
+Widget <b>"H"</b> & 'co'
+</span>
+<button aria-label="Eliminar widget" hx-post="/ui/agent/widget/1/delete" hx-swap="innerHTML" hx-target="#agent-grid" title="Eliminar widget">
+✕
+</button>
+</div>
+<div class="widget-chart-wrap">
+<canvas aria-label="Widget <b>"H"</b> & 'co'" id="chart-1" role="img">
+</canvas>
+</div>
+</div>
+</div>
 </div>
 </div>

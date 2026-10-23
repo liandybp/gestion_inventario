@@ -163,15 +163,11 @@ Pasa el ratón por un color para ver el detalle.
 <script id="monthly-sales-daily-line-data" type="application/json">
 {"labels": ["<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>"], "sales": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 </script>
-<div class="muted mt-8" id="monthly-sales-daily-line-debug">
-</div>
 </div>
 </div>
 <script id="monthly-sales-pie-data" type="application/json">
 {"labels": [], "qtys": [], "values": []}
 </script>
-<div class="muted mt-8" id="monthly-sales-pie-debug">
-</div>
 </div>
 <div class="card mt-16">
 <h3>
@@ -255,8 +251,6 @@ Ventas, compras y utilidad bruta por mes (últimos 12 meses).
 <script id="monthly-chart-data" type="application/json">
 {"labels": ["<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>"], "profit": [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "purchases": [0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "sales": [0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 </script>
-<div class="muted mt-8" id="monthly-chart-debug">
-</div>
 </div>
 <div class="card mt-16" hx-get="/ui/restock-table?location_code=" hx-swap="innerHTML" hx-trigger="load" id="restock">
 </div>

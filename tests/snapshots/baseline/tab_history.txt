@@ -81,7 +81,7 @@ Solo afecta movimientos tipo Ajuste.
 <thead>
 <tr>
 <th style="width:3%;">
-<input aria-label="Seleccionar todo" onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" type="checkbox">
+<input aria-label="Seleccionar todo" type="checkbox">
 </th>
 <th class="col-date">
 Fecha

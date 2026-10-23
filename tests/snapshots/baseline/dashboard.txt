@@ -6,18 +6,7 @@
 <title>
 Inventario
 </title>
-<script>
-// Aplicar el tema guardado ANTES del paint (evita flash de color). (function () { try { var t = localStorage.getItem("gi-theme") || "light"; document.documentElement.setAttribute("data-theme", t); } catch (e) { document.documentElement.setAttribute("data-theme", "light"); } })();
-</script>
-<script src="/static/js/htmx.min.js?v=<V>">
-</script>
-<script src="/static/js/chart.umd.min.js?v=<V>">
-</script>
-<script src="/static/js/JsBarcode.all.min.js?v=<V>">
-</script>
 <link href="/static/css/app.css?v=<V>" rel="stylesheet">
-<script defer src="/static/js/app.js?v=<V>">
-</script>
 </head>
 <body>
 <button aria-label="Abrir menú" class="mobile-menu-toggle" id="mobile-menu-toggle">
@@ -38,7 +27,7 @@ admin
 Negocio: Recambios
 </div>
 <form action="/ui/active-business" method="post" style="margin-top:8px;">
-<select name="business_id" onchange="this.form.submit()" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
+<select name="business_id" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
 <option value="3">
 Bazar Mariela
 </option>
@@ -51,7 +40,7 @@ Ropa
 </select>
 </form>
 <div class="sidebar-theme-row">
-<button aria-label="Cambiar tema" class="sidebar-theme" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" type="button">
+<button aria-label="Cambiar tema" class="sidebar-theme" title="Cambiar tema claro/oscuro" type="button">
 🌓
 </button>
 <a class="sidebar-logout" href="/ui/logout">
@@ -122,7 +111,7 @@ Actividad
 </div>
 <div id="modal-container">
 </div>
-<button aria-label="Abrir chat del copiloto" class="agent-fab" id="agent-fab" onclick="toggleAgentPanel()" title="Copiloto">
+<button aria-label="Abrir chat del copiloto" class="agent-fab" id="agent-fab" title="Copiloto">
 <svg aria-hidden="true" fill="none" height="26" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="26">
 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z">
 </svg>
@@ -133,13 +122,13 @@ Actividad
 Copiloto
 </span>
 <span class="agent-panel-actions">
-<button class="agent-panel-size" onclick="cycleAgentPanelSize()" title="Cambiar tamaño" type="button">
+<button class="agent-panel-size" title="Cambiar tamaño" type="button">
 ⤢
 </button>
 <button class="agent-panel-new" hx-post="/ui/agent/conversation/clear" hx-swap="innerHTML" hx-target="#agent-chat-thread" title="Empezar una nueva conversación" type="button">
 Nueva conversación
 </button>
-<button aria-label="Cerrar" class="agent-panel-close" onclick="toggleAgentPanel()" type="button">
+<button aria-label="Cerrar" class="agent-panel-close" type="button">
 ✕
 </button>
 </span>
@@ -154,8 +143,5 @@ Enviar
 </button>
 </form>
 </div>
-<script>
-function toggleAgentPanel() { var panel = document.getElementById("agent-panel"); if (panel) panel.classList.toggle("hidden"); } function toggleTheme() { var root = document.documentElement; var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark"; try { localStorage.setItem("gi-theme", next); } catch (e) {} // Recargar para que los gráficos se redibujen con la paleta del tema. location.reload(); } var _agentSizes = ["small", "medium", "large"]; function cycleAgentPanelSize() { var panel = document.getElementById("agent-panel"); if (!panel) return; var idx = _agentSizes.indexOf(panel.dataset.size || "medium"); idx = (idx + 1) % _agentSizes.length; panel.dataset.size = _agentSizes[idx]; panel.classList.remove("small", "medium", "large"); panel.classList.add(_agentSizes[idx]); } // ── Chat optimista ───────────────────────────────────────────────── // El mensaje del usuario aparece al instante + indicador "escribiendo…". function appendAgentBubble(role, text) { var thread = document.getElementById("agent-chat-thread"); if (!thread) return; var d = document.createElement("div"); d.className = "msg msg-" + role; d.textContent = text; thread.appendChild(d); thread.scrollTop = thread.scrollHeight; } function appendAgentTyping() { var thread = document.getElementById("agent-chat-thread"); if (!thread || document.getElementById("agent-typing")) return; var d = document.createElement("div"); d.id = "agent-typing"; d.className = "msg msg-assistant agent-typing"; d.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'; thread.appendChild(d); thread.scrollTop = thread.scrollHeight; } // Enviar el chat: el form usa hx-post (htmx garantiza el envío). Este // listener hace el append optimista + indicador, y limpia el input en un // microtask para no interferir con la lectura del form por htmx. var _agentForm = document.getElementById("agent-chat-form"); if (_agentForm) { _agentForm.addEventListener("submit", function () { var input = _agentForm.querySelector('textarea[name=message]'); var msg = (input && input.value || "").trim(); if (!msg) return; appendAgentBubble("user", msg); // el mensaje va al historial YA appendAgentTyping(); // indicador "escribiendo…" setTimeout(function () { if (input) input.value = ""; }, 0); }, true); // capture: corre antes de que htmx lea el formulario // Enter envía; Shift+Enter inserta salto de línea (textarea multilínea). var _agentInput = _agentForm.querySelector('textarea[name=message]'); if (_agentInput) { _agentInput.addEventListener("keydown", function (evt) { if (evt.key === "Enter" && !evt.shiftKey) { evt.preventDefault(); _agentForm.requestSubmit(); } }); } } // Al terminar la respuesta: quitar el indicador; si fue un error (4xx), // htmx no swapea >=400, así que insertamos el reply de error a mano (B1). document.body.addEventListener("htmx:afterRequest", function (evt) { var cfg = evt.detail.requestConfig || {}; if (cfg.path !== "/ui/agent/chat") return; var typing = document.getElementById("agent-typing"); if (typing) typing.remove(); var xhr = evt.detail.xhr; if (xhr && xhr.status >= 400 && xhr.responseText) { var thread = document.getElementById("agent-chat-thread"); if (thread) thread.insertAdjacentHTML("beforeend", xhr.responseText); } }); // Mostrar la burbuja SOLO en el Dashboard Dinámico. Solo se actualiza al // cambiar de pestaña (swap en #tab-content); la respuesta del chat (swap // en #agent-chat-thread) NO debe ocultar la burbuja. document.body.addEventListener("htmx:afterSwap", function (evt) { var target = evt.detail.target; if (target && target.id === "tab-content") { var path = (evt.detail.requestConfig && evt.detail.requestConfig.path) || ""; var onDashboard = (path === "/ui/tabs/agent"); var fab = document.getElementById("agent-fab"); if (fab) fab.style.display = onDashboard ? "flex" : "none"; if (!onDashboard) { var panel = document.getElementById("agent-panel"); if (panel) panel.classList.add("hidden"); } } if (target && target.classList && target.classList.contains("agent-thread")) { target.scrollTop = target.scrollHeight; } });
-</script>
 </body>
 </html>

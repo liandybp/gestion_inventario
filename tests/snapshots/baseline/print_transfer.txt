@@ -12,7 +12,7 @@ html, body { margin: 0; padding: 0; } body { font-family: system-ui, -apple-syst
 </head>
 <body>
 <div class="toolbar">
-<button onclick="window.print()" type="button">
+<button type="button">
 Imprimir
 </button>
 <div class="muted">
