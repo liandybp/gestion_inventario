@@ -15,7 +15,7 @@ import pytest
 
 from app.routers.ui_common import templates
 
-APP_ASSETS = ("htmx.min.js", "chart.umd.min.js", "JsBarcode.all.min.js", "app.css", "app.js")
+APP_ASSETS = ("theme-init.js", "htmx.min.js", "chart.umd.min.js", "JsBarcode.all.min.js", "app.css", "main.js")
 COMPONENTS_DIR = Path(__file__).resolve().parents[2] / "app" / "templates" / "components"
 
 

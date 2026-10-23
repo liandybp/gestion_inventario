@@ -25,6 +25,19 @@ Este archivo se genera a partir del historial de Git (`git log`).
   regenera en el mismo commit, el CI falla.
 - fix(frontend): `modal()` con un `heading` que no sea `h2`/`h3` y `profit_items_edit_form.html` con un `kind`
   desconocido fallan con un error explícito (global `template_error`), en vez de renderizar un modal roto.
+- refactor(frontend): fase 2 — todo el JS en módulos ES nativos bajo `app/static/js/` (`main.js` +
+  `core/`, `components/`, `features/`, `pages/`; `theme-init.js` clásico en `<head>`), sin build. Fuera
+  `app.js`, los 5 `<script>` inline ejecutables y los 15 `onclick=`/`onchange=`/`onkeydown=` (sustituidos por
+  atributos `data-js-*`), el listener no-op `debugReturnLots`, los 3 `#*-debug` y el sondeo de `window.Chart`.
+  El CSP pasa a `script-src 'self'` (sin `'unsafe-inline'`). `/static/js/` se sirve con `Cache-Control:
+  no-cache` y `static_version()` calcula el hash de todos los `.css`/`.js`, también los módulos anidados.
+- fix(inicio): el tooltip del gráfico de pastel metía la etiqueta (`SKU - nombre de producto`) en
+  `innerHTML` sin escapar (XSS al pasar el ratón); ahora se construye con `textContent`.
+- test(frontend): el arnés de snapshots ignora el cableado JS (scripts ejecutables, `on*`, `data-js-*`,
+  `#*-debug`); baseline regenerada desde el commit anterior a la fase. +9 unit (CSP, sin JS inline, scripts por
+  plantilla, grafo de módulos, sin código de depuración, escape de `data-js-*`) y +23 e2e que recorren las 17
+  pestañas, los 18 modales, login e impresiones, y cada comportamiento migrado, y fallan ante cualquier error
+  de JS o violación de CSP.
 
 ## 0.4.15 (2026-10-19)
 
