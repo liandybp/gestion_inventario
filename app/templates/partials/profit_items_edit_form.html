@@ -1,0 +1,48 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{# Modal de edición de "Utilidades por artículo". `kind` lo pasa el router:
+   sale | purchase → artículo, cantidad, precio/costo, fecha y nota editables (purchase añade lote);
+   adjustment | transfer_in → solo el costo unitario es editable. #}
+{% set slug = kind|replace('_', '-') %}
+{% set titles = {'sale': 'Editar venta', 'purchase': 'Editar compra (costo)', 'adjustment': 'Editar ajuste (costo)', 'transfer_in': 'Editar traspaso (costo)'} %}
+{% set modal_id = 'profit-items-' ~ slug ~ '-edit-modal' %}
+{% set list_id = 'profit-items-product-options' if kind == 'sale' else 'profit-items-purchase-product-options' %}
+{% call modal(modal_id, titles[kind]) %}
+      <form hx-post="/ui/tabs/profit-items/{{ slug }}/{{ movement.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        <input type="hidden" name="query" value="{{ filter_query or '' }}" />
+        <input type="hidden" name="start_date" value="{{ filter_start_date or '' }}" />
+        <input type="hidden" name="end_date" value="{{ filter_end_date or '' }}" />
+        <input type="hidden" name="location_code" value="{{ filter_location_code or '' }}" />
+
+        {% if kind in ('adjustment', 'transfer_in') %}
+        {{ field('Artículo', value=product_label, disabled=True) }}
+        {{ field('Cantidad', 'quantity', type='number', value=movement.quantity, readonly=True, attrs={'step': '0.0001', 'min': '0'} if kind == 'transfer_in' else {'step': '0.0001'}) }}
+        {{ field('Costo unitario', 'unit_cost', type='number', value=movement.unit_cost or 0, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Fecha', 'movement_date', type='datetime-local', value=movement_date_value, readonly=True) }}
+        {{ field('Nota', 'note', value=movement.note or '', readonly=True) }}
+        {% else %}
+        {{ field('Artículo', 'product', value=product_label, required=True, attrs={'list': list_id, 'data-product-suggest': 'label'}) }}
+        {% if kind == 'sale' %}
+        {{ field('Cantidad', 'quantity', type='number', value=(movement.quantity * -1) if movement.quantity < 0 else movement.quantity, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Precio unitario', 'unit_price', type='number', value=movement.unit_price or 0, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {% else %}
+        {{ field('Cantidad', 'quantity', type='number', value=movement.quantity, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Costo unitario', 'unit_cost', type='number', value=movement.unit_cost or 0, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {% endif %}
+        {{ field('Fecha', 'movement_date', type='datetime-local', value=movement_date_value) }}
+        {% if kind == 'purchase' %}
+        {{ field('Lote', 'lot_code', value=lot_code) }}
+        {% endif %}
+        {{ field('Nota', 'note', value=movement.note or '') }}
+
+        <datalist id="{{ list_id }}">
+          {% for p in product_options %}
+            <option value="{{ p.sku }} - {{ p.name }}"></option>
+          {% endfor %}
+        </datalist>
+        {% endif %}
+
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="{{ modal_id }}">Cancelar</button>
+      </form>
+{% endcall %}
