@@ -45,6 +45,10 @@ function chartConfig(spec) {
   const payload = spec.payload || {};
   const labels = payload.labels || [];
   const values = payload.values || [];
+  // Multi-serie (p. ej. ventas por ubicación y mes): payload.datasets = [{label, data}].
+  // Solo en ejes cartesianos; pie/doughnut/radar siguen con una serie.
+  const multi = (type === 'bar' || type === 'line')
+    && Array.isArray(payload.datasets) && payload.datasets.length > 0;
 
   // Paleta armónica con la identidad de la app, adaptada al tema (claro/oscuro).
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -71,23 +75,33 @@ function chartConfig(spec) {
       y: { beginAtZero: true, grid: { color: 'rgba(15, 23, 42, 0.06)' } },
       x: { grid: { display: false } },
     };
-    opts.plugins = { legend: { display: false } };
+    opts.plugins = { legend: { display: multi } };
   } else if (type === 'pie' || type === 'doughnut') {
     opts.plugins = { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } };
   }
+
+  const datasets = multi
+    ? payload.datasets.map((ds, i) => {
+      const color = palette[i % palette.length];
+      return {
+        label: ds.label, data: ds.data || [], backgroundColor: color,
+        borderColor: color, borderWidth: 1, tension: 0.3, fill: false,
+      };
+    })
+    : [{
+      label: spec.title,
+      data: values,
+      backgroundColor,
+      borderColor,
+      borderWidth: 1,
+      tension: 0.3,
+    }];
 
   return {
     type,
     data: {
       labels,
-      datasets: [{
-        label: spec.title,
-        data: values,
-        backgroundColor,
-        borderColor,
-        borderWidth: 1,
-        tension: 0.3,
-      }],
+      datasets,
     },
     options: opts,
     plugins: [percentPlugin],
