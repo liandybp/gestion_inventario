@@ -23,19 +23,24 @@ from app.utils import month_range
 templates = Jinja2Templates(directory="app/templates")
 
 
-def _static_asset_version() -> str:
+def _static_asset_version(static_dir: Path | None = None) -> str:
     """Versión de cache-busting derivada del contenido de los assets estáticos.
 
     Se calcula en CADA render (no se congela en import): ``uvicorn --reload``
-    solo vigila ``*.py``, así que editar ``app.css``/``app.js`` no reinicia el
+    solo vigila ``*.py``, así que editar un ``.css``/``.js`` no reinicia el
     proceso; con un hash por render, el ``?v=`` cambia igual y el navegador/CDN
     invalida la caché. Las rutas parten de ``__file__`` para no depender del CWD.
     """
     digest = hashlib.sha1()
-    static_dir = Path(__file__).resolve().parent.parent / "static"
-    for rel in ("css/app.css", "js/app.js", "js/htmx.min.js", "js/chart.umd.min.js", "js/JsBarcode.all.min.js"):
+    root = static_dir or Path(__file__).resolve().parent.parent / "static"
+    # Todos los .css/.js (también los módulos de js/core, js/components...): el hash cambia
+    # si cambia cualquiera, aunque main.js no cambie. La ruta entra en el hash (renombrar
+    # un módulo también invalida la caché).
+    files = sorted(p for sub in ("css", "js") for p in (root / sub).rglob("*") if p.suffix in (".css", ".js"))
+    for path in files:
         try:
-            digest.update((static_dir / rel).read_bytes())
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes())
         except OSError:
             continue
     return digest.hexdigest()[:8]
