@@ -9,6 +9,12 @@ Este archivo se genera a partir del historial de Git (`git log`).
   desde una factura importada) cerraba el bloque y ejecutaba HTML/JS. Ahora el router pasa dicts y la
   plantilla usa `tojson`, que escapa `< > & '`. Test de regresión en `test_ui_xss_escapes.py`.
 - docs: diagnóstico de arquitectura del frontend (`docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md`).
+- refactor(frontend): fase 1 — `base.html` + `layouts/app_shell.html` y `layouts/print.html` con `{% extends %}`
+  (dashboard, login y las 3 impresiones; login e impresiones siguen sin cargar htmx/Chart.js/JsBarcode/app.css/
+  app.js). Macros `components/modal.html` (`modal()` con `caller()`) y `components/forms.html` (`field()`); los 18
+  modales migrados y los 4 `profit_items_*_edit_form.html` unificados en `profit_items_edit_form.html`. HTML
+  renderizado sin cambios, verificado con el arnés `tests/snapshots/ui_snapshot.py` (40 páginas, baseline en
+  `tests/snapshots/baseline/`). +22 unit, +3 e2e.
 
 ## 0.4.15 (2026-10-19)
 
