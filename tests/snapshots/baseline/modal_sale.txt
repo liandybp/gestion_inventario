@@ -1,0 +1,58 @@
+<div class="modal-overlay" id="sale-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar venta
+</h3>
+<button class="modal-close" data-modal-close="sale-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/movement/sale/4/update" hx-swap="outerHTML" hx-target="#sale-panel">
+<div class="row">
+<label>
+Artículo
+</label>
+<input list="product-options" name="product" required value="SNAP-1 - Producto Snapshot">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Precio unitario
+</label>
+<input min="0" name="unit_price" required step="0.0001" type="number" value="2">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" step="0.001" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" value="">
+</div>
+<div class="row">
+<label>
+Pagado por transferencia
+</label>
+<input name="paid_by_transfer" type="checkbox" value="1">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="sale-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

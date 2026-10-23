@@ -1,0 +1,72 @@
+<div class="modal-overlay" id="product-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar producto
+</h3>
+<button class="modal-close" data-modal-close="product-edit-modal" type="button">
+×
+</button>
+</div>
+<form enctype="multipart/form-data" hx-encoding="multipart/form-data" hx-post="/ui/product/SNAP-1/update" hx-swap="outerHTML" hx-target="#product-panel">
+<div class="row">
+<label>
+SKU
+</label>
+<input name="new_sku" value="SNAP-1">
+</div>
+<div class="row">
+<label>
+Nombre
+</label>
+<input name="name" required value="Producto Snapshot">
+</div>
+<div class="row">
+<label>
+Unidad
+</label>
+<input name="unit_of_measure" value="ud">
+</div>
+<div class="row">
+<label>
+Imagen
+</label>
+<div>
+<input accept="image/*" name="image_file" type="file">
+</div>
+</div>
+<div class="row">
+<label>
+Categoría
+</label>
+<input name="category" value="Cat">
+</div>
+<div class="row">
+<label>
+Stock mínimo
+</label>
+<input min="0" name="min_stock" step="0.0001" type="number" value="5">
+</div>
+<div class="row">
+<label>
+Costo compra por defecto
+</label>
+<input min="0" name="default_purchase_cost" step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Precio venta por defecto
+</label>
+<input min="0" name="default_sale_price" step="0.0001" type="number" value="2">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="product-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

@@ -1,0 +1,218 @@
+<div>
+<h2>
+Dividendos
+</h2>
+<p class="muted">
+Resumen del mes corriente (costo de venta, costos operativos, utilidad neta y reparto 50% c/u). Registra y edita retiros para calcular lo pendiente.
+</p>
+<div class="grid grid-2-desktop">
+<div class="card">
+<h3>
+DIVIDENDOS
+</h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+</th>
+<th>
+Negocio
+</th>
+<th>
+Liandy
+</th>
+<th>
+Randy
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>
+Inversión de mercancía
+</th>
+<td>
+0.00
+</td>
+<td class="muted">
+-
+</td>
+<td class="muted">
+-
+</td>
+</tr>
+<tr>
+<th>
+Costos de operaciones
+</th>
+<td>
+0.00
+</td>
+<td class="muted">
+-
+</td>
+<td class="muted">
+-
+</td>
+</tr>
+<tr>
+<th>
+Utilidades (50% c/u)
+</th>
+<td class="muted">
+-
+</td>
+<td>
+0.00
+</td>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+Retiros (-)
+</th>
+<td>
+0.00
+</td>
+<td>
+0.00
+</td>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+Total pendiente
+</th>
+<td class="font-bold">
+1368.50
+</td>
+<td class="font-bold">
+2709.25
+</td>
+<td class="font-bold">
+-5.75
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card">
+<h3>
+Registrar retiro
+</h3>
+<form hx-post="/ui/extractions/create" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="extraction_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Parte
+</label>
+<select name="party">
+<option value="Negocio">
+Negocio
+</option>
+<option value="Liandy">
+Liandy
+</option>
+<option value="Randy">
+Randy
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input name="amount" required step="0.0001" type="number">
+</div>
+<div class="row">
+<label>
+Concepto
+</label>
+<input name="concept" required>
+</div>
+<button type="submit">
+Guardar
+</button>
+</form>
+</div>
+</div>
+<div class="mt-12" id="extraction-edit">
+</div>
+<div class="card mt-16">
+<h3>
+Retiros (mes corriente)
+</h3>
+<form class="card mb-12" hx-get="/ui/tabs/dividends" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="flex gap-12 items-center flex-wrap">
+<div>
+<label class="filter-label">
+Buscar
+</label>
+<input name="query" placeholder="Concepto o parte" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input name="end_date" type="date" value="">
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/dividends" hx-get="/ui/tabs/dividends" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</form>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+Concepto
+</th>
+<th>
+Negocio
+</th>
+<th>
+Liandy
+</th>
+<th>
+Randy
+</th>
+<th>
+Fecha
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted" colspan="6">
+Sin retiros registrados en el mes.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>

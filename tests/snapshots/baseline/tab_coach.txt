@@ -1,0 +1,34 @@
+<div class="coach-tab" data-coach-tab id="coach-tab">
+<div class="coach-card">
+<h2>
+Coach financiero operativo
+</h2>
+<p class="coach-score-unknown" data-coach-score>
+Sin datos suficientes este mes
+</p>
+<p class="coach-cash-missing">
+Aún no has cargado tu caja inicial.
+</p>
+<div class="coach-cash-form">
+<h3>
+💰 Base de caja
+</h3>
+<form hx-post="/ui/coach/cash-baseline" hx-swap="outerHTML" hx-target="#coach-tab">
+<label for="baseline_date">
+Fecha
+</label>
+<input name="baseline_date" required type="date">
+<label for="amount">
+Saldo inicial (€)
+</label>
+<input min="0" name="amount" required step="0.01" type="number">
+<button type="submit">
+Cargar Caja
+</button>
+</form>
+</div>
+<p class="coach-rec-none">
+Sin recomendaciones activas. ¡Todo en orden!
+</p>
+</div>
+</div>

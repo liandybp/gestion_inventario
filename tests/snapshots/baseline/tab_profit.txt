@@ -1,0 +1,196 @@
+<div hx-get="/ui/tabs/profit" hx-swap="innerHTML" hx-trigger="every 10m" id="profit-tab">
+<h2>
+Utilidades
+</h2>
+<p class="muted">
+Cálculo del mes corriente (ventas, costo FIFO, utilidad bruta y utilidad neta).
+</p>
+<div class="card mb-12">
+<div class="flex gap-12 items-center flex-wrap">
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="profit-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="profit-end" name="end_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Punto de venta
+</label>
+<select id="profit-location" name="location_code">
+<option selected value="">
+Vista General
+</option>
+<option value="CENTRAL">
+Almacén central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<a class="text-sm" href="/ui/tabs/profit" hx-get="/ui/tabs/profit" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</div>
+<div hx-get="/ui/tabs/profit" hx-include="#profit-start, #profit-end, #profit-location" hx-select="#profit-results" hx-swap="outerHTML" hx-trigger="change from:#profit-start, change from:#profit-end, change from:#profit-location" id="profit-results">
+<div class="grid-4">
+<div class="card">
+<div class="muted">
+Ventas
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+<div class="card">
+<div class="muted">
+(-) Costo de ventas
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Utilidad bruta
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Utilidad neta
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+</div>
+<div class="grid-3 mt-16">
+<div class="card">
+<div class="muted">
+% costo de ventas
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+<div class="card">
+<div class="muted">
+% utilidad bruta
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+<div class="card">
+<div class="muted">
+% utilidad neta / % gastos
+</div>
+<div class="metric-value metric-large">
+0.00 / 0.00
+</div>
+</div>
+</div>
+<div class="grid-2 mt-16">
+<div class="card">
+<h3>
+Resumen
+</h3>
+<div class="table-wrapper">
+<table>
+<tbody>
+<tr>
+<th>
+Ventas
+</th>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+(-) Costo de ventas
+</th>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+Utilidad bruta
+</th>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+(-) Gastos operativos
+</th>
+<td>
+0.00
+</td>
+</tr>
+<tr>
+<th>
+Utilidad neta
+</th>
+<td>
+0.00
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card">
+<h3>
+Otros gastos (últimos del mes)
+</h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th class="col-date">
+Fecha
+</th>
+<th>
+Cantidad
+</th>
+<th>
+Concepto
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted" colspan="3">
+Sin gastos registrados en el mes.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>

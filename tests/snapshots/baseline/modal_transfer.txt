@@ -1,0 +1,46 @@
+<div class="modal-overlay" id="transfer-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar traspaso
+</h3>
+<button class="modal-close" data-modal-close="transfer-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/movement/transfer/2/update" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="row">
+<label>
+Artículo
+</label>
+<input disabled name="product" value="SNAP-1 - Producto Snapshot">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="3.0">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" value="">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="transfer-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

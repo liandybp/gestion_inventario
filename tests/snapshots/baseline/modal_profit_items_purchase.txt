@@ -1,0 +1,66 @@
+<div class="modal-overlay" id="profit-items-purchase-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar compra (costo)
+</h3>
+<button class="modal-close" data-modal-close="profit-items-purchase-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/tabs/profit-items/purchase/1/update" hx-swap="innerHTML" hx-target="#tab-content">
+<input name="query" type="hidden" value="">
+<input name="start_date" type="hidden" value="">
+<input name="end_date" type="hidden" value="">
+<input name="location_code" type="hidden" value="">
+<div class="row">
+<label>
+Artículo
+</label>
+<input data-product-suggest="label" list="profit-items-purchase-product-options" name="product" required value="SNAP-1 - Producto Snapshot">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="10">
+</div>
+<div class="row">
+<label>
+Costo unitario
+</label>
+<input min="0" name="unit_cost" required step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Lote
+</label>
+<input name="lot_code" value="LOT-SNAP-1">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" value="">
+</div>
+<datalist id="profit-items-purchase-product-options">
+<option value="SNAP-1 - Producto Snapshot">
+</option>
+</datalist>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="profit-items-purchase-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

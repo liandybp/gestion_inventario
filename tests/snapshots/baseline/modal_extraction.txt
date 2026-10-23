@@ -1,0 +1,56 @@
+<div class="modal-overlay" id="extraction-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar retiro
+</h3>
+<button class="modal-close" data-modal-close="extraction-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/extraction/1/update" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="extraction_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Parte
+</label>
+<select name="party" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
+<option selected value="Negocio">
+Negocio
+</option>
+<option value="Liandy">
+Liandy
+</option>
+<option value="Randy">
+Randy
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input name="amount" required step="0.0001" type="number" value="20">
+</div>
+<div class="row">
+<label>
+Concepto
+</label>
+<input name="concept" required value="Retiro">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="extraction-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

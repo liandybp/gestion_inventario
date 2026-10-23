@@ -1,0 +1,108 @@
+<div>
+<h2>
+Costos operativos
+</h2>
+<p class="muted">
+Registro de gastos operativos del mes corriente.
+</p>
+<div class="grid-2">
+<div class="card">
+<h3>
+Registrar costo operativo
+</h3>
+<form hx-post="/ui/expenses/create" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="expense_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input name="amount" required step="0.0001" type="number">
+</div>
+<div class="row">
+<label>
+Concepto
+</label>
+<input name="concept" required>
+</div>
+<button type="submit">
+Guardar
+</button>
+</form>
+<div class="mt-12" id="expense-edit">
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Total de costos operativos (mes)
+</div>
+<div class="metric-value metric-large">
+0.00
+</div>
+</div>
+</div>
+<form class="card mb-12" hx-get="/ui/tabs/expenses" hx-select="#expenses-history" hx-swap="outerHTML" hx-target="#expenses-history" hx-trigger="submit, keyup changed delay:300ms from:#expenses-filter-query, change from:#expenses-filter-start, change from:#expenses-filter-end">
+<div class="flex gap-12 items-center flex-wrap">
+<div>
+<label class="filter-label">
+Buscar
+</label>
+<input id="expenses-filter-query" name="query" placeholder="Concepto" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="expenses-filter-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="expenses-filter-end" name="end_date" type="date" value="">
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/expenses?show_all=1" hx-get="/ui/tabs/expenses?show_all=1" hx-select="#expenses-history" hx-swap="outerHTML" hx-target="#expenses-history">
+Ver todos
+</a>
+</div>
+</form>
+<div class="card mt-16" id="expenses-history">
+<h3>
+Costos operativos
+</h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th class="col-date">
+Fecha
+</th>
+<th>
+Cantidad
+</th>
+<th>
+Concepto
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted" colspan="3">
+Sin gastos registrados en el mes.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>

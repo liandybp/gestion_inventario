@@ -1,0 +1,119 @@
+<div class="modal-overlay" id="sales-doc-edit-modal">
+<div class="modal-container modal-container-wide">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar documento
+<code>
+F202601-0001
+</code>
+</h3>
+<button class="modal-close" data-modal-close="sales-doc-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/sales-doc/1/update" hx-swap="outerHTML" hx-target="#sales-doc-panel">
+<div class="grid grid-2">
+<div class="row">
+<label>
+Cliente (Nombre)
+</label>
+<input name="client_name" required value="Cliente Snapshot">
+</div>
+<div class="row">
+<label>
+Cliente (ID)
+</label>
+<input name="client_id" required value="C-SNAP">
+</div>
+</div>
+<div class="row">
+<label>
+Dirección (opcional)
+</label>
+<input name="client_address" value="Calle 1">
+</div>
+<div class="row">
+<label>
+Notas (opcional)
+</label>
+<input name="notes" value="">
+</div>
+<h4 style="margin-top:14px;">
+Items
+</h4>
+<div class="table-wrapper">
+<table class="sales-doc-items-table">
+<thead>
+<tr>
+<th>
+#
+</th>
+<th>
+Descripción
+</th>
+<th class="text-right">
+Cant.
+</th>
+<th class="text-right">
+Precio
+</th>
+<th class="text-right">
+Eliminar
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+1
+</td>
+<td>
+<input class="item-desc-input" name="desc_1" value="Producto Snapshot">
+</td>
+<td class="text-right">
+<input class="item-num-input" min="0" name="qty_1" step="0.0001" type="number" value="2">
+</td>
+<td class="text-right">
+<input class="item-num-input" min="0" name="price_1" step="0.0001" type="number" value="2">
+</td>
+<td class="text-right">
+<input name="del_1" type="checkbox">
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h4 class="mt-14">
+Añadir item
+</h4>
+<div class="sales-doc-add-item-grid">
+<div class="add-item-field">
+<label>
+Descripción
+</label>
+<input name="new_desc">
+</div>
+<div class="add-item-field">
+<label>
+Cantidad
+</label>
+<input min="0" name="new_qty" step="0.0001" type="number" value="1">
+</div>
+<div class="add-item-field">
+<label>
+Precio
+</label>
+<input min="0" name="new_price" step="0.0001" type="number" value="0">
+</div>
+</div>
+<button class="mt-12" type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

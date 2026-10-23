@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Login
+</title>
+<style>
+:root { --brand-navy: #0b2d42; --brand-border: #e5e7eb; --brand-bg: #f8fafc; --brand-surface: #ffffff; --brand-text: #0f172a; --brand-muted: #64748b; } *, *::before, *::after { box-sizing: border-box; } body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--brand-bg); color: var(--brand-text); } .card { max-width: 420px; margin: 80px auto; border: 1px solid var(--brand-border); border-radius: 12px; padding: 18px; background: var(--brand-surface); } .row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 10px; align-items: center; } input { width: 100%; padding: 10px; border: 1px solid var(--brand-border); border-radius: 10px; background: var(--brand-surface); color: var(--brand-text); } button { padding: 10px 12px; border: 0; border-radius: 10px; background: var(--brand-navy); color: white; cursor: pointer; width: 100%; } .muted { color: var(--brand-muted); font-size: 13px; } .error { background: #fef2f2; padding: 10px; border-radius: 10px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+<h2 style="margin-top:0;">
+Acceso
+</h2>
+<div class="muted" style="margin-bottom:12px;">
+Inicia sesión para usar el sistema.
+</div>
+<form action="/ui/login" method="post">
+<div class="row">
+<label>
+Usuario
+</label>
+<input autocomplete="username" name="username" required>
+</div>
+<div class="row">
+<label>
+Contraseña
+</label>
+<input autocomplete="current-password" id="login-password" name="password" required type="password">
+</div>
+<div class="row">
+<label>
+</label>
+<div class="muted">
+<label style="display:flex; gap:8px; align-items:center;">
+<input id="login-show-password" style="width:auto;" type="checkbox">
+Mostrar contraseña
+</label>
+</div>
+</div>
+<button type="submit">
+Entrar
+</button>
+</form>
+<script>
+(function () { var cb = document.getElementById('login-show-password'); var pw = document.getElementById('login-password'); if (!cb || !pw) return; cb.addEventListener('change', function () { pw.type = cb.checked ? 'text' : 'password'; }); })();
+</script>
+</div>
+</body>
+</html>
