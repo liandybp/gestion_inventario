@@ -284,6 +284,20 @@ con `grep`/`Read`/`git diff` y ejecución directa (worktrees desechables, mutaci
   (`reset --soft`) para incluir estas correcciones en el de código y la documentación en el de docs; nada estaba
   pusheado. Score final **4.65/5 🟢**. Verificación: 412 unit + 47 e2e, arnés "OK: 40".
 
+### Cierre de H-307 y H-308; H-303 queda escrito para la fase 4
+
+- **H-307:** el arnés corre en CI. Es el paso `UI snapshots` del job `test` de `.gitea/workflows/deploy.yml`, entre
+  los unit y los e2e. Simulado en un worktree limpio sin `.env`: OK. Con un cambio de HTML sin regenerar la
+  baseline sale con código 1 y el job falla. **A partir de ahora, toda fase que cambie el HTML a propósito debe
+  regenerar la baseline en el mismo commit**, desde el commit anterior a la fase.
+- **H-308:** nueva global de Jinja `template_error(msg)` en `ui_common.py`. Con ella, `modal()` falla con un
+  `heading` que no sea `h2`/`h3`, y `profit_items_edit_form.html` falla con un `kind` desconocido. +2 unit tests.
+- **H-303:** diferido a la fase 4 por decisión del usuario. Está escrito, con el detalle de qué capturar y su
+  criterio de cierre, en `docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md` §4 ("Nota para la
+  fase 4"), que es el insumo del PAE de esa fase.
+- **Score:** 4.80/5 🟢. Con H-303 llegaría a 4.90. Observabilidad se queda en 4 porque no aplica a este refactor.
+- **Verificación:** 414 unit y 47 e2e en verde; arnés "OK: 40".
+
 ## (Histórico) Etapa anterior: paso 2 del loop nuevo — PAE vía SDD-Agent (sesión nueva, Opus) — COMPLETADA
 
 1. Invocar la skill `SDD-Agent` (las 4 fases, completas, en Opus) con estas fuentes:

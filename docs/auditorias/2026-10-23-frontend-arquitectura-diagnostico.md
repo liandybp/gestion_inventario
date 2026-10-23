@@ -104,8 +104,27 @@ Principios:
 | **1** | `base.html` + layouts + macros `modal`/`field`; migrar 18 modales y los 4 `profit_items_*` | Bajo, mecánico |
 | **2** | Sacar todo el JS a módulos; quitar `onclick=`/debug; quitar `'unsafe-inline'` de `script-src` | Medio (cubierto por e2e) |
 | **3** | `tokens.css` + split de `app.css`; eliminar `style=` y hex; gráficos con paleta CSS | Bajo |
-| **4** | Plantillas OOB en vez de HTML en Python; `UIContext`; sidebar data-driven | Medio |
+| **4** | Plantillas OOB en vez de HTML en Python; `UIContext`; sidebar data-driven. **Prerrequisito en el mismo PAE: H-303**, ampliar el arnés de snapshots a POST, roles y estados vacíos (ver nota bajo la tabla) | Medio |
 | **5** | Reagrupar `partials/` en `features/<dominio>/`; sacar queries de routers | Medio-alto, por dominio |
+
+**Nota para la fase 4: H-303** (de `docs/auditorias/2026-10-23-frontend-fase1-layouts-macros.md`). Hoy el arnés
+(`tests/snapshots/ui_snapshot.py`) solo captura GET como admin y en el camino feliz. La fase 4 cambia justo lo que
+no cubre: el HTML que hoy arman los routers en Python y que va en respuestas a POST con `hx-swap-oob`, el sidebar
+según el rol y los mensajes de error que se re-renderizan dentro de los modales. Sin ampliarlo, el `check` daría
+"OK" sin haber comprobado nada de eso. Primeros envelopes del PAE de la fase 4, antes de tocar plantillas:
+1. **Roles:** un segundo login como `operator` (y `owner` si la siembra lo permite) que capture `dashboard` (el
+   sidebar) y las pestañas que ese rol ve.
+2. **POST con error** que re-renderizan un modal o un panel con `message`/`form_error`/`flash`: compra con cantidad
+   0, usuario duplicado, edición de producto con un SKU de otro negocio, traspaso con cantidad mayor que el stock,
+   y cambio obligatorio de contraseña con las dos contraseñas distintas.
+3. **POST válidos con OOB:** una compra de producto nuevo (refresca `#product-panel` por `hx-swap-oob`) y una venta.
+   Se canoniza la respuesta completa, incluidos los fragmentos OOB.
+4. **Estados vacíos:** una pasada sobre un segundo negocio sin datos.
+5. **Opcional:** el e2e de Utilidades abre también los modales de ajuste y traspaso (hoy solo venta y compra).
+6. **Baseline:** se genera desde el commit anterior a la fase 4, como en la fase 1 (worktree con `set -e`, nunca
+   sobre el código migrado).
+
+   **Criterio de cierre:** quitar un `hx-swap-oob` o cambiar el texto de un mensaje de error hace fallar el arnés.
 
 **Release:** fases 0-5 = un único release **0.5.0** (decisión del usuario, 2026-10-23): varios commits, ninguno sube versión; `VERSION`/`.bumpversion.cfg`/`CHANGELOG` se bumpean una sola vez al cerrar.
 

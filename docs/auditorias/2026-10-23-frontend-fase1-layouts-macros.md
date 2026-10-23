@@ -2,7 +2,7 @@
 
 - **Fecha:** 2026-10-23
 - **Alcance:** `276b411..2c4df16` (lotes A-G, rama `feature/frontend-modular`, release 0.5.0 sin publicar)
-- **Score:** **4.35 / 5.00 🟢** (primera pasada) → **4.60 / 5.00 🟢** tras las correcciones → **4.65 / 5.00 🟢** tras la re-revisión (§10)
+- **Score:** **4.35** (primera pasada) → 4.60 → 4.65 tras la re-revisión (§10) → **4.80 / 5.00 🟢** tras H-307/H-308 (§11)
 - **Responsable:** Claude Code (Opus 5.5) — paso 5 del loop (`/code-review` + `auditoria-ingenieria`, una pasada)
 - **Estado:** hallazgos presentados al usuario (gate del paso 5) y **corregidos el mismo día, directamente por
   Claude Code** (excepción puntual al loop — el usuario decidió no pasar por cc_local para 5 fixes acotados sobre
@@ -318,3 +318,34 @@ cambian. `check` sobre el código actual da "OK: 40".
 (siguen abiertos H-303 y H-307). Total **4.65 / 5.00 🟢**.
 
 **Abiertos:** H-303 (antes de la fase 4), H-307 (antes de la fase 2) y H-308 (opcional).
+
+## 11. Cierre de H-307 y H-308; H-303 diferido a la fase 4 (2026-10-23)
+
+| ID | Resultado | Evidencia |
+|---|---|---|
+| H-307 | **fixed** | Paso `UI snapshots` en el job `test` de `.gitea/workflows/deploy.yml`, entre los unit y los e2e. Simulado en un worktree limpio (sin `.env`, con el env del job): "OK: 40". Con un cambio de HTML sin regenerar la baseline sale con código 1 (17 de 40 difieren), así que el job falla. `.github/workflows/test.yml` (CI heredado del mirror, sin tocar desde `2a943a9` y sin e2e) no se modifica. |
+| H-308 | **fixed** | Global `template_error(msg)` en `app/routers/ui_common.py`, que lanza `TemplateRuntimeError`. `components/modal.html` la usa si `heading` no es `h2`/`h3`, y `profit_items_edit_form.html` si `kind` no es uno de los 4. +2 unit tests (`test_modal_rejects_unknown_heading`, `test_profit_items_edit_form_rejects_unknown_kind`). Arnés "OK: 40". |
+| H-303 | **diferido (decisión del usuario)** | Escrito como prerrequisito del PAE de la fase 4 en `docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md` §4 ("Nota para la fase 4"): roles, POST con error, POST con OOB, estados vacíos, la baseline desde el commit anterior y el criterio de cierre. |
+
+**Verificación:** 414 unit (+2) y 47 e2e en verde; arnés "OK: 40"; YAML del workflow válido.
+
+### Scorecard final
+
+| # | Dimensión | Peso | Score | Ponderado |
+|---|---|---|---|---|
+| 1 | SoC/SRP | 10 | 5 | 0.50 |
+| 2 | Cohesión/Acoplamiento | 10 | 5 | 0.50 |
+| 3 | Capas/Límites | 10 | 5 | 0.50 |
+| 4 | Seguridad | 15 | 5 | 0.75 |
+| 5 | Robustez | 15 | 5 | 0.75 |
+| 6 | Consistencia | 10 | 5 | 0.50 |
+| 7 | Observabilidad | 10 | 4 | 0.40 |
+| 8 | Configuración | 5 | 5 | 0.25 |
+| 9 | Pruebas | 10 | 4 | 0.40 |
+| 10 | Escalabilidad | 5 | 5 | 0.25 |
+| | **Total** | 100 | | **4.80 🟢** |
+
+**Qué falta para 5:**
+- **Pruebas → 5:** H-303 (fase 4) lleva el total a 4.90.
+- **Observabilidad:** se queda en 4 porque no aplica a un refactor de plantillas; subirla sin cambios reales
+  sería inflar el score.
