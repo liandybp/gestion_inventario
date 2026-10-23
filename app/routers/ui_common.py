@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.templating import Jinja2Templates
+from jinja2.exceptions import TemplateRuntimeError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,6 +42,19 @@ def _static_asset_version() -> str:
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
+
+
+def _template_error(message: str) -> str:
+    """Hace fallar el render desde una plantilla (Jinja no tiene `raise`).
+
+    Para parámetros de macros/plantillas que solo admiten unos valores (`kind`, `heading`):
+    un valor fuera de la lista debe ser un error visible, no un modal con título vacío o un
+    id que el JS no encuentra (H-308).
+    """
+    raise TemplateRuntimeError(message)
+
+
+templates.env.globals["template_error"] = _template_error
 
 _DEV_ACTIONS_ENABLED = DEV_ACTIONS_ENABLED
 

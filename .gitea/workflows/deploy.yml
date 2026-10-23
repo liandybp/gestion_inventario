@@ -29,6 +29,13 @@ jobs:
           OPERATOR_PASSWORD: test
         run: |
           python3 -m pytest tests/unit -v --override-ini="addopts="
+      # Arnés de snapshots del HTML (release 0.5.0): el HTML renderizado debe seguir siendo
+      # equivalente a tests/snapshots/baseline/. Es hermético (fija su propio entorno, ignora
+      # .env y crea su SQLite temporal), así que no necesita env aquí. Si una fase cambia el
+      # HTML a propósito, regenera la baseline en el mismo commit (H-307).
+      - name: UI snapshots
+        run: |
+          python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline
       - name: E2E (Playwright)
         env:
           SESSION_SECRET: test

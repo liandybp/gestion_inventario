@@ -163,6 +163,29 @@ def test_profit_items_edit_form_renders_each_kind(kind: str, modal_id: str, edit
     assert f'hx-post="/ui/tabs/profit-items/{slug}/7/update"' in html
 
 
+def test_profit_items_edit_form_rejects_unknown_kind() -> None:
+    # H-308: antes daba título vacío e id `profit-items--edit-modal` sin error.
+    from jinja2.exceptions import TemplateRuntimeError
+
+    movement = SimpleNamespace(id=7, quantity=2.0, unit_cost=1.5, unit_price=3.0, note="n")
+    with pytest.raises(TemplateRuntimeError, match="kind desconocido: transfer"):
+        templates.env.get_template("partials/profit_items_edit_form.html").render(
+            kind="transfer", movement=movement, product_label="SKU - Prod", movement_date_value="",
+            lot_code="L1", product_options=[],
+        )
+
+
+def test_modal_rejects_unknown_heading() -> None:
+    # H-308: antes cualquier `heading` distinto de 'h2' caía en h3 sin avisar.
+    from jinja2.exceptions import TemplateRuntimeError
+
+    with pytest.raises(TemplateRuntimeError, match="heading debe ser 'h2' o 'h3', no h4"):
+        _render(
+            "{% from 'components/modal.html' import modal %}"
+            "{% call modal('h-modal', 'H', heading='h4') %}x{% endcall %}"
+        )
+
+
 @pytest.mark.parametrize("kind", ["sale", "purchase", "adjustment", "transfer_in"])
 def test_old_profit_items_templates_are_gone(kind: str) -> None:
     from jinja2 import TemplateNotFound

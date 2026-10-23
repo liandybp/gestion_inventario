@@ -5,6 +5,7 @@
    adjustment | transfer_in → solo el costo unitario es editable. #}
 {% set slug = kind|replace('_', '-') %}
 {% set titles = {'sale': 'Editar venta', 'purchase': 'Editar compra (costo)', 'adjustment': 'Editar ajuste (costo)', 'transfer_in': 'Editar traspaso (costo)'} %}
+{% if kind not in titles %}{{ template_error('profit_items_edit_form: kind desconocido: ' ~ kind) }}{% endif %}
 {% set modal_id = 'profit-items-' ~ slug ~ '-edit-modal' %}
 {% set list_id = 'profit-items-product-options' if kind == 'sale' else 'profit-items-purchase-product-options' %}
 {% call modal(modal_id, titles[kind]) %}

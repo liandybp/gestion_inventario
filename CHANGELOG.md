@@ -21,6 +21,10 @@ Este archivo se genera a partir del historial de Git (`git log`).
   `?ref=`, como la UI. El e2e de Utilidades guarda el modal unificado.
 - fix(traspasos): `/ui/transfers/print?movement_id=` mostraba la referencia con `:` al final si el traspaso
   tenía nota; ahora la extrae como `InventoryService` (`ref=([^\s:;]+)`). Test en `test_transfer_print_ref.py`.
+- ci: el arnés de snapshots corre en el job `test` (paso `UI snapshots`). Si el HTML cambia y la baseline no se
+  regenera en el mismo commit, el CI falla.
+- fix(frontend): `modal()` con un `heading` que no sea `h2`/`h3` y `profit_items_edit_form.html` con un `kind`
+  desconocido fallan con un error explícito (global `template_error`), en vez de renderizar un modal roto.
 
 ## 0.4.15 (2026-10-19)
 

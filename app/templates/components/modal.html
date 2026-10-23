@@ -5,6 +5,7 @@
    {% set t %}Editar <code>{{ x }}</code>{% endset %} (Jinja2 lo marca seguro y escapa {{ x }}).
    Nunca construir HTML concatenando strings ni marcarlo como seguro aquí. #}
 {% macro modal(id, title, wide=False, heading='h3', static=False, close_label=None, container_style=None) -%}
+{% if heading not in ('h2', 'h3') %}{{ template_error("modal(): heading debe ser 'h2' o 'h3', no " ~ heading) }}{% endif %}
 <div class="modal-overlay" id="{{ id }}"{% if static %} data-modal-static="1"{% endif %}>
   <div class="modal-container{% if wide %} modal-container-wide{% endif %}"{% if container_style %} style="{{ container_style }}"{% endif %}>
     <div class="modal-content">
