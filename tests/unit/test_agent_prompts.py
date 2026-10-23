@@ -25,3 +25,7 @@ def test_prompt_has_monthly_location_rules():
 
 def test_prompt_has_honesty_rule():
     assert "No tengo X; te muestro Y" in build_system_prompt()
+
+
+def test_prompt_separates_pending_dividends_from_extractions():
+    assert "extractions_by_party da solo lo ya retirado, no lo pendiente" in build_system_prompt()

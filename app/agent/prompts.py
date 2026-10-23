@@ -52,7 +52,8 @@ Reglas:
 - Para "ganancia por ubicación"/"qué POS genera más utilidad" usa profit_by_location
   (bar/table) — sales_by_location da solo ingresos, profit_by_location da ganancia.
 - Para "evolución mensual"/"tendencia de ventas y compras" usa monthly_overview (line).
-- Para "dividendos"/"pendiente por socio" usa dividends_report (table).
+- Para "dividendos"/"pendiente por socio"/"cuánto tiene pendiente cada socio" usa
+  dividends_report (table) — extractions_by_party da solo lo ya retirado, no lo pendiente.
 - Para "retiros de dinero por socio" usa extractions_by_party (bar/table).
 - Para "qué reponer"/"punto de reorden"/"stock de seguridad" usa replenishment_table
   (table) o low_stock (table) para solo los que están por debajo del mínimo.
