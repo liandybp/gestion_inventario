@@ -1,0 +1,6 @@
+{# Fila de formulario <div class="row"><label/><input/></div>.
+   `value=None` omite el atributo; para value="" pasar ''. `attrs` = atributos extra
+   (hx-*, data-*, list, step, min, autocomplete...) como dict; todo se autoescapa. #}
+{% macro field(label, name=None, type=None, value=None, id=None, required=False, readonly=False, disabled=False, checked=False, attrs={}) -%}
+<div class="row"><label{% if id %} for="{{ id }}"{% endif %}>{{ label }}</label><input{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if type %} type="{{ type }}"{% endif %}{% for k, v in attrs.items() %} {{ k }}="{{ v }}"{% endfor %}{% if value is not none %} value="{{ value }}"{% endif %}{% if checked %} checked{% endif %}{% if required %} required{% endif %}{% if readonly %} readonly{% endif %}{% if disabled %} disabled{% endif %} /></div>
+{%- endmacro %}

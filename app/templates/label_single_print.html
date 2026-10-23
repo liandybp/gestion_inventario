@@ -1,9 +1,6 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Etiqueta</title>
+{% extends "layouts/print.html" %}
+{% block title %}Etiqueta{% endblock %}
+{% block head %}
     <script src="/static/js/JsBarcode.all.min.js?v={{ static_version() }}"></script>
     <style>
       @page { size: 60mm 30mm; margin: 0; }
@@ -56,8 +53,8 @@
         .page:last-child { break-after: auto; page-break-after: auto; }
       }
     </style>
-  </head>
-  <body>
+{% endblock %}
+{% block body %}
     <div class="toolbar">
       <label for="copies">Copias</label>
       <input id="copies" name="copies" type="number" min="1" step="1" value="{{ copies or 1 }}" />
@@ -135,5 +132,4 @@
         });
       })();
     </script>
-  </body>
-</html>
+{% endblock %}

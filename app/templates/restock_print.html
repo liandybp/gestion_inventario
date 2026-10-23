@@ -1,9 +1,6 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Artículos a reponer{% if selected_location_name %} - {{ selected_location_name }}{% endif %}</title>
+{% extends "layouts/print.html" %}
+{% block title %}Artículos a reponer{% if selected_location_name %} - {{ selected_location_name }}{% endif %}{% endblock %}
+{% block head %}
     <style>
       html, body { margin: 0; padding: 0; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; }
@@ -27,8 +24,8 @@
         body { padding: 0; }
       }
     </style>
-  </head>
-  <body>
+{% endblock %}
+{% block body %}
     <div class="toolbar">
       <button type="button" onclick="window.print()">Imprimir</button>
       <div class="muted">{% if selected_location_name %}{{ selected_location_name }}{% else %}General{% endif %}</div>
@@ -42,5 +39,4 @@
     </div>
 
     {% include 'partials/restock_table.html' %}
-  </body>
-</html>
+{% endblock %}

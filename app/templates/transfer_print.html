@@ -1,9 +1,6 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Traspaso {{ ref }}</title>
+{% extends "layouts/print.html" %}
+{% block title %}Traspaso {{ ref }}{% endblock %}
+{% block head %}
     <style>
       html, body { margin: 0; padding: 0; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; }
@@ -27,8 +24,8 @@
         body { padding: 0; }
       }
     </style>
-  </head>
-  <body>
+{% endblock %}
+{% block body %}
     <div class="toolbar">
       <button type="button" onclick="window.print()">Imprimir</button>
       <div class="muted">Ref: {{ ref }}</div>
@@ -75,5 +72,4 @@
         {% endif %}
       </tbody>
     </table>
-  </body>
-</html>
+{% endblock %}

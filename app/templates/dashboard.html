@@ -1,25 +1,5 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Inventario</title>
-    <script>
-      // Aplicar el tema guardado ANTES del paint (evita flash de color).
-      (function () {
-        try {
-          var t = localStorage.getItem("gi-theme") || "light";
-          document.documentElement.setAttribute("data-theme", t);
-        } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
-      })();
-    </script>
-    <script src="/static/js/htmx.min.js?v={{ static_version() }}"></script>
-    <script src="/static/js/chart.umd.min.js?v={{ static_version() }}"></script>
-    <script src="/static/js/JsBarcode.all.min.js?v={{ static_version() }}"></script>
-    <link rel="stylesheet" href="/static/css/app.css?v={{ static_version() }}" />
-    <script src="/static/js/app.js?v={{ static_version() }}" defer></script>
-  </head>
-  <body>
+{% extends "layouts/app_shell.html" %}
+{% block body %}
     <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú">
       ☰
     </button>
@@ -290,5 +270,4 @@
       });
     </script>
     {% endif %}
-  </body>
-</html>
+{% endblock %}

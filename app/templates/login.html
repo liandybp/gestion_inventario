@@ -1,9 +1,6 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Login</title>
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block head %}
     <style>
       :root {
         --brand-navy: #0b2d42;
@@ -22,8 +19,8 @@
       .muted { color: var(--brand-muted); font-size: 13px; }
       .error { background: #fef2f2; padding: 10px; border-radius: 10px; margin-bottom: 12px; }
     </style>
-  </head>
-  <body>
+{% endblock %}
+{% block body %}
     <div class="card">
       <h2 style="margin-top:0;">Acceso</h2>
       <div class="muted" style="margin-bottom:12px;">Inicia sesión para usar el sistema.</div>
@@ -58,5 +55,4 @@
         })();
       </script>
     </div>
-  </body>
-</html>
+{% endblock %}
