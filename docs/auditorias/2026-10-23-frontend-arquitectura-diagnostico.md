@@ -100,7 +100,7 @@ Principios:
 
 | Fase | Contenido | Riesgo |
 |---|---|---|
-| **0** ✅ | Fix XSS `tojson` + test (commit `252f89e`, release 0.5.0) | Bajo |
+| **0** ✅ | Fix XSS `tojson` + test (primer commit de `feature/frontend-modular`, release 0.5.0) | Bajo |
 | **1** | `base.html` + layouts + macros `modal`/`field`; migrar 18 modales y los 4 `profit_items_*` | Bajo, mecánico |
 | **2** | Sacar todo el JS a módulos; quitar `onclick=`/debug; quitar `'unsafe-inline'` de `script-src` | Medio (cubierto por e2e) |
 | **3** | `tokens.css` + split de `app.css`; eliminar `style=` y hex; gráficos con paleta CSS | Bajo |
