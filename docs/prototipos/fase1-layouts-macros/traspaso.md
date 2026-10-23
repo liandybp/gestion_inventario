@@ -46,3 +46,9 @@ Proyecto ~/PyCharmMiscProject/gestion_inventario, rama feature/frontend-modular.
 modular), fase 1. Lee docs/prototipos/fase1-layouts-macros/traspaso.md y ejecuta el paso 4 (verificación del
 prototipo de cc_local en /tmp/proto-fase1) tal como está descrito. No subas versión en ningún commit.
 ```
+
+## Medición de tokens (`cc_tokens`)
+
+| Etapa | Modelo | Respuestas | input | cache_creation | cache_read | output |
+|---|---|---|---|---|---|---|
+| Diagnóstico + fase 0 + brief fase 1 (2026-10-23) | Opus 5.5 | 65 | 130 | 186,663 | 7,108,739 | 43,700 |
