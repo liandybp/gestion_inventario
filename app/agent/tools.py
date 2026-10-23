@@ -257,7 +257,9 @@ def sales_by_location(service: InventoryService, args: dict) -> dict:
       {"type": "object", "properties": {"months": {"type": "integer"}}})
 def sales_by_location_monthly(service: InventoryService, args: dict) -> dict:
     reporting = ReportingService(service.db, service.business_id)
-    data = reporting.sales_by_location_monthly(months=int(args.get("months") or 6))
+    months = args.get("months")
+    # Solo la ausencia usa el default; 0 o 500 los acota el servicio a 1..24 (REQ-2).
+    data = reporting.sales_by_location_monthly(months=6 if months is None else int(months))
     series = data["series"]
     return {
         "labels": data["months"],

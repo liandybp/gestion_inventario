@@ -312,7 +312,9 @@ Registrar la tool que expone T1 como payload multi-serie + tabla (REQ-2).
       {"type": "object", "properties": {"months": {"type": "integer"}}})
 def sales_by_location_monthly(service: InventoryService, args: dict) -> dict:
     reporting = ReportingService(service.db, service.business_id)
-    data = reporting.sales_by_location_monthly(months=int(args.get("months") or 6))
+    months = args.get("months")
+    # Solo la ausencia usa el default; 0 o 500 los acota el servicio a 1..24 (REQ-2).
+    data = reporting.sales_by_location_monthly(months=6 if months is None else int(months))
     series = data["series"]
     return {
         "labels": data["months"],
@@ -359,7 +361,8 @@ def test_sales_by_location_monthly_payload(db_session, business_id):
     assert result["rows"][-1] == [month, 7.5]
 ```
 
-**Edge cases:** `months` ausente o `0`/`None` → 6 (`or 6`); valores fuera de rango los acota T1;
+**Edge cases:** `months` ausente o `None` → 6; `0`, negativos o > 24 los acota el servicio a 1..24 (REQ-2;
+corregido en la re-auditoría del 2026-10-24, H-601: antes `or 6` convertía `0` en 6);
 `months="abc"` → `ValueError`, capturado por `_execute_node`.
 
 #### Verification

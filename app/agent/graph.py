@@ -57,6 +57,7 @@ class AgentState(TypedDict, total=False):
     last_tool: Optional[dict]
     plan: Optional[PlanModel]
     tool_results: list[dict]
+    tool_failed: list[bool]
     widgets: list[dict]
     reply: str
     error: Optional[str]
@@ -191,22 +192,28 @@ def _execute_node(state: AgentState) -> AgentState:
     # Se ejecutan todos los widgets (lógica correcta por widget); _build_node
     # luego aplica el límite de 1 widget por turno.
     results: list[dict] = []
+    failed: list[bool] = []
     service = InventoryService(state["db"], state["business_id"])
     for w in plan.widgets:
         tool_name = w.tool
         if not tool_name or tool_name not in TOOL_REGISTRY:
             results.append({})
+            failed.append(False)
             continue
         tool_args = _resolve_widget_tool_args(plan, w)
         try:
             results.append(TOOL_REGISTRY[tool_name]["fn"](service, tool_args))
+            failed.append(False)
         except HTTPException as exc:
             state["error"] = f"Tool {tool_name}: {exc.detail}"
             results.append({})
+            failed.append(True)
         except Exception as exc:
             state["error"] = f"Tool {tool_name}: {exc}"
             results.append({})
+            failed.append(True)
     state["tool_results"] = results
+    state["tool_failed"] = failed
     return state
 
 
@@ -221,7 +228,12 @@ def _build_node(state: AgentState) -> AgentState:
     widgets = []
     for i, w in enumerate(plan.widgets[:1]):
         payload = results[i] if i < len(results) else {}
-        widgets.append({"type": w.type, "title": w.title, "tool": w.tool,
+        wtype = w.type
+        # Multi-serie (datasets sin values) solo se dibuja en bar/line o como tabla;
+        # cualquier otro type saldría vacío.
+        if "datasets" in payload and "values" not in payload and wtype not in ("bar", "line", "table"):
+            wtype = "bar"
+        widgets.append({"type": wtype, "title": w.title, "tool": w.tool,
                         "tool_args": w.tool_args, "unit": w.unit, "payload": payload})
     state["widgets"] = widgets
     return state
@@ -232,8 +244,9 @@ _TOOL_ERROR_NOTICE = "No pude obtener los datos de este widget; revisa el rango 
 
 def _narrate_node(state: AgentState) -> AgentState:
     reply = state["plan"].reply
-    # Si la tool del widget falló, avisar sin el detalle técnico de la excepción.
-    if (state.get("error") or "").startswith("Tool "):
+    # Si falló la tool del widget que se muestra (el primero), avisar sin el detalle
+    # técnico de la excepción. Los fallos de widgets descartados no se avisan.
+    if (state.get("tool_failed") or [False])[0]:
         reply = f"{reply}\n\n{_TOOL_ERROR_NOTICE}"
     state["reply"] = reply
     return state

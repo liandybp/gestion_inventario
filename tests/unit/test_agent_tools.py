@@ -370,3 +370,13 @@ def test_sales_by_location_monthly_payload(db_session, business_id):
     assert result["datasets"] == [{"label": "Tienda X", "data": [0.0, 7.5]}]
     assert result["columns"] == ["Mes", "Tienda X"]
     assert result["rows"][-1] == [month, 7.5]
+
+
+def test_sales_by_location_monthly_months_bounds(db_session, business_id):
+    """REQ-2: solo la ausencia de months usa el default (6); 0 y 500 se acotan a 1..24."""
+    service = InventoryService(db_session, business_id)
+    fn = TOOL_REGISTRY["sales_by_location_monthly"]["fn"]
+    assert len(fn(service, {})["labels"]) == 6
+    assert len(fn(service, {"months": None})["labels"]) == 6
+    assert len(fn(service, {"months": 0})["labels"]) == 1
+    assert len(fn(service, {"months": 500})["labels"]) == 24
