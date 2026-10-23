@@ -93,7 +93,7 @@ Gasto operativo que más impacta (<MES> 2026)
 Más vendido (año 2026)
 </div>
 <div class="metric-value metric-medium">
-Producto Snapshot
+Producto Snapshot <b>"H"</b> & 'co'
 </div>
 <div class="muted">
 SNAP-1 - 2.00 € (100.0%)
@@ -104,7 +104,7 @@ SNAP-1 - 2.00 € (100.0%)
 Menos vendido (año 2026)
 </div>
 <div class="metric-value metric-medium">
-Producto Snapshot
+Producto Snapshot <b>"H"</b> & 'co'
 </div>
 <div class="muted">
 SNAP-1 - 2.00 € (100.0%)
@@ -218,7 +218,7 @@ SNAP-1
 </code>
 </td>
 <td>
-Producto Snapshot
+Producto Snapshot <b>"H"</b> & 'co'
 </td>
 <td class="text-right">
 2.00

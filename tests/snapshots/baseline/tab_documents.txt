@@ -31,7 +31,7 @@ Limpiar
 </div>
 </form>
 <datalist id="product-options">
-<option value="SNAP-1 - Producto Snapshot">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 <div class="card mt-16" id="sales-doc-panel">
@@ -92,7 +92,7 @@ Agregar
 </button>
 </form>
 <datalist id="customer-options">
-<option value="Cliente Snapshot">
+<option value="Cliente Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 <div id="sales-doc-customer-defaults">
@@ -286,7 +286,7 @@ F
 <D>
 </td>
 <td>
-Cliente Snapshot
+Cliente Snapshot <b>"H"</b> & 'co'
 </td>
 <td class="text-right">
 €4.00

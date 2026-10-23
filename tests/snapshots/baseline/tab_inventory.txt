@@ -75,7 +75,7 @@ Producto (SKU o nombre)
 <input data-product-suggest="sku" id="return-sku-input" list="return-products-list" name="sku" placeholder="Buscar por SKU o nombre" required>
 <datalist id="return-products-list">
 <option value="SNAP-1">
-SNAP-1 - Producto Snapshot
+SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'
 </option>
 </datalist>
 </div>

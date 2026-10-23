@@ -176,7 +176,7 @@ Acciones
 </div>
 <div id="product-panel">
 <datalist id="product-options">
-<option value="SNAP-1 - Producto Snapshot">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 </div>

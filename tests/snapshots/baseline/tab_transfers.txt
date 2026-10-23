@@ -95,7 +95,7 @@ Eliminar
 </table>
 </div>
 <datalist id="transfer-products-list">
-<option value="SNAP-1 - Producto Snapshot">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 <template id="transfer-line-template">

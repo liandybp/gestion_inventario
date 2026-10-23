@@ -14,7 +14,7 @@ Editar venta
 <label>
 Artículo
 </label>
-<input list="product-options" name="product" required value="SNAP-1 - Producto Snapshot">
+<input list="product-options" name="product" required value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
@@ -38,7 +38,7 @@ Fecha
 <label>
 Nota
 </label>
-<input name="note" value="">
+<input name="note" value="Nota venta <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>

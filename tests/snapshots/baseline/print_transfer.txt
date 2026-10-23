@@ -83,7 +83,7 @@ SNAP-1
 </code>
 </td>
 <td>
-Producto Snapshot
+Producto Snapshot <b>"H"</b> & 'co'
 </td>
 <td class="num">
 3.00

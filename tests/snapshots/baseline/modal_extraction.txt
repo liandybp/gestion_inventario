@@ -42,7 +42,7 @@ Cantidad
 <label>
 Concepto
 </label>
-<input name="concept" required value="Retiro">
+<input name="concept" required value="Retiro <b>"H"</b> & 'co'">
 </div>
 <button type="submit">
 Guardar cambios

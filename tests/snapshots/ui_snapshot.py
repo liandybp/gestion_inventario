@@ -15,10 +15,12 @@ carreras de Chart.js. Toda página debe devolver 200: si alguna no, el arnés fa
 
 from __future__ import annotations
 
+import atexit
 import difflib
 import logging
 import os
 import re
+import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -27,6 +29,13 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _TMP = tempfile.mkdtemp(prefix="ui-snapshot-")
+atexit.register(shutil.rmtree, _TMP, ignore_errors=True)
+# Hermético: fija TODAS las variables de app/settings.py que afectan al HTML renderizado,
+# para que el arnés no dependa del .env/shell de la máquina donde corre (H-301). Sin esto,
+# un `APP_MODE=desktop` heredado del entorno cambia `dashboard.html` sin que el arnés lo note.
+for _key in list(os.environ):
+    if _key.startswith("BUSINESS_CONFIG_PATH_"):
+        del os.environ[_key]
 os.environ.update({
     "DATABASE_URL": f"sqlite+pysqlite:///{_TMP}/snap.db",
     "SESSION_SECRET": "snapshot-secret",
@@ -35,9 +44,24 @@ os.environ.update({
     "ADMIN_PASSWORD": "admin",
     "OPERATOR_USERNAME": "operator",
     "OPERATOR_PASSWORD": "operator",
+    "APP_MODE": "server",
+    "BUSINESS_CONFIG_PATH": "",
+    "BUSINESS_CONFIG_DIR": "",
+    "DEV_ACTIONS_ENABLED": "1",
+    "AGENT_LLM_BASE_URL": "http://localhost:8080/v1",
+    "AGENT_LLM_API_KEY": "",
 })
 os.chdir(PROJECT_ROOT)
 sys.path.insert(0, str(PROJECT_ROOT))
+# `app/settings.py` llama a `load_dotenv()` al importarse, que añade al entorno lo que falte:
+# sin esto, el .env de la máquina volvería a meter variables que no fijamos arriba (p. ej.
+# `BUSINESS_CONFIG_PATH_<CODE>`, que el bucle anterior acaba de borrar) (H-309).
+try:
+    import dotenv  # noqa: E402
+
+    dotenv.load_dotenv = lambda *args, **kwargs: False
+except ImportError:
+    pass
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import select  # noqa: E402
@@ -112,6 +136,14 @@ def canonical(html: str) -> str:
     return "\n".join(parser.tokens) + "\n"
 
 
+def _hostile(label: str) -> str:
+    # H-302: la siembra original no tenía ningún `< > & " '`, así que un `|safe`/`Markup(...)`
+    # colado en una macro daba el mismo canónico que el escape correcto — el arnés nunca
+    # probaba nada ahí. Un `<b>`/`"`/`&` sin escapar cambia los tokens (se convierte en
+    # etiqueta o rompe el atributo), así que el `check` sí lo detecta.
+    return f'{label} <b>"H"</b> & \'co\''
+
+
 def _seed() -> dict:
     db = get_session()
     try:
@@ -122,7 +154,7 @@ def _seed() -> dict:
             select(Location).where(Location.business_id == bid, Location.id != central.id).order_by(Location.id)
         )
         db.add(Product(
-            business_id=bid, sku="SNAP-1", name="Producto Snapshot", category="Cat",
+            business_id=bid, sku="SNAP-1", name=_hostile("Producto Snapshot"), category="Cat",
             min_stock=5, unit_of_measure="ud", default_purchase_cost=1.0,
             default_sale_price=2.0, lead_time_days=0,
         ))
@@ -130,37 +162,40 @@ def _seed() -> dict:
         svc = InventoryService(db, business_id=bid)
         purchase = svc.purchase(PurchaseCreate(
             sku="SNAP-1", quantity=10, unit_cost=1.0, movement_date=_FIXED,
-            lot_code="LOT-SNAP-1", location_code=central.code,
+            lot_code="LOT-SNAP-1", location_code=central.code, note=_hostile("Nota compra"),
         ))
         transfer = svc.transfer(TransferCreate(
             from_location_code=central.code, to_location_code=pos.code,
             lines=[TransferLineCreate(sku="SNAP-1", quantity=3)], movement_date=_FIXED,
+            note=_hostile("Nota traspaso"),
         ))
         sale = svc.sale(SaleCreate(
             sku="SNAP-1", quantity=1, unit_price=2.0, movement_date=_FIXED, location_code=pos.code,
+            note=_hostile("Nota venta"),
         ))
         adjustment = svc.adjustment(AdjustmentCreate(
             sku="SNAP-1", quantity_delta=2, unit_cost=1.0, movement_date=_FIXED,
-            location_code=central.code,
+            location_code=central.code, note=_hostile("Nota ajuste"),
         ))
-        customer = Customer(business_id=bid, client_id="C-SNAP", name="Cliente Snapshot",
-                            address="Calle 1", phone="600000000", email="c@snap.test")
+        customer = Customer(business_id=bid, client_id="C-SNAP", name=_hostile("Cliente Snapshot"),
+                            address=_hostile("Calle 1"), phone="600000000", email="c@snap.test")
         db.add(customer)
-        expense = OperatingExpense(business_id=bid, expense_date=_FIXED, amount=12.5, concept="Luz")
+        expense = OperatingExpense(business_id=bid, expense_date=_FIXED, amount=12.5,
+                                   concept=_hostile("Luz"))
         extraction = MoneyExtraction(business_id=bid, extraction_date=_FIXED, party="Negocio",
-                                     amount=20.0, concept="Retiro")
+                                     amount=20.0, concept=_hostile("Retiro"))
         db.add_all([expense, extraction])
         db.flush()
         doc = SalesDocument(
             business_id=bid, location_id=central.id, customer_id=customer.id, doc_type="F",
             year_month="202601", seq=1, code="F202601-0001", issue_date=_FIXED,
             issuer_name="Emisor", client_name=customer.name, client_id=customer.client_id,
-            client_address=customer.address, subtotal=4.0, total=4.0,
+            client_address=customer.address, notes=_hostile("Nota doc"), subtotal=4.0, total=4.0,
         )
         db.add(doc)
         db.flush()
         db.add(SalesDocumentItem(document_id=doc.id, line_no=1, sku="SNAP-1",
-                                 description="Producto Snapshot", unit_of_measure="ud",
+                                 description=_hostile("Producto Snapshot"), unit_of_measure="ud",
                                  quantity=2, unit_price=2.0, line_total=4.0))
         user = db.scalar(select(User).where(User.username == "operator"))
         db.commit()
@@ -216,7 +251,8 @@ def _pages(ids: dict) -> dict[str, str]:
         "modal_transfer": f"/ui/movement/transfer/{ids['transfer_out']}/edit",
         "modal_user": f"/ui/user/{ids['user']}/edit",
         "modal_user_reset_password": f"/ui/user/{ids['user']}/reset-password-form",
-        "print_transfer": f"/ui/transfers/print?movement_id={ids['transfer_out']}",
+        # Por `ref=`, como enlaza la UI (tab_transfers.html); `movement_id=` no lo usa nadie (H-311).
+        "print_transfer": f"/ui/transfers/print?ref={ids['transfer_ref']}",
         "print_restock": "/ui/restock-print",
         "print_label": f"/ui/purchase/{ids['purchase']}/label",
     })

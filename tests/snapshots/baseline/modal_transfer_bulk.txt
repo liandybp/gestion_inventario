@@ -66,7 +66,7 @@ Cantidad
 </tr>
 </thead>
 <tbody>
-<tr class="transfer-bulk-row" data-search="snap-1 producto snapshot">
+<tr class="transfer-bulk-row" data-search="snap-1 producto snapshot <b>"h"</b> & 'co'">
 <td>
 <input class="transfer-bulk-check" type="checkbox">
 </td>
@@ -74,7 +74,7 @@ Cantidad
 <code>
 SNAP-1
 </code>
-Producto Snapshot
+Producto Snapshot <b>"H"</b> & 'co'
 <span class="muted">
 (ud)
 </span>

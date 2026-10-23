@@ -18,7 +18,7 @@ Editar compra (costo)
 <label>
 Artículo
 </label>
-<input data-product-suggest="label" list="profit-items-purchase-product-options" name="product" required value="SNAP-1 - Producto Snapshot">
+<input data-product-suggest="label" list="profit-items-purchase-product-options" name="product" required value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
@@ -48,10 +48,10 @@ Lote
 <label>
 Nota
 </label>
-<input name="note" value="">
+<input name="note" value="Nota compra <b>"H"</b> & 'co'">
 </div>
 <datalist id="profit-items-purchase-product-options">
-<option value="SNAP-1 - Producto Snapshot">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 <button type="submit">

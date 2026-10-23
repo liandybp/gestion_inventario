@@ -18,7 +18,7 @@ Editar ajuste (costo)
 <label>
 Artículo
 </label>
-<input disabled value="SNAP-1 - Producto Snapshot">
+<input disabled value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
@@ -42,7 +42,7 @@ Fecha
 <label>
 Nota
 </label>
-<input name="note" readonly value="">
+<input name="note" readonly value="Nota ajuste <b>"H"</b> & 'co'">
 </div>
 <button type="submit">
 Guardar cambios

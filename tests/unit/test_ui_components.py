@@ -7,6 +7,8 @@ Cubre los riesgos que encontró la verificación del prototipo descartado:
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +16,7 @@ import pytest
 from app.routers.ui_common import templates
 
 APP_ASSETS = ("htmx.min.js", "chart.umd.min.js", "JsBarcode.all.min.js", "app.css", "app.js")
+COMPONENTS_DIR = Path(__file__).resolve().parents[2] / "app" / "templates" / "components"
 
 
 def _render(source: str, **ctx) -> str:
@@ -74,6 +77,31 @@ def test_field_escapes_value_and_renders_flags() -> None:
     assert "&#34;&gt;&lt;script&gt;" in html
     assert 'name="name"' in html and 'list="opts"' in html
     assert " required" in html and " readonly" in html
+
+
+def test_field_rejects_invalid_attrs_key() -> None:
+    # H-304: antes del bucle manual, una clave con espacios se volcaba literal al HTML
+    # (`x onfocus=alert(1) autofocus`), abriendo paso a atributos arbitrarios si `attrs`
+    # alguna vez viniera de datos. `xmlattr` la rechaza en vez de volcarla.
+    with pytest.raises(ValueError, match="Invalid character in attribute name"):
+        _render(
+            "{% from 'components/forms.html' import field %}"
+            "{{ field('L', 'n', attrs={'x onfocus=alert(1) autofocus': 'v'}) }}"
+        )
+
+
+def test_components_never_use_safe_or_markup() -> None:
+    # Regla dura de design.md D1/§2.5: ninguna macro de components/ puede reintroducir el
+    # bug del prototipo (HTML concatenado + `|safe`/`Markup(...)` reabre el XSS que la
+    # fase 0 cerró).
+    # Regex, no literal: Jinja acepta `{{ x | safe }}` con espacios (H-310).
+    unsafe = re.compile(r"\|\s*safe\b|Markup\s*\(")
+    offenders = [
+        path.name
+        for path in sorted(COMPONENTS_DIR.glob("*.html"))
+        if unsafe.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
 
 
 def test_field_value_none_omits_attribute_and_id_links_label() -> None:

@@ -21,7 +21,7 @@ SKU
 <label>
 Nombre
 </label>
-<input name="name" required value="Producto Snapshot">
+<input name="name" required value="Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>

@@ -14,7 +14,7 @@ Editar traspaso
 <label>
 Artículo
 </label>
-<input disabled name="product" value="SNAP-1 - Producto Snapshot">
+<input disabled name="product" value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
@@ -32,7 +32,7 @@ Fecha
 <label>
 Nota
 </label>
-<input name="note" value="">
+<input name="note" value="Nota traspaso <b>"H"</b> & 'co'">
 </div>
 <button type="submit">
 Guardar cambios

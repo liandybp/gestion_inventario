@@ -18,7 +18,7 @@ Editar traspaso (costo)
 <label>
 Artículo
 </label>
-<input disabled value="SNAP-1 - Producto Snapshot">
+<input disabled value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
@@ -42,7 +42,7 @@ Fecha
 <label>
 Nota
 </label>
-<input name="note" readonly value="Transfer in from CENTRAL out_id=2 ref=TP-CENTRAL-POS1-260115100000 lot=LOT-SNAP-1 received_at=<DT>">
+<input name="note" readonly value="Transfer in from CENTRAL out_id=2 ref=TP-CENTRAL-POS1-260115100000 lot=LOT-SNAP-1 received_at=<DT>; Nota traspaso <b>"H"</b> & 'co'">
 </div>
 <button type="submit">
 Guardar cambios

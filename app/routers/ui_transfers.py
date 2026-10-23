@@ -709,13 +709,10 @@ def transfer_print(
             raise HTTPException(status_code=404, detail="Transfer not found")
         if int(getattr(mv, "business_id", 0) or 0) != int(bid):
             raise HTTPException(status_code=404, detail="Transfer not found")
-        raw = str(mv.note or "")
-        if "ref=" in raw:
-            try:
-                ref_clean = raw.split("ref=", 1)[1].split()[0].strip()
-            except Exception:
-                _log.debug("transfer_print ref parse fallback")
-                ref_clean = ""
+        # Mismo patrón que InventoryService._transfer_codes_from_out_note: con nota, el texto es
+        # "…ref=TP-…: <nota>" y un split por espacios dejaba la ref con ':' al final (H-311).
+        ref_m = re.search(r"\bref=([^\s:;]+)", str(mv.note or ""))
+        ref_clean = ref_m.group(1).strip() if ref_m else ""
 
     if not ref_clean:
         raise HTTPException(status_code=422, detail="ref is required")

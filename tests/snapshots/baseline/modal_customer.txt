@@ -20,13 +20,13 @@ ID cliente
 <label>
 Nombre
 </label>
-<input name="name" required value="Cliente Snapshot">
+<input name="name" required value="Cliente Snapshot <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>
 Dirección (opcional)
 </label>
-<input name="address" value="Calle 1">
+<input name="address" value="Calle 1 <b>"H"</b> & 'co'">
 </div>
 <div class="row">
 <label>

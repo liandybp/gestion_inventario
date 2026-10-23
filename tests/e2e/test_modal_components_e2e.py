@@ -93,3 +93,16 @@ def test_profit_items_unified_modals_open_for_sale_and_purchase(live_server: str
     buy_modal = page.locator("#profit-items-purchase-edit-modal")
     expect(buy_modal).to_be_visible()
     expect(buy_modal.locator('input[name="lot_code"]')).to_have_value("E2E-SKU1-E2E")
+
+    # H-305: los dos pasos anteriores abren y comprueban valores, pero ninguno llega a
+    # guardar — una regresión en el `hx-post`/`hx-target` del unificado pasaría sin que
+    # ningún e2e la note. Cambia el costo unitario, guarda, y confirma el round-trip
+    # reabriendo el modal (la tabla muestra `cogs` calculado, no `unit_cost` literal).
+    buy_modal.locator('input[name="unit_cost"]').fill("9.99")
+    buy_modal.locator('button[type="submit"]').click()
+    expect(buy_modal).to_have_count(0)
+
+    row = page.locator("#tab-content tr", has_text="E2E-SKU1").first
+    row.locator("button", has_text="Edit buys").click()
+    buy_modal = page.locator("#profit-items-purchase-edit-modal")
+    expect(buy_modal.locator('input[name="unit_cost"]')).to_have_value("9.99")

@@ -75,11 +75,11 @@ Registrar venta
 </form>
 </div>
 <datalist id="product-options">
-<option value="SNAP-1 - Producto Snapshot">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 <option value="SNAP-1">
 </option>
-<option value="Producto Snapshot">
+<option value="Producto Snapshot <b>"H"</b> & 'co'">
 </option>
 </datalist>
 <h3 style="margin-top:16px;">

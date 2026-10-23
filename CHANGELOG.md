@@ -15,6 +15,12 @@ Este archivo se genera a partir del historial de Git (`git log`).
   modales migrados y los 4 `profit_items_*_edit_form.html` unificados en `profit_items_edit_form.html`. HTML
   renderizado sin cambios, verificado con el arnés `tests/snapshots/ui_snapshot.py` (40 páginas, baseline en
   `tests/snapshots/baseline/`). +22 unit, +3 e2e.
+- fix(frontend): revisión de la fase 1 (`docs/auditorias/2026-10-23-frontend-fase1-layouts-macros.md`).
+  `field()` pasa `attrs` por `xmlattr`, que rechaza claves de atributo inválidas. El arnés de snapshots no depende
+  del `.env` ni del shell, siembra valores con `< > & " '` (detecta un `|safe` colado) e imprime el traspaso por
+  `?ref=`, como la UI. El e2e de Utilidades guarda el modal unificado.
+- fix(traspasos): `/ui/transfers/print?movement_id=` mostraba la referencia con `:` al final si el traspaso
+  tenía nota; ahora la extrae como `InventoryService` (`ref=([^\s:;]+)`). Test en `test_transfer_print_ref.py`.
 
 ## 0.4.15 (2026-10-19)
 
