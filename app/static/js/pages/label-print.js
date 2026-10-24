@@ -1,5 +1,7 @@
 // Etiqueta individual (label_single_print.html): N copias de nombre + código de barras
 // CODE128 del SKU. SKU y nombre llegan en data-js-label-sku / data-js-label-name de #sheet.
+import { renderBarcodeSvg } from '../components/barcode-svg.js';
+
 const sheet = document.getElementById('sheet');
 const copiesInput = document.getElementById('copies');
 const sku = (sheet && sheet.dataset.jsLabelSku) || '';
@@ -31,7 +33,7 @@ function render() {
   if (window.JsBarcode) {
     sheet.querySelectorAll('svg.barcode[data-code]').forEach((svg) => {
       try {
-        window.JsBarcode(svg, sku, {
+        renderBarcodeSvg(svg, sku, {
           format: 'CODE128',
           displayValue: true,
           fontSize: 12,

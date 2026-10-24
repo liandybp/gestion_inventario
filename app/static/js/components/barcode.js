@@ -1,5 +1,6 @@
-// Códigos de barras: <svg class="barcode" data-code="..."> se renderiza con JsBarcode (global).
+// Códigos de barras: <svg class="barcode" data-code="..."> se dibuja sin estilos inline (barcode-svg.js).
 import { onContent } from '../core/content.js';
+import { renderBarcodeSvg } from './barcode-svg.js';
 
 function renderBarcodes(root) {
   if (!window.JsBarcode) return;
@@ -9,7 +10,7 @@ function renderBarcodes(root) {
     const code = svg.getAttribute('data-code') || '';
     if (!code) return;
     try {
-      window.JsBarcode(svg, code, { format: 'CODE128', displayValue: false, height: 28, margin: 0, width: 1 });
+      renderBarcodeSvg(svg, code, { format: 'CODE128', displayValue: false, height: 28, margin: 0, width: 1 });
       svg.setAttribute('data-rendered', '1');
     } catch (e) {}
   });

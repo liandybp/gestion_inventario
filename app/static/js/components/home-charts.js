@@ -2,22 +2,9 @@
 // pastel de ventas por artículo. Los datos llegan en <script type="application/json">.
 // Chart.js es un script clásico del <head>: ya está cargado cuando se ejecutan los módulos.
 import { onContent } from '../core/content.js';
+import { cssList, cssVar, THEME_EVENT } from './chart-palette.js';
 
 const charts = { monthly: null, dailyLine: null, pie: null };
-
-const PIE_COLORS = [
-  'rgba(11,45,66,0.85)',
-  'rgba(203, 58, 66, 0.75)',
-  'rgba(16, 185, 129, 0.75)',
-  'rgba(59, 130, 246, 0.75)',
-  'rgba(245, 158, 11, 0.75)',
-  'rgba(99, 102, 241, 0.75)',
-  'rgba(236, 72, 153, 0.75)',
-  'rgba(34, 197, 94, 0.65)',
-  'rgba(148, 163, 184, 0.75)',
-  'rgba(15, 118, 110, 0.70)',
-  'rgba(107, 114, 128, 0.55)',
-];
 
 function find(container, selector) {
   return container.querySelector(selector) || document.querySelector(selector);
@@ -53,9 +40,9 @@ function renderMonthlyChart(container) {
     data: {
       labels: list(payload, 'labels'),
       datasets: [
-        { label: 'Ventas', data: list(payload, 'sales'), backgroundColor: 'rgba(11,45,66,0.85)' },
-        { label: 'Compras', data: list(payload, 'purchases'), backgroundColor: 'rgba(203, 58, 66, 0.75)' },
-        { label: 'Utilidad', data: list(payload, 'profit'), backgroundColor: 'rgba(16, 185, 129, 0.75)' },
+        { label: 'Ventas', data: list(payload, 'sales'), backgroundColor: cssVar('--home-chart-sales') },
+        { label: 'Compras', data: list(payload, 'purchases'), backgroundColor: cssVar('--home-chart-purchases') },
+        { label: 'Utilidad', data: list(payload, 'profit'), backgroundColor: cssVar('--home-chart-profit') },
       ],
     },
     options: {
@@ -79,8 +66,8 @@ function renderDailyLineChart(container) {
         {
           label: 'Ventas por día (€)',
           data: list(payload, 'sales'),
-          borderColor: 'rgba(11,45,66,0.85)',
-          backgroundColor: 'rgba(11,45,66,0.10)',
+          borderColor: cssVar('--home-chart-sales'),
+          backgroundColor: cssVar('--home-chart-line-fill'),
           fill: true,
           tension: 0.25,
           pointRadius: 2,
@@ -165,7 +152,7 @@ function renderPieChart(container) {
 
   replaceChart('pie', el, {
     type: 'pie',
-    data: { labels, datasets: [{ data: values, backgroundColor: PIE_COLORS }] },
+    data: { labels, datasets: [{ data: values, backgroundColor: cssList('home-pie') }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -187,4 +174,6 @@ function enhance(root, fromSwap) {
 
 export function init() {
   onContent(enhance);
+  // Cambio de tema sin recarga: redibujar con las variables del tema nuevo.
+  document.addEventListener(THEME_EVENT, () => enhance(document, false));
 }

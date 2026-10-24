@@ -4,9 +4,7 @@
 // htmx 1.9 emite htmx:afterSwap también sobre cada elemento OOB, así que core/content.js
 // los recibe como `root`.
 import { onContent } from '../core/content.js';
-
-const PALETTE_DARK = ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#22d3ee', '#94a3b8'];
-const PALETTE_LIGHT = ['#0b2d42', '#cf1f27', '#2a6f97', '#4c9a8c', '#d97706', '#7c3aed', '#0891b2', '#64748b'];
+import { cssList, cssVar, THEME_EVENT } from './chart-palette.js';
 
 // Dibuja el porcentaje sobre cada porción de pie/doughnut.
 const percentPlugin = {
@@ -30,10 +28,10 @@ const percentPlugin = {
       const x = Math.cos(mid) * radius + arc.x;
       const y = Math.sin(mid) * radius + arc.y;
       const txt = pct + '%';
-      ctx.strokeStyle = 'rgba(15, 23, 42, 0.6)';
+      ctx.strokeStyle = cssVar('--chart-label-stroke');
       ctx.lineWidth = 2;
       ctx.strokeText(txt, x, y);
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = cssVar('--chart-label-fill');
       ctx.fillText(txt, x, y);
     });
     ctx.restore();
@@ -50,17 +48,16 @@ function chartConfig(spec) {
   const multi = (type === 'bar' || type === 'line')
     && Array.isArray(payload.datasets) && payload.datasets.length > 0;
 
-  // Paleta armónica con la identidad de la app, adaptada al tema (claro/oscuro).
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const palette = isDark ? PALETTE_DARK : PALETTE_LIGHT;
-  const accent = isDark ? '#93c5fd' : '#0b2d42';
-  const accentFill = isDark ? 'rgba(147, 197, 253, 0.12)' : 'rgba(11, 45, 66, 0.08)';
+  // Paleta del tema activo (variables --chart-* de app.css).
+  const palette = cssList('chart');
+  const accent = cssVar('--chart-accent');
+  const accentFill = cssVar('--chart-accent-fill');
 
   let backgroundColor;
   let borderColor;
   if (type === 'pie' || type === 'doughnut') {
     backgroundColor = labels.map((_, i) => palette[i % palette.length]);
-    borderColor = '#ffffff';
+    borderColor = cssVar('--chart-slice-border');
   } else if (type === 'bar') {
     backgroundColor = labels.map((_, i) => palette[i % palette.length]);
     borderColor = backgroundColor;
@@ -72,7 +69,7 @@ function chartConfig(spec) {
   const opts = { responsive: true, maintainAspectRatio: false };
   if (type === 'bar' || type === 'line') {
     opts.scales = {
-      y: { beginAtZero: true, grid: { color: 'rgba(15, 23, 42, 0.06)' } },
+      y: { beginAtZero: true, grid: { color: cssVar('--chart-grid') } },
       x: { grid: { display: false } },
     };
     opts.plugins = { legend: { display: multi } };
@@ -128,4 +125,6 @@ function renderWidgetCharts(root) {
 
 export function init() {
   onContent(renderWidgetCharts);
+  // Cambio de tema sin recarga: redibujar con la paleta nueva.
+  document.addEventListener(THEME_EVENT, () => renderWidgetCharts(document));
 }
