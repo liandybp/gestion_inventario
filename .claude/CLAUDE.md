@@ -257,8 +257,9 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        443 unit (SQLite en memoria) + 72 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
-              (tests/snapshots/ui_snapshot.py), todos verdes
+Tests:        465 unit (SQLite en memoria) + 82 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
+              (tests/snapshots/ui_snapshot.py), todos verdes; arnés de estilos calculados
+              tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
@@ -335,9 +336,14 @@ el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesi
 (34 tools), gráfico multi-serie en `app/static/js/components/widget-chart.js` (solo bar/line), reglas de prompt,
 título del widget de rescate y aviso de fallo. Re-auditoría 4.70 🟢. **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
 
-**Release 0.5.0 (frontend modular), fases 1-2 cerradas en `feature/frontend-modular` (sin push):** el JS vive en
-módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`). No añadir `<script>` inline
-ni `on*=` en plantillas: lo rechazan `tests/unit/test_frontend_js_modules.py` y la CSP.
+**Release 0.5.0 (frontend modular), fases 1-3 cerradas en `feature/frontend-modular` (sin push):**
+- El JS vive en módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`).
+- El CSS vive en `app/static/css/`: `tokens.css` (colores, temas), `utilities.css` (utilidades compartidas),
+  `app.css`, `login.css`, `print.css` y `label-print.css`. CSP `style-src 'self'`.
+- En las plantillas no se añaden `<script>` inline, `on*=`, `style=`, `<style>` ni colores hex: lo rechazan
+  `tests/unit/test_frontend_js_modules.py`, `tests/unit/test_frontend_css.py` y la CSP.
+- Las violaciones de CSP en producción quedan en el log (`WARNING csp_violation`, `app/routers/csp_report.py`).
+- Fase 3: re-auditoría 4.90 🟢 (`docs/auditorias/2026-10-24-frontend-fase3-css-csp-reaudit.md`).
 
 **Otros pendientes acumulados de sesiones previas:** fix estructural de SKU único
 compuesto `(business_id, sku)` pospuesto por decisión explícita del usuario; verde

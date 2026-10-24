@@ -24,7 +24,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (385 unit + 43 e2e Playwright) |
+| Testing | pytest (465 unit + 82 e2e Playwright) + arnés HTML (40 snapshots) + arnés de estilos calculados (74 capturas, fuera de CI) |
 
 ## Estructura del proyecto
 
@@ -142,6 +142,18 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Release 0.5.0, fase 3 del frontend: CSS sin estilos inline, CSP `style-src 'self'` (PAE-018, 2026-10-24, rama
+      `feature/frontend-modular`, sin push)** — 106 `style=` y 4 `<style>` fuera de las plantillas. Colores en
+      `static/css/tokens.css` y utilidades compartidas en `utilities.css`, que comparten dashboard, login e
+      impresiones. Códigos de barras SVG sin `style` (`components/barcode-svg.js`). Tema claro/oscuro sin recarga
+      (`gi:themechange`, gráficos con colores de `--chart-*`/`--home-*`). htmx sin hoja inyectada y con
+      `attributesToSettle: ["class"]`. Reportes de CSP en el log (`POST /csp-report`, `WARNING csp_violation`).
+      Red de estilos calculados `tests/snapshots/style_snapshot.py`: 74 capturas contra `b0f5dd8`, fuera de CI, y
+      solo admite las diferencias intencionadas de `style_allowlist.txt`.
+      - Auditoría **4.45 → re-auditoría 4.90 🟢**, sin hallazgos abiertos
+        (`docs/auditorias/2026-10-24-frontend-fase3-css-csp{,-reaudit}.md`).
+      - Probada de punta a punta sobre una copia de la BD de dev: 108 comprobaciones sin errores.
+      - Pendiente solo el flujo: push → `develop` → dev → `main`, con confirmación del usuario.
 - [x] **PAE-015 — Copiloto: ventas por punto de venta mes a mes (2026-10-24, rama `feature/frontend-modular`,
       sin push, entra en 0.5.0)** — bug de prod del 2026-10-18 (total por ubicación sin meses, 7 meses en vez de 6,
       título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (34 tools), gráfico multi-serie
@@ -363,6 +375,13 @@ Archivo `app/business_config.conf` (INI):
 
 ## Sesiones
 
+- **2026-10-24 (sesión 22)** — Cierre de PAE-018 fase 3. Lotes H-I (e2e, check final, CHANGELOG), `/code-review` high
+  y auditoría (4.45). El check de estilos de T39 fallaba: al principio se pasó contra una baseline regenerada desde la
+  rama (error de proceso, corregido con `--amend` del commit de cierre). La causa era una carrera htmx settle /
+  Chart.js, corregida con `attributesToSettle: ["class"]`, más diferencias intencionadas del código de barras.
+  Después, a pedido del usuario, se cerró todo lo que quedaba: tokens y utilidades compartidos, regla de canvas en
+  el arnés y reportes de CSP. Re-auditoría 4.90 🟢. Prueba de punta a punta con una copia de la BD de dev. 465 unit +
+  82 e2e. Rama sin push. Detalle: `.claude/session-notes.md`.
 - **2026-10-23/24 (sesión 21)** — Fase 2 del release 0.5.0 implementada (Haiku, copiando el worktree validado con
   rsync) + `/code-review` y auditoría (Opus): 2 fallos de la copia (rsync no borra `app.js`, `ui_common.py` en ruta
   equivocada) y 3 hallazgos corregidos. PAE-015: el intento de Haiku se auditó en rojo y se descartó; specs
