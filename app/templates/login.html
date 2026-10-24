@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
 {% block head %}
+    <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version() }}" />
     <link rel="stylesheet" href="/static/css/login.css?v={{ static_version() }}" />
+    <link rel="stylesheet" href="/static/css/utilities.css?v={{ static_version() }}" />
 {% endblock %}
 {% block body %}
     <div class="card">

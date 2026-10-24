@@ -25,12 +25,13 @@ HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 LINK = re.compile(r'<link rel="stylesheet" href="([^"?]+)')
 
 # Hojas que enlaza cada plantilla (ruta sin ?v=). Cualquier otra plantilla: ninguna.
+# tokens.css va primero (variables) y utilities.css después de la hoja de la página (gana a sus reglas generales).
 EXPECTED_STYLESHEETS = {
-    "layouts/app_shell.html": ["/static/css/app.css"],
-    "login.html": ["/static/css/login.css"],
-    "transfer_print.html": ["/static/css/print.css"],
-    "restock_print.html": ["/static/css/print.css"],
-    "label_single_print.html": ["/static/css/label-print.css"],
+    "layouts/app_shell.html": ["/static/css/tokens.css", "/static/css/app.css", "/static/css/utilities.css"],
+    "login.html": ["/static/css/tokens.css", "/static/css/login.css", "/static/css/utilities.css"],
+    "transfer_print.html": ["/static/css/tokens.css", "/static/css/print.css", "/static/css/utilities.css"],
+    "restock_print.html": ["/static/css/tokens.css", "/static/css/print.css", "/static/css/utilities.css"],
+    "label_single_print.html": ["/static/css/tokens.css", "/static/css/label-print.css"],
 }
 
 
@@ -110,7 +111,7 @@ def test_chart_modules_take_colors_from_css() -> None:
     color = re.compile(r"#[0-9a-fA-F]{3,8}\b|rgba?\(")
     for name in ("components/home-charts.js", "components/widget-chart.js"):
         assert color.findall((JS_DIR / name).read_text(encoding="utf-8")) == [], name
-    css = (CSS_DIR / "app.css").read_text(encoding="utf-8")
+    css = (CSS_DIR / "tokens.css").read_text(encoding="utf-8")
     assert "--chart-1: #0b2d42;" in css and "--chart-1: #60a5fa;" in css
     assert "--chart-8: initial;" in css  # paleta oscura de 7 colores
     assert "--home-pie-11: rgba(107, 114, 128, 0.55);" in css
@@ -132,3 +133,18 @@ def test_barcodes_never_use_jsbarcode_svg_renderer() -> None:
         if hits:
             calls[path.relative_to(JS_DIR).as_posix()] = hits
     assert calls == {"components/barcode-svg.js": ["target"]}
+
+
+def test_tokens_and_shared_utilities_live_in_one_sheet() -> None:
+    # Un único sitio para los colores y para las utilidades que usan dashboard, login e impresiones.
+    sheets = {p.name: p.read_text(encoding="utf-8") for p in CSS_DIR.glob("*.css")}
+    assert [n for n, css in sheets.items() if ":root" in css or '[data-theme="dark"] {' in css] == ["tokens.css"]
+    shared = re.findall(r"^(\.[\w-]+) \{", sheets["utilities.css"], re.MULTILINE)
+    assert len(shared) == 14
+    for name, css in sheets.items():
+        if name == "utilities.css":
+            continue
+        redefined = [c for c in shared if re.search(r"^" + re.escape(c) + r"\s*\{", css, re.MULTILINE)]
+        assert redefined == [], (name, redefined)
+    for name in ("print.css", "label-print.css"):
+        assert HEX.findall(sheets[name]) == [], name

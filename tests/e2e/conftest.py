@@ -110,7 +110,8 @@ def _seed_stock(db_path: str) -> None:
         engine.dispose()
 
 
-def _boot_temp_server(prefix: str, *, extra_env: dict | None = None) -> tuple[str, str, subprocess.Popen, str]:
+def _boot_temp_server(prefix: str, *, extra_env: dict | None = None,
+                      log_path: str | None = None) -> tuple[str, str, subprocess.Popen, str]:
     """Arranca uvicorn real contra un SQLite temporal aislado en un puerto libre dinámico.
 
     Compartido por `live_server` y `central_server` — NUNCA apuntar un fixture de e2e a
@@ -134,14 +135,18 @@ def _boot_temp_server(prefix: str, *, extra_env: dict | None = None) -> tuple[st
     if extra_env:
         env.update(extra_env)
 
+    # log_path: el log del servidor (stdout+stderr) a un fichero, para los e2e que comprueban qué registra.
+    out = open(log_path, "ab") if log_path else subprocess.DEVNULL
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app",
          "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
         env=env,
         cwd=str(PROJECT_ROOT),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=out,
+        stderr=subprocess.STDOUT if log_path else subprocess.DEVNULL,
     )
+    if log_path:
+        out.close()  # el hijo conserva su descriptor
     _wait_ready(base_url)
     return base_url, db_path, proc, tmp
 

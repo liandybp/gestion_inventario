@@ -76,6 +76,10 @@ COLLECT_JS = """(props) => {
     const rec = {};
     if (cs.display === 'none') { rec.display = 'none'; }
     else { for (const p of props) rec[p] = cs.getPropertyValue(p); }
+    // El tamaño de un <canvas> lo fija Chart.js según el momento en que mide (y, hasta la fase 3, el settle de
+    // htmx): no es estilo de la app. Se ignora su alto/display y el alto de lo que lo contiene.
+    if (tag === 'canvas') { delete rec.height; delete rec.display; }
+    else if (el.querySelector('canvas')) { delete rec.height; }
     let key = keyOf(el), i = 2;
     while (key in out) key = keyOf(el) + '~' + (i++);
     out[key] = rec;

@@ -7,6 +7,12 @@ colores por tokens y la guarda ``js_errors`` ante un estilo inline bloqueado. El
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+
 import pytest
 
 pytest.importorskip("playwright")
@@ -14,6 +20,7 @@ pytest.importorskip("pytest_playwright")
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e.conftest import _boot_temp_server
 from tests.e2e.test_ui_tour_csp_e2e import login, open_tab
 
 pytestmark = pytest.mark.e2e
@@ -135,3 +142,30 @@ def test_js_errors_guard_reports_blocked_inline_style(tour_server, page: Page, j
     assert any("Content Security Policy" in e for e in js_errors), js_errors
     assert page.evaluate("getComputedStyle(document.body).color") != "rgb(255, 0, 0)"
     js_errors.clear()  # el teardown del fixture fallaría con el error provocado a propósito
+
+
+def test_blocked_inline_style_is_reported_to_server_log(page: Page, js_errors: list[str]) -> None:
+    # report-uri /csp-report: Chromium envía la violación y el servidor la deja en su log (WARNING csp_violation).
+    log_dir = tempfile.mkdtemp(prefix="csp-report-log-")
+    log_path = os.path.join(log_dir, "server.log")
+    base_url, _, proc, tmp = _boot_temp_server("csp-report-", log_path=log_path)
+    try:
+        login(page, base_url)
+        page.evaluate("document.body.setAttribute('style', 'color: red')")
+        deadline = time.monotonic() + 10
+        found = []
+        while time.monotonic() < deadline and not found:
+            with open(log_path, encoding="utf-8", errors="replace") as fh:
+                found = [line for line in fh if "csp_violation" in line]
+            time.sleep(0.2)
+        assert found, "el servidor no registró la violación de CSP"
+        assert "style-src" in found[0] and "/ui/" in found[0]
+        js_errors.clear()  # la violación es intencionada
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(log_dir, ignore_errors=True)

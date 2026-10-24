@@ -1,7 +1,9 @@
 {% extends "layouts/print.html" %}
 {% block title %}Artículos a reponer{% if selected_location_name %} - {{ selected_location_name }}{% endif %}{% endblock %}
 {% block head %}
+    <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version() }}" />
     <link rel="stylesheet" href="/static/css/print.css?v={{ static_version() }}" />
+    <link rel="stylesheet" href="/static/css/utilities.css?v={{ static_version() }}" />
     <script type="module" src="/static/js/pages/print.js?v={{ static_version() }}"></script>
 {% endblock %}
 {% block body %}

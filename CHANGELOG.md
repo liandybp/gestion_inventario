@@ -60,6 +60,12 @@ Este archivo se genera a partir del historial de Git (`git log`).
 - test(frontend): red de estilos calculados `tests/snapshots/style_snapshot.py` (74 capturas, claro y oscuro, contra
   el commit anterior a la fase; fuera de CI); el arnés HTML traduce cada `style` antiguo a sus clases; `js_errors`
   falla ante cualquier violación de CSP. +10 unit, +9 e2e.
+- refactor(frontend): colores en `tokens.css` (`:root` y tema oscuro) y utilidades compartidas en `utilities.css`,
+  cargadas por el dashboard, el login y las impresiones; `print.css` y `label-print.css` ya no repiten hex ni clases.
+- feat(security): `report-uri /csp-report`. Cada violación de CSP queda en el log como `WARNING csp_violation`
+  (campos truncados, sin `script-sample`, cuerpo de 16 KB como máximo y tope de 60 por minuto).
+- test(frontend): el arnés de estilos calculados ignora el tamaño de los `<canvas>` y de lo que los contiene, porque
+  lo fija Chart.js según el momento en que mide. +12 unit, +1 e2e (el navegador envía de verdad el reporte de CSP).
 
 ## 0.4.15 (2026-10-19)
 
