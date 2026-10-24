@@ -78,6 +78,7 @@ from app.schemas import (  # noqa: E402
 )
 from app.services.inventory_service import InventoryService  # noqa: E402
 from app.settings import DATABASE_URL  # noqa: E402
+from tests.snapshots.style_classes import STYLE_TO_CLASSES, style_key  # noqa: E402
 
 # Guarda dura: nunca sembrar en una BD real (el .env del repo apunta a la de dev).
 if not DATABASE_URL.startswith("sqlite") or _TMP not in DATABASE_URL:
@@ -117,6 +118,21 @@ def _is_js_wiring_attr(name: str) -> bool:
     return name.startswith("on") or name.startswith("data-js-")
 
 
+# Fase 3 (CSS sin estilos inline): cada style="…" de la baseline se traduce a las clases que lo sustituyen
+# (tests/snapshots/style_classes.py) y las clases se comparan ordenadas: el check prueba que cada estilo se
+# cambió exactamente por sus clases. Se ignoran <style>, <link rel="stylesheet"> (qué hojas carga cada página
+# lo fija un unit test) y <meta name="htmx-config">, y la clase muerta mb-10 (sin regla CSS hasta la fase 3)
+# del formulario de borrado de stock.
+def _canon_classes(tag: str, attr_map: dict) -> str | None:
+    classes = (attr_map.get("class") or "").split()
+    mapped = STYLE_TO_CLASSES.get(style_key(attr_map["style"])) if attr_map.get("style") else None
+    if mapped:
+        classes += mapped.split()
+    if tag == "form" and attr_map.get("hx-post") == "/ui/stock/delete-selected" and "mb-10" in classes:
+        classes.remove("mb-10")
+    return " ".join(sorted(set(classes))) if classes else None
+
+
 class _Canon(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -133,10 +149,21 @@ class _Canon(HTMLParser):
         if tag == "script" and attr_map.get("type") != "application/json":
             self._skip_tag = "script"
             return
+        if tag == "style":
+            self._skip_tag = "style"
+            return
+        if (tag == "link" and attr_map.get("rel") == "stylesheet") or (
+                tag == "meta" and attr_map.get("name") == "htmx-config"):
+            return
         if tag == "div" and attr_map.get("id") in _REMOVED_DEBUG_IDS:
             self._skip_tag = "div"
             return
         parts = [tag]
+        style_mapped = bool(attr_map.get("style")) and style_key(attr_map["style"]) in STYLE_TO_CLASSES
+        classes = _canon_classes(tag, attr_map)
+        attrs = [(n, v) for n, v in attrs if n != "class" and not (n == "style" and style_mapped)]
+        if classes:
+            attrs.append(("class", classes))
         for name, value in sorted(attrs, key=lambda a: a[0]):
             if _is_js_wiring_attr(name):
                 continue

@@ -123,13 +123,13 @@ Activo
 </td>
 <td>
 <div class="action-buttons">
-<button class="btn-sm btn-secondary" hx-get="/ui/user/1/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/1/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
 ✏️ Editar
 </button>
 <button class="btn-sm btn-warning" hx-get="/ui/user/1/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
 🔑 Reset
 </button>
-<button class="btn-sm btn-danger" hx-confirm="¿Estás seguro de eliminar el usuario 'admin'?" hx-post="/ui/user/1/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'admin'?" hx-post="/ui/user/1/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
 🗑️ Eliminar
 </button>
 </div>
@@ -156,13 +156,13 @@ Activo
 </td>
 <td>
 <div class="action-buttons">
-<button class="btn-sm btn-secondary" hx-get="/ui/user/2/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/2/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
 ✏️ Editar
 </button>
 <button class="btn-sm btn-warning" hx-get="/ui/user/2/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
 🔑 Reset
 </button>
-<button class="btn-sm btn-danger" hx-confirm="¿Estás seguro de eliminar el usuario 'operator'?" hx-post="/ui/user/2/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'operator'?" hx-post="/ui/user/2/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
 🗑️ Eliminar
 </button>
 </div>

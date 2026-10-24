@@ -34,7 +34,7 @@ Taller Cerro
 <div class="muted">
 Productos
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 1
 </div>
 </div>
@@ -42,7 +42,7 @@ Productos
 <div class="muted">
 Stock total
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 11
 </div>
 </div>
@@ -50,7 +50,7 @@ Stock total
 <div class="muted">
 Por reponer
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0
 </div>
 </div>
@@ -60,7 +60,7 @@ Por reponer
 <div class="muted">
 Inventario total (valor a costo)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 11.00 €
 </div>
 <div class="muted">
@@ -71,7 +71,7 @@ Estimación en base a lotes FIFO (stock actual).
 <div class="muted">
 Inventario total (valor a venta)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 22.00 €
 </div>
 <div class="muted">
@@ -82,7 +82,7 @@ Estimación en base a precios de venta actuales.
 <div class="muted">
 Gasto operativo que más impacta (<MES> 2026)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 -
 </div>
 </div>
@@ -92,7 +92,7 @@ Gasto operativo que más impacta (<MES> 2026)
 <div class="muted">
 Más vendido (año 2026)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 Producto Snapshot <b>"H"</b> & 'co'
 </div>
 <div class="muted">
@@ -103,7 +103,7 @@ SNAP-1 - 2.00 € (100.0%)
 <div class="muted">
 Menos vendido (año 2026)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 Producto Snapshot <b>"H"</b> & 'co'
 </div>
 <div class="muted">
@@ -114,7 +114,7 @@ SNAP-1 - 2.00 € (100.0%)
 <div class="muted">
 Mayor margen % (<MES> 2026)
 </div>
-<div class="metric-value metric-medium">
+<div class="metric-medium metric-value">
 -
 </div>
 </div>
@@ -145,7 +145,7 @@ Distribución por artículo + serie temporal diaria.
 <line id="monthly-sales-pie-line-el" stroke="rgba(11,45,66,0.45)" stroke-width="2" x1="0" x2="0" y1="0" y2="0">
 </svg>
 <div class="chart-box">
-<canvas class="w-full h-full" id="monthly-sales-pie">
+<canvas class="h-full w-full" id="monthly-sales-pie">
 </canvas>
 </div>
 <div class="card monthly-sales-pie-tooltip" id="monthly-sales-pie-tooltip">
@@ -157,7 +157,7 @@ Pasa el ratón por un color para ver el detalle.
 </div>
 <div>
 <div class="chart-box chart-box-tall">
-<canvas class="w-full h-full" id="monthly-sales-daily-line">
+<canvas class="h-full w-full" id="monthly-sales-daily-line">
 </canvas>
 </div>
 <script id="monthly-sales-daily-line-data" type="application/json">

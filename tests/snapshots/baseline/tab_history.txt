@@ -68,7 +68,7 @@ Limpiar filtros
 <input name="movement_type" type="hidden" value="">
 <input name="start_date" type="hidden" value="">
 <input name="end_date" type="hidden" value="">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <button class="mb-0" hx-confirm="¿Eliminar los ajustes seleccionados?" type="submit">
 Eliminar seleccionados
 </button>
@@ -77,40 +77,40 @@ Solo afecta movimientos tipo Ajuste.
 </span>
 </div>
 <div class="table-wrapper">
-<table class="w-full table-fixed">
+<table class="table-fixed w-full">
 <thead>
 <tr>
-<th style="width:3%;">
+<th class="w-3p">
 <input aria-label="Seleccionar todo" type="checkbox">
 </th>
 <th class="col-date">
 Fecha
 </th>
-<th style="width:8%;">
+<th class="w-8p">
 Tipo
 </th>
-<th style="width:9%;">
+<th class="w-9p">
 Usuario
 </th>
-<th style="width:9%;">
+<th class="w-9p">
 SKU
 </th>
-<th style="width:23%;">
+<th class="w-23p">
 Producto
 </th>
-<th class="text-center" style="width:6%;">
+<th class="text-center w-6p">
 Unidad
 </th>
-<th class="text-right" style="width:7%;">
+<th class="text-right w-7p">
 Cantidad
 </th>
-<th class="text-right" style="width:8%;">
+<th class="text-right w-8p">
 Costo Unit.
 </th>
-<th class="text-right" style="width:8%;">
+<th class="text-right w-8p">
 Precio Unit.
 </th>
-<th style="width:5%;">
+<th class="w-5p">
 Nota
 </th>
 </tr>
@@ -125,7 +125,7 @@ No hay movimientos con los filtros seleccionados.
 </table>
 </div>
 </form>
-<p class="muted mt-12">
+<p class="mt-12 muted">
 Mostrando 0 movimiento(s).
 </p>
 </div>

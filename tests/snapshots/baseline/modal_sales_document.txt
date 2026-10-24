@@ -39,7 +39,7 @@ Notas (opcional)
 </label>
 <input name="notes" value="Nota doc <b>"H"</b> & 'co'">
 </div>
-<h4 style="margin-top:14px;">
+<h4 class="mt-14">
 Items
 </h4>
 <div class="table-wrapper">

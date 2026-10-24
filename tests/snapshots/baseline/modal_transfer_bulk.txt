@@ -1,5 +1,5 @@
 <div class="modal-overlay" id="transfer-bulk-modal">
-<div class="modal-container" style="max-width: 760px;">
+<div class="modal-container modal-container-760">
 <div class="modal-content">
 <div class="modal-header">
 <h3 class="modal-title">
@@ -39,7 +39,7 @@ Fecha
 <label>
 Traspasados entre
 </label>
-<div class="flex gap-10" style="align-items: center;">
+<div class="flex gap-10 items-center">
 <input hx-get="/ui/transfers/bulk" hx-include="closest form" hx-swap="outerHTML" hx-target="#transfer-bulk-modal" hx-trigger="change" name="from_date" type="date" value="">
 <span class="muted">
 y
@@ -47,20 +47,20 @@ y
 <input hx-get="/ui/transfers/bulk" hx-include="closest form" hx-swap="outerHTML" hx-target="#transfer-bulk-modal" hx-trigger="change" name="to_date" type="date" value="">
 </div>
 </div>
-<div class="table-wrapper" style="max-height: 48vh; overflow-y: auto;">
+<div class="scroll-48vh table-wrapper">
 <table class="table-compact transfer-bulk-table">
 <thead>
 <tr>
-<th style="width: 3%;">
+<th class="w-3p">
 <input aria-label="Seleccionar todo" id="transfer-bulk-select-all" type="checkbox">
 </th>
 <th>
 Producto
 </th>
-<th class="text-right" style="width: 120px;">
+<th class="text-right w-120px">
 Stock
 </th>
-<th class="text-right" style="width: 150px;">
+<th class="text-right w-150px">
 Cantidad
 </th>
 </tr>
@@ -79,7 +79,7 @@ Producto Snapshot <b>"H"</b> & 'co'
 (ud)
 </span>
 </td>
-<td class="text-right nowrap">
+<td class="nowrap text-right">
 9.00
 </td>
 <td class="text-right">
@@ -90,7 +90,7 @@ Producto Snapshot <b>"H"</b> & 'co'
 </tbody>
 </table>
 </div>
-<div class="mt-12 flex gap-10 items-center">
+<div class="flex gap-10 items-center mt-12">
 <button class="mb-0" type="submit">
 Traspasar
 </button>

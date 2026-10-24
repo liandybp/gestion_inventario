@@ -20,7 +20,7 @@ Fecha
 <label>
 Parte
 </label>
-<select name="party" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
+<select class="select-plain" name="party">
 <option selected value="Negocio">
 Negocio
 </option>

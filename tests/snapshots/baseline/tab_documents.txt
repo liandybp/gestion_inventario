@@ -3,7 +3,7 @@
 Documentos
 </h2>
 <form class="card mb-12" hx-get="/ui/tabs/documents" hx-swap="innerHTML" hx-target="#tab-content">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Buscar
@@ -38,11 +38,11 @@ Limpiar
 <h3 class="card-title">
 Documento (Factura / Presupuesto)
 </h3>
-<p class="muted mt-n6">
+<p class="mt-n6 muted">
 Arma un carrito temporal y luego emite el documento. (Precios sin IVA)
 </p>
-<div class="sales-doc-grid mt-12">
-<div class="card subcard h-full">
+<div class="mt-12 sales-doc-grid">
+<div class="card h-full subcard">
 <h4 class="subcard-title">
 Agregar al carrito
 </h4>
@@ -105,7 +105,7 @@ Vaciar carrito
 </button>
 </form>
 </div>
-<div class="card subcard h-full">
+<div class="card h-full subcard">
 <h4 class="subcard-title">
 Emitir documento
 </h4>
@@ -167,7 +167,7 @@ Notas (opcional)
 </label>
 <input name="notes" value="">
 </div>
-<div class="flex gap-10 flex-wrap items-center">
+<div class="flex flex-wrap gap-10 items-center">
 <button hx-include="closest form" hx-post="/ui/sales-doc/preview" hx-swap="innerHTML" hx-target="#sales-doc-preview" type="button">
 Vista previa
 </button>
@@ -180,11 +180,11 @@ Emitir
 </div>
 </div>
 </div>
-<div class="card subcard mt-12">
+<div class="card mt-12 subcard">
 <h4 class="subcard-title">
 Carrito
 </h4>
-<div class="flex justify-end gap-12 flex-wrap mt-n6 mb-8">
+<div class="flex flex-wrap gap-12 justify-end mb-8 mt-n6">
 <div>
 <strong>
 Subtotal:
@@ -243,7 +243,7 @@ Subtotal
 </table>
 </div>
 </div>
-<div class="card subcard mt-12">
+<div class="card mt-12 subcard">
 <h4 class="subcard-title">
 Documentos recientes
 </h4>

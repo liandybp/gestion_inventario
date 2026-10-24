@@ -12,13 +12,13 @@ Filtros
 <form hx-get="/ui/tabs/activity" hx-swap="innerHTML" hx-target="#tab-content">
 <div class="filter-grid">
 <div>
-<div class="muted mb-6">
+<div class="mb-6 muted">
 Usuario
 </div>
 <input name="username" placeholder="admin / operator" value="admin">
 </div>
 <div>
-<div class="muted mb-6">
+<div class="mb-6 muted">
 Rol
 </div>
 <select name="role">
@@ -34,19 +34,19 @@ operator
 </select>
 </div>
 <div>
-<div class="muted mb-6">
+<div class="mb-6 muted">
 Desde
 </div>
 <input name="start_date" type="date" value="">
 </div>
 <div>
-<div class="muted mb-6">
+<div class="mb-6 muted">
 Hasta
 </div>
 <input name="end_date" type="date" value="">
 </div>
 </div>
-<div class="mt-12 flex gap-10 items-center">
+<div class="flex gap-10 items-center mt-12">
 <button type="submit">
 Aplicar
 </button>

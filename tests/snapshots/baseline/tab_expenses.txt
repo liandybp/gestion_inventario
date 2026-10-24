@@ -40,13 +40,13 @@ Guardar
 <div class="muted">
 Total de costos operativos (mes)
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
 </div>
 <form class="card mb-12" hx-get="/ui/tabs/expenses" hx-select="#expenses-history" hx-swap="outerHTML" hx-target="#expenses-history" hx-trigger="submit, keyup changed delay:300ms from:#expenses-filter-query, change from:#expenses-filter-start, change from:#expenses-filter-end">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Buscar

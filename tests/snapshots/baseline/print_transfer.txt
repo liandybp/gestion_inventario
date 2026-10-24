@@ -6,9 +6,6 @@
 <title>
 Traspaso TP-CENTRAL-POS1-260115100000
 </title>
-<style>
-html, body { margin: 0; padding: 0; } body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; } .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; } .toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; } .muted { color: #64748b; } h1 { font-size: 18px; margin: 0 0 8px; } .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; } .meta div { font-size: 13px; } table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; font-size: 13px; } th { text-align: left; background: #f8fafc; } .num { text-align: right; font-variant-numeric: tabular-nums; } code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; } @media print { .toolbar { display: none; } body { padding: 0; } }
-</style>
 </head>
 <body>
 <div class="toolbar">
@@ -50,11 +47,11 @@ TP-CENTRAL-POS1-260115100000
 </div>
 <table>
 <colgroup>
-<col style="width:16%">
+<col class="w-16p">
 <col>
-<col style="width:12%">
-<col style="width:14%">
-<col style="width:14%">
+<col class="w-12p">
+<col class="w-14p">
+<col class="w-14p">
 </colgroup>
 <thead>
 <tr>

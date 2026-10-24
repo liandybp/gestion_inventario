@@ -6,7 +6,7 @@ Traspasos
 Traspasa stock entre ubicaciones (multi-producto).
 </p>
 <form class="card" hx-disabled-elt="#transfer-submit" hx-indicator="#transfer-loading" hx-post="/ui/transfers" hx-swap="innerHTML" hx-sync="this:drop" hx-target="#tab-content" id="transfer-form">
-<div class="grid-3" style="gap:12px;">
+<div class="gap-12 grid-3">
 <div>
 <label class="filter-label">
 Origen
@@ -52,25 +52,25 @@ Fecha
 <input name="movement_date" type="datetime-local" value="<DT>">
 </div>
 </div>
-<div class="row" style="margin-top:10px; grid-template-columns: auto 1fr;">
+<div class="cols-auto-1fr mt-10 row">
 <label>
 Nota
 </label>
-<input name="note" placeholder="Opcional" style="margin:0;" type="text" value="">
+<input class="m-0" name="note" placeholder="Opcional" type="text" value="">
 </div>
 <div class="mt-12">
 </div>
 <div class="overflow-x-auto">
-<table class="w-full table-fixed">
+<table class="table-fixed w-full">
 <thead>
 <tr>
-<th style="width:62%;">
+<th class="w-62p">
 Producto
 </th>
-<th style="width:23%;">
+<th class="w-23p">
 Cantidad
 </th>
-<th style="width:15%;">
+<th class="w-15p">
 </th>
 </tr>
 </thead>
@@ -116,7 +116,7 @@ Eliminar
 </td>
 </tr>
 </template>
-<div class="mt-12 flex gap-10 items-center">
+<div class="flex gap-10 items-center mt-12">
 <button class="mb-0" data-transfer-add-line type="button">
 Agregar línea
 </button>
@@ -126,7 +126,7 @@ Traspaso masivo
 <button class="mb-0" id="transfer-submit" type="submit">
 Crear traspaso
 </button>
-<span class="htmx-indicator" id="transfer-loading" style="margin-left: 10px;">
+<span class="htmx-indicator ml-10" id="transfer-loading">
 Procesando...
 </span>
 <a class="text-sm" href="#" hx-get="/ui/tabs/transfers" hx-swap="innerHTML" hx-target="#tab-content">
@@ -142,7 +142,7 @@ Filtrar historial
 <form class="card mb-12" hx-get="/ui/tabs/transfers" hx-select="#transfers-history" hx-swap="outerHTML" hx-target="#transfers-history" hx-trigger="submit, keyup changed delay:300ms from:#transfers-filter-query, change from:#transfers-filter-start, change from:#transfers-filter-end, change from:#transfers-filter-from, change from:#transfers-filter-to">
 <input name="from_location_code" type="hidden" value="CENTRAL">
 <input name="to_location_code" type="hidden" value="POS1">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Buscar artículo
@@ -215,7 +215,7 @@ Limpiar
 </form>
 <div id="transfers-history">
 <form hx-post="/ui/movement/transfer/delete-selected" hx-swap="innerHTML" hx-target="#tab-content">
-<div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
 <button class="mb-0" hx-confirm="¿Eliminar los traspasos seleccionados?" type="submit">
 Eliminar seleccionados
 </button>
@@ -223,38 +223,38 @@ Eliminar seleccionados
 <h3>
 Últimos traspasos (salida)
 </h3>
-<div class="table-wrapper" style="-webkit-overflow-scrolling: touch;">
+<div class="table-wrapper touch-scroll">
 <table class="table-compact transfer-table">
 <thead>
 <tr>
-<th style="width:3%;">
+<th class="w-3p">
 <input aria-label="Seleccionar todo" type="checkbox">
 </th>
 <th class="col-date">
 Fecha
 </th>
-<th style="width: 120px;">
+<th class="w-120px">
 Tipo
 </th>
-<th style="width: 140px;">
+<th class="w-140px">
 Usuario
 </th>
-<th style="width: 140px;">
+<th class="w-140px">
 SKU
 </th>
 <th>
 Producto
 </th>
-<th class="text-right" style="width: 110px;">
+<th class="text-right w-110px">
 Cantidad
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Origen
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Destino
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Acciones
 </th>
 </tr>
@@ -271,37 +271,37 @@ No hay traspasos registrados.
 <h3>
 Últimos traspasos (entrada)
 </h3>
-<div class="table-wrapper" style="-webkit-overflow-scrolling: touch;">
+<div class="table-wrapper touch-scroll">
 <table class="table-compact transfer-table">
 <thead>
 <tr>
-<th style="width:3%;">
+<th class="w-3p">
 </th>
 <th class="col-date">
 Fecha
 </th>
-<th style="width: 120px;">
+<th class="w-120px">
 Tipo
 </th>
-<th style="width: 140px;">
+<th class="w-140px">
 Usuario
 </th>
-<th style="width: 140px;">
+<th class="w-140px">
 SKU
 </th>
 <th>
 Producto
 </th>
-<th class="text-right" style="width: 110px;">
+<th class="text-right w-110px">
 Cantidad
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Origen
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Destino
 </th>
-<th style="width: 110px;">
+<th class="w-110px">
 Acciones
 </th>
 </tr>
@@ -317,6 +317,6 @@ No hay traspasos registrados.
 </div>
 </form>
 </div>
-<div id="transfer-edit" style="margin-top:12px;">
+<div class="mt-12" id="transfer-edit">
 </div>
 </div>

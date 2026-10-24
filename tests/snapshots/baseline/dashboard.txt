@@ -6,7 +6,6 @@
 <title>
 Inventario
 </title>
-<link href="/static/css/app.css?v=<V>" rel="stylesheet">
 </head>
 <body>
 <button aria-label="Abrir menú" class="mobile-menu-toggle" id="mobile-menu-toggle">
@@ -23,11 +22,11 @@ Dashboard
 <div class="sidebar-user">
 admin
 </div>
-<div class="muted" style="margin-top:6px;">
+<div class="mt-6 muted">
 Negocio: Recambios
 </div>
-<form action="/ui/active-business" method="post" style="margin-top:8px;">
-<select name="business_id" style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
+<form action="/ui/active-business" class="mt-8" method="post">
+<select class="select-business" name="business_id">
 <option value="3">
 Bazar Mariela
 </option>

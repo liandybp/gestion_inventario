@@ -154,7 +154,7 @@ Guardar
 Retiros (mes corriente)
 </h3>
 <form class="card mb-12" hx-get="/ui/tabs/dividends" hx-swap="innerHTML" hx-target="#tab-content">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Buscar

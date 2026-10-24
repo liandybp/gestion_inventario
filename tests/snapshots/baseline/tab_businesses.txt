@@ -342,10 +342,10 @@ Bazar Mariela
 </td>
 <td>
 <div class="action-buttons">
-<button class="btn-sm btn-secondary" hx-get="/ui/business/3/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
+<button class="btn-secondary btn-sm" hx-get="/ui/business/3/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
 ✏️ Editar
 </button>
-<button class="btn-sm btn-danger" hx-confirm="¿Estás seguro de eliminar el negocio 'Bazar Mariela'? Esta acción no se puede deshacer." hx-post="/ui/business/3/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el negocio 'Bazar Mariela'? Esta acción no se puede deshacer." hx-post="/ui/business/3/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
 🗑️ Eliminar
 </button>
 </div>
@@ -367,10 +367,10 @@ Recambios
 </td>
 <td>
 <div class="action-buttons">
-<button class="btn-sm btn-secondary" hx-get="/ui/business/1/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
+<button class="btn-secondary btn-sm" hx-get="/ui/business/1/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
 ✏️ Editar
 </button>
-<button class="btn-sm btn-danger" hx-confirm="¿Estás seguro de eliminar el negocio 'Recambios'? Esta acción no se puede deshacer." hx-post="/ui/business/1/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el negocio 'Recambios'? Esta acción no se puede deshacer." hx-post="/ui/business/1/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
 🗑️ Eliminar
 </button>
 </div>
@@ -392,10 +392,10 @@ Ropa
 </td>
 <td>
 <div class="action-buttons">
-<button class="btn-sm btn-secondary" hx-get="/ui/business/2/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
+<button class="btn-secondary btn-sm" hx-get="/ui/business/2/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar negocio" type="button">
 ✏️ Editar
 </button>
-<button class="btn-sm btn-danger" hx-confirm="¿Estás seguro de eliminar el negocio 'Ropa'? Esta acción no se puede deshacer." hx-post="/ui/business/2/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el negocio 'Ropa'? Esta acción no se puede deshacer." hx-post="/ui/business/2/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar negocio">
 🗑️ Eliminar
 </button>
 </div>

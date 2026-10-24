@@ -9,17 +9,17 @@ Registra compras (si el artículo no existe, se crea con la compra) o importa un
 <h2>
 Compra
 </h2>
-<h3 style="margin-top:0;">
+<h3 class="mt-0">
 Importar compra desde factura (PDF)
 </h3>
-<p class="muted" style="margin-top:-6px;margin-bottom:10px;">
+<p class="mb-10 mt-n6 muted">
 Esta importación aplica IVA y, solo si está definida
 <code>
 purchase.invoice_fx_rate
 </code>
 en la configuración del negocio, aplica conversión de moneda. Si la tasa no existe o está vacía, no se convierte.
 </p>
-<form enctype="multipart/form-data" hx-encoding="multipart/form-data" hx-post="/ui/purchase/from-invoice" hx-swap="outerHTML" hx-target="#purchase-panel" style="margin-bottom:14px;">
+<form class="mb-14" enctype="multipart/form-data" hx-encoding="multipart/form-data" hx-post="/ui/purchase/from-invoice" hx-swap="outerHTML" hx-target="#purchase-panel">
 <div class="row">
 <label>
 Factura (PDF)
@@ -31,7 +31,7 @@ Importar factura
 </button>
 </form>
 <form hx-post="/ui/purchase" hx-swap="outerHTML" hx-target="#purchase-panel">
-<p class="muted" style="margin-top:0;margin-bottom:10px;">
+<p class="mb-10 mt-0 muted">
 Registro manual: el costo se guarda tal como lo introduces (sin conversión automática).
 </p>
 <div class="row">
@@ -88,11 +88,11 @@ Registrar compra
 </form>
 <div id="purchase-defaults">
 </div>
-<h3 style="margin-top:16px;">
+<h3 class="mt-16">
 Historial de compras
 </h3>
 <form class="card mb-12" hx-get="/ui/tabs/purchases" hx-select="#purchases-history" hx-swap="outerHTML" hx-target="#purchases-history" hx-trigger="submit, keyup changed delay:300ms from:#purchases-filter-query, change from:#purchases-filter-start, change from:#purchases-filter-end">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Buscar artículo
@@ -121,7 +121,7 @@ Ver todos
 </form>
 <div id="purchases-history">
 <form hx-post="/ui/movement/purchase/delete-selected" hx-swap="outerHTML" hx-target="#purchase-panel">
-<div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
 <button class="mb-0" hx-confirm="¿Eliminar las compras seleccionadas?" type="submit">
 Eliminar seleccionados
 </button>
@@ -171,7 +171,7 @@ Acciones
 </div>
 </form>
 </div>
-<div id="purchase-edit" style="margin-top:12px;">
+<div class="mt-12" id="purchase-edit">
 </div>
 </div>
 <div id="product-panel">

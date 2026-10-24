@@ -6,7 +6,7 @@ Utilidades
 Cálculo del mes corriente (ventas, costo FIFO, utilidad bruta y utilidad neta).
 </p>
 <div class="card mb-12">
-<div class="flex gap-12 items-center flex-wrap">
+<div class="flex flex-wrap gap-12 items-center">
 <div>
 <label class="filter-label">
 Desde
@@ -52,7 +52,7 @@ Limpiar
 <div class="muted">
 Ventas
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -60,7 +60,7 @@ Ventas
 <div class="muted">
 (-) Costo de ventas
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -68,7 +68,7 @@ Ventas
 <div class="muted">
 Utilidad bruta
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -76,7 +76,7 @@ Utilidad bruta
 <div class="muted">
 Utilidad neta
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -86,7 +86,7 @@ Utilidad neta
 <div class="muted">
 % costo de ventas
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -94,7 +94,7 @@ Utilidad neta
 <div class="muted">
 % utilidad bruta
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00
 </div>
 </div>
@@ -102,7 +102,7 @@ Utilidad neta
 <div class="muted">
 % utilidad neta / % gastos
 </div>
-<div class="metric-value metric-large">
+<div class="metric-large metric-value">
 0.00 / 0.00
 </div>
 </div>
