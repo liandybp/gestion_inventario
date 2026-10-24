@@ -4,7 +4,11 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.14` (ver `VERSION`) — 0.4.11 a 0.4.14 desplegadas en dev y producción (`main`, `66cff9c`) el 2026-10-11
+- **Versión actual:** `0.4.15` (ver `VERSION`) — hotfix desplegado en dev y producción (`main`, `01c66b2`) el 2026-10-19:
+  guardar el formulario de un negocio borraba el saldo inicial de dividendos (`value="..."` + `tojson` sin escapar
+  comillas dobles). Recambios lo perdió el 2026-10-18 22:15 (pendientes en negativo); restaurado en prod con UPDATE
+  (`{"Negocio": 1375, "Liandy": 2715, "Randy": 0}`, del `.conf`/backfill V4). También: e2e intermitentes por la
+  carrera de la carga inicial de `#tab-content` (esperar `#tab-content > *` tras el login). 386 unit + 44 e2e.
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
@@ -138,6 +142,21 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **PAE-015 — Copiloto: ventas por punto de venta mes a mes (2026-10-24, rama `feature/frontend-modular`,
+      sin push, entra en 0.5.0)** — bug de prod del 2026-10-18 (total por ubicación sin meses, 7 meses en vez de 6,
+      título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (34 tools), gráfico multi-serie
+      en `components/widget-chart.js` (solo bar/line), reglas de prompt ("últimos N meses", honestidad, dividendos
+      pendiente vs retirado), título legible del widget de rescate y aviso cuando falla la tool del widget
+      mostrado. Un primer intento (Haiku) se descartó (3.10 🔴, rama `backup/pae015-haiku`, borrada el 2026-10-24); PAE regenerado sobre
+      la fase 2 y reimplementado aplicando los envelopes tal cual. Re-auditoría **4.70 🟢**
+      (`docs/auditorias/2026-10-23-copiloto-ventas-ubicacion-mensual-reaudit.md`). Eval: 96/96/92 % (base
+      96/96/79 %). **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
+- [x] **Release 0.5.0, fase 2 del frontend: JS a módulos ES, CSP `script-src 'self'` (2026-10-23, rama
+      `feature/frontend-modular`, sin push)** — 19 módulos bajo `app/static/js/` (`main.js` + `core/`,
+      `components/`, `features/`, `pages/`; `theme-init.js` clásico), sin build; fuera `app.js`, los `<script>`
+      inline y los `on*=`; `Cache-Control: no-cache` en `/static/js/`; XSS del tooltip del pastel corregido.
+      Auditoría 4.35 🟢 (`docs/auditorias/2026-10-23-frontend-fase2-js-modulos.md`); el fixture `js_errors`
+      (errores de JS/CSP) es autouse en todos los e2e. Fase 1 (layouts + macros) cerrada el mismo día (4.80 🟢).
 - [x] **Coach: extracciones al negocio y alerta "drena caja" (v0.4.14, 2026-10-11)** — falso positivo reportado
       por el usuario. Las extracciones a la etiqueta del negocio (`FinanceService.business_label()`, "Negocio" por
       defecto) no salen de la caja: marcan el coste y los gastos recuperados para recomprar. El coach las sumaba como
@@ -344,6 +363,17 @@ Archivo `app/business_config.conf` (INI):
 
 ## Sesiones
 
+- **2026-10-23/24 (sesión 21)** — Fase 2 del release 0.5.0 implementada (Haiku, copiando el worktree validado con
+  rsync) + `/code-review` y auditoría (Opus): 2 fallos de la copia (rsync no borra `app.js`, `ui_common.py` en ruta
+  equivocada) y 3 hallazgos corregidos. PAE-015: el intento de Haiku se auditó en rojo y se descartó; specs
+  originales reconstruidos desde el transcript, regenerados sobre la fase 2 y reimplementados por Opus (4.70 🟢).
+  443 unit + 72 e2e + 40 snapshots. Detalle: `.claude/session-notes.md`.
+- **2026-10-18 (sesión 19)** — Lectura de la BD de prod (solo lectura, `mcp_readonly` por túnel SSH a
+  laptop-server: los MCP `postgres-*` siguen apuntando a vm-apps, apagada) para llenar
+  `~/Escritorio/Para_Cargar_Productos_Recambios.xlsx` (146 productos de Recambios, criterios del usuario).
+  Diagnóstico del copiloto (gráfico mensual por punto de venta) y PAE-015 vía SDD-Agent, pre-validado en un
+  worktree (corrigió el e2e por la CSP y partió T1). Sin cambios de código; `specs/` sin commitear. Detalle:
+  `.claude/session-notes.md`.
 - **2026-10-11 (sesión 18)** — Prueba manual de 0.4.12 en dev (sugerencias dinámicas en Compras: 138 → 8
   opciones al teclear "amo", autocompleta el costo; una búsqueda sin resultados era de otro negocio, no un bug).
   `develop` → `main` (0.4.11 + 0.4.12). Después, v0.4.13: quitar la sección "Producto" de Compras (ver Estado

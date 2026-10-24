@@ -61,8 +61,8 @@ app = FastAPI(title="Inventario", lifespan=lifespan)
 async def security_headers_middleware(request, call_next):
     """H-006: security headers básicos (CSP, frame, sniffing, referrer).
 
-    ``script-src 'self'`` sin ``'unsafe-inline'``: todo el JS vive en ``app/static/js/``
-    (fase 2 del release 0.5.0). ``style-src`` conserva ``'unsafe-inline'`` hasta la fase 3.
+    ``script-src 'self'`` y ``style-src 'self'``, sin ``'unsafe-inline'``: todo el JS vive en
+    ``app/static/js/`` (fase 2 del release 0.5.0) y todo el CSS en ``app/static/css/`` (fase 3).
     """
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -75,7 +75,7 @@ async def security_headers_middleware(request, call_next):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "style-src 'self'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "font-src 'self' data:; "

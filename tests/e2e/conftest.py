@@ -292,6 +292,9 @@ def js_errors(page, request) -> list[str]:
             if msg.type == "error" and "Failed to load resource" not in msg.text else None)
     yield errors
     # Fallar el test solo si hay errores reales (CSP, módulos no cargables, excepciones)
-    real_errors = [e for e in errors if "Refused to load the script" in e or "Refused to execute" in e or "pageerror" in e]
+    # "Content Security Policy": cualquier violación de CSP (scripts y, desde la fase 3, estilos inline:
+    # Chromium dice "Applying inline style violates the following Content Security Policy directive…").
+    real_errors = [e for e in errors if "Refused to load the script" in e or "Refused to execute" in e
+                   or "Content Security Policy" in e or "pageerror" in e]
     if real_errors:
         pytest.fail(f"JS errors reales durante {request.node.name}: {real_errors}")

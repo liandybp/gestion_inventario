@@ -257,12 +257,13 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        385 unit (SQLite en memoria) + 43 e2e (Playwright), todos verdes
+Tests:        443 unit (SQLite en memoria) + 72 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
+              (tests/snapshots/ui_snapshot.py), todos verdes
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
               /sync/{register,push,conflicts} (offline-desktop-sync)
-              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach + sync banner
+              UI HTMX: dashboard completo + copiloto IA (34 tools) + tab Coach + sync banner
               + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
               + creación de producto solo desde "Registrar compra" con precio de venta opcional (v0.4.11)
               + GET /ui/product-suggest (sugerencias dinámicas al teclear, v0.4.12; NO en Ventas ni
@@ -329,6 +330,14 @@ precisión de minuto. Corregido con milisegundos, **acotado a `ui_sales.py` +
 `sale_panel.html` + `sale_edit_form.html`** — el mismo helper `dt_to_local_input`
 (sin el fix) sigue en uso por compras/traspasos/gastos/extracciones/dividendos, con
 el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesión).
+
+**PAE-015 implementado (2026-10-24, rama `feature/frontend-modular`):** tool `sales_by_location_monthly`
+(34 tools), gráfico multi-serie en `app/static/js/components/widget-chart.js` (solo bar/line), reglas de prompt,
+título del widget de rescate y aviso de fallo. Re-auditoría 4.70 🟢. **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
+
+**Release 0.5.0 (frontend modular), fases 1-2 cerradas en `feature/frontend-modular` (sin push):** el JS vive en
+módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`). No añadir `<script>` inline
+ni `on*=` en plantillas: lo rechazan `tests/unit/test_frontend_js_modules.py` y la CSP.
 
 **Otros pendientes acumulados de sesiones previas:** fix estructural de SKU único
 compuesto `(business_id, sku)` pospuesto por decisión explícita del usuario; verde
