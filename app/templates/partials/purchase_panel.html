@@ -2,12 +2,12 @@
   <h2>Compra</h2>
 
   {% if user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
-  <h3 style="margin-top:0;">Importar compra desde factura (PDF)</h3>
-  <p class="muted" style="margin-top:-6px;margin-bottom:10px;">
+  <h3 class="mt-0">Importar compra desde factura (PDF)</h3>
+  <p class="muted mt-n6 mb-10">
     Esta importación aplica IVA y, solo si está definida <code>purchase.invoice_fx_rate</code> en la configuración del negocio,
     aplica conversión de moneda. Si la tasa no existe o está vacía, no se convierte.
   </p>
-  <form hx-post="/ui/purchase/from-invoice" hx-target="#purchase-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" style="margin-bottom:14px;">
+  <form hx-post="/ui/purchase/from-invoice" hx-target="#purchase-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data" class="mb-14">
     <div class="row">
       <label>Factura (PDF)</label>
       <input name="invoice_pdf" type="file" accept="application/pdf" required />
@@ -16,13 +16,13 @@
   </form>
 
   {% if invoice_created_products and invoice_created_products|length > 0 %}
-    <div class="warn" style="padding:12px;border-radius:10px;margin-top:12px;">
+    <div class="warn msg-box mt-12">
       <strong>Productos creados automáticamente</strong>
-      <div class="muted" style="margin-top:6px;">
+      <div class="muted mt-6">
         Debes completar <strong>precio de venta</strong> y <strong>cantidad mínima</strong> en estos productos.
         El historial mostrará el precio de venta actual cuando lo actualices.
       </div>
-      <div style="margin-top:8px;">
+      <div class="mt-8">
         {% for p in invoice_created_products %}
           <div><code>{{ p.sku }}</code> - {{ p.name }}</div>
         {% endfor %}
@@ -33,7 +33,7 @@
 
   {% set fv = form_values or {} %}
   <form hx-post="/ui/purchase" hx-target="#purchase-panel" hx-swap="outerHTML">
-    <p class="muted" style="margin-top:0;margin-bottom:10px;">Registro manual: el costo se guarda tal como lo introduces (sin conversión automática).</p>
+    <p class="muted mt-0 mb-10">Registro manual: el costo se guarda tal como lo introduces (sin conversión automática).</p>
     <div class="row">
       <label>Artículo</label>
       <input name="product" list="product-options" data-product-suggest="label" placeholder="Busca por nombre o SKU" value="{{ fv.get('product', '') }}"
@@ -52,13 +52,13 @@
   <div id="purchase-defaults"></div>
 
   {% if message %}
-    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
+    <div class="{{ message_class }} msg-box mt-12">
       <strong>{{ message }}</strong>
       {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
     </div>
   {% endif %}
 
-  <h3 style="margin-top:16px;">Historial de compras</h3>
+  <h3 class="mt-16">Historial de compras</h3>
   
   <form hx-get="/ui/tabs/purchases" hx-target="#purchases-history" hx-select="#purchases-history" hx-swap="outerHTML" class="card mb-12"
         hx-trigger="submit, keyup changed delay:300ms from:#purchases-filter-query, change from:#purchases-filter-start, change from:#purchases-filter-end">
@@ -83,7 +83,7 @@
   
   {% include 'partials/purchases_history.html' %}
 
-  <div id="purchase-edit" style="margin-top:12px;"></div>
+  <div id="purchase-edit" class="mt-12"></div>
 </div>
 
 {% if refresh_product_panel %}
