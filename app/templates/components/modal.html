@@ -4,10 +4,10 @@
    `title` se autoescapa: si necesita markup, pasarlo como bloque
    {% set t %}Editar <code>{{ x }}</code>{% endset %} (Jinja2 lo marca seguro y escapa {{ x }}).
    Nunca construir HTML concatenando strings ni marcarlo como seguro aquí. #}
-{% macro modal(id, title, wide=False, heading='h3', static=False, close_label=None, container_style=None) -%}
+{% macro modal(id, title, wide=False, heading='h3', static=False, close_label=None, container_class=None) -%}
 {% if heading not in ('h2', 'h3') %}{{ template_error("modal(): heading debe ser 'h2' o 'h3', no " ~ heading) }}{% endif %}
 <div class="modal-overlay" id="{{ id }}"{% if static %} data-modal-static="1"{% endif %}>
-  <div class="modal-container{% if wide %} modal-container-wide{% endif %}"{% if container_style %} style="{{ container_style }}"{% endif %}>
+  <div class="modal-container{% if wide %} modal-container-wide{% endif %}{% if container_class %} {{ container_class }}{% endif %}">
     <div class="modal-content">
       <div class="modal-header">
         {% if heading == 'h2' %}<h2>{{ title }}</h2>{% else %}<h3 class="modal-title">{{ title }}</h3>{% endif %}

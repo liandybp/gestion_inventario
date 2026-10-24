@@ -13,16 +13,16 @@
             {% set user_role = (user.role or '')|lower %}
             <div class="sidebar-user">{{ user.username }}</div>
             {% if businesses and (user_role == 'admin' or user_role == 'owner') %}
-              <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
-              <form method="post" action="/ui/active-business" style="margin-top:8px;">
-                <select name="business_id" data-js-autosubmit style="width:100%; padding:8px; border-radius:10px; border:1px solid var(--brand-border);">
+              <div class="muted mt-6">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
+              <form method="post" action="/ui/active-business" class="mt-8">
+                <select name="business_id" data-js-autosubmit class="select-business">
                   {% for b in businesses %}
                     <option value="{{ b.id }}" {% if active_business_id and (active_business_id|int) == (b.id|int) %}selected{% endif %}>{{ b.name }}</option>
                   {% endfor %}
                 </select>
               </form>
             {% else %}
-              <div class="muted" style="margin-top:6px;">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
+              <div class="muted mt-6">Negocio: {{ (active_business.name if active_business else 'Recambios') }}</div>
             {% endif %}
             <div class="sidebar-theme-row">
               <button type="button" class="sidebar-theme" data-js-theme-toggle title="Cambiar tema claro/oscuro" aria-label="Cambiar tema">🌓</button>

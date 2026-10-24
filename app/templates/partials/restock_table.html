@@ -1,4 +1,4 @@
-<div style="display:flex; gap:12px; align-items:baseline; justify-content:space-between;">
+<div class="flex gap-12 items-baseline justify-between">
   <div>
     <h3>Artículos a reponer{% if selected_location_name %} ({{ selected_location_name }}){% endif %}</h3>
     <p class="muted">Stock actual por debajo del punto de reorden (ROP).</p>
@@ -26,8 +26,8 @@
       <option value="with_history" {% if (restock_scope or 'with_history') == 'with_history' %}selected{% endif %}>Solo artículos con historial en esta ubicación</option>
     </select>
   </form>
-  <div style="margin: 6px 0 10px 0;">
-    <span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#eef6ff;color:#0b2d42;font-size:12px;font-weight:600;">
+  <div class="my-6-10">
+    <span class="badge-info">
       Filtro activo: {% if (restock_scope or 'with_history') == 'with_history' %}Solo con historial{% else %}Artículos en general{% endif %}
     </span>
   </div>

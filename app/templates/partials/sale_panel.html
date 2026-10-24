@@ -2,8 +2,8 @@
   <h2>Venta</h2>
 
   <div class="card">
-    <h3 style="margin-top:0;">Registrar venta</h3>
-    <p class="muted" style="margin-top:-6px;">Usa una sola casilla para buscar por nombre/SKU o escanear el código de barras.</p>
+    <h3 class="mt-0">Registrar venta</h3>
+    <p class="muted mt-n6">Usa una sola casilla para buscar por nombre/SKU o escanear el código de barras.</p>
     <form hx-post="/ui/sale" hx-target="#sale-panel" hx-swap="outerHTML">
       <div class="row">
         <label>Ubicación</label>
@@ -41,13 +41,13 @@
   </datalist>
 
   {% if message %}
-    <div class="{{ message_class }}" style="padding:12px;border-radius:10px;margin-top:12px;">
+    <div class="{{ message_class }} msg-box mt-12">
       <strong>{{ message }}</strong>
       {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
     </div>
   {% endif %}
 
-  <h3 style="margin-top:16px;">Historial de ventas</h3>
+  <h3 class="mt-16">Historial de ventas</h3>
   
   <form hx-get="/ui/tabs/sales" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="card mb-12"
         hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-payment, change from:#sales-filter-show-all">
@@ -81,9 +81,9 @@
         <label class="filter-label">Hasta</label>
         <input id="sales-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
       </div>
-      <div style="display:flex; align-items:center; gap:8px;">
+      <div class="flex items-center gap-8">
         <input id="sales-filter-show-all" type="checkbox" name="show_all" value="1" {% if filter_show_all %}checked{% endif %} />
-        <label for="sales-filter-show-all" class="filter-label" style="margin:0;">Ver todos</label>
+        <label for="sales-filter-show-all" class="filter-label m-0">Ver todos</label>
       </div>
       <button type="submit" class="mb-0">Filtrar</button>
       <a href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="text-sm">Ver todos</a>
@@ -94,7 +94,7 @@
     {% include 'partials/sales_history.html' %}
   </div>
 
-  <div id="sale-edit" style="margin-top:12px;"></div>
+  <div id="sale-edit" class="mt-12"></div>
 </div>
 
 <div id="sale-defaults"></div>

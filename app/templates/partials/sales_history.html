@@ -3,7 +3,7 @@
 <form hx-post="/ui/movement/sale/delete-selected"
       hx-target="#sale-panel"
       hx-swap="outerHTML">
-  <div class="flex gap-12 items-center flex-wrap" style="margin: 8px 0 10px 0;">
+  <div class="flex gap-12 items-center flex-wrap my-8-10">
     <button type="submit" class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?">Eliminar seleccionados</button>
   </div>
 {% endif %}
@@ -41,7 +41,7 @@
         <td class="col-date">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
         <td>
           {% if image_url %}
-            <img src="{{ image_url }}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+            <img src="{{ image_url }}" alt="" class="thumb" />
           {% endif %}
         </td>
         <td>{{ sku }}</td>

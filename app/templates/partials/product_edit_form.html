@@ -3,7 +3,7 @@
 {% call modal('product-edit-modal', 'Editar producto') %}
 
       {% if form_error %}
-        <div class="error" style="padding:10px;border-radius:8px;margin-bottom:10px;"><strong>Error al actualizar producto</strong><div>{{ form_error }}</div></div>
+        <div class="error msg-box-sm mb-10"><strong>Error al actualizar producto</strong><div>{{ form_error }}</div></div>
       {% endif %}
 
       <form hx-post="/ui/product/{{ product.sku }}/update" hx-target="#product-panel" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
@@ -14,8 +14,8 @@
           <label>Imagen</label>
           <div>
             {% if product.image_url %}
-              <div style="margin-bottom:6px;">
-                <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />
+              <div class="mb-6">
+                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="thumb thumb-lg" />
               </div>
             {% endif %}
             <input name="image_file" type="file" accept="image/*" />

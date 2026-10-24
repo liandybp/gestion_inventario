@@ -5,7 +5,7 @@
         {{ field('Fecha', 'extraction_date', type='datetime-local', value=extraction_date_value or '') }}
         <div class="row">
           <label>Parte</label>
-          <select name="party" style="width:100%; padding:8px; border:1px solid var(--brand-border); border-radius:8px; background: var(--brand-surface); color: var(--brand-text);">
+          <select name="party" class="select-plain">
             <option value="{{ dividends.business_label }}" {% if extraction.party == dividends.business_label %}selected{% endif %}>{{ dividends.business_label }}</option>
             {% for p in dividends.partners %}
               <option value="{{ p }}" {% if extraction.party == p %}selected{% endif %}>{{ p }}</option>

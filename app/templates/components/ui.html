@@ -7,8 +7,8 @@
   {%- endif -%}
 {%- endmacro %}
 
-{% macro card(title=None, id=None, style=None, extra_class='') -%}
-  <div class="card{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}{%- if style %} style="{{ style }}"{%- endif -%}>
+{% macro card(title=None, id=None, extra_class='') -%}
+  <div class="card{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}>
     {%- if title -%}
       <h3 class="card-title">{{ title }}</h3>
     {%- endif -%}
@@ -16,8 +16,8 @@
   </div>
 {%- endmacro %}
 
-{% macro subcard(title=None, id=None, style=None, extra_class='') -%}
-  <div class="card subcard{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}{%- if style %} style="{{ style }}"{%- endif -%}>
+{% macro subcard(title=None, id=None, extra_class='') -%}
+  <div class="card subcard{%- if extra_class %} {{ extra_class }}{%- endif -%}"{%- if id %} id="{{ id }}"{%- endif -%}>
     {%- if title -%}
       <h4 class="subcard-title">{{ title }}</h4>
     {%- endif -%}
@@ -74,7 +74,7 @@
     </div>
     <div>
       <label class="filter-label">Año</label>
-      <input type="number" name="year" value="{{ current_year }}" min="2020" max="2099" class="year-filter" style="width: 100px;" />
+      <input type="number" name="year" value="{{ current_year }}" min="2020" max="2099" class="year-filter w-100px" />
     </div>
     <button type="submit" class="mb-0">Filtrar</button>
     <a href="#" class="text-sm">Limpiar</a>
