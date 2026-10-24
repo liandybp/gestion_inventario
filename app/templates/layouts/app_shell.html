@@ -3,8 +3,9 @@
 {% block head %}
     <script src="/static/js/theme-init.js?v={{ static_version() }}"></script>
     {# CSP style-src 'self': htmx no inyecta su hoja de .htmx-indicator (las reglas están en app.css) ni copia
-       el atributo style en el settle (lo bloquearía la CSP; el servidor ya no envía ninguno). #}
-    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "attributesToSettle": ["class", "width", "height"]}' />
+       el atributo style en el settle (lo bloquearía la CSP; el servidor ya no envía ninguno). Tampoco width/height:
+       copiados del <canvas> viejo, chocaban con Chart.js si creaba el gráfico antes del settle (20 ms). #}
+    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "attributesToSettle": ["class"]}' />
     <script src="/static/js/htmx.min.js?v={{ static_version() }}"></script>
     <script src="/static/js/chart.umd.min.js?v={{ static_version() }}"></script>
     <script src="/static/js/JsBarcode.all.min.js?v={{ static_version() }}"></script>

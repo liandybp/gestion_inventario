@@ -54,15 +54,26 @@ def test_select_all_checkbox(tour_server, page: Page, js_errors: list[str], tab:
     assert js_errors == []
 
 
-def test_theme_toggle_persists_across_reload(tour_server, page: Page, js_errors: list[str]) -> None:
+def test_theme_toggle_without_reload(tour_server, page: Page, js_errors: list[str]) -> None:
+    # Fase 3: el tema cambia sin recargar (el estado de la página se conserva), los gráficos se
+    # redibujan con la paleta del tema (variables --chart-* de app.css) y la elección persiste.
     base_url, _ = tour_server
     login(page, base_url)
+    open_tab(page, "agent")
+    first_color = ("window.Chart.getChart(document.querySelector('canvas[data-js-widget-chart]'))"
+                   ".data.datasets[0].backgroundColor[0]")
+    page.wait_for_function(f"() => !!window.Chart && !!({first_color})")
+    assert page.evaluate(first_color) == "#0b2d42"
+    page.evaluate("window.__noReload = 1")
     expect(page.locator("html")).to_have_attribute("data-theme", "light")
-    with page.expect_navigation():
-        page.click("[data-js-theme-toggle]")
+    page.click("[data-js-theme-toggle]")
     expect(page.locator("html")).to_have_attribute("data-theme", "dark")
-    with page.expect_navigation():
-        page.click("[data-js-theme-toggle]")
+    assert page.evaluate("window.__noReload") == 1
+    assert page.evaluate("localStorage.getItem('gi-theme')") == "dark"
+    page.wait_for_function(f"() => ({first_color}) === '#60a5fa'")
+    page.reload()
+    expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+    page.click("[data-js-theme-toggle]")
     expect(page.locator("html")).to_have_attribute("data-theme", "light")
     assert js_errors == []
 

@@ -98,7 +98,7 @@ def test_stylesheets_per_template() -> None:
 def test_htmx_config_does_not_inject_or_copy_styles() -> None:
     shell = (TEMPLATES_DIR / "layouts" / "app_shell.html").read_text(encoding="utf-8")
     meta = ("""<meta name="htmx-config" content='{"includeIndicatorStyles": false, """
-            """"attributesToSettle": ["class", "width", "height"]}' />""")
+            """"attributesToSettle": ["class"]}' />""")
     assert meta in shell
     # La meta va antes de htmx: htmx lee su configuración al cargar.
     assert shell.index(meta) < shell.index("/static/js/htmx.min.js")

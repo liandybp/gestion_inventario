@@ -46,6 +46,20 @@ Este archivo se genera a partir del historial de Git (`git log`).
   plantilla, grafo de módulos, sin código de depuración, escape de `data-js-*`) y +23 e2e que recorren las 17
   pestañas, los 18 modales, login e impresiones, y cada comportamiento migrado, y fallan ante cualquier error
   de JS o violación de CSP.
+- refactor(frontend): fase 3 — CSS sin estilos inline. Los 106 `style="…"` de 22 plantillas pasan a clases de
+  `app.css` (bloque final «Fase 3»), los 4 `<style>` a `login.css`, `print.css` y `label-print.css`, y las macros
+  `card`/`subcard`/`modal` pierden sus parámetros de estilo libre (`modal(container_class=)`). Colores por tokens:
+  sin hex en las plantillas; en tema oscuro las miniaturas y el badge de reposición siguen el tema. La CSP pasa a
+  `style-src 'self'` (sin `'unsafe-inline'`).
+- fix(frontend): con la CSP estricta, JsBarcode en modo SVG dejaba el código de barras negro sobre negro (su fondo
+  y sus barras van en `style`): `components/barcode-svg.js` dibuja la misma geometría con atributos de
+  presentación. htmx ya no inyecta su hoja de `.htmx-indicator` ni copia `style`, `width` ni `height` en el *settle* (meta
+  `htmx-config`): esa copia podía dejar deformados los gráficos de Inicio al refrescarlos.
+- feat(ui): el botón de tema cambia claro/oscuro sin recargar la página; los gráficos toman sus colores de variables
+  CSS (`--chart-*`, `--home-*`) y se redibujan (`gi:themechange`).
+- test(frontend): red de estilos calculados `tests/snapshots/style_snapshot.py` (74 capturas, claro y oscuro, contra
+  el commit anterior a la fase; fuera de CI); el arnés HTML traduce cada `style` antiguo a sus clases; `js_errors`
+  falla ante cualquier violación de CSP. +10 unit, +9 e2e.
 
 ## 0.4.15 (2026-10-19)
 

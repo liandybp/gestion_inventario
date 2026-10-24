@@ -7,3 +7,52 @@ dark/tab-home	div#restock>div:2>span	border-left-color
 dark/tab-home	div#restock>div:2>span	border-right-color
 dark/tab-home	div#restock>div:2>span	border-top-color
 dark/tab-home	div#restock>div:2>span	color
+
+# Códigos de barras (fase 3, T30): JsBarcode escribía style="transform: translate(0,0)" en el <svg> (la CSP lo
+# bloquea); barcode-svg.js no lo pone. matrix(1, 0, 0, 1, 0, 0) -> none: misma identidad, sin efecto visual.
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+light/label	div#sheet>div>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+dark/label	div#sheet>div>div>svg	transform
+
+# Gráficos de Inicio: en b0f5dd8 el settle de htmx copiaba style/width/height del <canvas> viejo y la captura
+# dependía de si Chart.js medía antes o después (120px o 383px, display inline o block, distinto en cada
+# ejecución). Desde la fase 3 (attributesToSettle: ["class"]) el tamaño es el de Chart.js, estable.
+light/tab-home	canvas#monthly-chart	display
+light/tab-home	canvas#monthly-chart	height
+light/tab-home	canvas#monthly-sales-daily-line	display
+light/tab-home	canvas#monthly-sales-daily-line	height
+light/tab-home	canvas#monthly-sales-pie	display
+light/tab-home	canvas#monthly-sales-pie	height
+light/tab-home	div#home-charts	height
+light/tab-home	div#home-charts>div:3	height
+light/tab-home	div#tab-content	height
+light/tab-home	div#tab-content>div	height
+light/tab-home	html	height
+light/tab-home	html>body	height
+light/tab-home	html>body>div:2	height
+light/tab-home	html>body>div:2>main	height
+dark/tab-home	canvas#monthly-chart	display
+dark/tab-home	canvas#monthly-chart	height
+dark/tab-home	canvas#monthly-sales-daily-line	display
+dark/tab-home	canvas#monthly-sales-daily-line	height
+dark/tab-home	canvas#monthly-sales-pie	display
+dark/tab-home	canvas#monthly-sales-pie	height
+dark/tab-home	div#home-charts	height
+dark/tab-home	div#home-charts>div:3	height
+dark/tab-home	div#tab-content	height
+dark/tab-home	div#tab-content>div	height
+dark/tab-home	html	height
+dark/tab-home	html>body	height
+dark/tab-home	html>body>div:2	height
+dark/tab-home	html>body>div:2>main	height
