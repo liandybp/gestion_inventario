@@ -1,0 +1,44 @@
+/* Impresión de traspasos y de artículos a reponer (antes <style> idéntico en las dos plantillas). */
+html, body { margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #0f172a; padding: 18px; }
+
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+.toolbar button { padding: 10px 12px; border: 0; border-radius: 10px; background: #0b2d42; color: white; cursor: pointer; }
+.muted { color: #64748b; }
+
+h1 { font-size: 18px; margin: 0 0 8px; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
+.meta div { font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; font-size: 13px; }
+th { text-align: left; background: #f8fafc; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+@media print {
+  .toolbar { display: none; }
+  body { padding: 0; }
+}
+
+/* Anchos de columna de transfer_print.html (antes style="…"). */
+.w-12p { width: 12%; }
+.w-14p { width: 14%; }
+.w-16p { width: 16%; }
+
+/* restock_print.html incluye partials/restock_table.html (antes style="…"). Impresión: solo tema claro. */
+.flex { display: flex; }
+.gap-12 { gap: 12px; }
+.items-baseline { align-items: baseline; }
+.justify-between { justify-content: space-between; }
+.my-6-10 { margin: 6px 0 10px 0; }
+.badge-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #0b2d42;
+  font-size: 12px;
+  font-weight: 600;
+}

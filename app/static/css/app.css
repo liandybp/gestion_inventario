@@ -12,6 +12,39 @@
   --row-odd: #ffffff;
   --row-even: rgba(59, 130, 246, 0.06);
   --row-hover: rgba(59, 130, 246, 0.12);
+  --badge-info-bg: #eef6ff;
+  --badge-info-text: #0b2d42;
+  /* Gráficos (components/chart-palette.js lee estas variables). Widgets del copiloto: */
+  --chart-1: #0b2d42;
+  --chart-2: #cf1f27;
+  --chart-3: #2a6f97;
+  --chart-4: #4c9a8c;
+  --chart-5: #d97706;
+  --chart-6: #7c3aed;
+  --chart-7: #0891b2;
+  --chart-8: #64748b;
+  --chart-accent: #0b2d42;
+  --chart-accent-fill: rgba(11, 45, 66, 0.08);
+  --chart-grid: rgba(15, 23, 42, 0.06);
+  --chart-slice-border: #ffffff;
+  --chart-label-stroke: rgba(15, 23, 42, 0.6);
+  --chart-label-fill: #ffffff;
+  /* Gráficos de Inicio (iguales en los dos temas): */
+  --home-chart-sales: rgba(11,45,66,0.85);
+  --home-chart-purchases: rgba(203, 58, 66, 0.75);
+  --home-chart-profit: rgba(16, 185, 129, 0.75);
+  --home-chart-line-fill: rgba(11,45,66,0.10);
+  --home-pie-1: rgba(11,45,66,0.85);
+  --home-pie-2: rgba(203, 58, 66, 0.75);
+  --home-pie-3: rgba(16, 185, 129, 0.75);
+  --home-pie-4: rgba(59, 130, 246, 0.75);
+  --home-pie-5: rgba(245, 158, 11, 0.75);
+  --home-pie-6: rgba(99, 102, 241, 0.75);
+  --home-pie-7: rgba(236, 72, 153, 0.75);
+  --home-pie-8: rgba(34, 197, 94, 0.65);
+  --home-pie-9: rgba(148, 163, 184, 0.75);
+  --home-pie-10: rgba(15, 118, 110, 0.70);
+  --home-pie-11: rgba(107, 114, 128, 0.55);
 }
 
 body {
@@ -1011,6 +1044,19 @@ a { color: var(--brand-red); }
   --row-odd: #1e293b;
   --row-even: #182234;
   --row-hover: rgba(148, 163, 184, 0.15);
+  --badge-info-bg: rgba(59, 130, 246, 0.15);
+  --badge-info-text: #93c5fd;
+  /* Paleta oscura de los widgets: 7 colores (--chart-8 sin valor corta la lista). */
+  --chart-1: #60a5fa;
+  --chart-2: #f87171;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #a78bfa;
+  --chart-6: #22d3ee;
+  --chart-7: #94a3b8;
+  --chart-8: initial;
+  --chart-accent: #93c5fd;
+  --chart-accent-fill: rgba(147, 197, 253, 0.12);
 }
 [data-theme="dark"] thead th { background: #0b2d42; }
 [data-theme="dark"] .widget-header { color: var(--brand-text); }
@@ -1050,3 +1096,79 @@ input[type="checkbox"] {
 }
 .widget-table tbody tr:nth-child(even) td { background: var(--row-even); }
 .widget-table tbody tr:hover td { background: var(--row-hover); }
+
+/* ═══ Fase 3 (release 0.5.0): sin estilos inline ═══
+   CSP style-src 'self': las plantillas no llevan style="…". Estas clases sustituyen a los antiguos atributos con
+   los mismos valores; van al final para ganar a las reglas generales, como hacía el inline. */
+
+/* htmx: includeIndicatorStyles=false (meta htmx-config); mismas reglas que inyectaba htmx 1.9. */
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+
+.w-3p { width: 3%; }
+.w-5p { width: 5%; }
+.w-6p { width: 6%; }
+.w-7p { width: 7%; }
+.w-8p { width: 8%; }
+.w-9p { width: 9%; }
+.w-12p { width: 12%; }
+.w-14p { width: 14%; }
+.w-15p { width: 15%; }
+.w-16p { width: 16%; }
+.w-23p { width: 23%; }
+.w-62p { width: 62%; }
+.w-100px { width: 100px; }
+.w-110px { width: 110px; }
+.w-120px { width: 120px; }
+.w-140px { width: 140px; }
+.w-150px { width: 150px; }
+.w-auto { width: auto; }
+.min-w-85 { min-width: 85px; }
+
+.mt-0 { margin-top: 0; }
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-14 { margin-bottom: 14px; }
+.ml-10 { margin-left: 10px; }
+.my-8-10 { margin: 8px 0 10px 0; }
+.my-6-10 { margin: 6px 0 10px 0; }
+
+.d-inline-block { display: inline-block; }
+.gap-8 { gap: 8px; }
+.items-baseline { align-items: baseline; }
+.cols-auto-1fr { grid-template-columns: auto 1fr; }
+.no-underline { text-decoration: none; }
+.scroll-48vh { max-height: 48vh; overflow-y: auto; }
+.touch-scroll { -webkit-overflow-scrolling: touch; }
+
+.msg-box { padding: 12px; border-radius: 10px; }
+.msg-box-sm { padding: 10px; border-radius: 8px; }
+.modal-container-760 { max-width: 760px; }
+/* .filter-label (más arriba) fija margin-bottom: el antiguo inline margin:0 le ganaba. */
+.filter-label.m-0 { margin: 0; }
+
+.thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid var(--brand-border); }
+.thumb-lg { width: 64px; height: 64px; }
+
+.badge-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--badge-info-bg);
+  color: var(--badge-info-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.select-business { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid var(--brand-border); }
+.select-plain {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--brand-border);
+  border-radius: 8px;
+  background: var(--brand-surface);
+  color: var(--brand-text);
+}
