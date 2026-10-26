@@ -1,6 +1,6 @@
 # gestion_inventario
 
-> Contexto de proyecto para OpenCode + Qwen3.6-35B-A3B
+> Contexto de proyecto para cc_local (Claude Code + Qwen3.6-35B-A3B)
 > Generado desde: ~/obsidian-lab/Templates/template-claude-md.md
 > Leer completo antes de tocar cualquier archivo.
 
@@ -353,7 +353,7 @@ healthcheck corregido esta sesión — `Dockerfile` ya copia `VERSION`).
 
 ---
 
-## Reglas operacionales para OpenCode
+## Reglas operacionales para cc_local
 
 - **Scope**: solo tocar archivos listados en el PAE activo (sección 3.2).
 - **Archivos nuevos**: reportar nombre y ubicación antes de crear.
