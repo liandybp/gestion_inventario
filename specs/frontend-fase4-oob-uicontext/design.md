@@ -361,5 +361,10 @@ No hace falta MCP. Todo lo necesario está en el repo; las firmas se copian del 
 | **E** | `ui_nav.py` + `test_ui_nav.py` + bucle en `dashboard.html`. | `check` idéntico (dashboards de los 3 roles); `test_ui_nav` verde. |
 | **F** | `test_routers_no_html.py`; eliminar `ensure_*` si quedan sin uso; CHANGELOG (0.5.0), `CLAUDE.md`, `.claude/CLAUDE.md`, diagnóstico §4 fila 4 ✅. | Suite completa + `style_snapshot.py check` contra baseline de `b741a46` con 0 diferencias. |
 
+> **Ajuste en el assembly (Fase 4):** el "Lote C" de esta tabla (migración completa) se reparte en los
+> lotes **C–G** (migración, ≤7 envelopes cada uno) + **H** (adaptación de tests D9), porque el lote único
+> no cabía en una sesión de `cc_local`. La verificación de lote es el `check` del arnés (equivalencia HTML)
+> para C–G, y `pytest tests/unit` completo al final (H + cierre).
+
 Verificación global de cierre: `pytest tests/unit`, `python3 tests/snapshots/ui_snapshot.py check
 tests/snapshots/baseline`, `pytest tests/e2e -m e2e`, `style_snapshot.py` (fuera de CI).

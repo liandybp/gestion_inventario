@@ -6,7 +6,7 @@ Rama de implementación: `feature/frontend-fase4`. Sin bump de versión (release
 **Regla de ejecución (cc_local):** un lote por sesión limpia. Lee solo los envelopes de tu lote. El
 envelope es la única fuente: no consultes notas ni docs genéricas. Un commit por lote. Nunca push/sudo.
 
-`Lotes: **A** T1–T5 · **B** T6–T7 · **C** T8–T48 · **D** T49–T59 · **E** T60–T62 · **F** T63–T66`
+`Lotes: **A** T1–T5 · **B** T6–T7 · **C** T8–T14 · **D** T15–T21 · **E** T22–T28 · **F** T29–T34 · **G** T35–T39 · **H** T40–T48 · **I** T49–T54 · **J** T55–T59 · **K** T60–T62 · **L** T63–T66`
 
 **Verificación global de cierre:** `pytest tests/unit` · `python3 tests/snapshots/ui_snapshot.py check
 tests/snapshots/baseline` · `pytest tests/e2e -m e2e` · `python3 tests/snapshots/style_snapshot.py check`

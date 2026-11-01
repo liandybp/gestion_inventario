@@ -215,20 +215,27 @@ def default_tab(role: str) -> str: ...
 > Los 66 envelopes están en `specs/frontend-fase4-oob-uicontext/tasks.md`. `cc_local_pae` lee ese fichero por
 > rangos de línea (un lote por sesión). Resumen de lotes:
 
-`Lotes: **A** T1–T5 · **B** T6–T7 · **C** T8–T48 · **D** T49–T59 · **E** T60–T62 · **F** T63–T66`
+`Lotes: **A** T1–T5 · **B** T6–T7 · **C** T8–T14 · **D** T15–T21 · **E** T22–T28 · **F** T29–T34 · **G** T35–T39 · **H** T40–T48 · **I** T49–T54 · **J** T55–T59 · **K** T60–T62 · **L** T63–T66`
 
 | Lote | Envelopes | Contenido | Cierre |
 |------|-----------|-----------|--------|
 | **A (Lote 0)** | T1–T5 | arnés H-303 (`_request`, siembra, `capture()`), baseline desde `b741a46`, e2e de caracterización | `check` OK; mutación falla como se espera; e2e verdes; `git diff --stat b741a46 -- app/` vacío |
 | **B** | T6–T7 | `ui_context.py` + `test_ui_context.py` | unit verdes |
-| **C** | T8–T48 | migración a `UIContext` (T8–T39, un envelope por router, partido en 2 si >10 sustituciones) + adaptación de tests (T40–T48) | tras cada migración `check` idéntico; al final `pytest tests/unit` verde |
-| **D** | T49–T59 | macros en `forms.html` + panels; 7 plantillas de fragmento + endpoints | `check` idéntico |
-| **E** | T60–T62 | `ui_nav.py` + `test_ui_nav.py` + bucle en `dashboard.html` | `check` idéntico (3 roles); `test_ui_nav` verde |
-| **F** | T63–T66 | `test_routers_no_html.py`; borrar `ensure_*` si 0 refs; CHANGELOG, CLAUDE.md, diagnóstico | suite completa verde |
+| **C** | T8–T14 | migración a `UIContext`: activity, agent, businesses, coach, customers | `check` idéntico |
+| **D** | T15–T21 | migración: dividends, expenses, extractions, history, home | `check` idéntico |
+| **E** | T22–T28 | migración: products, profit-items, profit, purchases | `check` idéntico |
+| **F** | T29–T34 | migración: sales-documents, sales, stock | `check` idéntico |
+| **G** | T35–T39 | migración: sync, transfers, users | `check` idéntico |
+| **H** | T40–T48 | adaptación de los 10 ficheros de tests rotos por la migración (D9) | `pytest tests/unit` verde |
+| **I** | T49–T54 | macros en `forms.html` + panels; fragmentos OOB de compras/ventas + endpoints | `check` idéntico |
+| **J** | T55–T59 | datalist `sale_panel`; fragmentos OOB de documentos/traspasos/stock + endpoints | `check` idéntico |
+| **K** | T60–T62 | `ui_nav.py` + `test_ui_nav.py` + bucle en `dashboard.html` | `check` idéntico (3 roles); `test_ui_nav` verde |
+| **L** | T63–T66 | `test_routers_no_html.py`; borrar `ensure_*` si 0 refs; CHANGELOG, CLAUDE.md, diagnóstico | suite completa verde |
 
-> Nota sobre el Lote C: el diseño original pedía "unit + check tras cada envelope". Como la migración rompe
-> 10 ficheros de tests existentes (D9), la verificación por envelope es el `check` del arnés (canónico idéntico);
-> el `pytest tests/unit` completo se ejecuta al final del Lote C, después de T40–T48.
+> Nota sobre la migración (lotes C–H): la migración a `UIContext` (C–G) rompe 10 ficheros de tests existentes
+> (D9) hasta que H los adapta. Por eso la verificación de lote es el `check` del arnés (canónico idéntico) para
+> C–G; `pytest tests/unit` completo se ejecuta al final, tras H (T40–T48). Los lotes C–J se repartieron en
+> piezas de ≤ 7 envelopes porque el Lote C original (T8–T48) no cabía en una sola sesión de `cc_local`.
 
 ---
 
@@ -244,12 +251,13 @@ SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: python3 -m pytest t
 
 ### 5.1 Verificación por lote
 
-- **Lote A**: `ui_snapshot.py write` + `check` + mutaciones (T5). e2e: `pytest tests/e2e/test_fase4_characterization_e2e.py -m e2e`.
-- **Lote B**: `pytest tests/unit/test_ui_context.py`.
-- **Lote C**: `ui_snapshot.py check` tras cada migración; `pytest tests/unit/test_ui_*.py` tras cada adaptación; `pytest tests/unit -q` al final.
-- **Lote D**: `ui_snapshot.py check` (canónico idéntico) tras cada fragmento.
-- **Lote E**: `ui_snapshot.py check` + `pytest tests/unit/test_ui_nav.py`.
-- **Lote F**: `pytest tests/unit -q` + `ui_snapshot.py check` + `pytest tests/e2e -m e2e` + `style_snapshot.py check`.
+- **Lote A (0)**: `ui_snapshot.py write` + `check` + mutaciones (T5). e2e: `pytest tests/e2e/test_fase4_characterization_e2e.py -m e2e`.
+- **Lote B**: `ui_snapshot.py check` + `pytest tests/unit/test_ui_context.py`.
+- **Lotes C–G** (migración a `UIContext`): `ui_snapshot.py check` (canónico idéntico) tras cada router.
+- **Lote H** (adaptación de tests, D9): `pytest tests/unit -q` verde al final.
+- **Lotes I–J** (macros/fragmentos OOB): `ui_snapshot.py check` tras cada fragmento.
+- **Lote K**: `ui_snapshot.py check` + `pytest tests/unit/test_ui_nav.py`.
+- **Lote L** (cierre): `pytest tests/unit -q` + `ui_snapshot.py check` + `pytest tests/e2e -m e2e` + `style_snapshot.py check`.
 
 ### 5.2 Protocolo cuando una verificación falla
 
@@ -332,7 +340,7 @@ test(ui): guarda test_routers_no_html + limpieza ensure_* + docs fase 4
 ## Ejecución
 
 ```bash
-cc_local_pae . specs/frontend-fase4-oob-uicontext/tasks.md --test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/unit -q -o addopts="" -p no:warnings && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline' --lot0-test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/e2e/test_fase4_characterization_e2e.py -m e2e -q -o addopts="" -p no:warnings && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline'
+cc_local_pae . specs/frontend-fase4-oob-uicontext/tasks.md --test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline' --lot0-test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/e2e/test_fase4_characterization_e2e.py -m e2e -q -o addopts="" -p no:warnings && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline'
 ```
 
 ---
