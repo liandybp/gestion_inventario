@@ -1,0 +1,5 @@
+app/routers/ui_dividends.py
+app/routers/ui_expenses.py
+app/routers/ui_extractions.py
+app/routers/ui_history.py
+app/routers/ui_home.py
