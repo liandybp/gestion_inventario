@@ -29,6 +29,7 @@ from .ui_common import (
     templates,
 )
 from .ui_context import UIContext, ui_context
+from .ui_nav import NAV_ITEMS, default_tab, visible_nav_items
 from .ui_tabs_common import _home_locations_context, _location_id_for_code, _month_label_es
 
 router = APIRouter()
@@ -180,6 +181,7 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
                         .order_by(Business.code.asc())
                     )
                 )
+    role = (user.role or "").lower() if user is not None else ""
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -190,6 +192,8 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "active_business": active_business,
             "app_mode": app_mode_label(),
             "state": get_sync_state(db) if is_desktop() else None,
+            "nav_items": visible_nav_items(role, app_mode_label()),
+            "default_tab": default_tab(role),
         },
     )
 
