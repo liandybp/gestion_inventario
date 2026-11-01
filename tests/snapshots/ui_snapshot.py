@@ -86,6 +86,22 @@ if not DATABASE_URL.startswith("sqlite") or _TMP not in DATABASE_URL:
 
 _FIXED = datetime(2026, 1, 15, 10, 0, tzinfo=timezone.utc)
 
+# Inicio dibuja el mes en curso (un punto por día) y los últimos 12 meses a partir de
+# `datetime.now()`: sin reloj fijo, la baseline deja de valer al cambiar de mes. Se congela en
+# la fecha en que se generó la baseline actual.
+_NOW = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc)
+
+
+class _FrozenDatetime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return _NOW if tz is None else _NOW.astimezone(tz)
+
+
+import app.routers.ui_home as _ui_home  # noqa: E402
+
+_ui_home.datetime = _FrozenDatetime
+
 _SUBS = [
     (re.compile(r"\?v=[0-9A-Za-z]+"), "?v=<V>"),
     (re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?"), "<DT>"),
