@@ -168,6 +168,74 @@ Activo
 </div>
 </td>
 </tr>
+<tr>
+<td>
+<strong>
+snap-operator
+</strong>
+</td>
+<td>
+<span class="badge badge-operator">
+Operador
+</span>
+</td>
+<td>
+<span class="muted">
+Sin asignar
+</span>
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/3/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/3/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'snap-operator'?" hx-post="/ui/user/3/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
+<tr>
+<td>
+<strong>
+snap-owner
+</strong>
+</td>
+<td>
+<span class="badge badge-operator">
+Dueño
+</span>
+</td>
+<td>
+Recambios
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/4/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/4/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'snap-owner'?" hx-post="/ui/user/4/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
 </tbody>
 </table>
 </div>

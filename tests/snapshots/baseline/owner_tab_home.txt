@@ -1,0 +1,258 @@
+<div>
+<h2>
+Inicio
+</h2>
+<p class="muted">
+Resumen general (lo iremos ampliando paso a paso).
+</p>
+<form class="home-charts-filter" hx-get="/ui/tabs/home" hx-swap="innerHTML" hx-target="#tab-content" hx-trigger="change">
+<label class="home-charts-filter-label">
+Ubicación
+</label>
+<select class="home-charts-filter-input" name="location_code">
+<option selected value="">
+Vista General
+</option>
+<option value="CENTRAL">
+Almacén central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+<input name="metrics_start_date" type="hidden" value="">
+<input name="metrics_end_date" type="hidden" value="">
+</form>
+<div class="grid-3">
+<div class="card">
+<div class="muted">
+Productos
+</div>
+<div class="metric-large metric-value">
+2
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Stock total
+</div>
+<div class="metric-large metric-value">
+11
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Por reponer
+</div>
+<div class="metric-large metric-value">
+0
+</div>
+</div>
+</div>
+<div class="grid-3 mt-12">
+<div class="card">
+<div class="muted">
+Inventario total (valor a costo)
+</div>
+<div class="metric-medium metric-value">
+15.00 €
+</div>
+<div class="muted">
+Estimación en base a lotes FIFO (stock actual).
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Inventario total (valor a venta)
+</div>
+<div class="metric-medium metric-value">
+20.00 €
+</div>
+<div class="muted">
+Estimación en base a precios de venta actuales.
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Gasto operativo que más impacta (<MES> 2026)
+</div>
+<div class="metric-medium metric-value">
+-
+</div>
+</div>
+</div>
+<div class="grid-3 mt-12">
+<div class="card">
+<div class="muted">
+Más vendido (año 2026)
+</div>
+<div class="metric-medium metric-value">
+Producto Snapshot <b>"H"</b> & 'co'
+</div>
+<div class="muted">
+SNAP-1 - 4.00 € (100.0%)
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Menos vendido (año 2026)
+</div>
+<div class="metric-medium metric-value">
+Producto Snapshot <b>"H"</b> & 'co'
+</div>
+<div class="muted">
+SNAP-1 - 4.00 € (100.0%)
+</div>
+</div>
+<div class="card">
+<div class="muted">
+Mayor margen % (<MES> 2026)
+</div>
+<div class="metric-medium metric-value">
+-
+</div>
+</div>
+</div>
+<div id="home-charts">
+<form class="home-charts-filter" hx-get="/ui/home-charts" hx-swap="innerHTML" hx-target="#home-charts" hx-trigger="change">
+<label class="home-charts-filter-label">
+Desde
+</label>
+<input class="home-charts-filter-input" name="metrics_start_date" type="date" value="">
+<label class="home-charts-filter-label">
+Hasta
+</label>
+<input class="home-charts-filter-input" name="metrics_end_date" type="date" value="">
+<input name="location_code" type="hidden" value="">
+</form>
+<div class="card mt-16">
+<h3>
+Ventas (<MES> 2026)
+</h3>
+<p class="muted">
+Distribución por artículo + serie temporal diaria.
+</p>
+<div class="charts-grid">
+<div>
+<div class="monthly-sales-pie-wrap" id="monthly-sales-pie-wrap">
+<svg class="pie-line-overlay" id="monthly-sales-pie-line">
+<line id="monthly-sales-pie-line-el" stroke="rgba(11,45,66,0.45)" stroke-width="2" x1="0" x2="0" y1="0" y2="0">
+</svg>
+<div class="chart-box">
+<canvas class="h-full w-full" id="monthly-sales-pie">
+</canvas>
+</div>
+<div class="card monthly-sales-pie-tooltip" id="monthly-sales-pie-tooltip">
+<div class="muted">
+Pasa el ratón por un color para ver el detalle.
+</div>
+</div>
+</div>
+</div>
+<div>
+<div class="chart-box chart-box-tall">
+<canvas class="h-full w-full" id="monthly-sales-daily-line">
+</canvas>
+</div>
+<script id="monthly-sales-daily-line-data" type="application/json">
+{"labels": ["<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>", "<D>"], "sales": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+</script>
+</div>
+</div>
+<script id="monthly-sales-pie-data" type="application/json">
+{"labels": [], "qtys": [], "values": []}
+</script>
+</div>
+<div class="card mt-16">
+<h3>
+Artículos (ordenados por venta del periodo)
+</h3>
+<p class="muted">
+Incluye métricas automáticas de reposición (SS/ROP).
+</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+SKU
+</th>
+<th>
+Nombre
+</th>
+<th class="text-right">
+Venta periodo (€)
+</th>
+<th class="text-right">
+Unidades periodo
+</th>
+<th class="text-right">
+Stock actual
+</th>
+<th class="text-right">
+SS (90%)
+</th>
+<th class="text-right">
+ROP
+</th>
+<th class="text-right">
+Falta
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+SNAP-1
+</code>
+</td>
+<td>
+Producto Snapshot <b>"H"</b> & 'co'
+</td>
+<td class="text-right">
+4.00
+</td>
+<td class="text-right">
+2.00
+</td>
+<td class="text-right">
+10.00
+</td>
+<td class="text-right">
+1.00
+</td>
+<td class="text-right">
+5.00
+</td>
+<td class="text-right">
+0.00
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card mt-16">
+<h3>
+Resumen mensual
+</h3>
+<p class="muted">
+Ventas, compras y utilidad bruta por mes (últimos 12 meses).
+</p>
+<canvas height="120" id="monthly-chart">
+</canvas>
+<script id="monthly-chart-data" type="application/json">
+{"labels": ["<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>", "<YM>"], "profit": [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "purchases": [0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0], "sales": [0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+</script>
+</div>
+<div class="card mt-16" hx-get="/ui/restock-table?location_code=" hx-swap="innerHTML" hx-trigger="load" id="restock">
+</div>
+</div>
+</div>
