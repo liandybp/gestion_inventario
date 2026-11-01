@@ -223,9 +223,6 @@ Punto de venta Playa
 Efectivo/otro
 </td>
 <td>
-<button hx-get="/ui/movement/sale/7/edit" hx-swap="beforeend" hx-target="body" type="button">
-Edit
-</button>
 </td>
 </tr>
 </tbody>

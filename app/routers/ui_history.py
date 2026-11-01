@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 from app.services.inventory_service import InventoryService
 from app.logger import get_logger
 

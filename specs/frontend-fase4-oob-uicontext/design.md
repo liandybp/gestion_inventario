@@ -79,8 +79,8 @@ hx-get="/ui/tabs/<slug>" hx-target="#tab-content" hx-swap="innerHTML">Etiqueta</
 | transfers | Traspasos | admin, owner | sí |
 | coach | Coach | admin | no |
 | sales | Ventas | cualquiera (sin condición) | no |
-| documents | Documentos | admin, owner | no |
-| customers | Clientes | admin, owner | no |
+| documents | Documentos | admin, owner, operator (enmienda 2026-11-01) | no |
+| customers | Clientes | admin, owner, operator (enmienda 2026-11-01; borrar solo admin/owner) | no |
 | expenses | Costos operativos | admin, owner | no |
 | profit-items | Utilidades por artículo | admin, owner | no |
 | profit | Utilidades | admin, owner | no |

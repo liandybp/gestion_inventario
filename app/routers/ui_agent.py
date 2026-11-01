@@ -14,7 +14,7 @@ from app.agent import runner
 from app.agent import widgets as widget_store
 from app.deps import session_dep
 from app.routers.ui_common import templates
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 from app.security import get_active_business_code
 from app.settings import AGENT_RATE_LIMIT, AGENT_RATE_WINDOW
 

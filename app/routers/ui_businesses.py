@@ -31,7 +31,7 @@ from app.repositories.business_repository import (
     list_businesses,
 )
 from app.routers.ui_common import templates
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 
 _log = logging.getLogger(__name__)
 _APP_DIR = Path(__file__).resolve().parent.parent

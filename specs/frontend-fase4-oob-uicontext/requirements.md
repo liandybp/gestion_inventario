@@ -105,7 +105,8 @@ Scenario: no queda marcado en los routers
 ### REQ-7: Dependencia `UIContext` en los handlers UI
 **Priority:** Must Have
 WHEN un handler de `app/routers/ui_*.py` (salvo `ui_auth.py`) necesita el usuario, el negocio activo o un guardia de
-rol, THE SYSTEM SHALL obtenerlos de un `UIContext` inyectado con `Depends(ui_context)`, que resuelve cada dato una
+rol, THE SYSTEM SHALL obtenerlos de un `UIContext` creado con `ctx = ui_context(request, db)` al inicio del cuerpo
+(llamada directa, no `Depends`: enmienda `5cb168e`), que resuelve cada dato una
 sola vez por petición y bajo demanda, con las mismas excepciones y en el mismo orden que hoy.
 
 ```gherkin
@@ -141,13 +142,16 @@ Scenario Outline: botones visibles por rol y modo
     | rol      | modo    | ids |
     | admin    | server  | home agent inventory purchases transfers coach sales documents customers expenses profit-items profit dividends history users businesses activity |
     | owner    | server  | home agent inventory purchases transfers sales documents customers expenses profit-items profit dividends history |
-    | operator | server  | sales |
+    | operator | server  | sales documents customers |
     | admin    | desktop | home inventory coach sales documents customers expenses profit-items profit dividends history users businesses activity |
     | owner    | desktop | home inventory sales documents customers expenses profit-items profit dividends history |
-    | operator | desktop | sales |
+    | operator | desktop | sales documents customers |
 ```
 (Cada id lleva el prefijo `tab-`. `aria-selected="true"` solo en `tab-home` para admin/owner y en `tab-sales` para
 operator; el resto `false`.)
+
+> **Enmienda 2026-11-01 (decisión del usuario tras la auditoría):** el operador ve también Documentos y Clientes
+> (crea/edita clientes sin borrarlos; crea/edita/borra documentos de venta). La tabla de arriba ya lo refleja.
 
 ### REQ-9: e2e de los flujos afectados
 **Priority:** Must Have

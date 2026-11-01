@@ -14,7 +14,7 @@ from app.logger import get_logger
 from app.repositories.customer_repository import CustomerRepository
 from app.models import Customer
 from app.security import get_active_business_code
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 from app.settings import is_desktop
 from app.sync.outbox import append_event
 
@@ -40,6 +40,7 @@ def customers_table(request: Request, db: Session = Depends(session_dep), query:
         name="partials/customers_table.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": query,
         },
     )
@@ -100,6 +101,7 @@ def customer_create(
         name="partials/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente creado",
             "message_class": "ok",
@@ -218,6 +220,7 @@ def customer_update(
         name="partials/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente actualizado",
             "message_class": "ok",
@@ -228,6 +231,7 @@ def customer_update(
 @router.post("/customer/{customer_id}/delete", response_class=HTMLResponse)
 def customer_delete(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
     ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()  # el operador crea y edita clientes, pero no los borra
     _ = ctx.user
     bid = ctx.business_id
     customer = CustomerRepository(db, bid).get(customer_id)
@@ -244,6 +248,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
             name="partials/tab_customers.html",
             context={
                 "customers": customers,
+                "can_delete_customers": ctx.role in ("admin", "owner"),
                 "query": "",
                 "message": "No se puede eliminar: el cliente tiene documentos asociados",
                 "message_class": "error",
@@ -259,6 +264,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
         name="partials/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente eliminado",
             "message_class": "ok",
@@ -269,8 +275,6 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
     ctx = ui_context(request, db)
-    ctx.ensure_admin_or_owner()
-    _ = ctx.user
     bid = ctx.business_id
     q = (query or "").strip()
     customers = CustomerRepository(db, bid).list_like(query=q, limit=200)
@@ -279,6 +283,7 @@ def tab_customers(request: Request, db: Session = Depends(session_dep), query: s
         name="partials/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": q,
         },
     )

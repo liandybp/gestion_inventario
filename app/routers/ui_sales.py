@@ -1,7 +1,6 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
-import html
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -15,7 +14,7 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.settings import is_desktop
@@ -45,12 +44,11 @@ def _dt_to_local_input_s(dt: datetime) -> str:
 from .ui_common import (
     barcode_to_sku,
     extract_sku,
-    month_range,
     parse_dt,
     parse_typed_float,
     templates,
 )
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from .ui_tabs_common import _location_id_for_code
 from app.utils import query_match
 
@@ -401,6 +399,7 @@ def sale_edit_form(
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "sale":

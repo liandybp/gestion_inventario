@@ -152,13 +152,18 @@ Archivo `app/business_config.conf` (INI):
 
 - [x] **Release 0.5.0, fase 4 del frontend: plantillas OOB, `UIContext` y sidebar data-driven (2026-11-01,
       rama `feature/frontend-fase4`, sin push)** — HTML en Python movido a `templates/features/<dominio>/`
-      (macros `qty_label`/`number_input`/`text_input` compartidas por panel y fragmento), dependencia perezosa
-      `UIContext` inyectada en los 20 routers UI (una resolución de usuario/negocio por petición; `ui_auth.py`
-      fuera), sidebar data-driven con `NAV_ITEMS`/`visible_nav_items`/`default_tab`. Red ampliada: arnés H-303
-      (fragmentos, POST con error, roles operator/owner, estados vacíos; baseline desde `b741a46`) y e2e de
-      caracterización (`tests/e2e/test_fase4_characterization_e2e.py`). Canónico idéntico a la baseline.
-      9 tests unitarios adaptados a `UIContext` (inyección de `ctx` real). +2 unit (`test_ui_context.py`,
-      `test_ui_nav.py`) +1 guarda (`test_routers_no_html.py`).
+      (macros `qty_label`/`number_input`/`text_input` compartidas por panel y fragmento). `UIContext` perezoso en
+      los 20 routers UI (`ui_auth.py` fuera): cada handler hace `ctx = ui_context(request, db)` en el cuerpo (llamada
+      directa, no `Depends`, para que los tests puedan llamar a los handlers); `role_of()` es la única
+      normalización del rol. Consultas de usuario por petición: de 3-4 a 2 (`require_active_business_id` aún
+      consulta el usuario por dentro; resolverlo es fase 5). Sidebar con `NAV_ITEMS`/`visible_nav_items`/
+      `default_tab`. Red: arnés H-303 (91 capturas: fragmentos, POST con error, roles, estados vacíos) y e2e de
+      caracterización. 5 tests unitarios adaptados redirigiendo sus `monkeypatch` a `app.routers.ui_context`.
+      - **Revisión + auditoría** (`docs/auditorias/2026-11-01-frontend-fase4-oob-uicontext.md`, 4.25 🟢) y
+        correcciones: permisos por rol decididos por el usuario (owner ve Clientes; operador vende, crea/edita
+        clientes sin borrarlos y gestiona documentos de venta; formularios de edición de gastos/ventas solo
+        admin/owner) y tres bugs previos en producción: filtro de fechas de Utilidades por artículo (500,
+        `timedelta`), borrar documento de venta (500, FK) y autorrelleno de Documentos con SKU inexistente (404).
 - [x] **Release 0.5.0 (fases 1-3 + PAE-015) en `develop` y probada en staging (2026-11-01, sesión 23)** — merge
       `77c25bb`. El CI cayó en "UI snapshots" porque la baseline de Inicio dependía de la fecha: el arnés congela el
       reloj de `ui_home` (`b201f64`). Recorrido de staging con Playwright (17 pestañas × 3 negocios, dos temas,

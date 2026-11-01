@@ -15,7 +15,7 @@ from app.services.finance_service import FinanceService
 
 from .ui_common import dt_to_local_input, month_range, parse_dt, templates
 
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 
 from app.logger import get_logger
 

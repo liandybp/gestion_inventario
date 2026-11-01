@@ -56,10 +56,12 @@
           {% if paid_by_transfer %}Transferencia{% else %}Efectivo/otro{% endif %}
         </td>
         <td>
+          {% if can_manage %}
           <button type="button"
                   hx-get="/ui/movement/sale/{{ id }}/edit"
                   hx-target="body"
                   hx-swap="beforeend">Edit</button>
+          {% endif %}
         </td>
       </tr>
     {% endfor %}

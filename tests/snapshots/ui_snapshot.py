@@ -316,7 +316,7 @@ def _seed() -> dict:
 
 
 _ROLE_TABS = {
-    "operator": ["sales"],
+    "operator": ["sales", "documents", "customers"],
     "owner": ["home", "agent", "inventory", "purchases", "transfers", "sales", "documents",
               "customers", "expenses", "profit-items", "profit", "dividends", "history"],
 }

@@ -31,7 +31,7 @@ from .ui_common import (
     parse_typed_float,
     templates,
 )
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)

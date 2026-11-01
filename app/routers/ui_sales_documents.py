@@ -3,7 +3,6 @@ from app.repositories.business_repository import get_active_business_config, get
 from app.repositories.location_repository import LocationRepository
 
 from datetime import datetime, timedelta, timezone
-import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -22,7 +21,7 @@ from app.services.sales_document_service import SalesDocumentService
 from app.utils import query_match
 
 from .ui_common import extract_sku, parse_dt, templates
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -274,6 +273,9 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     items = SalesDocumentService(db, bid).get_items(doc.id)
     for it in items:
         db.delete(it)
+    # Sin relationship entre documento y líneas, el unit of work no sabe el orden: borrar las
+    # líneas primero o la FK sales_document_items.document_id rechaza el DELETE del documento.
+    db.flush()
     db.delete(doc)
     db.commit()
 
@@ -470,7 +472,11 @@ def sales_doc_product_defaults(
     if not sku:
         return HTMLResponse("")
 
-    p = ProductService(db, business_id=bid).get_by_sku(sku)
+    try:
+        p = ProductService(db, business_id=bid).get_by_sku(sku)
+    except HTTPException:
+        # Texto libre o SKU aún inexistente: sin autorrelleno, igual que product_defaults_purchase/sale.
+        return HTMLResponse("")
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
     return templates.TemplateResponse(
         request=request,
@@ -1073,7 +1079,6 @@ def tab_documents(
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
-    ctx.ensure_admin_or_owner()
     _ = ctx.user
     bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)

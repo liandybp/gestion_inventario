@@ -28,8 +28,8 @@ from .ui_common import (
     parse_dt,
     templates,
 )
-from .ui_context import UIContext, ui_context
-from .ui_nav import NAV_ITEMS, default_tab, visible_nav_items
+from .ui_context import role_of, ui_context
+from .ui_nav import default_tab, visible_nav_items
 from .ui_tabs_common import _home_locations_context, _location_id_for_code, _month_label_es
 
 router = APIRouter()
@@ -167,8 +167,8 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     active_business = None
     if active_business_id is not None:
         active_business = db.get(Business, int(active_business_id))
+    role = role_of(user)
     if user is not None:
-        role = (user.role or "").lower()
         if role == "admin":
             businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
         elif role == "owner":
@@ -181,7 +181,6 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
                         .order_by(Business.code.asc())
                     )
                 )
-    role = (user.role or "").lower() if user is not None else ""
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",

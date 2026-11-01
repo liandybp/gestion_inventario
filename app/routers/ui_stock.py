@@ -18,7 +18,7 @@ from app.services.product_service import ProductService
 from app.logger import get_logger
 
 from .ui_common import templates
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from .ui_tabs_common import (
     _deletable_skus,
     _location_id_for_code,

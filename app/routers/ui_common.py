@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, UploadFile
+from fastapi import HTTPException, UploadFile
 from fastapi.templating import Jinja2Templates
 from jinja2.exceptions import TemplateRuntimeError
 from sqlalchemy import select

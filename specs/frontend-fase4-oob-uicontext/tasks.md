@@ -2763,6 +2763,10 @@ Read app/routers/ui_users.py
 
 ---
 
+> **Superado (2026-11-01):** en T40-T48 el "paso 4: inyectar `ctx=UIContext(...)`" es del diseño anterior con
+> `Depends(ui_context)`, descartado en `5cb168e`. Los handlers no tienen parámetro `ctx`; solo vale el retarget de
+> `monkeypatch` a `app.routers.ui_context` (así se aplicó en `d7c2a56`).
+
 ### T40: Adaptar `tests/unit/test_ui_product_update.py`
 
 **Depends on:** T23 (ui_products migrado)

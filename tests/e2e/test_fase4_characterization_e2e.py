@@ -17,23 +17,14 @@ SERVER_IDS = {
               "history", "users", "businesses", "activity"],
     "owner": ["home", "agent", "inventory", "purchases", "transfers", "sales", "documents",
               "customers", "expenses", "profit-items", "profit", "dividends", "history"],
-    "operator": ["sales"],
+    "operator": ["sales", "documents", "customers"],
 }
-
-
-def _login(page: Page, base_url: str, username: str, password: str) -> None:
-    page.goto(f"{base_url}/ui/login")
-    page.fill('input[name="username"]', username)
-    page.fill('input[name="password"]', password)
-    page.click('button[type="submit"]')
-    page.wait_for_url(f"{base_url}/ui/dashboard**")
-    page.locator("#tab-content > *").first.wait_for()
 
 
 @pytest.mark.parametrize("role", ["admin", "owner", "operator"])
 def test_sidebar_ids_by_role(live_server: str, page: Page, role: str) -> None:
     base_url = live_server
-    _login(page, base_url, role, role)
+    login(page, base_url, role)
     ids = [el.get_attribute("id") for el in page.locator(".sidebar-item").all()]
     assert ids == [f"tab-{slug}" for slug in SERVER_IDS[role]]
     selected = page.locator(".sidebar-item[aria-selected='true']").get_attribute("id")
@@ -59,7 +50,7 @@ def test_sale_autofill_price(live_server: str, page: Page) -> None:
     expect(page.locator("#sale-unit-price")).to_have_value("2.0")
 
 
-def test_sales_doc_autofill_price_and_client(live_server: str, page: Page) -> None:
+def test_sales_doc_autofill_price(live_server: str, page: Page) -> None:
     base_url = live_server
     login(page, base_url, "admin")
     open_tab(page, "documents")
@@ -70,7 +61,20 @@ def test_sales_doc_autofill_price_and_client(live_server: str, page: Page) -> No
 
 def test_inventory_lots_select_present(live_server: str, page: Page) -> None:
     base_url = live_server
-    _login(page, base_url, "admin", "admin")
-    page.click("#tab-inventory")
+    login(page, base_url, "admin")
+    open_tab(page, "inventory")
     page.locator("#tab-content #stock-table").first.wait_for()
     expect(page.locator("#return-supplier-lots")).to_contain_text("Ingrese SKU")
+
+
+def test_sales_doc_autofill_client(tour_server, page: Page) -> None:
+    """REQ-9/H-702: el autorrelleno de cliente en Documentos (fragmento OOB con required, REQ-12)."""
+    base_url, _ = tour_server
+    login(page, base_url, "admin")
+    open_tab(page, "documents")
+    client = page.locator('#sales-doc-issue-form input[name="client_name"]')
+    client.fill("Cliente Tour")
+    client.dispatch_event("change")
+    expect(page.locator("#sales-doc-client-id")).to_have_value("C-TOUR")
+    expect(page.locator("#sales-doc-client-address")).to_have_value("Calle 1")
+    expect(page.locator("#sales-doc-client-id")).to_have_attribute("required", "")

@@ -3,7 +3,6 @@ from app.repositories.business_repository import get_active_business_config
 from types import SimpleNamespace
 
 from datetime import datetime, timezone
-import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -29,7 +28,7 @@ from .ui_common import (
     save_product_image,
     templates,
 )
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)

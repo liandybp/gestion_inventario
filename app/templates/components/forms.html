@@ -8,7 +8,9 @@
 {%- endmacro %}
 
 {# Fase 4 (plantillas OOB): label/input compartidos entre un panel y su fragmento de autorrelleno,
-   para que el OOB no pueda pisar el panel con atributos distintos. `oob=True` añade hx-swap-oob. #}
+   para que el OOB no pueda pisar el panel con atributos distintos. `oob=True` añade hx-swap-oob.
+   Única excepción, heredada y aprobada (REQ-12): el OOB de sales-doc-client-id pasa required=True
+   y el panel de issue_form.html no. #}
 {% macro qty_label(id, uom='', oob=False) -%}
 <label id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if uom %}Cantidad ({{ uom }}){% else %}Cantidad{% endif %}</label>
 {%- endmacro %}

@@ -10,12 +10,12 @@ EXPECTED = {
                           "history", "users", "businesses", "activity"],
     ("owner", "server"): ["home", "agent", "inventory", "purchases", "transfers", "sales", "documents",
                           "customers", "expenses", "profit-items", "profit", "dividends", "history"],
-    ("operator", "server"): ["sales"],
+    ("operator", "server"): ["sales", "documents", "customers"],
     ("admin", "desktop"): ["home", "inventory", "coach", "sales", "documents", "customers", "expenses",
                            "profit-items", "profit", "dividends", "history", "users", "businesses", "activity"],
     ("owner", "desktop"): ["home", "inventory", "sales", "documents", "customers", "expenses",
                            "profit-items", "profit", "dividends", "history"],
-    ("operator", "desktop"): ["sales"],
+    ("operator", "desktop"): ["sales", "documents", "customers"],
 }
 
 

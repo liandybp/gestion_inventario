@@ -9,7 +9,7 @@ from app.logger import get_logger
 from app.settings import app_mode_label, is_desktop
 from app.sync.client import get_sync_state, provision as provision_state, sync as run_sync
 from app.routers.ui_common import templates
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 
 router = APIRouter(tags=["ui-sync"])
 

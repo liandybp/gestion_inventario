@@ -38,6 +38,12 @@ Cerrar sesión
 <button aria-selected="true" class="sidebar-item" hx-get="/ui/tabs/sales" hx-swap="innerHTML" hx-target="#tab-content" id="tab-sales">
 Ventas
 </button>
+<button aria-selected="false" class="sidebar-item" hx-get="/ui/tabs/documents" hx-swap="innerHTML" hx-target="#tab-content" id="tab-documents">
+Documentos
+</button>
+<button aria-selected="false" class="sidebar-item" hx-get="/ui/tabs/customers" hx-swap="innerHTML" hx-target="#tab-content" id="tab-customers">
+Clientes
+</button>
 </nav>
 </aside>
 <main class="main-content">

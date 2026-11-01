@@ -17,7 +17,7 @@ from .ui_common import (
     parse_dt,
     templates,
 )
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 
 router = APIRouter()
 

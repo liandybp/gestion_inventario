@@ -9,7 +9,7 @@ from app.auth import hash_password
 from app.deps import session_dep
 from app.models import AuditLog, ChatMessage, DashboardWidget, User
 from app.security import get_user_business_ids
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 from app.repositories.user_repository import UserRepository
 from app.routers.ui_common import templates
 

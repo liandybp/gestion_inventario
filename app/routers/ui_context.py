@@ -3,14 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.deps import session_dep
 from app.models import User
 from app.security import get_current_user_from_session, require_active_business_id
 
 _UNSET = object()
+
+
+def role_of(user: Optional[User]) -> str:
+    """Rol normalizado ("" sin usuario). Única normalización para guardias y sidebar."""
+    return (user.role or "").strip().lower() if user is not None else ""
 
 
 @dataclass
@@ -27,22 +31,24 @@ class UIContext:
         return self._user  # type: ignore[return-value]
 
     @property
+    def role(self) -> str:
+        return role_of(self.user)
+
+    @property
     def business_id(self) -> int:
         if self._business_id is None:
             self._business_id = require_active_business_id(self.db, self.request)
         return self._business_id
 
     def ensure_admin(self) -> None:
-        user = self.user
-        if user is None or (user.role or "").lower() != "admin":
+        if self.role != "admin":
             raise HTTPException(status_code=403, detail="Admin required")
 
     def ensure_admin_or_owner(self) -> None:
-        user = self.user
-        role = (user.role or "").strip().lower() if user is not None else ""
-        if user is None or role not in ("admin", "owner"):
+        if self.role not in ("admin", "owner"):
             raise HTTPException(status_code=403, detail="Admin required")
 
 
-def ui_context(request: Request, db: Session = Depends(session_dep)) -> UIContext:
+def ui_context(request: Request, db: Session) -> UIContext:
+    """Contexto de la petición. Se llama directamente en el cuerpo del handler, no como Depends."""
     return UIContext(request=request, db=db)

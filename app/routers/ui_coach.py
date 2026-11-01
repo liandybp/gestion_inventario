@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import CashBaseline
 from app.routers.ui_common import templates
-from app.routers.ui_context import UIContext, ui_context
+from app.routers.ui_context import ui_context
 from app.schemas import CashBaselineCreate, CoachActionUpdate
 from app.services.coach_service import CoachService
 

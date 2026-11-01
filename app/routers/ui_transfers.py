@@ -21,7 +21,7 @@ from app.models import InventoryMovement, Product
 from app.settings import is_desktop
 
 from .ui_common import dt_to_local_input, extract_sku, month_range, parse_dt, templates
-from .ui_context import UIContext, ui_context
+from .ui_context import ui_context
 from .ui_tabs_common import _location_id_for_code
 from app.utils import query_match
 
