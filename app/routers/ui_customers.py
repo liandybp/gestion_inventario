@@ -21,7 +21,7 @@ from app.security import (
 from app.settings import is_desktop
 from app.sync.outbox import append_event
 
-from .ui_common import ensure_admin, templates
+from .ui_common import ensure_admin_or_owner, templates
 
 _log = get_logger(__name__)
 
@@ -265,7 +265,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
 
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    ensure_admin(db, request)
+    ensure_admin_or_owner(db, request)
     _ = get_current_user_from_session(db, request)
     bid = require_active_business_id(db, request)
     q = (query or "").strip()
