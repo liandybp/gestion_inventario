@@ -150,6 +150,15 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Release 0.5.0, fase 4 del frontend: plantillas OOB, `UIContext` y sidebar data-driven (2026-11-01,
+      rama `feature/frontend-fase4`, sin push)** — HTML en Python movido a `templates/features/<dominio>/`
+      (macros `qty_label`/`number_input`/`text_input` compartidas por panel y fragmento), dependencia perezosa
+      `UIContext` inyectada en los 20 routers UI (una resolución de usuario/negocio por petición; `ui_auth.py`
+      fuera), sidebar data-driven con `NAV_ITEMS`/`visible_nav_items`/`default_tab`. Red ampliada: arnés H-303
+      (fragmentos, POST con error, roles operator/owner, estados vacíos; baseline desde `b741a46`) y e2e de
+      caracterización (`tests/e2e/test_fase4_characterization_e2e.py`). Canónico idéntico a la baseline.
+      9 tests unitarios adaptados a `UIContext` (inyección de `ctx` real). +2 unit (`test_ui_context.py`,
+      `test_ui_nav.py`) +1 guarda (`test_routers_no_html.py`).
 - [x] **Release 0.5.0 (fases 1-3 + PAE-015) en `develop` y probada en staging (2026-11-01, sesión 23)** — merge
       `77c25bb`. El CI cayó en "UI snapshots" porque la baseline de Inicio dependía de la fecha: el arnés congela el
       reloj de `ui_home` (`b201f64`). Recorrido de staging con Playwright (17 pestañas × 3 negocios, dos temas,
@@ -160,8 +169,7 @@ Archivo `app/business_config.conf` (INI):
       snapshots, 84 e2e. `main` espera a las fases 4-5, que entran en 0.5.0.
       - **Incidente:** `dev.gestion.legatumbp.com` servía producción desde la migración (ver "Entornos"). Único resto
         de pruebas en prod: producto `SKU010001` "test" en Recambios (id 889), pendiente de borrar desde la UI.
-      - **Fase 4** (OOB a plantillas, `UIContext`, sidebar `NAV_ITEMS`, arnés H-303): requirements + design en
-        `specs/frontend-fase4-oob-uicontext/`; envelopes y PAE con `cc_deepseek`.
+      - **Fase 4** cerrada en `feature/frontend-fase4` (sin push) — ver entrada arriba.
       - Pendiente de decidir: `.serena/` y `.idea/` entraron versionados en `develop` con el merge.
 - [x] **Release 0.5.0, fase 3 del frontend: CSS sin estilos inline, CSP `style-src 'self'` (PAE-018, 2026-10-24, rama
       `feature/frontend-modular`, sin push)** — 106 `style=` y 4 `<style>` fuera de las plantillas. Colores en

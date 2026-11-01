@@ -4,6 +4,14 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- refactor(frontend): fase 4 — plantillas OOB en `features/<dominio>/` (salen el HTML en Python de
+  `product_defaults_purchase/sale`, `sales_doc_product_defaults`, `sales_doc_customer_defaults`,
+  `sale_product_options`, `transfer_product_options` y `ui_supplier_return_lots`), macros compartidas
+  `qty_label`/`number_input`/`text_input` en `components/forms.html`, dependencia perezosa `UIContext`
+  en los 20 routers UI (una resolución de usuario/negocio por petición) y sidebar data-driven con
+  `NAV_ITEMS`. Red ampliada: arnés H-303 (fragmentos, POST con error, roles, estados vacíos) y e2e de
+  caracterización. HTML renderizado sin cambios (canónico idéntico a la baseline de b741a46).
+
 - fix(ui): contraste de los gráficos en tema oscuro. La serie de ventas de Inicio (navy) no se distinguía
   del fondo y los textos y líneas de ejes usaban los valores fijos de Chart.js (`#666`, `rgba(0,0,0,0.1)`).
   Nuevas variables `--chart-text`/`--chart-border` (en claro, los mismos valores de antes) que

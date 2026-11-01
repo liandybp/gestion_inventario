@@ -16,7 +16,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, Product
-from app.security import get_current_user_from_session
 from app.settings import DEV_ACTIONS_ENABLED, UPLOAD_MAX_MB
 from app.utils import month_range
 
@@ -64,19 +63,6 @@ templates.env.globals["template_error"] = _template_error
 _DEV_ACTIONS_ENABLED = DEV_ACTIONS_ENABLED
 
 _UPLOAD_DIR = Path("app/static/uploads")
-
-
-def ensure_admin(db: Session, request: Request) -> None:
-    user = get_current_user_from_session(db, request)
-    if user is None or (user.role or "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Admin required")
-
-
-def ensure_admin_or_owner(db: Session, request: Request) -> None:
-    user = get_current_user_from_session(db, request)
-    role = (user.role or "").strip().lower() if user is not None else ""
-    if user is None or role not in ("admin", "owner"):
-        raise HTTPException(status_code=403, detail="Admin required")
 
 
 MAX_IMAGE_SIZE_MB = UPLOAD_MAX_MB

@@ -55,7 +55,8 @@ def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optio
 
 
 def _product_panel_refresh(product_service: ProductService) -> dict:
-    """Contexto para refrescar #product-panel (historial + datalist inicial) vía hx-swap-oob.
+    """Contexto para refrescar #product-panel (historial + datalist inicial) fuera de banda
+    en el cliente (ver partials/product_panel.html).
 
     El datalist inicial trae los 200 primeros productos; el recién creado se encuentra al
     teclear gracias a las sugerencias dinámicas (GET /ui/product-suggest).
@@ -323,7 +324,7 @@ def purchase_from_invoice(
         message_class = "ok" if not errors else "warn"
         status = 200
 
-    # Productos nuevos: refrescar #product-panel vía hx-swap-oob.
+    # Productos nuevos: refrescar #product-panel fuera de banda (partials/product_panel.html).
     invoice_refresh = _product_panel_refresh(product_service) if created_products else {}
 
     return templates.TemplateResponse(

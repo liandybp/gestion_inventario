@@ -257,9 +257,12 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        465 unit (SQLite en memoria) + 84 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
-              (tests/snapshots/ui_snapshot.py, reloj de Inicio congelado en 2026-10-24), todos verdes; arnés de estilos calculados
-              tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
+Fase 4:       cerrada en `feature/frontend-fase4` (2026-11-01, sin push, entra en 0.5.0) — plantillas OOB en
+              `templates/features/<dominio>/`, `UIContext` perezoso en los 20 routers UI, sidebar `NAV_ITEMS`.
+Tests:        483 unit (SQLite en memoria) + 91 e2e (Playwright, fixture js_errors autouse) + 89 snapshots
+              (tests/snapshots/ui_snapshot.py, reloj de Inicio congelado en 2026-10-24; ampliado H-303 con
+              roles operator/owner, POST con error, fragmentos OOB y estados vacíos), todos verdes; arnés de
+              estilos calculados tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
