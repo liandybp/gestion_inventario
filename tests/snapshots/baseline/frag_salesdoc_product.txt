@@ -1,0 +1,2 @@
+status=200
+<input hx-swap-oob="true" id="sales-doc-unit-price" min="0" name="unit_price" step="0.0001" type="number" value="2.0">

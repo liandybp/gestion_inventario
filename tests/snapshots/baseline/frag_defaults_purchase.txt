@@ -1,0 +1,5 @@
+status=200
+<label hx-swap-oob="true" id="purchase-qty-label">
+Cantidad (ud)
+</label>
+<input hx-swap-oob="true" id="purchase-unit-cost" min="0" name="unit_cost" step="0.0001" type="number" value="1.0">

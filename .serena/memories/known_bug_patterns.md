@@ -43,3 +43,16 @@ has full detail), but the pattern is worth remembering: when reviewing or resumi
 OpenCode-authored PAE work, especially anything claiming a slice is "verde"/done in
 `CLAUDE.md`, verify by actually running the thing — don't trust the claim, and don't trust a
 "verify" script's exit code without reading what it actually executes line by line.
+
+## Snapshot/test determinism and environment identity (2026-11-01)
+
+- **Date-dependent snapshot baseline.** `tests/snapshots/ui_snapshot.py` broke CI on the 1st of the month: the home
+  tab renders the current month (one point per day) and the last 12 months from `datetime.now()`. Fixed by freezing
+  `app.routers.ui_home.datetime` (`_FrozenDatetime`, now = 2026-10-24). Rule: any harness must pin every
+  non-deterministic input that reaches the HTML (current date, not only seeded dates). New harness captures of
+  other date-driven views need the same freeze on the module that calls `datetime.now()`.
+- **"Tested in dev" can be prod.** From 2026-09-07 to 2026-11-01 `dev.gestion.legatumbp.com` hit production (proxy
+  default server). Before trusting a staging check, confirm identity: `/static/js/main.js` returns 200 and
+  `/health` matches `curl localhost:10000/health` on ai-lab-home.
+- **Theme tokens.** A color token that only exists in `:root` keeps its light value in dark mode. Chart.js axis
+  text/lines come from `Chart.defaults` unless `applyChartDefaults()` sets them from `--chart-text`/`--chart-border`.

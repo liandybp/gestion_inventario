@@ -30,8 +30,8 @@ from app.repositories.business_repository import (
     get_business_config,
     list_businesses,
 )
-from app.routers.ui_common import ensure_admin, templates
-from app.security import get_current_user_from_session
+from app.routers.ui_common import templates
+from app.routers.ui_context import ui_context
 
 _log = logging.getLogger(__name__)
 _APP_DIR = Path(__file__).resolve().parent.parent
@@ -387,8 +387,9 @@ def business_create(
     # ── dependencies ────────────────────────────────────────────
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
 
     code = code.strip().lower()
     name = name.strip()
@@ -551,7 +552,8 @@ def business_edit_form(
     business_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -606,8 +608,9 @@ def business_update(
     # ── dependencies ────────────────────────────────────────────
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -719,8 +722,9 @@ def business_delete(
     business_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -828,7 +832,8 @@ def business_delete(
 
 @router.get("/tabs/businesses", response_class=HTMLResponse)
 def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,

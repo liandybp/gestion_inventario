@@ -1,0 +1,315 @@
+<div>
+<h2>
+Documentos
+</h2>
+<form class="card mb-12" hx-get="/ui/tabs/documents" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="flex flex-wrap gap-12 items-center">
+<div>
+<label class="filter-label">
+Buscar
+</label>
+<input name="query" placeholder="Código o cliente" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input name="end_date" type="date" value="">
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/documents" hx-get="/ui/tabs/documents" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</form>
+<datalist id="product-options">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+<option value="SNAP-NEW - Producto Nuevo">
+</option>
+</datalist>
+<div class="card mt-16" id="sales-doc-panel">
+<h3 class="card-title">
+Documento (Factura / Presupuesto)
+</h3>
+<p class="mt-n6 muted">
+Arma un carrito temporal y luego emite el documento. (Precios sin IVA)
+</p>
+<div class="mt-12 sales-doc-grid">
+<div class="card h-full subcard">
+<h4 class="subcard-title">
+Agregar al carrito
+</h4>
+<form hx-include="#sales-doc-issue-form" hx-post="/ui/sales-doc/cart/add" hx-swap="outerHTML" hx-target="#sales-doc-panel" hx-validate="false" id="sales-doc-cart-add-form">
+<div class="row">
+<label>
+Producto
+</label>
+<input data-product-suggest="label" hx-get="/ui/sales-doc/product-defaults" hx-swap="innerHTML" hx-target="#sales-doc-defaults" hx-trigger="change" list="product-options" name="product" placeholder="SKU - Nombre (o texto libre)" required>
+</div>
+<div class="row">
+<label>
+Descripción (opcional)
+</label>
+<input name="description" placeholder="Si lo dejas vacío, usa el producto">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Precio unitario
+</label>
+<input id="sales-doc-unit-price" min="0" name="unit_price" step="0.0001" type="number" value="0">
+</div>
+<div class="row">
+<label>
+Moneda
+</label>
+<select id="sales-doc-currency-code" name="currency_code">
+<option selected value="USD">
+USD
+</option>
+<option value="EUR">
+Euro (€)
+</option>
+<option value="GEN">
+Moneda nacional (MN$)
+</option>
+</select>
+</div>
+<button formnovalidate type="submit">
+Agregar
+</button>
+</form>
+<datalist id="customer-options">
+<option value="Cliente Snapshot <b>"H"</b> & 'co'">
+</option>
+</datalist>
+<div id="sales-doc-customer-defaults">
+</div>
+<div id="sales-doc-defaults">
+</div>
+<form class="mt-10" hx-include="#sales-doc-issue-form" hx-post="/ui/sales-doc/cart/clear" hx-swap="outerHTML" hx-target="#sales-doc-panel" hx-validate="false">
+<button class="btn-secondary" formnovalidate type="submit">
+Vaciar carrito
+</button>
+</form>
+</div>
+<div class="card h-full subcard">
+<h4 class="subcard-title">
+Emitir documento
+</h4>
+<form hx-post="/ui/sales-doc/issue" hx-swap="outerHTML" hx-target="#sales-doc-panel" id="sales-doc-issue-form">
+<input id="sales-doc-currency-hidden" name="currency_code" type="hidden" value="USD">
+<div class="row">
+<label>
+Tipo
+</label>
+<select name="doc_type">
+<option selected value="F">
+F - Factura
+</option>
+<option value="P">
+P - Presupuesto
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Ubicación
+</label>
+<select name="location_code">
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option selected value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Cliente (Nombre)
+</label>
+<input hx-get="/ui/sales-doc/customer-defaults" hx-swap="innerHTML" hx-target="#sales-doc-customer-defaults" hx-trigger="change" list="customer-options" name="client_name" value="">
+</div>
+<div class="row">
+<label>
+Cliente (ID)
+</label>
+<input id="sales-doc-client-id" name="client_id" value="">
+</div>
+<div class="row">
+<label>
+Dirección (opcional)
+</label>
+<input id="sales-doc-client-address" name="client_address" value="">
+</div>
+<div class="row">
+<label>
+Notas (opcional)
+</label>
+<input name="notes" value="">
+</div>
+<div class="flex flex-wrap gap-10 items-center">
+<button hx-include="closest form" hx-post="/ui/sales-doc/preview" hx-swap="innerHTML" hx-target="#sales-doc-preview" type="button">
+Vista previa
+</button>
+<button type="submit">
+Emitir
+</button>
+</div>
+</form>
+<div class="mt-12" id="sales-doc-preview">
+</div>
+</div>
+</div>
+<div class="card mt-12 subcard">
+<h4 class="subcard-title">
+Carrito
+</h4>
+<div class="flex flex-wrap gap-12 justify-end mb-8 mt-n6">
+<div>
+<strong>
+Subtotal:
+</strong>
+0.00
+</div>
+<div>
+<strong>
+Total:
+</strong>
+$0.00
+</div>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+#
+</th>
+<th>
+Descripción
+</th>
+<th class="text-right">
+Cant.
+</th>
+<th class="text-right">
+Precio
+</th>
+<th class="text-right">
+Total
+</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted" colspan="6">
+Carrito vacío.
+</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+<th class="text-right" colspan="4">
+Subtotal
+</th>
+<th class="text-right">
+0.00
+</th>
+<th>
+</th>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+<div class="card mt-12 subcard">
+<h4 class="subcard-title">
+Documentos recientes
+</h4>
+<div class="mt-12" id="sales-doc-edit">
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+Código
+</th>
+<th>
+Tipo
+</th>
+<th>
+Fecha
+</th>
+<th>
+Cliente
+</th>
+<th class="text-right">
+Total
+</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+F202601-0001
+</code>
+</td>
+<td>
+F
+</td>
+<td>
+<D>
+</td>
+<td>
+Cliente Snapshot <b>"H"</b> & 'co'
+</td>
+<td class="text-right">
+€4.00
+</td>
+<td class="text-right">
+<a href="/ui/sales-doc/1/pdf?download=1" rel="noopener" target="_blank">
+PDF
+</a>
+<button class="ml-8" hx-get="/ui/sales-doc/1/edit" hx-swap="beforeend" hx-target="body" type="button">
+Editar
+</button>
+<form class="d-inline ml-8" hx-include="#sales-doc-issue-form" hx-post="/ui/sales-doc/1/delete" hx-swap="outerHTML" hx-target="#sales-doc-panel" hx-validate="false">
+<button class="btn-danger" formnovalidate hx-confirm="¿Eliminar este documento?" type="submit">
+Eliminar
+</button>
+</form>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>

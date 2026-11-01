@@ -1,7 +1,6 @@
 from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
-import html
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -15,7 +14,7 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.settings import is_desktop
@@ -44,14 +43,12 @@ def _dt_to_local_input_s(dt: datetime) -> str:
 
 from .ui_common import (
     barcode_to_sku,
-    ensure_admin,
-    ensure_admin_or_owner,
     extract_sku,
-    month_range,
     parse_dt,
     parse_typed_float,
     templates,
 )
+from .ui_context import ui_context
 from .ui_tabs_common import _location_id_for_code
 from app.utils import query_match
 
@@ -94,10 +91,11 @@ def sale_product_options(
     location_code: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    user = ctx.user
     if user is None:
         raise HTTPException(status_code=403, detail="Not authenticated")
-    bid = require_active_business_id(db, request)
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     _pos_locations, _default_sale_location_code, selected_location_code = _sale_pos_context(
         db,
@@ -106,14 +104,11 @@ def sale_product_options(
     )
     items = _sale_product_options(service, location_code=selected_location_code)
 
-    parts: list[str] = []
-    for p in items:
-        sku = html.escape(str(getattr(p, "sku", "") or ""))
-        name = html.escape(str(getattr(p, "name", "") or ""))
-        parts.append(f'<option value="{sku} - {name}"></option>')
-        parts.append(f'<option value="{sku}"></option>')
-        parts.append(f'<option value="{name}"></option>')
-    return HTMLResponse("".join(parts))
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales/_product_options.html",
+        context={"product_options": items},
+    )
 
 
 def _sales_doc_context(db: Session, request: Request) -> dict:
@@ -190,9 +185,10 @@ def sale(
     paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
         db,
         request,
@@ -256,7 +252,7 @@ def sale(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -289,7 +285,8 @@ def sale_barcode(
     paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
         db,
@@ -300,7 +297,7 @@ def sale_barcode(
     try:
         parsed_price = parse_typed_float(unit_price, "El precio unitario debe ser un número mayor o igual que 0")
         sku = barcode_to_sku(db, barcode, business_id=bid)
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -354,7 +351,7 @@ def sale_barcode(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -374,7 +371,7 @@ def sale_barcode(
         )
     except Exception as e:
         _log.exception("sale_create fallback: %s", e)
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -401,7 +398,9 @@ def sale_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "sale":
         raise HTTPException(status_code=404, detail="Sale movement not found")
@@ -433,8 +432,9 @@ def sale_update(
     paid_by_transfer: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
     product_options = _sale_product_options(service, location_code=selected_location_code)
@@ -450,7 +450,7 @@ def sale_update(
             paid_by_transfer=paid_by_transfer,
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -479,7 +479,7 @@ def sale_update(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -506,15 +506,16 @@ def sale_delete(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         service.delete_sale_movement(movement_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -542,7 +543,7 @@ def sale_delete(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -563,7 +564,7 @@ def sale_delete(
         )
     except Exception as e:
         _log.exception("sale_delete fallback: %s", e)
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="partials/sale_panel.html",
@@ -590,14 +591,15 @@ def sale_delete_selected(
     sale_ids: list[int] = Form([]),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
     product_options = _sale_product_options(service, location_code=selected_location_code)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         ids = [int(x) for x in (sale_ids or []) if int(x) > 0]
         if not ids:
             return templates.TemplateResponse(
@@ -697,9 +699,10 @@ def tab_sales(
     payment_method: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     
     # Determine filter values
     now = datetime.now(timezone.utc)

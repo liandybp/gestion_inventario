@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 from app.utils import query_match
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, month_range, parse_dt, templates
+
+from .ui_context import ui_context
 
 from app.logger import get_logger
 
@@ -30,14 +32,15 @@ def expense_create(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.create_expense(amount=amount, concept=concept, expense_date=parse_dt(expense_date))
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -86,7 +89,9 @@ def expense_edit_form(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     expense = service.get_expense(expense_id)
     return templates.TemplateResponse(
@@ -105,14 +110,15 @@ def expense_delete(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.delete_expense(expense_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -180,8 +186,9 @@ def expense_update(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
@@ -192,7 +199,7 @@ def expense_update(
             expense_date=parse_dt(expense_date),
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -262,8 +269,9 @@ def tab_expenses(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     inventory_service = FinanceService(db, business_id=bid)
     
     now = datetime.now(timezone.utc)

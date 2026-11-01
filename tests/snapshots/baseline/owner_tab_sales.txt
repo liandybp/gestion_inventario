@@ -1,0 +1,253 @@
+<div>
+<h2>
+Ventas
+</h2>
+<div class="card" id="sale-panel">
+<h2>
+Venta
+</h2>
+<div class="card">
+<h3 class="mt-0">
+Registrar venta
+</h3>
+<p class="mt-n6 muted">
+Usa una sola casilla para buscar por nombre/SKU o escanear el código de barras.
+</p>
+<form hx-post="/ui/sale" hx-swap="outerHTML" hx-target="#sale-panel">
+<div class="row">
+<label>
+Ubicación
+</label>
+<select hx-get="/ui/sale/product-options" hx-swap="innerHTML" hx-target="#product-options" hx-trigger="change" name="location_code">
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option selected value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Artículo / código
+</label>
+<input autocomplete="off" hx-get="/ui/product-defaults/sale" hx-swap="innerHTML" hx-target="#sale-defaults" hx-trigger="change" list="product-options" name="product" placeholder="Nombre, SKU o barcode" required>
+</div>
+<div class="row">
+<label id="sale-qty-label">
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Precio unitario
+</label>
+<input id="sale-unit-price" min="0" name="unit_price" step="0.0001" type="number">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" step="0.001" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" placeholder="(opcional)">
+</div>
+<div class="row">
+<label>
+Pagado por transferencia
+</label>
+<input name="paid_by_transfer" type="checkbox" value="1">
+</div>
+<button type="submit">
+Registrar venta
+</button>
+</form>
+</div>
+<datalist id="product-options">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+<option value="SNAP-1">
+</option>
+<option value="Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+</datalist>
+<h3 class="mt-16">
+Historial de ventas
+</h3>
+<form class="card mb-12" hx-get="/ui/tabs/sales" hx-select="#sales-history" hx-swap="outerHTML" hx-target="#sales-history" hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-payment, change from:#sales-filter-show-all">
+<div class="flex flex-wrap gap-12 items-center">
+<div>
+<label class="filter-label">
+Buscar artículo
+</label>
+<input hx-preserve="true" id="sales-filter-query" name="query" placeholder="SKU o nombre" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Punto de venta
+</label>
+<select id="sales-filter-location" name="location_code">
+<option selected value="">
+Todos
+</option>
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Método de pago
+</label>
+<select id="sales-filter-payment" name="payment_method">
+<option selected value="">
+Todos
+</option>
+<option value="transfer">
+Transferencia
+</option>
+<option value="cash">
+Efectivo/otro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="sales-filter-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="sales-filter-end" name="end_date" type="date" value="">
+</div>
+<div class="flex gap-8 items-center">
+<input id="sales-filter-show-all" name="show_all" type="checkbox" value="1">
+<label class="filter-label m-0" for="sales-filter-show-all">
+Ver todos
+</label>
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-select="#sales-history" hx-swap="outerHTML" hx-target="#sales-history">
+Ver todos
+</a>
+</div>
+</form>
+<div id="sales-history">
+<form hx-post="/ui/movement/sale/delete-selected" hx-swap="outerHTML" hx-target="#sale-panel">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
+<button class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?" type="submit">
+Eliminar seleccionados
+</button>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+<input aria-label="Seleccionar todo" type="checkbox">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th>
+Img
+</th>
+<th>
+SKU
+</th>
+<th>
+Nombre
+</th>
+<th>
+Unidad
+</th>
+<th>
+Cant.
+</th>
+<th>
+Precio
+</th>
+<th>
+Punto de venta
+</th>
+<th>
+Pago
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<input aria-label="Seleccionar venta 7" name="sale_ids" type="checkbox" value="7">
+</td>
+<td class="col-date">
+<DT>
+</td>
+<td>
+</td>
+<td>
+SNAP-1
+</td>
+<td>
+Producto Snapshot <b>"H"</b> & 'co'
+</td>
+<td>
+ud
+</td>
+<td>
+1
+</td>
+<td>
+2.00
+</td>
+<td>
+Punto de venta Playa
+</td>
+<td>
+Efectivo/otro
+</td>
+<td>
+<button hx-get="/ui/movement/sale/7/edit" hx-swap="beforeend" hx-target="body" type="button">
+Edit
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+</div>
+<div class="mt-12" id="sale-edit">
+</div>
+</div>
+<div id="sale-defaults">
+</div>
+</div>

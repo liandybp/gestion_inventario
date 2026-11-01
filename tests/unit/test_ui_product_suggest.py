@@ -12,7 +12,8 @@ from app.routers import ui_products
 
 
 def _suggest(db: Session, business_id: int, monkeypatch, q: str, fmt: str = "label") -> str:
-    monkeypatch.setattr(ui_products, "require_active_business_id", lambda _db, _req: business_id)
+    from app.routers import ui_context as _uc
+    monkeypatch.setattr(_uc, "require_active_business_id", lambda _db, _req: business_id)
     request = MagicMock()
     request.session = {}
     resp = ui_products.product_suggest(request=request, q=q, fmt=fmt, db=db)

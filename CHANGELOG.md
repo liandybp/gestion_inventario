@@ -4,6 +4,27 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- refactor(frontend): fase 4 — plantillas OOB en `features/<dominio>/` (salen el HTML en Python de
+  `product_defaults_purchase/sale`, `sales_doc_product_defaults`, `sales_doc_customer_defaults`,
+  `sale_product_options`, `transfer_product_options` y `ui_supplier_return_lots`), macros compartidas
+  `qty_label`/`number_input`/`text_input` en `components/forms.html`, dependencia perezosa `UIContext`
+  en los 20 routers UI (una resolución de usuario/negocio por petición) y sidebar data-driven con
+  `NAV_ITEMS`. Red ampliada: arnés H-303 (fragmentos, POST con error, roles, estados vacíos) y e2e de
+  caracterización. HTML renderizado sin cambios (canónico idéntico a la baseline de b741a46).
+- feat(permisos): política por rol decidida el 2026-11-01. El **owner** ve Clientes (antes recibía 403 aunque el
+  sidebar le mostraba la pestaña). El **operador** vende, crea y edita clientes (sin borrarlos: 403 y botón oculto)
+  y crea, edita y borra documentos de venta; ve en el sidebar Ventas, Documentos y Clientes. Los formularios de
+  edición de gastos y de ventas pasan a exigir admin/owner, igual que sus `update` (el operador ya no ve el botón
+  "Edit" del historial de ventas). +9 unit (`test_operator_permissions.py`), +2 e2e.
+- fix(utilidades): filtrar "Utilidades por artículo" por fechas daba error 500 (`NameError: timedelta`, faltaba el
+  import desde el refactor de la fase B, 2026-08-15). Test de regresión.
+- fix(documentos): borrar un documento de venta daba error 500 (`IntegrityError`: el documento se borraba antes que
+  sus líneas, sin `relationship` que fije el orden). Ahora se borran las líneas, `flush` y después el documento.
+- fix(documentos): el autorrelleno de precio con un SKU inexistente devolvía 404; ahora un fragmento vacío, como
+  Compras y Ventas.
+- refactor(ui): `role_of()` normaliza el rol en un único sitio (guardias de `UIContext` y sidebar); imports sin
+  uso fuera; la guarda `test_routers_no_html.py` busca HTML solo en literales de cadena (AST), no en comentarios.
+
 - fix(ui): contraste de los gráficos en tema oscuro. La serie de ventas de Inicio (navy) no se distinguía
   del fondo y los textos y líneas de ejes usaban los valores fijos de Chart.js (`#666`, `rgba(0,0,0,0.1)`).
   Nuevas variables `--chart-text`/`--chart-border` (en claro, los mismos valores de antes) que

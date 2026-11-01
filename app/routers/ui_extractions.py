@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, month_range, parse_dt, templates
+
+from .ui_context import ui_context
 
 from app.logger import get_logger
 
@@ -31,13 +33,14 @@ def extraction_create(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.create_extraction(
             party=party,
             amount=amount,
@@ -45,7 +48,7 @@ def extraction_create(
             extraction_date=parse_dt(extraction_date),
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -96,16 +99,17 @@ def extraction_delete(
     extraction_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.delete_extraction(extraction_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -173,8 +177,9 @@ def extraction_edit_form(
     extraction_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     extraction = service.get_extraction(extraction_id)
     config = get_active_business_config(db, request)
@@ -199,13 +204,14 @@ def extraction_update(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
     config = get_active_business_config(db, request)
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.update_extraction(
             extraction_id=extraction_id,
             party=party,
@@ -214,7 +220,7 @@ def extraction_update(
             extraction_date=parse_dt(extraction_date),
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,

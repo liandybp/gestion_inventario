@@ -9,16 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.repositories.business_repository import get_active_business_config
-from app.security import require_active_business_id
 from app.services.finance_service import FinanceService
 from app.utils import month_range, query_match
 
 from .ui_common import (
     dt_to_local_input,
-    ensure_admin_or_owner,
     parse_dt,
     templates,
 )
+from .ui_context import ui_context
 
 router = APIRouter()
 
@@ -31,8 +30,9 @@ def tab_dividends(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)

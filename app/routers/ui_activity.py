@@ -14,11 +14,11 @@ from app.models import AuditLog
 from app.logger import get_logger
 
 from .ui_common import (
-    ensure_admin,
     month_range,
     parse_dt,
     templates,
 )
+from .ui_context import ui_context
 
 _log = get_logger(__name__)
 
@@ -27,7 +27,8 @@ router = APIRouter()
 
 @router.get("/tabs/activity", response_class=HTMLResponse)
 def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
 
     username: str = (request.query_params.get("username") or "").strip()
     role_filter: str = (request.query_params.get("role") or "").strip().lower()

@@ -257,9 +257,15 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        465 unit (SQLite en memoria) + 82 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
-              (tests/snapshots/ui_snapshot.py), todos verdes; arnés de estilos calculados
-              tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
+Fase 4:       cerrada en `feature/frontend-fase4` (2026-11-01, sin push, entra en 0.5.0) — plantillas OOB en
+              `templates/features/<dominio>/`, `UIContext` perezoso (`ctx = ui_context(request, db)`, llamada
+              directa) en los 20 routers UI, `role_of()` única normalización del rol, sidebar `NAV_ITEMS`.
+Permisos:     owner ve Clientes; operador ve Ventas, Documentos y Clientes: vende, crea/edita clientes (borrar
+              = 403 y botón oculto) y crea/edita/borra documentos de venta. Editar gastos/ventas: admin/owner.
+Tests:        496 unit (SQLite en memoria) + 94 e2e (Playwright, fixture js_errors autouse) + 91 snapshots
+              (tests/snapshots/ui_snapshot.py, reloj de Inicio congelado en 2026-10-24; H-303: roles
+              operator/owner, POST con error, fragmentos OOB y estados vacíos), todos verdes; arnés de
+              estilos calculados tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
@@ -336,7 +342,15 @@ el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesi
 (34 tools), gráfico multi-serie en `app/static/js/components/widget-chart.js` (solo bar/line), reglas de prompt,
 título del widget de rescate y aviso de fallo. Re-auditoría 4.70 🟢. **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
 
-**Release 0.5.0 (frontend modular), fases 1-3 cerradas en `feature/frontend-modular` (sin push):**
+**Release 0.5.0 en `develop` y probada en staging (2026-11-01):** fases 1-3 + PAE-015 mergeadas (`77c25bb`),
+arnés con reloj congelado (`b201f64`), tema oscuro legible en gráficos y Escape en modales (`b741a46`). `main` espera
+a las fases 4-5. Fase 4 en `specs/frontend-fase4-oob-uicontext/` (requirements + design; PAE en preparación).
+- Colores de gráficos: `--chart-text`/`--chart-border` (texto y líneas de ejes) los aplica
+  `components/chart-palette.js::applyChartDefaults()` antes de cada render; cada token de color tiene que existir en
+  `:root` y, si cambia en oscuro, en `[data-theme="dark"]` de `tokens.css`.
+- Modales: `core/modals.js` cierra con botón, clic en overlay o Escape, salvo `data-modal-static="1"`.
+
+**Fases 1-3 del frontend modular (detalle):**
 - El JS vive en módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`).
 - El CSS vive en `app/static/css/`: `tokens.css` (colores, temas), `utilities.css` (utilidades compartidas),
   `app.css`, `login.css`, `print.css` y `label-print.css`. CSP `style-src 'self'`.

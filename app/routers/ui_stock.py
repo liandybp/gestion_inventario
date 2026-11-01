@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html as _html
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -13,19 +12,13 @@ from app.deps import session_dep
 from app.models import Product
 from app.repositories.business_repository import get_active_business_config
 from app.schemas import SupplierReturnLotCreate
-from app.security import (
-    get_active_business_code,
-    get_current_user_from_session,
-    require_active_business_id,
-)
+from app.security import get_active_business_code
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.logger import get_logger
 
-from .ui_common import (
-    ensure_admin_or_owner,
-    templates,
-)
+from .ui_common import templates
+from .ui_context import ui_context
 from .ui_tabs_common import (
     _deletable_skus,
     _location_id_for_code,
@@ -48,9 +41,10 @@ def stock_table(
     query: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     _log.debug("stock_table - User: %s, Role: %s, bid: %s, location: %s, category: %s",
                user.username if user else 'None', user.role if user else 'None', bid, location_code, category)
     inventory_service = InventoryService(db, business_id=bid)
@@ -96,9 +90,10 @@ def stock_delete_product(
     stock_filter: str = Form(""),
     category: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
@@ -163,9 +158,10 @@ def stock_delete_selected(
     stock_filter: str = Form(""),
     category: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
@@ -246,9 +242,10 @@ def ui_supplier_return(
     note: str = Form(""),
     location_code: str = Form(""),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     config = get_active_business_config(db, request)
 
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
@@ -346,38 +343,28 @@ def ui_supplier_return_lots(
     sku: str = "",
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     sku_clean = (sku or "").strip()
     loc = (location_code or "").strip() or None
     if not sku_clean:
-        return HTMLResponse("<select name='lot_id' disabled><option value=''>-- Ingrese SKU --</option></select>")
-
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "empty"})
     try:
         lots = service.available_lots(sku_clean, location_code=loc)
     except Exception as e:
         _log.exception("available_lots fallback en ui_supplier_return_lots: %s", e)
-        error_msg = _html.escape(str(e)[:50]) if str(e) else "Error"
-        return HTMLResponse(f"<select name='lot_id' disabled><option value=''>Error: {error_msg}</option></select>")
-
+        error_msg = str(e)[:50] if str(e) else "Error"
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "error", "error_msg": error_msg})
     if not lots:
-        return HTMLResponse("<select name='lot_id' disabled><option value=''>Sin lotes en esta ubicación</option></select>")
-
-    parts: list[str] = ["<select name='lot_id' required>"]
-    parts.append("<option value=''>-- Selecciona lote --</option>")
-    for lot in lots:
-        parts.append(
-            "<option value='{}'>{} | disp={} | costo={}</option>".format(
-                int(lot.id),
-                _html.escape(str(lot.lot_code or "")),
-                float(lot.qty_remaining or 0),
-                float(lot.unit_cost or 0),
-            )
-        )
-    parts.append("</select>")
-    return HTMLResponse("".join(parts))
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "none"})
+    return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                      context={"state": "list", "lots": lots})
 
 
 @router.get("/restock-table", response_class=HTMLResponse)
@@ -387,9 +374,10 @@ def restock_table(
     location_code: str = "",
     restock_scope: str = "with_history",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
+    bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(
@@ -431,9 +419,10 @@ def restock_print(
     location_code: str = "",
     restock_scope: str = "with_history",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
+    bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(

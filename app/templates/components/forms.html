@@ -6,3 +6,19 @@
 {% macro field(label, name=None, type=None, value=None, id=None, required=False, readonly=False, disabled=False, checked=False, attrs={}) -%}
 <div class="row"><label{% if id %} for="{{ id }}"{% endif %}>{{ label }}</label><input{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if type %} type="{{ type }}"{% endif %}{{ attrs|xmlattr }}{% if value is not none %} value="{{ value }}"{% endif %}{% if checked %} checked{% endif %}{% if required %} required{% endif %}{% if readonly %} readonly{% endif %}{% if disabled %} disabled{% endif %} /></div>
 {%- endmacro %}
+
+{# Fase 4 (plantillas OOB): label/input compartidos entre un panel y su fragmento de autorrelleno,
+   para que el OOB no pueda pisar el panel con atributos distintos. `oob=True` añade hx-swap-oob.
+   Única excepción, heredada y aprobada (REQ-12): el OOB de sales-doc-client-id pasa required=True
+   y el panel de issue_form.html no. #}
+{% macro qty_label(id, uom='', oob=False) -%}
+<label id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if uom %}Cantidad ({{ uom }}){% else %}Cantidad{% endif %}</label>
+{%- endmacro %}
+
+{% macro number_input(id, name, value=none, oob=False) -%}
+<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}" type="number" step="0.0001" min="0"{% if value is not none %} value="{{ value }}"{% endif %} />
+{%- endmacro %}
+
+{% macro text_input(id, name, value=none, oob=False, required=False) -%}
+<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}"{% if value is not none %} value="{{ value }}"{% endif %}{% if required %} required{% endif %} />
+{%- endmacro %}

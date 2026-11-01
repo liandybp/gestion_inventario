@@ -3,7 +3,6 @@ from app.repositories.business_repository import get_active_business_config
 from types import SimpleNamespace
 
 from datetime import datetime, timezone
-import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -15,7 +14,7 @@ from app.deps import session_dep
 from app.models import Product
 from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import AdjustmentCreate, ProductUpdate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -23,13 +22,13 @@ from sqlalchemy import select
 
 from .ui_common import (
     barcode_to_sku,
-    ensure_admin_or_owner,
     extract_sku,
     delete_uploaded_image,
     parse_typed_float,
     save_product_image,
     templates,
 )
+from .ui_context import ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -43,13 +42,14 @@ def product_delete(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         product_service.delete(sku)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -108,8 +108,9 @@ def product_edit_form(
     sku: str,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(
@@ -134,11 +135,12 @@ def product_update(
     lead_time_days: Optional[int] = Form(None),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     new_image_url: Optional[str] = None
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         existing = product_service.get_by_sku(sku)
         purchase_cost = parse_typed_float(default_purchase_cost, "El costo de compra debe ser un número")
         sale_price = parse_typed_float(default_sale_price, "El precio de venta debe ser un número")
@@ -160,7 +162,7 @@ def product_update(
             ),
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -219,8 +221,9 @@ def product_edit_form_inventory(
     location_code: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     product = product_service.get_by_sku(sku)
@@ -255,12 +258,13 @@ def product_update_inventory(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     unsaved_image_url: Optional[str] = None
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         existing = product_service.get_by_sku(sku)
 
         loc = (location_code or "").strip() or None
@@ -327,7 +331,7 @@ def product_update_inventory(
                     )
                 )
 
-                user = get_current_user_from_session(db, request)
+                user = ctx.user
                 if user is not None:
                     log_event(
                         db,
@@ -409,8 +413,9 @@ def product_from_invoice(
     invoice_pdf: UploadFile = File(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
     purchase_cfg = getattr(config, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
@@ -449,7 +454,7 @@ def product_from_invoice(
             status_code=400,
         )
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     created_products: list[dict[str, str]] = []
     skipped_products: list[str] = []
@@ -554,7 +559,8 @@ def product_from_invoice(
 
 @router.get("/product-defaults/purchase", response_class=HTMLResponse)
 def product_defaults_purchase(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    business_id = ctx.business_id
     product_service = ProductService(db, business_id=business_id)
     sku = extract_sku(product)
     if not sku:
@@ -566,18 +572,19 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
         # SKU aún no existente (p. ej. al teclear un producto nuevo): sin defaults.
         return HTMLResponse("")
 
-    uom = html.escape(p.unit_of_measure or "")
+    uom = p.unit_of_measure or ""
     cost = "" if p.default_purchase_cost is None else str(float(p.default_purchase_cost))
-    label = f"Cantidad ({uom})" if uom else "Cantidad"
-    return HTMLResponse(
-        f"<label id='purchase-qty-label' hx-swap-oob='true'>{label}</label>"
-        f"<input id='purchase-unit-cost' hx-swap-oob='true' name='unit_cost' type='number' step='0.0001' min='0' value='{cost}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/purchases/_defaults_oob.html",
+        context={"uom": uom, "cost": cost},
     )
 
 
 @router.get("/product-defaults/sale", response_class=HTMLResponse)
 def product_defaults_sale(request: Request, product: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    business_id = ctx.business_id
     product_service = ProductService(db, business_id=business_id)
     value = (product or "").strip()
     if not value:
@@ -605,12 +612,12 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
         except HTTPException:
             return HTMLResponse("")
 
-    uom = html.escape(p.unit_of_measure or "")
+    uom = p.unit_of_measure or ""
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
-    label = f"Cantidad ({uom})" if uom else "Cantidad"
-    return HTMLResponse(
-        f"<label id='sale-qty-label' hx-swap-oob='true'>{label}</label>"
-        f"<input id='sale-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales/_defaults_oob.html",
+        context={"uom": uom, "price": price},
     )
 
 
@@ -631,7 +638,8 @@ def product_suggest(
     Los datalist iniciales solo traen los 200 primeros productos: app.js sustituye su
     contenido con esta respuesta (inputs con data-product-suggest).
     """
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    business_id = ctx.business_id
     query = (q or "").strip()
     if len(query) < 2:
         return HTMLResponse("")
@@ -645,9 +653,10 @@ def product_suggest(
 
 @router.get("/tabs/inventory", response_class=HTMLResponse)
 def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     business_code = get_active_business_code(db, request)
     config = get_active_business_config(db, request)
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]

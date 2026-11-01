@@ -104,7 +104,7 @@ Principios:
 | **1** | `base.html` + layouts + macros `modal`/`field`; migrar 18 modales y los 4 `profit_items_*` | Bajo, mecánico |
 | **2** | Sacar todo el JS a módulos; quitar `onclick=`/debug; quitar `'unsafe-inline'` de `script-src` | Medio (cubierto por e2e) |
 | **3** | `tokens.css` + split de `app.css`; eliminar `style=` y hex; gráficos con paleta CSS | Bajo |
-| **4** | Plantillas OOB en vez de HTML en Python; `UIContext`; sidebar data-driven. **Prerrequisito en el mismo PAE: H-303**, ampliar el arnés de snapshots a POST, roles y estados vacíos (ver nota bajo la tabla) | Medio |
+| **4** ✅ | Plantillas OOB en vez de HTML en Python; `UIContext`; sidebar data-driven. **Prerrequisito en el mismo PAE: H-303**, ampliar el arnés de snapshots a POST, roles y estados vacíos (ver nota bajo la tabla) | Medio |
 | **5** | Reagrupar `partials/` en `features/<dominio>/`; sacar queries de routers | Medio-alto, por dominio |
 
 **Nota para la fase 4: H-303** (de `docs/auditorias/2026-10-23-frontend-fase1-layouts-macros.md`). Hoy el arnés

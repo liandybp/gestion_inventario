@@ -20,6 +20,7 @@ import difflib
 import logging
 import os
 import re
+from urllib.parse import quote
 import shutil
 import sys
 import tempfile
@@ -71,12 +72,13 @@ from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
     Business, Customer, InventoryMovement, Location, MoneyExtraction,
-    OperatingExpense, Product, SalesDocument, SalesDocumentItem, User,
+    OperatingExpense, Product, SalesDocument, SalesDocumentItem, User, UserBusiness,
 )
 from app.schemas import (  # noqa: E402
     AdjustmentCreate, PurchaseCreate, SaleCreate, TransferCreate, TransferLineCreate,
 )
 from app.services.inventory_service import InventoryService  # noqa: E402
+from app.auth import hash_password  # noqa: E402
 from app.settings import DATABASE_URL  # noqa: E402
 from tests.snapshots.style_classes import STYLE_TO_CLASSES, style_key  # noqa: E402
 
@@ -276,6 +278,14 @@ def _seed() -> dict:
                                  description=_hostile("Producto Snapshot"), unit_of_measure="ud",
                                  quantity=2, unit_price=2.0, line_total=4.0))
         user = db.scalar(select(User).where(User.username == "operator"))
+        # Usuarios para la captura por rol (REQ-1). Contraseña = nombre de usuario.
+        db.add(User(username="snap-operator", password_hash=hash_password("snap-operator"),
+                    role="operator", is_active=True, business_id=bid))
+        db.add(User(username="snap-owner", password_hash=hash_password("snap-owner"),
+                    role="owner", is_active=True, business_id=bid))
+        db.flush()
+        _snap_owner = db.scalar(select(User).where(User.username == "snap-owner"))
+        db.add(UserBusiness(user_id=int(_snap_owner.id), business_id=bid))
         db.commit()
         add_widget(db, bid, type="pie", title=_hostile("Widget"), tool="snapshot", tool_args={},
                    payload={"labels": [_hostile("A"), "B"], "values": [1, 2]}, unit=None, created_by=None)
@@ -297,10 +307,19 @@ def _seed() -> dict:
             "extraction": extraction.id,
             "doc": doc.id,
             "user": user.id,
+            "customer_name": customer.name,
+            "pos_code": pos.code,
+            "central_code": central.code,
         }
     finally:
         db.close()
 
+
+_ROLE_TABS = {
+    "operator": ["sales", "documents", "customers"],
+    "owner": ["home", "agent", "inventory", "purchases", "transfers", "sales", "documents",
+              "customers", "expenses", "profit-items", "profit", "dividends", "history"],
+}
 
 TABS = [
     "home", "agent", "inventory", "purchases", "transfers", "coach", "sales", "documents",
@@ -357,23 +376,119 @@ def _get(client: TestClient, key: str, url: str, hx: bool) -> str:
     return text
 
 
+def _request(client: TestClient, key: str, method: str, url: str, data=None, hx: bool = True) -> str:
+    resp = client.request(method, url, data=data, headers={"HX-Request": "true"} if hx else {})
+    return f"status={resp.status_code}\n" + canonical(resp.text)
+
+
+def _login(client: TestClient, username: str, password: str) -> None:
+    resp = client.post("/ui/login", data={"username": username, "password": password}, follow_redirects=False)
+    if resp.status_code != 302:
+        raise SystemExit(f"login {username} falló: {resp.status_code}")
+
+
+def _create_snap_empty(client: TestClient) -> None:
+    client.post("/ui/businesses/create", data={"code": "snap-empty", "name": "Snap Empty"},
+                headers={"HX-Request": "true"}, follow_redirects=False)
+
+
+def _empty_business_id() -> int:
+    db = get_session()
+    try:
+        return int(db.scalar(select(Business).where(Business.code == "snap-empty")).id)
+    finally:
+        db.close()
+
+
+def _add_empty_product(bid: int) -> None:
+    db = get_session()
+    try:
+        db.add(Product(business_id=bid, sku="SNAP-EMPTY", name="Producto Empty", category="Cat",
+                       min_stock=0, unit_of_measure="ud", default_purchase_cost=1.0,
+                       default_sale_price=2.0, lead_time_days=0))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _capture_role(role: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    client = TestClient(app)  # nuevo por rol; sin `with`: no relanza el lifespan
+    _login(client, f"snap-{role}", f"snap-{role}")
+    out[f"{role}_dashboard"] = _get(client, f"{role}_dashboard", "/ui/dashboard", hx=False)
+    for slug in _ROLE_TABS[role]:
+        out[f"{role}_tab_{slug}"] = _get(client, f"{role}_tab_{slug}", f"/ui/tabs/{slug}", hx=True)
+    return out
+
+
 def capture() -> dict[str, str]:
     logging.disable(logging.CRITICAL)
     out: dict[str, str] = {}
     with TestClient(app) as client:
         out["login"] = _get(client, "login", "/ui/login", hx=False)
-        login = client.post("/ui/login", data={"username": "admin", "password": "admin"},
-                            follow_redirects=False)
-        if login.status_code != 302:
-            raise SystemExit(f"login falló: {login.status_code}")
+        _login(client, "admin", "admin")
         ids = _seed()
+        # 1. Lo actual: 40 claves admin, sin cambios de clave.
         for key, url in _pages(ids).items():
             out[key] = _get(client, key, url, hx=not key.startswith(("dashboard", "print_")))
-        # Último: el modal solo se renderiza si el usuario debe cambiar la contraseña.
+        # 2. Fragmentos OOB (REQ-3) como admin.
+        out["frag_defaults_purchase"] = _request(client, "frag_defaults_purchase", "GET",
+                                                 "/ui/product-defaults/purchase?product=SNAP-1")
+        out["frag_defaults_sale"] = _request(client, "frag_defaults_sale", "GET",
+                                             "/ui/product-defaults/sale?product=SNAP-1")
+        out["frag_salesdoc_product"] = _request(client, "frag_salesdoc_product", "GET",
+                                                "/ui/sales-doc/product-defaults?product=SNAP-1")
+        out["frag_salesdoc_customer"] = _request(
+            client, "frag_salesdoc_customer", "GET",
+            f"/ui/sales-doc/customer-defaults?client_name={quote(ids['customer_name'])}")
+        out["frag_sale_options"] = _request(client, "frag_sale_options", "GET",
+                                            f"/ui/sale/product-options?location_code={ids['pos_code']}")
+        out["frag_transfer_options"] = _request(client, "frag_transfer_options", "GET",
+                                                f"/ui/transfers/product-options?from_location_code={ids['central_code']}")
+        out["frag_lots_empty"] = _request(client, "frag_lots_empty", "GET", "/ui/return-supplier/lots")
+        out["frag_lots_none"] = _request(client, "frag_lots_none", "GET",
+                                         "/ui/return-supplier/lots?sku=SNAP-NOLOT")
+        out["frag_lots_ok"] = _request(client, "frag_lots_ok", "GET",
+                                       "/ui/return-supplier/lots?sku=SNAP-1")
+        # 3. POST con error (REQ-2) y POST válidos (REQ-3).
+        out["post_purchase_qty0"] = _request(client, "post_purchase_qty0", "POST", "/ui/purchase",
+                                             data={"product": "SNAP-1", "quantity": "0", "unit_cost": "1.0"})
+        out["post_user_duplicate"] = _request(client, "post_user_duplicate", "POST", "/ui/users/create",
+                                              data={"username": "admin", "password": "x", "role": "admin",
+                                                    "is_active": "true"})
+        out["post_transfer_over_stock"] = _request(client, "post_transfer_over_stock", "POST", "/ui/transfers",
+                                                   data={"from_location_code": ids["central_code"],
+                                                         "to_location_code": ids["pos_code"],
+                                                         "product": "SNAP-1", "quantity": "9999"})
+        out["post_purchase_new_product"] = _request(client, "post_purchase_new_product", "POST", "/ui/purchase",
+                                                    data={"product": "SNAP-NEW", "product_name": "Producto Nuevo",
+                                                          "quantity": "1", "unit_cost": "5.0",
+                                                          "movement_date": "2026-10-24T12:00"})
+        out["post_sale_ok"] = _request(client, "post_sale_ok", "POST", "/ui/sale",
+                                       data={"product": "SNAP-1", "quantity": "1", "unit_price": "2.0",
+                                             "location_code": ids["pos_code"]})
+        # 4. Negocio vacío snap-empty + cambio de negocio + estados vacíos + producto para REQ-2.
+        _create_snap_empty(client)
+        empty_bid = _empty_business_id()
+        client.post("/ui/active-business", data={"business_id": str(empty_bid)}, follow_redirects=False)
+        for slug in TABS:
+            out[f"empty_tab_{slug}"] = _get(client, f"empty_tab_{slug}", f"/ui/tabs/{slug}", hx=True)
+        _add_empty_product(empty_bid)
+        client.post("/ui/active-business", data={"business_id": str(ids['bid'])}, follow_redirects=False)
+        # 5. SKU del otro negocio (REQ-2).
+        out["post_product_sku_other_business"] = _request(
+            client, "post_product_sku_other_business", "POST", "/ui/product/SNAP-1/update",
+            data={"new_sku": "SNAP-EMPTY", "name": "SNAP-1", "unit_of_measure": "ud"})
+        # 6. Captura por rol (REQ-1): un TestClient nuevo por rol, sin `with`.
+        out.update(_capture_role("operator"))
+        out.update(_capture_role("owner"))
+        # 7. Último, como hoy: cambio de contraseña obligatorio.
         _force_password_change()
         out["modal_must_change_password"] = _get(
-            client, "modal_must_change_password", "/ui/must-change-password-form", hx=True
-        )
+            client, "modal_must_change_password", "/ui/must-change-password-form", hx=True)
+        out["post_must_change_password_mismatch"] = _request(
+            client, "post_must_change_password_mismatch", "POST", "/ui/must-change-password",
+            data={"new_password": "x", "confirm_password": "y"})
     return out
 
 

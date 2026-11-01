@@ -13,9 +13,7 @@ from app.models import Business
 from app.security import (
     get_active_business_code,
     get_active_business_id,
-    get_current_user_from_session,
     get_user_business_ids,
-    require_active_business_id,
 )
 from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
@@ -27,10 +25,11 @@ from app.sync.client import get_sync_state
 
 from .ui_common import (
     dt_to_local_input,
-    ensure_admin_or_owner,
     parse_dt,
     templates,
 )
+from .ui_context import role_of, ui_context
+from .ui_nav import default_tab, visible_nav_items
 from .ui_tabs_common import _home_locations_context, _location_id_for_code, _month_label_es
 
 router = APIRouter()
@@ -161,14 +160,15 @@ def ui_root() -> RedirectResponse:
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    user = ctx.user
     active_business_id = get_active_business_id(db, request)
     businesses = []
     active_business = None
     if active_business_id is not None:
         active_business = db.get(Business, int(active_business_id))
+    role = role_of(user)
     if user is not None:
-        role = (user.role or "").lower()
         if role == "admin":
             businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
         elif role == "owner":
@@ -191,6 +191,8 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "active_business": active_business,
             "app_mode": app_mode_label(),
             "state": get_sync_state(db) if is_desktop() else None,
+            "nav_items": visible_nav_items(role, app_mode_label()),
+            "default_tab": default_tab(role),
         },
     )
 
@@ -203,9 +205,10 @@ def tab_home(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     reporting = ReportingService(db, business_id=bid)
@@ -312,10 +315,11 @@ def home_charts(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    bid = ctx.business_id
+    user = ctx.user
     reporting = ReportingService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
