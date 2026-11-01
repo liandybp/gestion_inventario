@@ -827,9 +827,10 @@ SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: python3 -m pytest t
 
 ## Lote C — migración a `UIContext` (un envelope por router) + adaptación de tests
 
-> Regla común a T8–T39: en cada handler listado, añade `ctx: UIContext = Depends(ui_context)` como último
-> parámetro (después de `db: Session = Depends(session_dep)`), sustituye cada llamada según la tabla, y no toques
-> las funciones auxiliares sin `@router`. Tras cada envelope, corre el `check` del arnés.
+> Regla común a T8–T39: en cada handler listado, obtén `ctx = ui_context(request, db)` al inicio del cuerpo
+> (NO añadas `ctx: UIContext = Depends(ui_context)` como parámetro: la llamada directa conserva los tests que
+> invocan handlers directamente), sustituye cada llamada según la tabla, y no toques las funciones auxiliares sin
+> `@router`. Tras cada envelope, corre el `check` del arnés.
 
 ### T8: Migrar `ui_activity.py`
 
@@ -2775,7 +2776,7 @@ Read app/routers/ui_users.py
 ```python
 # app/routers/ui_context.py (T6)
 from app.routers.ui_context import UIContext
-# Los handlers de ui_products ahora reciben ctx: UIContext = Depends(ui_context) y llaman
+# Los handlers de ui_products ahora hacen `ctx = ui_context(request, db)` y llaman
 # ctx.business_id / ctx.ensure_admin_or_owner() / ctx.user
 ```
 

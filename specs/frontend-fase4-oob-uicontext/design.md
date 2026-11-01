@@ -161,15 +161,15 @@ def ui_context(request: Request, db: Session = Depends(session_dep)) -> UIContex
 
 - **Perezoso:** nada se resuelve al construirlo. Cada handler lee `ctx.user`, `ctx.business_id` o llama
   `ctx.ensure_*()` en el mismo punto donde hoy llama a la función, así el orden de errores no cambia.
-- **Misma sesión de BD:** `ui_context` depende de `session_dep`; FastAPI cachea la dependencia por petición, así que
-  `ctx.db` es el mismo objeto que el `db` del handler. Un unit test lo fija.
+- **Misma sesión de BD:** `ctx = ui_context(request, db)` recibe el mismo `db` del handler (se pasa explícito), así
+  que `ctx.db` es el mismo objeto que el `db` del handler. Un unit test lo fija.
 - `business_id` no cachea el fallo: si lanza 409, una segunda lectura vuelve a llamar (mismo comportamiento que hoy
   si un handler llamaba dos veces).
 
 ### Reglas de migración por handler (REQ-7)
 
-Solo en funciones decoradas con `@router.*` de los 20 routers de la tabla. Se añade el parámetro
-`ctx: UIContext = Depends(ui_context)` y se sustituye, en el mismo sitio:
+Solo en funciones decoradas con `@router.*` de los 20 routers de la tabla. Al inicio del cuerpo se
+obtiene `ctx = ui_context(request, db)` y se sustituye, en el mismo sitio:
 
 | Hoy | Después |
 |---|---|
