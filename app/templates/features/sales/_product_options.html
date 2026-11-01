@@ -1,0 +1,5 @@
+{% for p in product_options %}
+  <option value="{{ p.sku }} - {{ p.name }}"></option>
+  <option value="{{ p.sku }}"></option>
+  <option value="{{ p.name }}"></option>
+{% endfor %}

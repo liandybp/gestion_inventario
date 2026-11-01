@@ -573,12 +573,12 @@ def product_defaults_purchase(request: Request, product: str = "", db: Session =
         # SKU aún no existente (p. ej. al teclear un producto nuevo): sin defaults.
         return HTMLResponse("")
 
-    uom = html.escape(p.unit_of_measure or "")
+    uom = p.unit_of_measure or ""
     cost = "" if p.default_purchase_cost is None else str(float(p.default_purchase_cost))
-    label = f"Cantidad ({uom})" if uom else "Cantidad"
-    return HTMLResponse(
-        f"<label id='purchase-qty-label' hx-swap-oob='true'>{label}</label>"
-        f"<input id='purchase-unit-cost' hx-swap-oob='true' name='unit_cost' type='number' step='0.0001' min='0' value='{cost}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/purchases/_defaults_oob.html",
+        context={"uom": uom, "cost": cost},
     )
 
 
@@ -613,12 +613,12 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
         except HTTPException:
             return HTMLResponse("")
 
-    uom = html.escape(p.unit_of_measure or "")
+    uom = p.unit_of_measure or ""
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
-    label = f"Cantidad ({uom})" if uom else "Cantidad"
-    return HTMLResponse(
-        f"<label id='sale-qty-label' hx-swap-oob='true'>{label}</label>"
-        f"<input id='sale-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{price}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales/_defaults_oob.html",
+        context={"uom": uom, "price": price},
     )
 
 

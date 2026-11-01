@@ -106,14 +106,11 @@ def sale_product_options(
     )
     items = _sale_product_options(service, location_code=selected_location_code)
 
-    parts: list[str] = []
-    for p in items:
-        sku = html.escape(str(getattr(p, "sku", "") or ""))
-        name = html.escape(str(getattr(p, "name", "") or ""))
-        parts.append(f'<option value="{sku} - {name}"></option>')
-        parts.append(f'<option value="{sku}"></option>')
-        parts.append(f'<option value="{name}"></option>')
-    return HTMLResponse("".join(parts))
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales/_product_options.html",
+        context={"product_options": items},
+    )
 
 
 def _sales_doc_context(db: Session, request: Request) -> dict:

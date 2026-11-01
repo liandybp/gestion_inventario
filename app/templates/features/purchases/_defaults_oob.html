@@ -1,0 +1,3 @@
+{% from 'components/forms.html' import qty_label, number_input %}
+{{ qty_label('purchase-qty-label', uom, oob=True) }}
+{{ number_input('purchase-unit-cost', 'unit_cost', cost, oob=True) }}
