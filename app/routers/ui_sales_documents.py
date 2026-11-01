@@ -15,13 +15,14 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code
 from app.services.product_service import ProductService
 from app.services.sales_document_service import SalesDocumentService
 
 from app.utils import query_match
 
-from .ui_common import ensure_admin_or_owner, extract_sku, parse_dt, templates
+from .ui_common import extract_sku, parse_dt, templates
+from .ui_context import UIContext, ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -196,8 +197,9 @@ def sales_doc_preview(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    _ = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    _ = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
@@ -258,8 +260,9 @@ def sales_doc_preview(
 
 @router.post("/sales-doc/{doc_id}/delete", response_class=HTMLResponse)
 def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc = SalesDocumentService(db, bid).get(doc_id)
@@ -306,8 +309,9 @@ def sales_doc_edit_form(
     doc_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
     if doc is None:
@@ -331,8 +335,9 @@ async def sales_doc_update(
     doc_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     svc = SalesDocumentService(db, bid)
@@ -459,7 +464,8 @@ def sales_doc_product_defaults(
     product: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
@@ -473,7 +479,8 @@ def sales_doc_product_defaults(
 
 @router.get("/sales-doc/customer-defaults", response_class=HTMLResponse)
 def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     raw = (client_name or "").strip()
     if not raw:
         return HTMLResponse("")
@@ -519,7 +526,8 @@ def sales_doc_cart_add(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
     product_service = ProductService(db, business_id=bid)
 
@@ -674,7 +682,8 @@ def sales_doc_cart_update(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
@@ -751,7 +760,8 @@ def sales_doc_cart_remove(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
@@ -812,7 +822,8 @@ def sales_doc_cart_clear(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
@@ -869,8 +880,9 @@ def sales_doc_issue(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     config = get_active_business_config(db, request)
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
@@ -999,8 +1011,9 @@ def sales_doc_pdf(
     db: Session = Depends(session_dep),
     download: int = 0,
 ) -> Response:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
     if doc is None:
@@ -1057,9 +1070,10 @@ def tab_documents(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    _ = ctx.user
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     config = get_active_business_config(db, request)
 

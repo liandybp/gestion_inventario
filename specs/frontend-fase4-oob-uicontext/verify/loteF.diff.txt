@@ -1,0 +1,3 @@
+app/routers/ui_sales.py
+app/routers/ui_sales_documents.py
+app/routers/ui_stock.py
