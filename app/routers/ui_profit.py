@@ -8,20 +8,16 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.security import (
-    get_active_business_code,
-    get_current_user_from_session,
-    require_active_business_id,
-)
+from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 from app.services.reporting_service import ReportingService
 from app.utils import month_range
 
 from .ui_common import (
-    ensure_admin_or_owner,
     parse_dt,
     templates,
 )
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _home_locations_context, _location_id_for_code
 
 router = APIRouter()
@@ -35,9 +31,10 @@ def tab_profit(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     reporting = ReportingService(db, business_id=bid)
     finance = FinanceService(db, business_id=bid)
     business_code = get_active_business_code(db, request)

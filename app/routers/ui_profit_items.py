@@ -24,13 +24,12 @@ from app.utils import query_match
 
 from .ui_common import (
     dt_to_local_input,
-    ensure_admin,
-    ensure_admin_or_owner,
     extract_sku,
     month_range,
     parse_dt,
     templates,
 )
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _home_locations_context, _location_id_for_code
 
 _log = get_logger(__name__)
@@ -119,7 +118,8 @@ def tab_profit_items(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     return _render_profit_items_tab(
         request=request,
         db=db,
@@ -140,8 +140,9 @@ def profit_items_adjustment_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "adjustment":
         raise HTTPException(status_code=404, detail="Adjustment movement not found")
@@ -175,13 +176,14 @@ def profit_items_adjustment_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     service.update_adjustment_movement(movement_id=movement_id, unit_cost=float(unit_cost))
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -212,8 +214,9 @@ def profit_items_transfer_in_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "transfer_in":
         raise HTTPException(status_code=404, detail="Transfer movement not found")
@@ -247,8 +250,9 @@ def profit_items_transfer_in_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     mv = db.get(InventoryMovement, movement_id)
@@ -264,7 +268,7 @@ def profit_items_transfer_in_update(
         movement_date=mv.movement_date,
         note=mv.note,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -295,8 +299,9 @@ def profit_items_sale_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "sale":
         raise HTTPException(status_code=404, detail="Sale movement not found")
@@ -336,8 +341,9 @@ def profit_items_sale_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)
     result = service.update_sale(
@@ -348,7 +354,7 @@ def profit_items_sale_update(
         movement_date=parse_dt(movement_date),
         note=note or None,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -379,11 +385,12 @@ def profit_items_sale_delete(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     service.delete_sale_movement(movement_id)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -407,10 +414,11 @@ def profit_items_sale_delete_selected(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     ids: list[int] = []
     seen: set[int] = set()
@@ -486,8 +494,9 @@ def profit_items_purchase_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     mv = db.get(InventoryMovement, movement_id)
     if mv is None or mv.type != "purchase":
         raise HTTPException(status_code=404, detail="Purchase movement not found")
@@ -530,8 +539,9 @@ def profit_items_purchase_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)
     result = service.update_purchase(
@@ -543,7 +553,7 @@ def profit_items_purchase_update(
         lot_code=lot_code or None,
         note=note or None,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
