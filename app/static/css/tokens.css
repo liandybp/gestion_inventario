@@ -29,7 +29,10 @@
   --chart-slice-border: #ffffff;
   --chart-label-stroke: rgba(15, 23, 42, 0.6);
   --chart-label-fill: #ffffff;
-  /* Gráficos de Inicio (iguales en los dos temas): */
+  /* Texto y líneas de ejes/leyendas de todos los gráficos (Chart.defaults.color/borderColor): */
+  --chart-text: #666;
+  --chart-border: rgba(0, 0, 0, 0.1);
+  /* Gráficos de Inicio: */
   --home-chart-sales: rgba(11,45,66,0.85);
   --home-chart-purchases: rgba(203, 58, 66, 0.75);
   --home-chart-profit: rgba(16, 185, 129, 0.75);
@@ -73,4 +76,11 @@
   --chart-8: initial;
   --chart-accent: #93c5fd;
   --chart-accent-fill: rgba(147, 197, 253, 0.12);
+  --chart-grid: rgba(148, 163, 184, 0.15);
+  --chart-text: #cbd5e1;
+  --chart-border: rgba(148, 163, 184, 0.2);
+  /* Inicio: el navy de la serie de ventas no se distingue del fondo oscuro. */
+  --home-chart-sales: rgba(96, 165, 250, 0.85);
+  --home-chart-line-fill: rgba(96, 165, 250, 0.15);
+  --home-pie-1: rgba(147, 197, 253, 0.85);
 }

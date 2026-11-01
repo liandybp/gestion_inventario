@@ -2,7 +2,7 @@
 // pastel de ventas por artículo. Los datos llegan en <script type="application/json">.
 // Chart.js es un script clásico del <head>: ya está cargado cuando se ejecutan los módulos.
 import { onContent } from '../core/content.js';
-import { cssList, cssVar, THEME_EVENT } from './chart-palette.js';
+import { applyChartDefaults, cssList, cssVar, THEME_EVENT } from './chart-palette.js';
 
 const charts = { monthly: null, dailyLine: null, pie: null };
 
@@ -27,6 +27,7 @@ function replaceChart(key, canvas, config) {
   if (charts[key]) {
     try { charts[key].destroy(); } catch (e) {}
   }
+  applyChartDefaults();
   charts[key] = new window.Chart(canvas.getContext('2d'), config);
 }
 
