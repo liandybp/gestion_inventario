@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import CashBaseline
-from app.routers.ui_common import ensure_admin, templates
+from app.routers.ui_common import templates
+from app.routers.ui_context import UIContext, ui_context
 from app.schemas import CashBaselineCreate, CoachActionUpdate
-from app.security import get_current_user_from_session, require_active_business_id
 from app.services.coach_service import CoachService
 
 # Sin prefix: main.py registra este router con prefix="/ui" (igual que el resto).
@@ -20,8 +20,9 @@ router = APIRouter(tags=["ui-coach"])
 
 @router.get("/tabs/coach", response_class=HTMLResponse)
 def tab_coach(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    business_id = ctx.business_id
     service = CoachService(db, business_id)
     report = service.health_score()
     recommendations = service.recommendations()
@@ -38,8 +39,9 @@ def set_cash_baseline(
     amount: float = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    business_id = ctx.business_id
     try:
         payload = CashBaselineCreate(
             baseline_date=datetime.fromisoformat(baseline_date), amount=amount
@@ -49,7 +51,7 @@ def set_cash_baseline(
         raise HTTPException(status_code=422, detail=detail) from e
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     row = CashBaseline(
         business_id=business_id,
         baseline_date=payload.baseline_date,
@@ -74,14 +76,15 @@ def update_action(
     status: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    business_id = ctx.business_id
     try:
         payload = CoachActionUpdate(rule_key=rule_key, status=status)
     except ValidationError as e:
         detail = "; ".join(err["msg"] for err in e.errors())
         raise HTTPException(status_code=422, detail=detail) from e
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     CoachService(db, business_id).mark_action(payload.rule_key, payload.status, user.id if user else 0)
     service = CoachService(db, business_id)
     report = service.health_score()

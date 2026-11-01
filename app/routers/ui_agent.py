@@ -13,8 +13,9 @@ from app.agent import chat_store
 from app.agent import runner
 from app.agent import widgets as widget_store
 from app.deps import session_dep
-from app.routers.ui_common import ensure_admin_or_owner, templates
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.routers.ui_common import templates
+from app.routers.ui_context import UIContext, ui_context
+from app.security import get_active_business_code
 from app.settings import AGENT_RATE_LIMIT, AGENT_RATE_WINDOW
 
 # Sin prefix: main.py registra este router con prefix="/ui" (igual que los demás
@@ -49,8 +50,9 @@ def tab_agent(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     # GETs enforce admin/owner too (G5/D5): the Copiloto tab shows financial
     # widgets and the sidebar only exposes it to admin/owner, so a direct URL
     # must not let an operator read them.
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
         request, "partials/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
@@ -60,8 +62,9 @@ def tab_agent(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
 @router.get("/agent/messages", response_class=HTMLResponse)
 def messages_view(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     """Historial de la conversación del copiloto (por negocio)."""
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     messages = chat_store.list_messages(db, business_id)
     return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
 
@@ -69,8 +72,9 @@ def messages_view(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 @router.post("/agent/conversation/clear", response_class=HTMLResponse)
 def clear_conversation(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     """Empezar una nueva conversación: borra el historial del negocio (no los widgets)."""
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     chat_store.clear_messages(db, business_id)
     messages = chat_store.list_messages(db, business_id)  # queda vacío
     return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
@@ -78,10 +82,11 @@ def clear_conversation(request: Request, db: Session = Depends(session_dep)) -> 
 
 @router.post("/agent/chat", response_class=HTMLResponse)
 async def chat(request: Request, message: str = Form(...), db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     rate_key = user.username if user is not None else (request.client.host if request.client else "unknown")
     currency_symbol = _currency_symbol(db, request)
 
@@ -140,8 +145,9 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
 
 @router.post("/agent/widget/{widget_id}/delete", response_class=HTMLResponse)
 def delete(request: Request, widget_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widget_store.delete_widget(db, business_id, widget_id)
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
@@ -151,7 +157,8 @@ def delete(request: Request, widget_id: int, db: Session = Depends(session_dep))
 
 @router.get("/agent/widgets", response_class=HTMLResponse)
 def widgets_view(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(request, "partials/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)})
