@@ -4,6 +4,15 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- fix(ui): contraste de los gráficos en tema oscuro. La serie de ventas de Inicio (navy) no se distinguía
+  del fondo y los textos y líneas de ejes usaban los valores fijos de Chart.js (`#666`, `rgba(0,0,0,0.1)`).
+  Nuevas variables `--chart-text`/`--chart-border` (en claro, los mismos valores de antes) que
+  `applyChartDefaults()` aplica a `Chart.defaults` antes de cada render, y versión oscura de
+  `--home-chart-sales`, `--home-chart-line-fill`, `--home-pie-1` y `--chart-grid`. +1 e2e.
+- fix(ui): Escape cierra el modal de más arriba, salvo los estáticos (cambio de contraseña obligatorio). +1 e2e.
+- test(snapshots): el arnés congela el reloj de Inicio; la baseline dejaba de valer al cambiar de mes y tumbó
+  el CI del 2026-11-01.
+
 - feat(agent): nueva tool `sales_by_location_monthly` — ventas de cada punto de venta mes a mes
   (una serie por ubicación, últimos N meses calendario incluyendo el actual). El copiloto ya puede
   dibujar barras agrupadas por mes (antes devolvía el total del período, sin meses). 34 tools.

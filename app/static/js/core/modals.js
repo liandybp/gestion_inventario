@@ -1,4 +1,4 @@
-// Modales: cierre por botón [data-modal-close], por clic en el overlay (salvo
+// Modales: cierre por botón [data-modal-close], por clic en el overlay o Escape (salvo
 // data-modal-static="1") y automático tras una petición correcta desde dentro del modal.
 // También [data-clear-target]: vacía el elemento indicado.
 function closeModal(modalId) {
@@ -21,6 +21,16 @@ function onModalOverlayClick(evt) {
     const modalId = evt.target.closest('[id]')?.id;
     if (modalId) closeModal(modalId);
   }
+}
+
+// Escape cierra el modal de más arriba (el último del DOM), con la misma excepción que el overlay.
+function onEscape(evt) {
+  if (evt.key !== 'Escape') return;
+  const overlays = document.querySelectorAll('.modal-overlay');
+  const top = overlays[overlays.length - 1];
+  if (!top || top.getAttribute('data-modal-static') === '1') return;
+  evt.preventDefault();
+  top.remove();
 }
 
 function onClearClick(evt) {
@@ -61,5 +71,6 @@ export function init() {
   document.addEventListener('click', onClearClick);
   document.addEventListener('click', onModalClose);
   document.addEventListener('click', onModalOverlayClick);
+  document.addEventListener('keydown', onEscape);
   document.addEventListener('htmx:afterRequest', onAfterRequest);
 }

@@ -4,7 +4,7 @@
 // htmx 1.9 emite htmx:afterSwap también sobre cada elemento OOB, así que core/content.js
 // los recibe como `root`.
 import { onContent } from '../core/content.js';
-import { cssList, cssVar, THEME_EVENT } from './chart-palette.js';
+import { applyChartDefaults, cssList, cssVar, THEME_EVENT } from './chart-palette.js';
 
 // Dibuja el porcentaje sobre cada porción de pie/doughnut.
 const percentPlugin = {
@@ -109,6 +109,7 @@ function renderWidgetCharts(root) {
   if (!window.Chart || !root || typeof root.querySelectorAll !== 'function') return;
   const canvases = Array.from(root.querySelectorAll('canvas[data-js-widget-chart]'));
   if (root.matches && root.matches('canvas[data-js-widget-chart]')) canvases.push(root);
+  applyChartDefaults();
   canvases.forEach((el) => {
     let spec;
     try {

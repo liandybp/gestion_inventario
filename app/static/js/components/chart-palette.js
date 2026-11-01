@@ -20,4 +20,11 @@ export function cssList(prefix) {
   return out;
 }
 
+// Texto y líneas de ejes/leyendas del tema actual; llamar antes de crear cada gráfico.
+export function applyChartDefaults() {
+  if (!window.Chart) return;
+  window.Chart.defaults.color = cssVar('--chart-text');
+  window.Chart.defaults.borderColor = cssVar('--chart-border');
+}
+
 export const THEME_EVENT = 'gi:themechange';

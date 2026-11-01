@@ -78,6 +78,44 @@ def test_theme_toggle_without_reload(tour_server, page: Page, js_errors: list[st
     assert js_errors == []
 
 
+def test_home_charts_follow_dark_theme(tour_server, page: Page, js_errors: list[str]) -> None:
+    # En oscuro la serie de ventas, el texto de los ejes y la rejilla cambian (antes navy sobre fondo
+    # oscuro y textos #666); en claro siguen los valores de siempre.
+    base_url, _ = tour_server
+    login(page, base_url)
+    chart = "window.Chart.getChart(document.getElementById('monthly-chart'))"
+    page.wait_for_function(f"() => window.Chart && !!{chart}")
+    state = (f"() => {{ const c = {chart}; return {{sales: c.data.datasets[0].backgroundColor,"
+             f" ticks: c.options.scales.x.ticks.color, grid: c.options.scales.y.grid.color}}; }}")
+    light = {"sales": "rgba(11,45,66,0.85)", "ticks": "#666", "grid": "rgba(0, 0, 0, 0.1)"}
+    assert page.evaluate(state) == light
+    page.click("[data-js-theme-toggle]")
+    page.wait_for_function(f"() => {chart}.data.datasets[0].backgroundColor === 'rgba(96, 165, 250, 0.85)'")
+    assert page.evaluate(state) == {"sales": "rgba(96, 165, 250, 0.85)", "ticks": "#cbd5e1",
+                                    "grid": "rgba(148, 163, 184, 0.2)"}
+    page.click("[data-js-theme-toggle]")
+    page.wait_for_function(f"() => {chart}.data.datasets[0].backgroundColor === 'rgba(11,45,66,0.85)'")
+    assert page.evaluate(state) == light
+    assert js_errors == []
+
+
+def test_escape_closes_top_modal_except_static(tour_server, page: Page, js_errors: list[str]) -> None:
+    base_url, _ = tour_server
+    login(page, base_url)
+    open_tab(page, "inventory")
+    page.click('#tab-content [hx-get$="/edit-inventory"] >> nth=0')
+    modal = page.locator("#product-inventory-edit-modal")
+    expect(modal).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(modal).to_have_count(0)
+    # Un modal estático (cambio de contraseña obligatorio) no se cierra con Escape.
+    page.evaluate("""() => document.body.insertAdjacentHTML('beforeend',
+        '<div class="modal-overlay" id="static-modal" data-modal-static="1"><div class="modal-container"></div></div>')""")
+    page.keyboard.press("Escape")
+    expect(page.locator("#static-modal")).to_have_count(1)
+    assert js_errors == []
+
+
 def test_business_select_submits_on_change(tour_server, page: Page, js_errors: list[str]) -> None:
     base_url, _ = tour_server
     login(page, base_url)
