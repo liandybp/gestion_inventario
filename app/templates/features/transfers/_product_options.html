@@ -1,0 +1,9 @@
+{% for p in product_options %}
+  {% set sku = (p.sku or '') %}
+  {% set name = (p.name or '') %}
+  {% if sku %}
+  <option value="{{ sku }}{% if name %} - {{ name }}{% endif %}"></option>
+  <option value="{{ sku }}"></option>
+  {% if name %}<option value="{{ name }}"></option>{% endif %}
+  {% endif %}
+{% endfor %}

@@ -2,7 +2,6 @@ from __future__ import annotations
 from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
-from html import escape
 import re
 from typing import Optional
 
@@ -661,18 +660,11 @@ def transfer_product_options(
         for p in service.stock_list(query="", location_code=from_code)
         if float(getattr(p, "quantity", 0) or 0) > 0
     ]
-    parts: list[str] = []
-    for p in options:
-        sku = str(getattr(p, "sku", "") or "")
-        name = str(getattr(p, "name", "") or "")
-        if not sku:
-            continue
-        label = f"{sku} - {name}" if name else sku
-        parts.append(f'<option value="{escape(label)}"></option>')
-        parts.append(f'<option value="{escape(sku)}"></option>')
-        if name:
-            parts.append(f'<option value="{escape(name)}"></option>')
-    return HTMLResponse("\n".join(parts))
+    return templates.TemplateResponse(
+        request=request,
+        name="features/transfers/_product_options.html",
+        context={"product_options": options},
+    )
 
 
 @router.get("/transfers/stock/{sku}", response_class=HTMLResponse)

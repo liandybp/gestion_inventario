@@ -472,8 +472,10 @@ def sales_doc_product_defaults(
 
     p = ProductService(db, business_id=bid).get_by_sku(sku)
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
-    return HTMLResponse(
-        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{html.escape(price)}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/_product_defaults_oob.html",
+        context={"price": price},
     )
 
 
@@ -503,10 +505,10 @@ def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Ses
     if customer is None:
         return HTMLResponse("")
 
-    addr = (customer.address or "")
-    return HTMLResponse(
-        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{html.escape(str(customer.client_id or ''))}' required />"
-        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{html.escape(addr)}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/_customer_defaults_oob.html",
+        context={"client_id": str(customer.client_id or ""), "client_address": customer.address or ""},
     )
 
 

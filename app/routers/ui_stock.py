@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html as _html
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -352,31 +351,20 @@ def ui_supplier_return_lots(
     sku_clean = (sku or "").strip()
     loc = (location_code or "").strip() or None
     if not sku_clean:
-        return HTMLResponse("<select name='lot_id' disabled><option value=''>-- Ingrese SKU --</option></select>")
-
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "empty"})
     try:
         lots = service.available_lots(sku_clean, location_code=loc)
     except Exception as e:
         _log.exception("available_lots fallback en ui_supplier_return_lots: %s", e)
-        error_msg = _html.escape(str(e)[:50]) if str(e) else "Error"
-        return HTMLResponse(f"<select name='lot_id' disabled><option value=''>Error: {error_msg}</option></select>")
-
+        error_msg = str(e)[:50] if str(e) else "Error"
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "error", "error_msg": error_msg})
     if not lots:
-        return HTMLResponse("<select name='lot_id' disabled><option value=''>Sin lotes en esta ubicación</option></select>")
-
-    parts: list[str] = ["<select name='lot_id' required>"]
-    parts.append("<option value=''>-- Selecciona lote --</option>")
-    for lot in lots:
-        parts.append(
-            "<option value='{}'>{} | disp={} | costo={}</option>".format(
-                int(lot.id),
-                _html.escape(str(lot.lot_code or "")),
-                float(lot.qty_remaining or 0),
-                float(lot.unit_cost or 0),
-            )
-        )
-    parts.append("</select>")
-    return HTMLResponse("".join(parts))
+        return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                          context={"state": "none"})
+    return templates.TemplateResponse(request=request, name="features/stock/_supplier_return_lots.html",
+                                      context={"state": "list", "lots": lots})
 
 
 @router.get("/restock-table", response_class=HTMLResponse)
