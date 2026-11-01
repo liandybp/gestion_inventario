@@ -16,12 +16,13 @@ from app.audit import log_event
 from app.deps import session_dep
 from app.logger import get_logger
 from app.schemas import TransferCreate, TransferLineCreate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.security import get_active_business_code, get_current_user_from_session
 from app.services.inventory_service import InventoryService
 from app.models import InventoryMovement, Product
 from app.settings import is_desktop
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, extract_sku, month_range, parse_dt, templates
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _location_id_for_code
 from app.utils import query_match
 
@@ -97,8 +98,9 @@ def transfer_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     out_id = service._transfer_out_id_for_movement_id(movement_id)
     mv = db.get(InventoryMovement, out_id)
@@ -136,8 +138,9 @@ def transfer_update(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     config = get_active_business_config(db, request)
     pos_locations = [
@@ -234,7 +237,7 @@ def transfer_update(
             movement_date=parse_dt(movement_date),
             note=note or None,
         )
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -284,8 +287,9 @@ def transfer_delete_selected(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     config = get_active_business_config(db, request)
@@ -302,7 +306,7 @@ def transfer_delete_selected(
     from_code = default_from_location_code
     to_code = default_to_location_code
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if not movement_ids:
         recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
@@ -402,8 +406,9 @@ def transfer_delete(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     config = get_active_business_config(db, request)
     pos_locations = [
@@ -435,7 +440,7 @@ def transfer_delete(
     try:
         service.delete_transfer_shipment(movement_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -496,8 +501,9 @@ def transfer_delete(
 async def create_transfer(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     config = get_active_business_config(db, request)
@@ -528,7 +534,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
 
     movement_date = parse_dt(movement_date_raw) if movement_date_raw else None
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     try:
         if user is not None:
@@ -644,8 +650,9 @@ def transfer_product_options(
     db: Session = Depends(session_dep),
     from_location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     cfg = get_active_business_config(db, request)
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
@@ -675,8 +682,9 @@ async def get_transfer_stock(
     db: Session = Depends(session_dep),
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     try:
@@ -697,8 +705,9 @@ def transfer_print(
     ref: str = "",
     movement_id: int = 0,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     cfg = get_active_business_config(db, request)
 
@@ -798,8 +807,9 @@ def transfer_bulk_modal(
     from_date: str = "",
     to_date: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     cfg = get_active_business_config(db, request)
 
@@ -891,8 +901,9 @@ async def transfer_bulk_execute(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     cfg = get_active_business_config(db, request)
 
@@ -915,7 +926,7 @@ async def transfer_bulk_execute(
     except ValueError:
         movement_date = None
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     def _modal_response(message: str, message_class: str, message_detail: str,
                         checked_skus: set, quantities_map: dict, keep_open: bool) -> HTMLResponse:
@@ -1002,9 +1013,10 @@ def tab_transfers(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
 
     inventory_service = InventoryService(db, business_id=bid)
     business_code = get_active_business_code(db, request)
