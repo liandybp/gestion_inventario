@@ -283,7 +283,8 @@ def capture() -> dict[str, str]:
                                                          "product": "SNAP-1", "quantity": "9999"})
         out["post_purchase_new_product"] = _request(client, "post_purchase_new_product", "POST", "/ui/purchase",
                                                     data={"product": "SNAP-NEW", "product_name": "Producto Nuevo",
-                                                          "quantity": "1", "unit_cost": "5.0"})
+                                                          "quantity": "1", "unit_cost": "5.0",
+                                                          "movement_date": "2026-10-24T12:00"})
         out["post_sale_ok"] = _request(client, "post_sale_ok", "POST", "/ui/sale",
                                        data={"product": "SNAP-1", "quantity": "1", "unit_price": "2.0",
                                              "location_code": ids["pos_code"]})
