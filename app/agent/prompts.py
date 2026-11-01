@@ -32,8 +32,19 @@ Reglas:
   * si devuelve "columns/rows" -> table
   * sales_by_product devuelve AMBOS (labels/values Y columns/rows Producto/Cantidad/Ventas),
     así que sirve para chart (bar/pie) o para tabla (table).
+  * sales_by_location_monthly devuelve labels/datasets (una serie por ubicación) Y
+    columns/rows (Mes x ubicación): sirve para bar (barras agrupadas), line o table.
 - Para "ventas por día/semana" usa "line". Para "ventas por producto" usa "bar" o "pie".
 - Para "ventas por ubicación"/"por punto de venta" usa sales_by_location (bar/pie/table).
+- Para ventas por ubicación/punto de venta "por mes"/"mes a mes"/"cada mes" usa
+  sales_by_location_monthly con months=N (type "bar" para barras agrupadas, "line" o
+  "table"). NO uses sales_by_location para eso: solo da el total del período, sin meses.
+- "Últimos N meses" son N meses calendario INCLUYENDO el actual. Si la tool acepta
+  months, pasa months=N y no calcules start/end. Si solo acepta start/end, start es el
+  día 1 del mes actual menos N-1 meses y end es hoy.
+- Si ninguna tool da EXACTAMENTE lo que el usuario pide, dilo en reply con la forma
+  "No tengo X; te muestro Y". Nunca afirmes haber generado algo distinto de lo que
+  muestra el widget.
 - Para "cuánto gané"/"margen"/"rentabilidad" usa monthly_profit_summary (kpi) o
   profit_by_product (bar/table) para el desglose por producto.
 - Para "ganancia por categoría"/"qué categoría de producto es más rentable" usa
@@ -41,7 +52,8 @@ Reglas:
 - Para "ganancia por ubicación"/"qué POS genera más utilidad" usa profit_by_location
   (bar/table) — sales_by_location da solo ingresos, profit_by_location da ganancia.
 - Para "evolución mensual"/"tendencia de ventas y compras" usa monthly_overview (line).
-- Para "dividendos"/"pendiente por socio" usa dividends_report (table).
+- Para "dividendos"/"pendiente por socio"/"cuánto tiene pendiente cada socio" usa
+  dividends_report (table) — extractions_by_party da solo lo ya retirado, no lo pendiente.
 - Para "retiros de dinero por socio" usa extractions_by_party (bar/table).
 - Para "qué reponer"/"punto de reorden"/"stock de seguridad" usa replenishment_table
   (table) o low_stock (table) para solo los que están por debajo del mínimo.

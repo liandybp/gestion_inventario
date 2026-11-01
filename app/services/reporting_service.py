@@ -18,6 +18,9 @@ from app.models import (
 from app.repositories.business_repository import get_business_config
 from app.utils import month_range as utils_month_range
 
+# Ventana máxima (meses) de sales_by_location_monthly: acota lo que pida el LLM.
+_MAX_MONTHS_WINDOW = 24
+
 
 class ReportingService:
     """Series temporales mensuales para reportes (gastos y compras por mes)."""
@@ -90,6 +93,52 @@ class ReportingService:
             key = dt.strftime("%Y-%m")
             by_month[key] = by_month.get(key, 0.0) + float(qty or 0) * float(cost or 0)
         return [{"month": k, "total": by_month.get(k, 0.0)} for k in keys]
+
+    def sales_by_location_monthly(self, months: int = 6) -> dict:
+        """Ventas (importe) por ubicación y por mes en N meses calendario incluyendo el actual.
+
+        Devuelve {"months": ["YYYY-MM", ...], "series": [{"location": str, "values": [float, ...]}]}.
+        Solo ubicaciones con al menos una venta en la ventana, ordenadas por position y nombre.
+        """
+        months = max(1, min(int(months), _MAX_MONTHS_WINDOW))
+        start, keys = self._month_series(months)
+        location_expr = func.coalesce(Location.name, Location.code, "Sin ubicación")
+        rows = self._db.execute(
+            select(
+                InventoryMovement.movement_date,
+                InventoryMovement.location_id,
+                location_expr,
+                func.coalesce(Location.position, 9999),
+                func.abs(InventoryMovement.quantity) * func.coalesce(InventoryMovement.unit_price, 0),
+            )
+            .select_from(InventoryMovement)
+            .outerjoin(Location, Location.id == InventoryMovement.location_id)
+            .where(
+                InventoryMovement.business_id == self._business_id,
+                InventoryMovement.type == "sale",
+                InventoryMovement.movement_date >= start,
+            )
+        ).all()
+        valid = set(keys)
+        # Clave = id de ubicación (None = venta sin ubicación): dos ubicaciones con el mismo
+        # nombre son dos series distintas.
+        by_location: dict[Optional[int], dict[str, float]] = {}
+        meta: dict[Optional[int], tuple[int, str]] = {}
+        for dt, loc_id, name, position, amount in rows:
+            key = dt.strftime("%Y-%m")
+            if key not in valid:
+                continue
+            bucket = by_location.setdefault(loc_id, {})
+            bucket[key] = bucket.get(key, 0.0) + float(amount or 0)
+            meta[loc_id] = (int(position), name)
+        ids = sorted(by_location, key=lambda i: (meta[i][0], meta[i][1], i or 0))
+        return {
+            "months": keys,
+            "series": [
+                {"location": meta[i][1], "values": [round(by_location[i].get(k, 0.0), 2) for k in keys]}
+                for i in ids
+            ],
+        }
 
     def sales_by_product(self, start: datetime, end: datetime, location_id: Optional[int] = None) -> tuple[float, list[dict]]:
         rows = self._db.execute(

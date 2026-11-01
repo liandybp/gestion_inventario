@@ -1,0 +1,56 @@
+<div class="modal-overlay" id="profit-items-adjustment-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar ajuste (costo)
+</h3>
+<button class="modal-close" data-modal-close="profit-items-adjustment-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/tabs/profit-items/adjustment/5/update" hx-swap="innerHTML" hx-target="#tab-content">
+<input name="query" type="hidden" value="">
+<input name="start_date" type="hidden" value="">
+<input name="end_date" type="hidden" value="">
+<input name="location_code" type="hidden" value="">
+<div class="row">
+<label>
+Artículo
+</label>
+<input disabled value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input name="quantity" readonly step="0.0001" type="number" value="2">
+</div>
+<div class="row">
+<label>
+Costo unitario
+</label>
+<input min="0" name="unit_cost" required step="0.0001" type="number" value="1">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" readonly type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" readonly value="Nota ajuste <b>"H"</b> & 'co'">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="profit-items-adjustment-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

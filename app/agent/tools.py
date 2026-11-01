@@ -251,6 +251,24 @@ def sales_by_location(service: InventoryService, args: dict) -> dict:
     }
 
 
+@tool("sales_by_location_monthly",
+      "Ventas de cada ubicación/punto de venta mes a mes, una serie por ubicación (months opcional, "
+      "default 6, máx 24: últimos N meses calendario incluyendo el actual). Para barras agrupadas por mes.",
+      {"type": "object", "properties": {"months": {"type": "integer"}}})
+def sales_by_location_monthly(service: InventoryService, args: dict) -> dict:
+    reporting = ReportingService(service.db, service.business_id)
+    months = args.get("months")
+    # Solo la ausencia usa el default; 0 o 500 los acota el servicio a 1..24 (REQ-2).
+    data = reporting.sales_by_location_monthly(months=6 if months is None else int(months))
+    series = data["series"]
+    return {
+        "labels": data["months"],
+        "datasets": [{"label": s["location"], "data": s["values"]} for s in series],
+        "columns": ["Mes"] + [s["location"] for s in series],
+        "rows": [[m] + [s["values"][i] for s in series] for i, m in enumerate(data["months"])],
+    }
+
+
 @tool("stock_list", "Lista de stock con flag de reposición (query opcional).",
       {"type": "object", "properties": {"query": {"type": "string"}}})
 def stock_list(service: InventoryService, args: dict) -> dict:

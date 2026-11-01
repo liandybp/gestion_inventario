@@ -1,0 +1,26 @@
+# Diferencias intencionadas de la fase 3 (REQ-6): en tema oscuro el badge de reposición de Inicio usa los tokens
+# --badge-info-bg / --badge-info-text (antes #eef6ff / #0b2d42 fijos; el borde sigue a color).
+# Formato: captura<TAB>clave<TAB>propiedad. Las miniaturas no aparecen: la siembra no tiene imágenes.
+dark/tab-home	div#restock>div:2>span	background-color
+dark/tab-home	div#restock>div:2>span	border-bottom-color
+dark/tab-home	div#restock>div:2>span	border-left-color
+dark/tab-home	div#restock>div:2>span	border-right-color
+dark/tab-home	div#restock>div:2>span	border-top-color
+dark/tab-home	div#restock>div:2>span	color
+
+# Códigos de barras (fase 3, T30): JsBarcode escribía style="transform: translate(0,0)" en el <svg> (la CSP lo
+# bloquea); barcode-svg.js no lo pone. matrix(1, 0, 0, 1, 0, 0) -> none: misma identidad, sin efecto visual.
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+light/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+light/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+light/label	div#sheet>div>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+dark/tab-purchases	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:1>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:2>td:10>div>svg	transform
+dark/modal-purchase-edit-modal	div#purchases-history>form>div:2>table>tbody>tr:3>td:10>div>svg	transform
+dark/label	div#sheet>div>div>svg	transform

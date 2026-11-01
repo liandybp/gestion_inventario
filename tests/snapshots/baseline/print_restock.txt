@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Artículos a reponer - Vista General
+</title>
+</head>
+<body>
+<div class="toolbar">
+<button type="button">
+Imprimir
+</button>
+<div class="muted">
+Vista General
+</div>
+</div>
+<h1>
+Artículos a reponer
+</h1>
+<div class="meta">
+<div>
+<strong>
+Ubicación:
+</strong>
+Vista General
+</div>
+<div>
+<strong>
+Generado:
+</strong>
+<DT>
+</div>
+</div>
+<div class="flex gap-12 items-baseline justify-between">
+<div>
+<h3>
+Artículos a reponer (Vista General)
+</h3>
+<p class="muted">
+Stock actual por debajo del punto de reorden (ROP).
+</p>
+</div>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+SKU
+</th>
+<th>
+Nombre
+</th>
+<th>
+Unidad
+</th>
+<th>
+Stock
+</th>
+<th>
+Precio referencia
+</th>
+<th>
+ROP
+</th>
+<th>
+Falta
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted" colspan="7">
+Sin alertas por ahora.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>

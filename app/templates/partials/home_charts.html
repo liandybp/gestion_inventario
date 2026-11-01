@@ -27,12 +27,10 @@
       <div class="chart-box chart-box-tall">
         <canvas id="monthly-sales-daily-line" class="w-full h-full"></canvas>
       </div>
-      <script type="application/json" id="monthly-sales-daily-line-data">{{ monthly_sales_daily_line_json | safe }}</script>
-      <div id="monthly-sales-daily-line-debug" class="muted mt-8"></div>
+      <script type="application/json" id="monthly-sales-daily-line-data">{{ monthly_sales_daily_line_data | tojson }}</script>
     </div>
   </div>
-  <script type="application/json" id="monthly-sales-pie-data">{{ monthly_sales_pie_json | safe }}</script>
-  <div id="monthly-sales-pie-debug" class="muted mt-8"></div>
+  <script type="application/json" id="monthly-sales-pie-data">{{ monthly_sales_pie_data | tojson }}</script>
 {% endcall %}
 
 <div class="card mt-16">
@@ -75,8 +73,7 @@
 
 {% call chart_card('Resumen mensual', 'Ventas, compras y utilidad bruta por mes (últimos 12 meses).') %}
   <canvas id="monthly-chart" height="120"></canvas>
-  <script type="application/json" id="monthly-chart-data">{{ monthly_chart_json | safe }}</script>
-  <div id="monthly-chart-debug" class="muted mt-8"></div>
+  <script type="application/json" id="monthly-chart-data">{{ monthly_chart_data | tojson }}</script>
 {% endcall %}
 
 <div class="card mt-16" id="restock"

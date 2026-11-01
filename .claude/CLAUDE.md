@@ -1,6 +1,6 @@
 # gestion_inventario
 
-> Contexto de proyecto para OpenCode + Qwen3.6-35B-A3B
+> Contexto de proyecto para cc_local (Claude Code + Qwen3.6-35B-A3B)
 > Generado desde: ~/obsidian-lab/Templates/template-claude-md.md
 > Leer completo antes de tocar cualquier archivo.
 
@@ -257,12 +257,14 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        385 unit (SQLite en memoria) + 43 e2e (Playwright), todos verdes
+Tests:        465 unit (SQLite en memoria) + 82 e2e (Playwright, fixture js_errors autouse) + 40 snapshots
+              (tests/snapshots/ui_snapshot.py), todos verdes; arnés de estilos calculados
+              tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
               /sync/{register,push,conflicts} (offline-desktop-sync)
-              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach + sync banner
+              UI HTMX: dashboard completo + copiloto IA (34 tools) + tab Coach + sync banner
               + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
               + creación de producto solo desde "Registrar compra" con precio de venta opcional (v0.4.11)
               + GET /ui/product-suggest (sugerencias dinámicas al teclear, v0.4.12; NO en Ventas ni
@@ -330,6 +332,19 @@ precisión de minuto. Corregido con milisegundos, **acotado a `ui_sales.py` +
 (sin el fix) sigue en uso por compras/traspasos/gastos/extracciones/dividendos, con
 el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesión).
 
+**PAE-015 implementado (2026-10-24, rama `feature/frontend-modular`):** tool `sales_by_location_monthly`
+(34 tools), gráfico multi-serie en `app/static/js/components/widget-chart.js` (solo bar/line), reglas de prompt,
+título del widget de rescate y aviso de fallo. Re-auditoría 4.70 🟢. **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
+
+**Release 0.5.0 (frontend modular), fases 1-3 cerradas en `feature/frontend-modular` (sin push):**
+- El JS vive en módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`).
+- El CSS vive en `app/static/css/`: `tokens.css` (colores, temas), `utilities.css` (utilidades compartidas),
+  `app.css`, `login.css`, `print.css` y `label-print.css`. CSP `style-src 'self'`.
+- En las plantillas no se añaden `<script>` inline, `on*=`, `style=`, `<style>` ni colores hex: lo rechazan
+  `tests/unit/test_frontend_js_modules.py`, `tests/unit/test_frontend_css.py` y la CSP.
+- Las violaciones de CSP en producción quedan en el log (`WARNING csp_violation`, `app/routers/csp_report.py`).
+- Fase 3: re-auditoría 4.90 🟢 (`docs/auditorias/2026-10-24-frontend-fase3-css-csp-reaudit.md`).
+
 **Otros pendientes acumulados de sesiones previas:** fix estructural de SKU único
 compuesto `(business_id, sku)` pospuesto por decisión explícita del usuario; verde
 definitivo del copiloto (≥4.2, timeout global del agente); `.conf` legacy sin
@@ -338,7 +353,7 @@ healthcheck corregido esta sesión — `Dockerfile` ya copia `VERSION`).
 
 ---
 
-## Reglas operacionales para OpenCode
+## Reglas operacionales para cc_local
 
 - **Scope**: solo tocar archivos listados en el PAE activo (sección 3.2).
 - **Archivos nuevos**: reportar nombre y ubicación antes de crear.

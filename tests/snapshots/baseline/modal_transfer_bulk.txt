@@ -1,0 +1,107 @@
+<div class="modal-overlay" id="transfer-bulk-modal">
+<div class="modal-container modal-container-760">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Traspaso masivo
+</h3>
+<button class="modal-close" data-modal-close="transfer-bulk-modal" type="button">
+×
+</button>
+</div>
+<p class="muted">
+Origen:
+<strong>
+Almacén Central
+</strong>
+→ Destino:
+<strong>
+Punto de venta Playa
+</strong>
+</p>
+<div class="row">
+<label>
+Buscar
+</label>
+<input id="transfer-bulk-search" placeholder="Filtrar por SKU o nombre" type="text">
+</div>
+<form hx-indicator="#transfer-bulk-loading" hx-post="/ui/transfers/bulk" hx-swap="outerHTML" hx-target="#transfer-bulk-modal">
+<input name="from_location_code" type="hidden" value="CENTRAL">
+<input name="to_location_code" type="hidden" value="POS1">
+<input name="note" type="hidden" value="">
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" type="datetime-local" value="">
+</div>
+<div class="row">
+<label>
+Traspasados entre
+</label>
+<div class="flex gap-10 items-center">
+<input hx-get="/ui/transfers/bulk" hx-include="closest form" hx-swap="outerHTML" hx-target="#transfer-bulk-modal" hx-trigger="change" name="from_date" type="date" value="">
+<span class="muted">
+y
+</span>
+<input hx-get="/ui/transfers/bulk" hx-include="closest form" hx-swap="outerHTML" hx-target="#transfer-bulk-modal" hx-trigger="change" name="to_date" type="date" value="">
+</div>
+</div>
+<div class="scroll-48vh table-wrapper">
+<table class="table-compact transfer-bulk-table">
+<thead>
+<tr>
+<th class="w-3p">
+<input aria-label="Seleccionar todo" id="transfer-bulk-select-all" type="checkbox">
+</th>
+<th>
+Producto
+</th>
+<th class="text-right w-120px">
+Stock
+</th>
+<th class="text-right w-150px">
+Cantidad
+</th>
+</tr>
+</thead>
+<tbody>
+<tr class="transfer-bulk-row" data-search="snap-1 producto snapshot <b>"h"</b> & 'co'">
+<td>
+<input class="transfer-bulk-check" type="checkbox">
+</td>
+<td>
+<code>
+SNAP-1
+</code>
+Producto Snapshot <b>"H"</b> & 'co'
+<span class="muted">
+(ud)
+</span>
+</td>
+<td class="nowrap text-right">
+9.00
+</td>
+<td class="text-right">
+<input disabled name="product" type="hidden" value="SNAP-1">
+<input disabled min="0" name="quantity" step="0.01" type="number" value="9.0">
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex gap-10 items-center mt-12">
+<button class="mb-0" type="submit">
+Traspasar
+</button>
+<button class="btn-secondary mb-0" data-modal-close="transfer-bulk-modal" type="button">
+Cancelar
+</button>
+<span class="htmx-indicator" id="transfer-bulk-loading">
+Procesando...
+</span>
+</div>
+</form>
+</div>
+</div>
+</div>

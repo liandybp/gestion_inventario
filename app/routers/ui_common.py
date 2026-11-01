@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.templating import Jinja2Templates
+from jinja2.exceptions import TemplateRuntimeError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,25 +23,43 @@ from app.utils import month_range
 templates = Jinja2Templates(directory="app/templates")
 
 
-def _static_asset_version() -> str:
+def _static_asset_version(static_dir: Path | None = None) -> str:
     """Versión de cache-busting derivada del contenido de los assets estáticos.
 
     Se calcula en CADA render (no se congela en import): ``uvicorn --reload``
-    solo vigila ``*.py``, así que editar ``app.css``/``app.js`` no reinicia el
+    solo vigila ``*.py``, así que editar un ``.css``/``.js`` no reinicia el
     proceso; con un hash por render, el ``?v=`` cambia igual y el navegador/CDN
     invalida la caché. Las rutas parten de ``__file__`` para no depender del CWD.
     """
     digest = hashlib.sha1()
-    static_dir = Path(__file__).resolve().parent.parent / "static"
-    for rel in ("css/app.css", "js/app.js", "js/htmx.min.js", "js/chart.umd.min.js", "js/JsBarcode.all.min.js"):
+    root = static_dir or Path(__file__).resolve().parent.parent / "static"
+    # Todos los .css/.js (también los módulos de js/core, js/components...): el hash cambia
+    # si cambia cualquiera, aunque main.js no cambie. La ruta entra en el hash (renombrar
+    # un módulo también invalida la caché).
+    files = sorted(p for sub in ("css", "js") for p in (root / sub).rglob("*") if p.suffix in (".css", ".js"))
+    for path in files:
         try:
-            digest.update((static_dir / rel).read_bytes())
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes())
         except OSError:
             continue
     return digest.hexdigest()[:8]
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
+
+
+def _template_error(message: str) -> str:
+    """Hace fallar el render desde una plantilla (Jinja no tiene `raise`).
+
+    Para parámetros de macros/plantillas que solo admiten unos valores (`kind`, `heading`):
+    un valor fuera de la lista debe ser un error visible, no un modal con título vacío o un
+    id que el JS no encuentra (H-308).
+    """
+    raise TemplateRuntimeError(message)
+
+
+templates.env.globals["template_error"] = _template_error
 
 _DEV_ACTIONS_ENABLED = DEV_ACTIONS_ENABLED
 

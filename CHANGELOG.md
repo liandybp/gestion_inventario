@@ -2,6 +2,71 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
+
+- feat(agent): nueva tool `sales_by_location_monthly` — ventas de cada punto de venta mes a mes
+  (una serie por ubicación, últimos N meses calendario incluyendo el actual). El copiloto ya puede
+  dibujar barras agrupadas por mes (antes devolvía el total del período, sin meses). 34 tools.
+- feat(ui): los gráficos de barras y líneas del Dashboard Dinámico aceptan varias series
+  (`payload.datasets`) con leyenda (`components/widget-chart.js`).
+- fix(agent): "últimos N meses" se resuelve como N meses calendario (antes el modelo tomaba N+1).
+- fix(agent): el reply avisa cuando no puede dar exactamente lo pedido o cuando falla la tool, y el
+  widget de rescate se titula con la descripción de la tool en vez de su nombre interno.
+- fix(inicio): XSS almacenado en los gráficos de Inicio. Los datos se volcaban con `json.dumps` +
+  `|safe` dentro de `<script type="application/json">`; un nombre de producto con `</script>` (p. ej.
+  desde una factura importada) cerraba el bloque y ejecutaba HTML/JS. Ahora el router pasa dicts y la
+  plantilla usa `tojson`, que escapa `< > & '`. Test de regresión en `test_ui_xss_escapes.py`.
+- docs: diagnóstico de arquitectura del frontend (`docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md`).
+- refactor(frontend): fase 1 — `base.html` + `layouts/app_shell.html` y `layouts/print.html` con `{% extends %}`
+  (dashboard, login y las 3 impresiones; login e impresiones siguen sin cargar htmx/Chart.js/JsBarcode/app.css/
+  app.js). Macros `components/modal.html` (`modal()` con `caller()`) y `components/forms.html` (`field()`); los 18
+  modales migrados y los 4 `profit_items_*_edit_form.html` unificados en `profit_items_edit_form.html`. HTML
+  renderizado sin cambios, verificado con el arnés `tests/snapshots/ui_snapshot.py` (40 páginas, baseline en
+  `tests/snapshots/baseline/`). +22 unit, +3 e2e.
+- fix(frontend): revisión de la fase 1 (`docs/auditorias/2026-10-23-frontend-fase1-layouts-macros.md`).
+  `field()` pasa `attrs` por `xmlattr`, que rechaza claves de atributo inválidas. El arnés de snapshots no depende
+  del `.env` ni del shell, siembra valores con `< > & " '` (detecta un `|safe` colado) e imprime el traspaso por
+  `?ref=`, como la UI. El e2e de Utilidades guarda el modal unificado.
+- fix(traspasos): `/ui/transfers/print?movement_id=` mostraba la referencia con `:` al final si el traspaso
+  tenía nota; ahora la extrae como `InventoryService` (`ref=([^\s:;]+)`). Test en `test_transfer_print_ref.py`.
+- ci: el arnés de snapshots corre en el job `test` (paso `UI snapshots`). Si el HTML cambia y la baseline no se
+  regenera en el mismo commit, el CI falla.
+- fix(frontend): `modal()` con un `heading` que no sea `h2`/`h3` y `profit_items_edit_form.html` con un `kind`
+  desconocido fallan con un error explícito (global `template_error`), en vez de renderizar un modal roto.
+- refactor(frontend): fase 2 — todo el JS en módulos ES nativos bajo `app/static/js/` (`main.js` +
+  `core/`, `components/`, `features/`, `pages/`; `theme-init.js` clásico en `<head>`), sin build. Fuera
+  `app.js`, los 5 `<script>` inline ejecutables y los 15 `onclick=`/`onchange=`/`onkeydown=` (sustituidos por
+  atributos `data-js-*`), el listener no-op `debugReturnLots`, los 3 `#*-debug` y el sondeo de `window.Chart`.
+  El CSP pasa a `script-src 'self'` (sin `'unsafe-inline'`). `/static/js/` se sirve con `Cache-Control:
+  no-cache` y `static_version()` calcula el hash de todos los `.css`/`.js`, también los módulos anidados.
+- fix(inicio): el tooltip del gráfico de pastel metía la etiqueta (`SKU - nombre de producto`) en
+  `innerHTML` sin escapar (XSS al pasar el ratón); ahora se construye con `textContent`.
+- test(frontend): el arnés de snapshots ignora el cableado JS (scripts ejecutables, `on*`, `data-js-*`,
+  `#*-debug`); baseline regenerada desde el commit anterior a la fase. +9 unit (CSP, sin JS inline, scripts por
+  plantilla, grafo de módulos, sin código de depuración, escape de `data-js-*`) y +23 e2e que recorren las 17
+  pestañas, los 18 modales, login e impresiones, y cada comportamiento migrado, y fallan ante cualquier error
+  de JS o violación de CSP.
+- refactor(frontend): fase 3 — CSS sin estilos inline. Los 106 `style="…"` de 22 plantillas pasan a clases de
+  `app.css` (bloque final «Fase 3»), los 4 `<style>` a `login.css`, `print.css` y `label-print.css`, y las macros
+  `card`/`subcard`/`modal` pierden sus parámetros de estilo libre (`modal(container_class=)`). Colores por tokens:
+  sin hex en las plantillas; en tema oscuro las miniaturas y el badge de reposición siguen el tema. La CSP pasa a
+  `style-src 'self'` (sin `'unsafe-inline'`).
+- fix(frontend): con la CSP estricta, JsBarcode en modo SVG dejaba el código de barras negro sobre negro (su fondo
+  y sus barras van en `style`): `components/barcode-svg.js` dibuja la misma geometría con atributos de
+  presentación. htmx ya no inyecta su hoja de `.htmx-indicator` ni copia `style`, `width` ni `height` en el *settle* (meta
+  `htmx-config`): esa copia podía dejar deformados los gráficos de Inicio al refrescarlos.
+- feat(ui): el botón de tema cambia claro/oscuro sin recargar la página; los gráficos toman sus colores de variables
+  CSS (`--chart-*`, `--home-*`) y se redibujan (`gi:themechange`).
+- test(frontend): red de estilos calculados `tests/snapshots/style_snapshot.py` (74 capturas, claro y oscuro, contra
+  el commit anterior a la fase; fuera de CI); el arnés HTML traduce cada `style` antiguo a sus clases; `js_errors`
+  falla ante cualquier violación de CSP. +10 unit, +9 e2e.
+- refactor(frontend): colores en `tokens.css` (`:root` y tema oscuro) y utilidades compartidas en `utilities.css`,
+  cargadas por el dashboard, el login y las impresiones; `print.css` y `label-print.css` ya no repiten hex ni clases.
+- feat(security): `report-uri /csp-report`. Cada violación de CSP queda en el log como `WARNING csp_violation`
+  (campos truncados, sin `script-sample`, cuerpo de 16 KB como máximo y tope de 60 por minuto).
+- test(frontend): el arnés de estilos calculados ignora el tamaño de los `<canvas>` y de lo que los contiene, porque
+  lo fija Chart.js según el momento en que mide. +12 unit, +1 e2e (el navegador envía de verdad el reporte de CSP).
+
 ## 0.4.15 (2026-10-19)
 
 - fix(negocios): guardar el formulario de edición de un negocio borraba el saldo inicial de

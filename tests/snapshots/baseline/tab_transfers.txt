@@ -1,0 +1,322 @@
+<div>
+<h2>
+Traspasos
+</h2>
+<p class="muted">
+Traspasa stock entre ubicaciones (multi-producto).
+</p>
+<form class="card" hx-disabled-elt="#transfer-submit" hx-indicator="#transfer-loading" hx-post="/ui/transfers" hx-swap="innerHTML" hx-sync="this:drop" hx-target="#tab-content" id="transfer-form">
+<div class="gap-12 grid-3">
+<div>
+<label class="filter-label">
+Origen
+</label>
+<select hx-get="/ui/transfers/product-options" hx-include="#transfer-form" hx-swap="innerHTML" hx-target="#transfer-products-list" hx-trigger="change" name="from_location_code" required>
+<option selected value="CENTRAL">
+Almacén Central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Destino
+</label>
+<select name="to_location_code" required>
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option selected value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Fecha
+</label>
+<input name="movement_date" type="datetime-local" value="<DT>">
+</div>
+</div>
+<div class="cols-auto-1fr mt-10 row">
+<label>
+Nota
+</label>
+<input class="m-0" name="note" placeholder="Opcional" type="text" value="">
+</div>
+<div class="mt-12">
+</div>
+<div class="overflow-x-auto">
+<table class="table-fixed w-full">
+<thead>
+<tr>
+<th class="w-62p">
+Producto
+</th>
+<th class="w-23p">
+Cantidad
+</th>
+<th class="w-15p">
+</th>
+</tr>
+</thead>
+<tbody id="transfer-lines">
+<tr>
+<td>
+<input list="transfer-products-list" name="product" placeholder="Buscar por SKU o nombre" type="text">
+</td>
+<td>
+<input min="0" name="quantity" step="0.01" type="number" value="">
+</td>
+<td class="text-right">
+<button class="mb-0" data-transfer-toggle-edit type="button">
+Bloquear
+</button>
+<button class="mb-0" data-transfer-remove-line type="button">
+Eliminar
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<datalist id="transfer-products-list">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+</datalist>
+<template id="transfer-line-template">
+<tr>
+<td>
+<input list="transfer-products-list" name="product" placeholder="Buscar por SKU o nombre" type="text">
+</td>
+<td>
+<input min="0" name="quantity" step="0.01" type="number" value="">
+</td>
+<td class="text-right">
+<button class="mb-0" data-transfer-toggle-edit type="button">
+Bloquear
+</button>
+<button class="mb-0" data-transfer-remove-line type="button">
+Eliminar
+</button>
+</td>
+</tr>
+</template>
+<div class="flex gap-10 items-center mt-12">
+<button class="mb-0" data-transfer-add-line type="button">
+Agregar línea
+</button>
+<button class="mb-0" hx-get="/ui/transfers/bulk" hx-include="closest form" hx-swap="beforeend" hx-target="body" type="button">
+Traspaso masivo
+</button>
+<button class="mb-0" id="transfer-submit" type="submit">
+Crear traspaso
+</button>
+<span class="htmx-indicator ml-10" id="transfer-loading">
+Procesando...
+</span>
+<a class="text-sm" href="#" hx-get="/ui/tabs/transfers" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</form>
+<div class="mt-16">
+</div>
+<h3>
+Filtrar historial
+</h3>
+<form class="card mb-12" hx-get="/ui/tabs/transfers" hx-select="#transfers-history" hx-swap="outerHTML" hx-target="#transfers-history" hx-trigger="submit, keyup changed delay:300ms from:#transfers-filter-query, change from:#transfers-filter-start, change from:#transfers-filter-end, change from:#transfers-filter-from, change from:#transfers-filter-to">
+<input name="from_location_code" type="hidden" value="CENTRAL">
+<input name="to_location_code" type="hidden" value="POS1">
+<div class="flex flex-wrap gap-12 items-center">
+<div>
+<label class="filter-label">
+Buscar artículo
+</label>
+<input id="transfers-filter-query" name="query" placeholder="SKU o nombre" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Origen
+</label>
+<select id="transfers-filter-from" name="filter_from_location_code">
+<option selected value="">
+Todos
+</option>
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Destino
+</label>
+<select id="transfers-filter-to" name="filter_to_location_code">
+<option selected value="">
+Todos
+</option>
+<option value="CENTRAL">
+Almacén Central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="transfers-filter-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="transfers-filter-end" name="end_date" type="date" value="">
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/transfers" hx-get="/ui/tabs/transfers" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</form>
+<div id="transfers-history">
+<form hx-post="/ui/movement/transfer/delete-selected" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
+<button class="mb-0" hx-confirm="¿Eliminar los traspasos seleccionados?" type="submit">
+Eliminar seleccionados
+</button>
+</div>
+<h3>
+Últimos traspasos (salida)
+</h3>
+<div class="table-wrapper touch-scroll">
+<table class="table-compact transfer-table">
+<thead>
+<tr>
+<th class="w-3p">
+<input aria-label="Seleccionar todo" type="checkbox">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th class="w-120px">
+Tipo
+</th>
+<th class="w-140px">
+Usuario
+</th>
+<th class="w-140px">
+SKU
+</th>
+<th>
+Producto
+</th>
+<th class="text-right w-110px">
+Cantidad
+</th>
+<th class="w-110px">
+Origen
+</th>
+<th class="w-110px">
+Destino
+</th>
+<th class="w-110px">
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted text-center" colspan="10">
+No hay traspasos registrados.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3>
+Últimos traspasos (entrada)
+</h3>
+<div class="table-wrapper touch-scroll">
+<table class="table-compact transfer-table">
+<thead>
+<tr>
+<th class="w-3p">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th class="w-120px">
+Tipo
+</th>
+<th class="w-140px">
+Usuario
+</th>
+<th class="w-140px">
+SKU
+</th>
+<th>
+Producto
+</th>
+<th class="text-right w-110px">
+Cantidad
+</th>
+<th class="w-110px">
+Origen
+</th>
+<th class="w-110px">
+Destino
+</th>
+<th class="w-110px">
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted text-center" colspan="10">
+No hay traspasos registrados.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+</div>
+<div class="mt-12" id="transfer-edit">
+</div>
+</div>

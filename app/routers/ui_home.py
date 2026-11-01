@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -103,15 +102,16 @@ def _home_charts_context(
             pie_values.append(rest_total)
             pie_qtys.append(float(sum(float(r.get("qty") or 0) for r in rest_items)))
 
-    monthly_sales_pie_json = json.dumps({"labels": pie_labels, "values": pie_values, "qtys": pie_qtys})
+    # Los payloads de los gráficos van como dicts: la plantilla los serializa con
+    # `tojson`, que escapa < > & ' (un nombre de producto con "</script>" no puede
+    # cerrar el <script type="application/json">). Nunca json.dumps + |safe.
+    monthly_sales_pie_data = {"labels": pie_labels, "values": pie_values, "qtys": pie_qtys}
 
     daily = reporting.daily_sales_series(start=chart_start, end=chart_end, location_id=location_id)
-    monthly_sales_daily_line_json = json.dumps(
-        {
-            "labels": [d.get("day") for d in daily],
-            "sales": [d.get("sales", 0) for d in daily],
-        }
-    )
+    monthly_sales_daily_line_data = {
+        "labels": [d.get("day") for d in daily],
+        "sales": [d.get("sales", 0) for d in daily],
+    }
 
     if start_dt is None and end_dt is None:
         monthly = reporting.monthly_overview(months=12, now=now, location_id=location_id)
@@ -128,14 +128,12 @@ def _home_charts_context(
             start_dt=chart_start,
             end_dt=chart_end,
         )
-    monthly_chart_json = json.dumps(
-        {
-            "labels": [m.get("month") for m in monthly],
-            "sales": [m.get("sales", 0) for m in monthly],
-            "purchases": [m.get("purchases", 0) for m in monthly],
-            "profit": [m.get("gross_profit", 0) for m in monthly],
-        }
-    )
+    monthly_chart_data = {
+        "labels": [m.get("month") for m in monthly],
+        "sales": [m.get("sales", 0) for m in monthly],
+        "purchases": [m.get("purchases", 0) for m in monthly],
+        "profit": [m.get("gross_profit", 0) for m in monthly],
+    }
 
     metrics_items = reporting.sales_metrics_table(
         now=now,
@@ -147,9 +145,9 @@ def _home_charts_context(
 
     return {
         "month_label": month_label,
-        "monthly_sales_pie_json": monthly_sales_pie_json,
-        "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
-        "monthly_chart_json": monthly_chart_json,
+        "monthly_sales_pie_data": monthly_sales_pie_data,
+        "monthly_sales_daily_line_data": monthly_sales_daily_line_data,
+        "monthly_chart_data": monthly_chart_data,
         "metrics_items": metrics_items,
         "metrics_start_date_value": dt_to_local_input(start_dt)[:10] if start_dt else "",
         "metrics_end_date_value": dt_to_local_input((end_dt - timedelta(seconds=1)))[:10] if end_dt else "",

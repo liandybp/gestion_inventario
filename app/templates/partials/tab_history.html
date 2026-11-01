@@ -56,21 +56,21 @@
       <thead>
         <tr>
           {% if can_manage %}
-          <th style="width:3%;">
+          <th class="w-3p">
             <input type="checkbox" aria-label="Seleccionar todo"
-                   onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=movement_ids]').forEach(cb=>cb.checked=this.checked);" />
+                   data-js-select-all="movement_ids" />
           </th>
           {% endif %}
           <th class="col-date">Fecha</th>
-          <th style="width:8%;">Tipo</th>
-          <th style="width:9%;">Usuario</th>
-          <th style="width:9%;">SKU</th>
-          <th style="width:23%;">Producto</th>
-          <th style="width:6%;" class="text-center">Unidad</th>
-          <th style="width:7%;" class="text-right">Cantidad</th>
-          <th style="width:8%;" class="text-right">Costo Unit.</th>
-          <th style="width:8%;" class="text-right">Precio Unit.</th>
-          <th style="width:5%;">Nota</th>
+          <th class="w-8p">Tipo</th>
+          <th class="w-9p">Usuario</th>
+          <th class="w-9p">SKU</th>
+          <th class="w-23p">Producto</th>
+          <th class="text-center w-6p">Unidad</th>
+          <th class="text-right w-7p">Cantidad</th>
+          <th class="text-right w-8p">Costo Unit.</th>
+          <th class="text-right w-8p">Precio Unit.</th>
+          <th class="w-5p">Nota</th>
         </tr>
       </thead>
       <tbody>

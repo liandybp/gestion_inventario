@@ -7,9 +7,6 @@ Cubren los fixes sin test de la sesión:
 """
 from __future__ import annotations
 
-import hashlib
-from pathlib import Path
-
 from app.routers import ui_common
 
 
@@ -30,16 +27,21 @@ def test_static_asset_version_is_callable_and_stable():
     assert value == version()  # estable entre llamadas
 
 
-def test_static_asset_version_derives_from_file_content():
-    """H-060: el hash sale del contenido real de los assets (no una constante)."""
-    static_dir = Path(ui_common.__file__).resolve().parent.parent / "static"
-    css = (static_dir / "css/app.css").read_bytes()
-    js = (static_dir / "js/app.js").read_bytes()
-    htmx = (static_dir / "js/htmx.min.js").read_bytes()
-    chart = (static_dir / "js/chart.umd.min.js").read_bytes()
-    barcode = (static_dir / "js/JsBarcode.all.min.js").read_bytes()
-    expected = hashlib.sha1(css + js + htmx + chart + barcode).hexdigest()[:8]
-    assert ui_common._static_asset_version() == expected
+def test_static_asset_version_changes_with_any_nested_module(tmp_path):
+    """H-060 + fase 2: el hash cambia si cambia CUALQUIER .css/.js, también un módulo anidado
+    (los que importa main.js no llevan ``?v=`` propio)."""
+    (tmp_path / "css").mkdir()
+    (tmp_path / "css" / "app.css").write_text("body{}")
+    (tmp_path / "js" / "features").mkdir(parents=True)
+    (tmp_path / "js" / "main.js").write_text("import './features/x.js';")
+    module = tmp_path / "js" / "features" / "x.js"
+    module.write_text("export const a = 1;")
+    before = ui_common._static_asset_version(tmp_path)
+    assert before == ui_common._static_asset_version(tmp_path)
+    module.write_text("export const a = 2;")
+    assert ui_common._static_asset_version(tmp_path) != before
+    module.rename(tmp_path / "js" / "features" / "y.js")
+    assert ui_common._static_asset_version(tmp_path) != before
 
 
 def test_location_name_for_code_no_nameerror(db_session):

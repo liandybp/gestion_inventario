@@ -1,0 +1,40 @@
+<div class="modal-overlay" id="expense-edit-modal">
+<div class="modal-container">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar gasto
+</h3>
+<button class="modal-close" data-modal-close="expense-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/expense/1/update" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="expense_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input name="amount" required step="0.0001" type="number" value="12.5">
+</div>
+<div class="row">
+<label>
+Concepto
+</label>
+<input name="concept" required value="Luz <b>"H"</b> & 'co'">
+</div>
+<button type="submit">
+Guardar cambios
+</button>
+<button class="btn-secondary ml-8" data-modal-close="expense-edit-modal" type="button">
+Cancelar
+</button>
+</form>
+</div>
+</div>
+</div>

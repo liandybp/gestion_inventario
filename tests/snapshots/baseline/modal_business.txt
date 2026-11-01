@@ -1,0 +1,307 @@
+<div class="modal-overlay" id="business-edit-modal">
+<div class="modal-container modal-container-wide">
+<div class="modal-content">
+<div class="modal-header">
+<h2>
+Editar Negocio
+</h2>
+<button aria-label="Cerrar" class="modal-close" data-modal-close="business-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/business/1/update" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="form-section-title">
+Datos del Negocio
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-code">
+Código *
+</label>
+<input autocomplete="off" id="edit-code" name="code" required type="text" value="recambios">
+<small class="muted">
+Código único (sin espacios, usar guiones bajos)
+</small>
+</div>
+<div class="form-group">
+<label for="edit-name">
+Nombre *
+</label>
+<input autocomplete="off" id="edit-name" name="name" required type="text" value="Recambios">
+<small class="muted">
+Nombre comercial → [issuer] name
+</small>
+</div>
+</div>
+<div class="form-section-title">
+Datos del Emisor [issuer]
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-issuer-tax-id">
+Tax ID / RIF
+</label>
+<input autocomplete="off" id="edit-issuer-tax-id" name="issuer_tax_id" type="text" value="">
+<small class="muted">
+Ej: J-12345678-9
+</small>
+</div>
+<div class="form-group">
+<label for="edit-issuer-address">
+Dirección
+</label>
+<input autocomplete="off" id="edit-issuer-address" name="issuer_address" type="text" value="">
+<small class="muted">
+Ej: Av. Principal, Edif. Centro, Piso 2
+</small>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-issuer-city">
+Ciudad
+</label>
+<input autocomplete="off" id="edit-issuer-city" name="issuer_city" type="text" value="">
+<small class="muted">
+Ej: Caracas
+</small>
+</div>
+<div class="form-group">
+<label for="edit-issuer-postal-code">
+Código Postal
+</label>
+<input autocomplete="off" id="edit-issuer-postal-code" name="issuer_postal_code" type="text" value="">
+<small class="muted">
+Ej: 1010
+</small>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-issuer-country">
+País
+</label>
+<input autocomplete="off" id="edit-issuer-country" name="issuer_country" type="text" value="">
+<small class="muted">
+Ej: Venezuela
+</small>
+</div>
+<div class="form-group">
+<label for="edit-issuer-email">
+Email
+</label>
+<input autocomplete="off" id="edit-issuer-email" name="issuer_email" type="email" value="">
+<small class="muted">
+Ej: contacto@minegocio.com
+</small>
+</div>
+</div>
+<div class="form-group">
+<label for="edit-issuer-phone">
+Teléfono
+</label>
+<input autocomplete="off" id="edit-issuer-phone" name="issuer_phone" type="text" value="">
+<small class="muted">
+Ej: +58 212 555-1234
+</small>
+</div>
+<div class="form-section-title">
+Moneda [currency]
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-currency-code">
+Código *
+</label>
+<input autocomplete="off" id="edit-currency-code" name="currency_code" required type="text" value="USD">
+<small class="muted">
+Ej: USD, EUR, VES
+</small>
+</div>
+<div class="form-group">
+<label for="edit-currency-symbol">
+Símbolo *
+</label>
+<input autocomplete="off" id="edit-currency-symbol" name="currency_symbol" required type="text" value="$">
+<small class="muted">
+Ej: $, €, Bs.
+</small>
+</div>
+</div>
+<div class="form-section-title">
+Compras [purchase]
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-purchase-source-currency">
+Moneda origen facturas
+</label>
+<input autocomplete="off" id="edit-purchase-source-currency" name="purchase_source_currency" type="text" value="EUR">
+<small class="muted">
+Ej: EUR (moneda en que vienen las facturas de proveedores)
+</small>
+</div>
+<div class="form-group">
+<label for="edit-purchase-vat-rate">
+Tasa IVA
+</label>
+<input autocomplete="off" id="edit-purchase-vat-rate" name="purchase_vat_rate" type="text" value="1.21">
+<small class="muted">
+Ej: 1.21 (= 21% IVA). Usar punto decimal
+</small>
+</div>
+</div>
+<div class="form-group">
+<label for="edit-purchase-fx-rate">
+Tasa de cambio
+</label>
+<input autocomplete="off" id="edit-purchase-fx-rate" name="purchase_fx_rate" type="text" value="1.15">
+<small class="muted">
+Ej: 1.15 (1 EUR = 1.15 USD). Vacío = sin conversión
+</small>
+</div>
+<div class="form-section-title">
+Documentos de Venta [sales_documents]
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-sales-default-type">
+Tipo por defecto
+</label>
+<select id="edit-sales-default-type" name="sales_default_type">
+<option selected value="F">
+F — Factura
+</option>
+<option value="P">
+P — Presupuesto
+</option>
+</select>
+<small class="muted">
+Tipo de documento seleccionado al crear uno nuevo
+</small>
+</div>
+<div class="form-group">
+<label for="edit-sales-enabled-types">
+Tipos habilitados
+</label>
+<input autocomplete="off" id="edit-sales-enabled-types" name="sales_enabled_types" type="text" value="F,P">
+<small class="muted">
+Ej: F,P (separados por coma, sin espacios)
+</small>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-sales-invoice-label">
+Label Factura
+</label>
+<input autocomplete="off" id="edit-sales-invoice-label" name="sales_invoice_label" type="text" value="Factura">
+<small class="muted">
+Ej: Factura, Invoice
+</small>
+</div>
+<div class="form-group">
+<label for="edit-sales-quote-label">
+Label Presupuesto
+</label>
+<input autocomplete="off" id="edit-sales-quote-label" name="sales_quote_label" type="text" value="Presupuesto">
+<small class="muted">
+Ej: Presupuesto, Quote
+</small>
+</div>
+</div>
+<div class="form-section-title">
+Dividendos [dividends]
+</div>
+<div class="form-group">
+<label for="edit-dividends-business-label">
+Label del negocio
+</label>
+<input autocomplete="off" id="edit-dividends-business-label" name="dividends_business_label" type="text" value="Negocio">
+<small class="muted">
+Ej: Negocio, Business (cómo se llama en el reparto de dividendos)
+</small>
+</div>
+<div class="form-group">
+<label for="edit-dividends-partners">
+Socios
+</label>
+<input autocomplete="off" id="edit-dividends-partners" name="dividends_partners" type="text" value="Liandy, Randy">
+<small class="muted">
+Ej: Liandy, Randy (nombres separados por coma)
+</small>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-dividends-opening-pending">
+Saldo pendiente inicial
+</label>
+<input autocomplete="off" id="edit-dividends-opening-pending" name="dividends_opening_pending" type="text" value="{"Liandy": 2715.0, "Negocio": 1375.0, "Randy": 0.0}">
+<small class="muted">
+Ej: {"Negocio": 1375, "Liandy": 2715} (JSON)
+</small>
+</div>
+<div class="form-group">
+<label for="edit-dividends-opening-pending-as-of">
+Fecha saldo pendiente
+</label>
+<input autocomplete="off" id="edit-dividends-opening-pending-as-of" name="dividends_opening_pending_as_of" type="text" value="<D>">
+<small class="muted">
+Ej: <D> (YYYY-MM-DD)
+</small>
+</div>
+</div>
+<div class="form-section-title">
+Ubicaciones [locations]
+</div>
+<div class="form-group">
+<label for="edit-locations-central">
+Almacén CENTRAL *
+</label>
+<input autocomplete="off" id="edit-locations-central" name="locations_central" required type="text" value="CENTRAL:Almacén Central">
+<small class="muted">
+Ej: CENTRAL:Almacén Central (código:nombre)
+</small>
+</div>
+<div class="form-group">
+<label for="edit-locations-pos">
+Puntos de venta (POS)
+</label>
+<input autocomplete="off" id="edit-locations-pos" name="locations_pos" type="text" value="POS1:Punto de venta Playa, POS2:Taller Boyeros, POS3:Taller Cerro">
+<small class="muted">
+Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...) · vacío si no hay POS
+</small>
+</div>
+<div class="form-group">
+<label for="edit-locations-default-pos">
+POS por defecto
+</label>
+<input autocomplete="off" id="edit-locations-default-pos" name="locations_default_pos" type="text" value="POS1">
+<small class="muted">
+Ej: POS1 (código del POS seleccionado por defecto en ventas)
+</small>
+</div>
+<div class="form-section-title">
+Inventario [inventory]
+</div>
+<div class="form-group">
+<label for="edit-inventory-lead-time">
+Lead time de reposición (días)
+</label>
+<input autocomplete="off" id="edit-inventory-lead-time" min="0" name="inventory_replenishment_lead_time_days" step="1" type="number" value="25.0">
+<small class="muted">
+Ej: 25 (días desde que se pide hasta que se recibe la mercancía)
+</small>
+</div>
+<div class="form-actions">
+<button class="btn-primary" type="submit">
+Guardar Cambios
+</button>
+<button class="btn-secondary" data-modal-close="business-edit-modal" type="button">
+Cancelar
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>

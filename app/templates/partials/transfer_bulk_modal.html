@@ -1,11 +1,6 @@
 {% from 'components/ui.html' import flash %}
-<div class="modal-overlay" id="transfer-bulk-modal">
-  <div class="modal-container" style="max-width: 760px;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Traspaso masivo</h3>
-        <button type="button" class="modal-close" data-modal-close="transfer-bulk-modal">&times;</button>
-      </div>
+{% from 'components/modal.html' import modal %}
+{% call modal('transfer-bulk-modal', 'Traspaso masivo', container_class='modal-container-760') %}
 
       {{ flash(message, message_class or '', message_detail) }}
 
@@ -30,7 +25,7 @@
 
         <div class="row">
           <label>Traspasados entre</label>
-          <div class="flex gap-10" style="align-items: center;">
+          <div class="flex gap-10 items-center">
             <input type="date" name="from_date" value="{{ from_date or '' }}"
                    hx-get="/ui/transfers/bulk" hx-trigger="change" hx-target="#transfer-bulk-modal" hx-swap="outerHTML"
                    hx-include="closest form" />
@@ -41,16 +36,16 @@
           </div>
         </div>
 
-        <div class="table-wrapper" style="max-height: 48vh; overflow-y: auto;">
+        <div class="table-wrapper scroll-48vh">
           <table class="table-compact transfer-bulk-table">
             <thead>
               <tr>
-                <th style="width: 3%;">
+                <th class="w-3p">
                   <input type="checkbox" id="transfer-bulk-select-all" aria-label="Seleccionar todo" />
                 </th>
                 <th>Producto</th>
-                <th style="width: 120px;" class="text-right">Stock</th>
-                <th style="width: 150px;" class="text-right">Cantidad</th>
+                <th class="text-right w-120px">Stock</th>
+                <th class="text-right w-150px">Cantidad</th>
               </tr>
             </thead>
             <tbody>
@@ -82,6 +77,4 @@
           <span id="transfer-bulk-loading" class="htmx-indicator">Procesando...</span>
         </div>
       </form>
-    </div>
-  </div>
-</div>
+{% endcall %}

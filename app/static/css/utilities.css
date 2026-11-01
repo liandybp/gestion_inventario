@@ -1,0 +1,28 @@
+/* Utilidades que comparten el dashboard (app.css), el login (login.css) y las impresiones (print.css).
+   Se cargan después de la hoja de cada página, para ganar a sus reglas generales como hacía el antiguo style="…". */
+.mt-0 { margin-top: 0; }
+.mb-12 { margin-bottom: 12px; }
+.my-6-10 { margin: 6px 0 10px 0; }
+
+.flex { display: flex; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.justify-between { justify-content: space-between; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+
+.w-auto { width: auto; }
+.w-12p { width: 12%; }
+.w-14p { width: 14%; }
+.w-16p { width: 16%; }
+
+.badge-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--badge-info-bg);
+  color: var(--badge-info-text);
+  font-size: 12px;
+  font-weight: 600;
+}

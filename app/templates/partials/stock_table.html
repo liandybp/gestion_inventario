@@ -9,8 +9,7 @@
   <form hx-post="/ui/stock/delete-selected"
         hx-target="#stock-table"
         hx-swap="innerHTML"
-        hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category"
-        class="mb-10">
+        hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category">
     <div class="flex gap-12 items-center flex-wrap">
       <button type="submit" class="mb-0" hx-confirm="¿Eliminar los artículos seleccionados? (Solo se permite si no tienen movimientos/lotes)">Eliminar seleccionados</button>
       <span class="muted text-sm">Solo se eliminarán los artículos que no tengan movimientos/lotes.</span>
@@ -19,9 +18,9 @@
     <table>
       <thead>
         <tr>
-          <th style="width:3%;">
+          <th class="w-3p">
             <input type="checkbox" aria-label="Seleccionar todo"
-                   onclick="const f=this.closest('form'); if(!f) return; f.querySelectorAll('input[name=skus]').forEach(cb=>cb.checked=this.checked);" />
+                   data-js-select-all="skus" />
           </th>
           <th>SKU</th>
           <th>Nombre</th>

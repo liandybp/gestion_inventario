@@ -1,0 +1,174 @@
+<div id="profit-items-tab">
+<h2>
+Utilidades por artículo
+</h2>
+<p class="muted">
+Detalle del mes corriente por artículo vendido (FIFO por lote).
+</p>
+<div class="card mb-12">
+<div class="row">
+<label>
+Buscar
+</label>
+<input id="profit-items-query" name="query" placeholder="SKU, nombre, categoría, lote" value="">
+</div>
+</div>
+<div class="card mb-12">
+<div class="flex flex-wrap gap-12 items-center">
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="profit-items-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="profit-items-end" name="end_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Punto de venta
+</label>
+<select id="profit-items-location" name="location_code">
+<option selected value="">
+Vista General
+</option>
+<option value="CENTRAL">
+Almacén central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<a class="text-sm" href="/ui/tabs/profit-items" hx-get="/ui/tabs/profit-items" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar
+</a>
+</div>
+</div>
+<div hx-get="/ui/tabs/profit-items" hx-include="#profit-items-query, #profit-items-start, #profit-items-end, #profit-items-location" hx-select="#profit-items-results" hx-swap="outerHTML" hx-trigger="every 10m, keyup changed delay:300ms from:#profit-items-query, change from:#profit-items-start, change from:#profit-items-end, change from:#profit-items-location" id="profit-items-results">
+<div class="card mb-12">
+<div class="grid-4">
+<div>
+<div class="muted">
+Ventas
+</div>
+<div class="metric-medium metric-value">
+0.00
+</div>
+</div>
+<div>
+<div class="muted">
+Costo
+</div>
+<div class="metric-medium metric-value">
+0.00
+</div>
+</div>
+<div>
+<div class="muted">
+Utilidad
+</div>
+<div class="metric-medium metric-value">
+0.00
+</div>
+</div>
+<div>
+<div class="muted">
+% Utilidad
+</div>
+<div class="metric-medium metric-value">
+0.00%
+</div>
+</div>
+</div>
+</div>
+<form hx-post="/ui/tabs/profit-items/sale/delete-selected" hx-swap="innerHTML" hx-target="#tab-content">
+<input name="query" type="hidden" value="">
+<input name="start_date" type="hidden" value="">
+<input name="end_date" type="hidden" value="">
+<input name="location_code" type="hidden" value="">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
+<button class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?" type="submit">
+Eliminar seleccionados
+</button>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+<input aria-label="Seleccionar todo" type="checkbox">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th>
+Punto de venta
+</th>
+<th>
+Código
+</th>
+<th>
+Item
+</th>
+<th>
+Categoría
+</th>
+<th>
+Cant. Vend
+</th>
+<th>
+Costo total
+</th>
+<th>
+Precio total
+</th>
+<th>
+Utilidades
+</th>
+<th>
+% Utilidad
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="font-bold text-right" colspan="6">
+Total
+</td>
+<td class="font-bold">
+0
+</td>
+<td class="font-bold">
+0.00
+</td>
+<td class="font-bold">
+0.00
+</td>
+<td class="font-bold">
+0.00
+</td>
+<td class="font-bold">
+0.00%
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+</div>
+</div>

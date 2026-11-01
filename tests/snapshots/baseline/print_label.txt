@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Etiqueta
+</title>
+</head>
+<body>
+<div class="toolbar">
+<label for="copies">
+Copias
+</label>
+<input id="copies" min="1" name="copies" step="1" type="number" value="1">
+<button id="btn-print" type="button">
+Imprimir
+</button>
+<div class="muted">
+Etiqueta carrusel: 60mm x 30mm | Barcode: CODE128 (SKU)
+</div>
+</div>
+<div class="sheet" id="sheet">
+</div>
+</body>
+</html>

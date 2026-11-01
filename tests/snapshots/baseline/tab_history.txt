@@ -1,0 +1,131 @@
+<div>
+<h2>
+Historial de Movimientos
+</h2>
+<p class="muted">
+Filtra por producto, tipo de movimiento y rango de fechas.
+</p>
+<form class="mb-16" hx-get="/ui/tabs/history" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="filter-grid">
+<div>
+<label class="filter-label">
+Buscar producto
+</label>
+<input name="query" placeholder="SKU o nombre" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Tipo
+</label>
+<select name="movement_type">
+<option value="">
+-- Todos --
+</option>
+<option value="purchase">
+Compra
+</option>
+<option value="sale">
+Venta
+</option>
+<option value="adjustment">
+Ajuste
+</option>
+<option value="transfer_out">
+Traspaso (salida)
+</option>
+<option value="transfer_in">
+Traspaso (entrada)
+</option>
+<option value="return_supplier">
+Devolución a proveedor
+</option>
+</select>
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input name="end_date" type="date" value="">
+</div>
+<div class="flex gap-10 items-center">
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="#" hx-get="/ui/tabs/history" hx-swap="innerHTML" hx-target="#tab-content">
+Limpiar filtros
+</a>
+</div>
+</div>
+</form>
+<form class="mb-12" hx-post="/ui/tabs/history/adjustments/delete-selected" hx-swap="innerHTML" hx-target="#tab-content">
+<input name="query" type="hidden" value="">
+<input name="movement_type" type="hidden" value="">
+<input name="start_date" type="hidden" value="">
+<input name="end_date" type="hidden" value="">
+<div class="flex flex-wrap gap-12 items-center">
+<button class="mb-0" hx-confirm="¿Eliminar los ajustes seleccionados?" type="submit">
+Eliminar seleccionados
+</button>
+<span class="muted text-sm">
+Solo afecta movimientos tipo Ajuste.
+</span>
+</div>
+<div class="table-wrapper">
+<table class="table-fixed w-full">
+<thead>
+<tr>
+<th class="w-3p">
+<input aria-label="Seleccionar todo" type="checkbox">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th class="w-8p">
+Tipo
+</th>
+<th class="w-9p">
+Usuario
+</th>
+<th class="w-9p">
+SKU
+</th>
+<th class="w-23p">
+Producto
+</th>
+<th class="text-center w-6p">
+Unidad
+</th>
+<th class="text-right w-7p">
+Cantidad
+</th>
+<th class="text-right w-8p">
+Costo Unit.
+</th>
+<th class="text-right w-8p">
+Precio Unit.
+</th>
+<th class="w-5p">
+Nota
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="muted text-center" colspan="11">
+No hay movimientos con los filtros seleccionados.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+<p class="mt-12 muted">
+Mostrando 0 movimiento(s).
+</p>
+</div>

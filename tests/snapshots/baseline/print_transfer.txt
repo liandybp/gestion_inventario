@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Traspaso TP-CENTRAL-POS1-260115100000
+</title>
+</head>
+<body>
+<div class="toolbar">
+<button type="button">
+Imprimir
+</button>
+<div class="muted">
+Ref: TP-CENTRAL-POS1-260115100000
+</div>
+</div>
+<h1>
+Traspaso
+</h1>
+<div class="meta">
+<div>
+<strong>
+Origen:
+</strong>
+Almacén Central (CENTRAL)
+</div>
+<div>
+<strong>
+Destino:
+</strong>
+Punto de venta Playa (POS1)
+</div>
+<div>
+<strong>
+Fecha:
+</strong>
+<DT>
+</div>
+<div>
+<strong>
+Ref:
+</strong>
+TP-CENTRAL-POS1-260115100000
+</div>
+</div>
+<table>
+<colgroup>
+<col class="w-16p">
+<col>
+<col class="w-12p">
+<col class="w-14p">
+<col class="w-14p">
+</colgroup>
+<thead>
+<tr>
+<th>
+SKU
+</th>
+<th>
+Nombre
+</th>
+<th class="num">
+Cantidad
+</th>
+<th class="num">
+Precio venta
+</th>
+<th class="num">
+10%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+SNAP-1
+</code>
+</td>
+<td>
+Producto Snapshot <b>"H"</b> & 'co'
+</td>
+<td class="num">
+3.00
+</td>
+<td class="num">
+2.00
+</td>
+<td class="num">
+0.20
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

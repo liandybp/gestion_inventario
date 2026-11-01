@@ -1,3 +1,5 @@
+import pytest
+
 import app.agent.graph as g
 from app.agent.graph import build_graph
 from app.agent.schemas import PlanModel, WidgetSpec
@@ -306,3 +308,69 @@ def test_plan_node_includes_last_tool_in_system_prompt(db_session, business_id):
         assert "Contexto adicional" in captured["system"]
     finally:
         g._PLANNER = original
+
+
+def _run_synth(db_session, business_id, monkeypatch, description):
+    registry = {"fake_tool": {"fn": lambda svc, args: {"columns": ["A"], "rows": [[1]]},
+                              "description": description, "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    monkeypatch.setattr(g.config, "RETRY_BASE_S", 0.0)
+    monkeypatch.setattr(g.config, "RETRY_JITTER", 0.0)
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(
+        PlanModel(tool="fake_tool", tool_args={}, widgets=[], reply="Voy a obtenerlo.")))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    return result["widgets"][0]["title"]
+
+
+def test_synth_title_uses_tool_description(db_session, business_id, monkeypatch):
+    assert _run_synth(db_session, business_id, monkeypatch, "Ventas de prueba (start/end ISO).") == "Ventas de prueba"
+
+
+def test_synth_title_falls_back_to_tool_name(db_session, business_id, monkeypatch):
+    assert _run_synth(db_session, business_id, monkeypatch, "") == "fake_tool"
+
+
+def test_reply_warns_when_widget_tool_fails(db_session, business_id, monkeypatch):
+    plan = PlanModel(tool="stock", tool_args={"sku": "SKU-NO-EXISTE"},
+                     widgets=[WidgetSpec(type="kpi", title="Stock", tool="stock", tool_args={"sku": "SKU-NO-EXISTE"})],
+                     reply="Consultando.")
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(plan))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    assert result["reply"].startswith("Consultando.")
+    assert "No pude obtener los datos de este widget" in result["reply"]
+    assert "SKU-NO-EXISTE" not in result["reply"]
+
+
+def _boom(svc, args):
+    raise ValueError("boom")
+
+
+def test_reply_no_warning_when_only_discarded_widget_fails(db_session, business_id, monkeypatch):
+    """Solo se muestra el primer widget: si falla la tool del segundo, no se avisa."""
+    registry = {"ok_tool": {"fn": lambda svc, args: {"value": 1.0}, "description": "", "params": {}},
+                "bad_tool": {"fn": _boom, "description": "", "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    plan = PlanModel(tool="ok_tool", tool_args={},
+                     widgets=[WidgetSpec(type="kpi", title="A", tool="ok_tool", tool_args={}),
+                              WidgetSpec(type="kpi", title="B", tool="bad_tool", tool_args={})],
+                     reply="Listo.")
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(plan))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    assert result["reply"] == "Listo."
+    assert result["widgets"][0]["payload"] == {"value": 1.0}
+
+
+@pytest.mark.parametrize("chosen,expected", [("pie", "bar"), ("doughnut", "bar"), ("radar", "bar"),
+                                             ("kpi", "bar"), ("bar", "bar"), ("line", "line"),
+                                             ("table", "table")])
+def test_multiseries_payload_gets_a_drawable_type(db_session, business_id, monkeypatch, chosen, expected):
+    """Un payload con datasets y sin values solo se dibuja en bar/line o como tabla."""
+    payload = {"labels": ["2026-10"], "datasets": [{"label": "A", "data": [1.0]}],
+               "columns": ["Mes", "A"], "rows": [["2026-10", 1.0]]}
+    registry = {"multi": {"fn": lambda svc, args: payload, "description": "", "params": {}}}
+    monkeypatch.setattr(g, "TOOL_REGISTRY", registry)
+    plan = PlanModel(tool="multi", tool_args={},
+                     widgets=[WidgetSpec(type=chosen, title="M", tool="multi", tool_args={})], reply="ok")
+    monkeypatch.setattr(g, "_PLANNER", _FakePlanner(plan))
+    result = build_graph().invoke({"db": db_session, "business_id": business_id, "message": "x", "history": []})
+    assert result["widgets"][0]["type"] == expected

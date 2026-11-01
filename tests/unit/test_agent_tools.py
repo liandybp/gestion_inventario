@@ -5,12 +5,12 @@ from fastapi import HTTPException
 
 from app.agent.prompts import build_system_prompt
 from app.agent.tools import TOOL_REGISTRY, tool_schemas
-from app.models import Location
+from app.models import InventoryMovement, Location, Product
 from app.services.inventory_service import InventoryService
 
 
 def test_tool_schemas_count():
-    assert len(tool_schemas()) == 33
+    assert len(tool_schemas()) == 34
 
 
 def test_inventory_value_total_payload(db_session, business_id):
@@ -349,3 +349,34 @@ def test_sales_by_product_exact_code_resolves_via_location_repository(db_session
         service, {"start": "2026-01-01", "end": "2026-01-31", "location": "CENTRAL"}
     )
     assert result["rows"] == []
+
+
+def test_sales_by_location_monthly_payload(db_session, business_id):
+    p = Product(business_id=business_id, sku="SLM-SKU", name="P", min_stock=0, unit_of_measure="ud",
+                default_purchase_cost=1.0, default_sale_price=2.0, lead_time_days=0)
+    loc = Location(business_id=business_id, code="SLM-X", name="Tienda X")
+    db_session.add_all([p, loc])
+    db_session.commit()
+    db_session.add(InventoryMovement(business_id=business_id, product_id=p.id, location_id=loc.id,
+                                     type="sale", quantity=-1, unit_cost=1.0, unit_price=7.5,
+                                     movement_date=datetime.now(timezone.utc)))
+    db_session.commit()
+
+    result = TOOL_REGISTRY["sales_by_location_monthly"]["fn"](
+        InventoryService(db_session, business_id), {"months": 2})
+
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    assert len(result["labels"]) == 2 and result["labels"][-1] == month
+    assert result["datasets"] == [{"label": "Tienda X", "data": [0.0, 7.5]}]
+    assert result["columns"] == ["Mes", "Tienda X"]
+    assert result["rows"][-1] == [month, 7.5]
+
+
+def test_sales_by_location_monthly_months_bounds(db_session, business_id):
+    """REQ-2: solo la ausencia de months usa el default (6); 0 y 500 se acotan a 1..24."""
+    service = InventoryService(db_session, business_id)
+    fn = TOOL_REGISTRY["sales_by_location_monthly"]["fn"]
+    assert len(fn(service, {})["labels"]) == 6
+    assert len(fn(service, {"months": None})["labels"]) == 6
+    assert len(fn(service, {"months": 0})["labels"]) == 1
+    assert len(fn(service, {"months": 500})["labels"]) == 24

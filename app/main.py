@@ -21,6 +21,7 @@ _log = get_logger(__name__)
 if __name__ == "__main__" and __package__ is None:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from app.routers.csp_report import router as csp_report_router
 from app.routers.health import router as health_router
 from app.routers.inventory import router as inventory_router
 from app.routers.products import router as products_router
@@ -59,21 +60,31 @@ app = FastAPI(title="Inventario", lifespan=lifespan)
 
 @app.middleware("http")
 async def security_headers_middleware(request, call_next):
-    """H-006: security headers básicos (CSP, frame, sniffing, referrer)."""
+    """H-006: security headers básicos (CSP, frame, sniffing, referrer).
+
+    ``script-src 'self'`` y ``style-src 'self'``, sin ``'unsafe-inline'``: todo el JS vive en
+    ``app/static/js/`` (fase 2 del release 0.5.0) y todo el CSS en ``app/static/css/`` (fase 3).
+    """
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path.startswith("/static/js/"):
+        # Los módulos que importa main.js no llevan ?v=: revalidar siempre (304 si no cambió)
+        # para que un despliegue nunca mezcle módulos viejos y nuevos.
+        response.headers["Cache-Control"] = "no-cache"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "font-src 'self' data:; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
-        "base-uri 'self'"
+        "base-uri 'self'; "
+        # Cada violación llega a app/routers/csp_report.py y queda en el log (WARNING csp_violation).
+        "report-uri /csp-report"
     )
     return response
 
@@ -170,6 +181,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(csp_report_router)
 app.include_router(products_router)
 app.include_router(inventory_router)
 app.include_router(sync_router)
