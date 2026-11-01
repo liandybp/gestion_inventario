@@ -1,0 +1,5 @@
+tests/unit/test_transfer_print_ref.py
+tests/unit/test_ui_product_from_invoice.py
+tests/unit/test_ui_product_suggest.py
+tests/unit/test_ui_product_update.py
+tests/unit/test_ui_xss_escapes.py
