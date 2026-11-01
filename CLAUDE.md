@@ -24,7 +24,7 @@ App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte mul
 | Auth | Sesiones (Starlette SessionMiddleware) + PBKDF2-SHA256 |
 | PDF | fpdf2 + pdfplumber |
 | CSS/JS | Vanilla CSS + Chart.js + JsBarcode |
-| Testing | pytest (465 unit + 82 e2e Playwright) + arnés HTML (40 snapshots) + arnés de estilos calculados (74 capturas, fuera de CI) |
+| Testing | pytest (465 unit + 84 e2e Playwright) + arnés HTML (40 snapshots, reloj de Inicio congelado) + arnés de estilos calculados (74 capturas, fuera de CI) |
 
 ## Estructura del proyecto
 
@@ -90,13 +90,21 @@ python3 -m pytest tests/e2e -m e2e --no-cov -v
 
 | Entorno | URL | Acceso | Rama | Dónde corre | Servidor |
 |---|---|---|---|---|---|
-| **Desarrollo** | `http://dev.gestion.legatumbp.com` | **Interno (LAN)** — NO sale a internet | `develop` | host `ai-lab-home` (192.168.1.162) | uvicorn `:10000` |
-| **Producción** | `https://gestion.legatumbp.com` | **Público** (Cloudflare Tunnel) | `main` | vm-apps (192.168.1.20) | Docker `gestion-inventario` `:10000` |
+| **Desarrollo (staging)** | `http://dev.gestion.legatumbp.com` | **Interno (LAN)** — NO sale a internet | `develop` | host `ai-lab-home` (192.168.1.162) | uvicorn `:10000` (systemd `gestion-inventario-dev`) |
+| **Producción** | `https://gestion.legatumbp.com` | **Público** (Cloudflare Tunnel) | `main` | `laptop-server` (192.168.1.25) | Docker `gestion_inventario` `:10000` |
 
-- **Dev es interno**: se resuelve vía **AdGuard DNS** (192.168.1.23) con rewrite `dev.gestion.legatumbp.com → 192.168.1.20` (vm-apps). El **Nginx de vm-apps** (`default.conf`) redirige `dev.gestion.legatumbp.com` → `192.168.1.162:10000` (host dev). NO usa Cloudflare Tunnel.
-  - Ruta: `navegador → AdGuard → vm-apps:80 (Nginx) → host:10000 (uvicorn)`.
-- **Deploy dev/prod**: **Gitea Actions CD** (`.gitea/workflows/deploy.yml`). En `push` corre `test` (CI) y, si pasa, `deploy-dev` (rama `develop`) o `deploy-prod` (rama `main`) en runners self-hosted. Dev: `git reset` en `~/staging/gestion_inventario` + `systemctl restart gestion-inventario-dev.service` (systemd `Restart=always`). Prod: `docker compose -f docker-compose-homelab.yml up -d --build`. Proceso general reutilizable en `~/obsidian-lab/04-Harness/deploy-gitea-actions.md`.
-- **BD dev**: PostgreSQL `localhost:5433/inventario` (host). **BD prod**: `192.168.1.20:5432/inventario` (vm-apps).
+- **Dev es interno**: AdGuard resuelve `dev.gestion.legatumbp.com` a `laptop-server` (192.168.1.25). Su nginx
+  (`~/apps/nginx/conf.d/apps.conf`, bloque `server_name dev.gestion.legatumbp.com`) lo pasa a `192.168.1.162:10000`.
+  NO usa Cloudflare Tunnel.
+  - Ruta: `navegador → AdGuard → laptop-server:80 (nginx) → ai-lab-home:10000 (uvicorn)`.
+  - ⚠️ Entre el 2026-09-07 (migración desde `vm-apps`) y el 2026-11-01 ese bloque faltaba y el dominio servía
+    **producción** (servidor por defecto de nginx). Comprobar que staging es staging:
+    `curl -s -o /dev/null -w '%{http_code}' http://dev.gestion.legatumbp.com/static/js/main.js` → 200.
+- **Deploy dev/prod**: **Gitea Actions CD** (`.gitea/workflows/deploy.yml`). En `push` corre `test` (unit + UI snapshots + e2e) y, si pasa, `deploy-dev` (rama `develop`) o `deploy-prod` (rama `main`) en runners self-hosted. Dev: `git reset` en `~/staging/gestion_inventario` + `systemctl restart gestion-inventario-dev.service` (systemd `Restart=always`). Prod: build local en `laptop-server` + `docker compose up -d --no-deps gestion_inventario` en `~/apps`, con rollback si el health falla. Proceso general en `~/obsidian-lab/04-Harness/deploy-gitea-actions.md`.
+- **BD dev**: PostgreSQL `localhost:5433/inventario` (contenedor `dev_postgres` en `ai-lab-home`; copia de prod de
+  agosto 2026). **BD prod**: contenedor `postgres` de `laptop-server` (`172.18.0.2:5432/inventario`, sin puerto
+  publicado; lectura vía túnel SSH con el rol `mcp_readonly`).
+- Usuario de prueba en staging: `admin`/`admin`.
 
 ## Variables de entorno clave
 
@@ -142,6 +150,19 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Release 0.5.0 (fases 1-3 + PAE-015) en `develop` y probada en staging (2026-11-01, sesión 23)** — merge
+      `77c25bb`. El CI cayó en "UI snapshots" porque la baseline de Inicio dependía de la fecha: el arnés congela el
+      reloj de `ui_home` (`b201f64`). Recorrido de staging con Playwright (17 pestañas × 3 negocios, dos temas,
+      modales, impresiones, copiloto): 0 errores de JS/CSP. Arreglados dos fallos previos (`5f891ce`, merge
+      `b741a46`): contraste de gráficos en tema oscuro (`--chart-text`/`--chart-border` aplicados a
+      `Chart.defaults` con `applyChartDefaults()`, variantes oscuras de `--home-chart-sales`, `--home-chart-line-fill`,
+      `--home-pie-1` y `--chart-grid`) y Escape cierra el modal de más arriba salvo los estáticos. 465 unit, 40
+      snapshots, 84 e2e. `main` espera a las fases 4-5, que entran en 0.5.0.
+      - **Incidente:** `dev.gestion.legatumbp.com` servía producción desde la migración (ver "Entornos"). Único resto
+        de pruebas en prod: producto `SKU010001` "test" en Recambios (id 889), pendiente de borrar desde la UI.
+      - **Fase 4** (OOB a plantillas, `UIContext`, sidebar `NAV_ITEMS`, arnés H-303): requirements + design en
+        `specs/frontend-fase4-oob-uicontext/`; envelopes y PAE con `cc_deepseek`.
+      - Pendiente de decidir: `.serena/` y `.idea/` entraron versionados en `develop` con el merge.
 - [x] **Release 0.5.0, fase 3 del frontend: CSS sin estilos inline, CSP `style-src 'self'` (PAE-018, 2026-10-24, rama
       `feature/frontend-modular`, sin push)** — 106 `style=` y 4 `<style>` fuera de las plantillas. Colores en
       `static/css/tokens.css` y utilidades compartidas en `utilities.css`, que comparten dashboard, login e
