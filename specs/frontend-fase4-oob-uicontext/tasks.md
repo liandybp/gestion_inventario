@@ -318,7 +318,7 @@ def capture() -> dict[str, str]:
 ```python
 def _create_snap_empty(client: TestClient) -> None:
     client.post("/ui/businesses/create", data={"code": "snap-empty", "name": "Snap Empty"},
-                follow_redirects=False)
+                headers={"HX-Request": "true"}, follow_redirects=False)
 
 
 def _empty_business_id() -> int:
@@ -424,6 +424,8 @@ pytest.importorskip("pytest_playwright")
 
 from playwright.sync_api import Page, expect
 
+from test_ui_tour_csp_e2e import login, open_tab
+
 pytestmark = pytest.mark.e2e
 
 SERVER_IDS = {
@@ -458,9 +460,8 @@ def test_sidebar_ids_by_role(live_server: str, page: Page, role: str) -> None:
 
 def test_purchase_autofill_cost(live_server: str, page: Page) -> None:
     base_url = live_server
-    _login(page, base_url, "admin", "admin")
-    page.click("#tab-purchases")
-    page.locator("#tab-content .card").first.wait_for()
+    login(page, base_url, "admin")
+    open_tab(page, "purchases")
     page.fill('input[name="product"]', "E2E-SKU1")
     page.locator('input[name="product"]').dispatch_event("change")
     expect(page.locator("#purchase-unit-cost")).to_have_value("1.0")
@@ -468,9 +469,8 @@ def test_purchase_autofill_cost(live_server: str, page: Page) -> None:
 
 def test_sale_autofill_price(live_server: str, page: Page) -> None:
     base_url = live_server
-    _login(page, base_url, "admin", "admin")
-    page.click("#tab-sales")
-    page.locator("#tab-content #sale-panel").first.wait_for()
+    login(page, base_url, "admin")
+    open_tab(page, "sales")
     page.fill('input[name="product"]', "E2E-SKU1")
     page.locator('input[name="product"]').dispatch_event("change")
     expect(page.locator("#sale-unit-price")).to_have_value("2.0")
@@ -478,9 +478,8 @@ def test_sale_autofill_price(live_server: str, page: Page) -> None:
 
 def test_sales_doc_autofill_price_and_client(live_server: str, page: Page) -> None:
     base_url = live_server
-    _login(page, base_url, "admin", "admin")
-    page.click("#tab-documents")
-    page.locator("#tab-content #sales-doc-panel").first.wait_for()
+    login(page, base_url, "admin")
+    open_tab(page, "documents")
     page.fill('#sales-doc-cart-add-form input[name="product"]', "E2E-SKU1")
     page.locator('#sales-doc-cart-add-form input[name="product"]').dispatch_event("change")
     expect(page.locator("#sales-doc-unit-price")).to_have_value("2.0")

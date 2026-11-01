@@ -329,4 +329,12 @@ test(ui): guarda test_routers_no_html + limpieza ensure_* + docs fase 4
 
 ---
 
+## Ejecución
+
+```bash
+cc_local_pae . specs/frontend-fase4-oob-uicontext/tasks.md --test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/unit -q -o addopts="" -p no:warnings && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline' --lot0-test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/e2e/test_fase4_characterization_e2e.py -m e2e -q -o addopts="" -p no:warnings && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline'
+```
+
+---
+
 > Generado por: SDD Lead (Phase 4 — PAE Assembly). Fuente: `requirements.md`, `design.md`, `tasks.md`.
