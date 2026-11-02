@@ -29,8 +29,14 @@ ROUTES: list[tuple[str, str]] = [
     ("owner", "/ui/dashboard"),
 ]
 
-# Rutas que deben afirmar `users == 1`. El envelope final del Lote D añade aquí las 6 de REQ-3.
-STRICT_ROUTES: set[str] = set()
+# Todas las rutas de REQ-3 cumplen `users == 1` tras REQ-4 (auxiliares a ctx).
+STRICT_ROUTES: set[str] = {
+    "/ui/tabs/sales",
+    "/ui/tabs/transfers",
+    "/ui/tabs/documents",
+    "/ui/tabs/inventory",
+    "/ui/dashboard",
+}
 
 _COUNTS: dict[str, int] = {"users": 0, "user_businesses": 0}
 
@@ -103,3 +109,7 @@ def test_route_returns_200_and_records_counts(counter_client, role: str, route: 
           f"user_businesses={_COUNTS['user_businesses']}")
     if route in STRICT_ROUTES:
         assert _COUNTS["users"] == 1, f"{role} {route}: users={_COUNTS['users']}"
+        max_ub = 2 if route == "/ui/dashboard" else 1
+        assert _COUNTS["user_businesses"] <= max_ub, (
+            f"{role} {route}: user_businesses={_COUNTS['user_businesses']} (máx {max_ub})"
+        )
