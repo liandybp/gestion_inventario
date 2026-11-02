@@ -71,3 +71,14 @@ OpenCode-authored PAE work, especially anything claiming a slice is "verde"/done
   while the router still imports it.
 - New repository/service methods must not `commit()`; the router owns the transaction (cc_local moved a commit into
   `CoachService.add_cash_baseline`).
+
+## Copilot relative dates and external-API checks (2026-11-02)
+
+- At the start of a month the LLM resolved "este mes" as the previous month when the prompt only gave today's date.
+  `build_system_prompt` now passes precomputed ranges for "este mes" / "mes pasado"; keep relative-date logic in
+  Python, not in the model. The tool-selection eval does not check generated dates, so a date regression only
+  shows up as an args drop — compare against `develop` before blaming the branch.
+- Any health/reachability check against an external API must send the same auth the real client sends
+  (`/health` showed `agent_llm: degraded` for months because `/models` was called without the key).
+- `.claude/` is not editable by cc_local (permission denials): envelopes touching `.claude/CLAUDE.md` are applied by
+  Claude Code.
