@@ -1,0 +1,6 @@
+CHANGELOG.md
+CLAUDE.md
+docs/auditorias/2026-10-23-frontend-arquitectura-diagnostico.md
+tests/e2e/test_ui_tour_csp_e2e.py
+tests/unit/test_templates_layout.py
+tools/move_templates.py

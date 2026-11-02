@@ -87,8 +87,8 @@ def test_all_modals_open_and_close_without_js_errors(tour_server, page: Page, js
 
 
 def test_product_edit_modal_without_js_errors(tour_server, page: Page, js_errors: list[str]) -> None:
-    # Su único botón está en partials/products_history.html, que hoy no incluye ninguna
-    # pestaña: se abre con la misma petición que haría ese botón (hx-target="body").
+    # El modal de edición no tiene botón visible en ninguna pestaña: se abre con la
+    # misma petición que haría ese botón (hx-target="body").
     base_url, _ = tour_server
     login(page, base_url)
     page.evaluate("htmx.ajax('GET', '/ui/product/TOUR-1/edit', {target: 'body', swap: 'beforeend'})")

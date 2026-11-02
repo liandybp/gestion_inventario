@@ -4,6 +4,10 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- refactor(frontend): fase 5a — las 54 plantillas de `partials/` pasan a `features/<dominio>/` (mismo
+  nombre, solo cambia la carpeta), se borran las 2 muertas (`action_result.html`, `products_history.html`)
+  y una guarda (`tests/unit/test_templates_layout.py`) impide volver a `partials/` y detecta rutas de
+  plantilla rotas. HTML sin cambios (arnés y estilos idénticos a la baseline de bf38a2b).
 - refactor(frontend): fase 4 — plantillas OOB en `features/<dominio>/` (salen el HTML en Python de
   `product_defaults_purchase/sale`, `sales_doc_product_defaults`, `sales_doc_customer_defaults`,
   `sale_product_options`, `transfer_product_options` y `ui_supplier_return_lots`), macros compartidas

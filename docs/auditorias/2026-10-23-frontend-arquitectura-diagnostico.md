@@ -105,7 +105,7 @@ Principios:
 | **2** | Sacar todo el JS a módulos; quitar `onclick=`/debug; quitar `'unsafe-inline'` de `script-src` | Medio (cubierto por e2e) |
 | **3** | `tokens.css` + split de `app.css`; eliminar `style=` y hex; gráficos con paleta CSS | Bajo |
 | **4** ✅ | Plantillas OOB en vez de HTML en Python; `UIContext`; sidebar data-driven. **Prerrequisito en el mismo PAE: H-303**, ampliar el arnés de snapshots a POST, roles y estados vacíos (ver nota bajo la tabla) | Medio |
-| **5** | Reagrupar `partials/` en `features/<dominio>/`; sacar queries de routers | Medio-alto, por dominio |
+| **5** | Reagrupar `partials/` en `features/<dominio>/`; sacar queries de routers | Medio-alto, por dominio — **5a ✅** |
 
 **Nota para la fase 4: H-303** (de `docs/auditorias/2026-10-23-frontend-fase1-layouts-macros.md`). Hoy el arnés
 (`tests/snapshots/ui_snapshot.py`) solo captura GET como admin y en el camino feliz. La fase 4 cambia justo lo que
