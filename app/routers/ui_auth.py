@@ -6,14 +6,14 @@ from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.auth import authenticate
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import Business, User
+from app.repositories.business_repository import get_business
+from app.repositories.user_repository import UserRepository
 from app.security import get_current_user_from_session, get_user_business_ids
 from app.settings import LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW
 
@@ -164,7 +164,7 @@ def must_change_password_submit(
         response.headers["X-Modal-Keep"] = "1"
         return response
 
-    row = db.get(User, int(user.id))
+    row = UserRepository(db).get(user.id)
     if row is None:
         return RedirectResponse(url="/ui/login", status_code=302)
     row.password_hash = hash_password(new_password)
@@ -213,7 +213,7 @@ def set_active_business(
     role = (user.role or "").lower()
     bid = int(business_id)
 
-    if db.get(Business, bid) is None:
+    if get_business(db, bid) is None:
         return RedirectResponse(url="/ui/dashboard", status_code=302)
 
     if role == "owner":

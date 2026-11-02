@@ -32,3 +32,15 @@ class UserRepository:
         self._db.query(UserBusiness).filter(UserBusiness.user_id == int(user_id)).delete()
         for bid in business_ids:
             self._db.add(UserBusiness(user_id=int(user_id), business_id=int(bid)))
+
+    def detach_references(self, user_id: int) -> None:
+        from app.models import AuditLog, ChatMessage, DashboardWidget
+        self._db.query(AuditLog).filter(AuditLog.user_id == int(user_id)).update(
+            {AuditLog.user_id: None}, synchronize_session=False
+        )
+        self._db.query(ChatMessage).filter(ChatMessage.user_id == int(user_id)).update(
+            {ChatMessage.user_id: None}, synchronize_session=False
+        )
+        self._db.query(DashboardWidget).filter(DashboardWidget.created_by == int(user_id)).update(
+            {DashboardWidget.created_by: None}, synchronize_session=False
+        )

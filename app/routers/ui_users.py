@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import AuditLog, ChatMessage, DashboardWidget, User
+from app.models import User
 from app.security import get_user_business_ids
 from app.routers.ui_context import ui_context
 from app.repositories.user_repository import UserRepository
@@ -148,7 +148,7 @@ def user_create(
         is_active=bool(is_active),
         must_change_password=True,
     )
-    db.add(new_user)
+    UserRepository(db).add(new_user)
     db.flush()
     _sync_user_businesses(db, new_user, bid_list)
     db.commit()
@@ -345,17 +345,8 @@ def user_delete(
     # Desvincular registros de auditoría (FK) y asignaciones multi-negocio
     # antes de borrar el usuario, para no violar las FKs.
     UserRepository(db).set_user_businesses(int(user.id), [])
-    db.query(AuditLog).filter(AuditLog.user_id == int(user.id)).update(
-        {AuditLog.user_id: None}, synchronize_session=False
-    )
-    # Copiloto: anular las FKs de chat_messages y dashboard_widgets (sin ON DELETE)
-    db.query(ChatMessage).filter(ChatMessage.user_id == int(user.id)).update(
-        {ChatMessage.user_id: None}, synchronize_session=False
-    )
-    db.query(DashboardWidget).filter(DashboardWidget.created_by == int(user.id)).update(
-        {DashboardWidget.created_by: None}, synchronize_session=False
-    )
-    db.delete(user)
+    UserRepository(db).detach_references(int(user.id))
+    UserRepository(db).delete(user)
     db.commit()
 
     if current_user is not None:

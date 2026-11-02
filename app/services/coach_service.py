@@ -282,3 +282,14 @@ class CoachService:
                      CoachActionLog.status.in_(("dismissed", "done"))))
         ).all()
         return {r[0] for r in rows}
+
+    def add_cash_baseline(self, baseline_date, amount, created_by) -> None:
+        from app.models import CashBaseline
+        row = CashBaseline(
+            business_id=self._business_id,
+            baseline_date=baseline_date,
+            amount=amount,
+            created_by=created_by,
+        )
+        self._db.add(row)
+        self._db.commit()

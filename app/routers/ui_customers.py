@@ -253,7 +253,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
             },
         )
 
-    db.delete(customer)
+    CustomerRepository(db, bid).delete(customer)
     db.commit()
 
     customers = _list_customers(db, query="", business_id=bid)

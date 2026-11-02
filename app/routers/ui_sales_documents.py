@@ -268,13 +268,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    items = SalesDocumentService(db, bid).get_items(doc.id)
-    for it in items:
-        db.delete(it)
-    # Sin relationship entre documento y líneas, el unit of work no sabe el orden: borrar las
-    # líneas primero o la FK sales_document_items.document_id rechaza el DELETE del documento.
-    db.flush()
-    db.delete(doc)
+    SalesDocumentService(db, bid).delete_document(doc)
     db.commit()
 
     cart = _get_cart(request)
@@ -368,7 +362,7 @@ async def sales_doc_update(
     for it in items:
         del_flag = form.get(f"del_{it.id}")
         if del_flag:
-            db.delete(it)
+            SalesDocumentService(db, bid).delete_item(it)
             continue
 
         desc = (form.get(f"desc_{it.id}") or it.description or "").strip() or "(sin descripción)"
@@ -405,7 +399,8 @@ async def sales_doc_update(
 
     if new_desc and new_qty > 0:
         new_line_total = float(new_qty * new_price)
-        db.add(
+        svc = SalesDocumentService(db, bid)
+        svc.add_item(
             SalesDocumentItem(
                 document_id=doc.id,
                 line_no=next_line,
@@ -976,13 +971,7 @@ def sales_doc_issue(
         total=subtotal,
     )
 
-    db.add(doc)
-    db.flush()
-
-    for it in items:
-        it.document_id = doc.id
-        db.add(it)
-
+    SalesDocumentService(db, bid).add_document(doc, items)
     db.commit()
 
     _clear_cart(request)

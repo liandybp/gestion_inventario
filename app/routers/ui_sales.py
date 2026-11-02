@@ -5,14 +5,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
 from app.logger import get_logger
-from app.models import Customer, SalesDocument
 from app.schemas import SaleCreate
+from app.services.sales_document_service import SalesDocumentService
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.purchase_repository import PurchaseRepository
 from app.services.inventory_service import InventoryService
@@ -118,12 +117,9 @@ def _sales_doc_context(ctx: "UIContext") -> dict:
     draft = session.get("sales_doc_draft")
     if not isinstance(draft, dict):
         draft = {}
-    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
-    recent_documents = list(
-        ctx.db.scalars(doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(10))
-    )
-    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
-    customers = list(ctx.db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    svc = SalesDocumentService(ctx.db, bid)
+    recent_documents = svc.list_recent(limit=10)
+    customers = svc.customers_list(limit=200)
     return {
         "sales_doc_config": config.sales_documents.model_dump(),
         "currency": config.currency.model_dump(),
@@ -714,13 +710,8 @@ def tab_sales(
     if end_dt is not None:
         end_dt = end_dt + timedelta(days=1)
 
-    doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
-    if start_dt is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.issue_date >= start_dt)
-    if end_dt is not None:
-        doc_stmt = doc_stmt.where(SalesDocument.issue_date < end_dt)
-    doc_stmt = doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(200)
-    recent_documents = list(db.scalars(doc_stmt))
+    svc = SalesDocumentService(db, bid)
+    recent_documents = svc.list_recent(limit=200, start=start_dt, end=end_dt)
     q = (query or "").strip()
     if q:
         recent_documents = [
@@ -730,8 +721,7 @@ def tab_sales(
         ]
     recent_documents = recent_documents[:10]
 
-    cust_stmt = select(Customer).where(Customer.business_id == int(bid))
-    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    customers = svc.customers_list(limit=200)
     pos_locations: list[dict[str, str]] = []
     central = getattr(config.locations, "central", None)
     central_code = str(getattr(central, "code", "") or "").strip()

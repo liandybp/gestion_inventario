@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import CashBaseline
 from app.routers.ui_common import templates
 from app.routers.ui_context import ui_context
 from app.schemas import CashBaselineCreate, CoachActionUpdate
@@ -52,15 +51,12 @@ def set_cash_baseline(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     user = ctx.user
-    row = CashBaseline(
-        business_id=business_id,
+    service = CoachService(db, business_id)
+    service.add_cash_baseline(
         baseline_date=payload.baseline_date,
         amount=payload.amount,
         created_by=user.id if user else None,
     )
-    db.add(row)
-    db.commit()
-    service = CoachService(db, business_id)
     report = service.health_score()
     recommendations = service.recommendations()
     return templates.TemplateResponse(
