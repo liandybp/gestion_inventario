@@ -60,7 +60,7 @@ gestion_inventario/
 │   ├── services/                # coach, coach_rules, finance, inventory, product,
 │   │   │                           reporting, sales_document
 │   ├── static/                  # CSS, JS, uploads
-│   └── templates/               # Jinja2 templates (partials/, components/)
+│   └── templates/               # Jinja2 templates (layouts/, components/, features/<dominio>/)
 ├── tests/                       # 149 unit (SQLite memoria) + 16 e2e (Playwright)
 ├── docker-compose.yml           # ⚠️ No editar sin confirmación explícita
 ├── docker-compose-homelab.yml
@@ -257,6 +257,10 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
+Fase 5a:      `partials/` ya no existe: las plantillas viven en `templates/features/<dominio>/` con su nombre de
+              siempre (p. ej. `features/sales/sale_panel.html`); `layouts/` y `components/` siguen igual. La guarda
+              `tests/unit/test_templates_layout.py` falla si una ruta de plantilla no carga o si alguien nombra
+              `partials/`. Pendiente: fase 5b (consultas fuera de los routers UI).
 Fase 4:       en `develop` y probada en staging (2026-11-01, merge `990e61d`, entra en 0.5.0) — plantillas OOB en
               `templates/features/<dominio>/`, `UIContext` perezoso (`ctx = ui_context(request, db)`, llamada
               directa) en los 20 routers UI, `role_of()` única normalización del rol, sidebar `NAV_ITEMS`.

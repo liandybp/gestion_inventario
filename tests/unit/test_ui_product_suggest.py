@@ -70,7 +70,7 @@ def test_formats(db_session: Session, business_id: int, monkeypatch, fmt: str, e
 
 @pytest.mark.parametrize(
     "template",
-    ["partials/sale_panel.html", "partials/sale_edit_form.html", "partials/tab_transfers.html"],
+    ["features/sales/sale_panel.html", "features/sales/sale_edit_form.html", "features/transfers/tab_transfers.html"],
 )
 def test_stock_filtered_lists_do_not_use_dynamic_suggest(template: str) -> None:
     """H-201/H-202: Ventas y Traspasos sugieren solo productos con stock en la ubicación."""

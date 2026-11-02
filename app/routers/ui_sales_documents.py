@@ -239,7 +239,7 @@ def sales_doc_preview(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_preview.html",
+        name="features/sales_documents/sales_document_preview.html",
         context={
             "doc_type": doc_type_norm,
             "location_code": selected_location_code,
@@ -288,7 +288,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -323,7 +323,7 @@ def sales_doc_edit_form(
     items = svc.get_items_ordered(doc.id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_edit_form.html",
+        name="features/sales_documents/sales_document_edit_form.html",
         context={
             "doc": doc,
             "items": items,
@@ -442,7 +442,7 @@ async def sales_doc_update(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -592,7 +592,7 @@ def sales_doc_cart_add(
             pos_locations = config.locations.all_locations()
             return templates.TemplateResponse(
                 request=request,
-                name="partials/sales_document_panel.html",
+                name="features/sales_documents/sales_document_panel.html",
                 context={
                     "sales_doc_config": config.sales_documents.model_dump(),
                     "currency": config.currency.model_dump(),
@@ -633,7 +633,7 @@ def sales_doc_cart_add(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/sales_document_panel.html",
+            name="features/sales_documents/sales_document_panel.html",
             context={
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
@@ -657,7 +657,7 @@ def sales_doc_cart_add(
         default_doc_location_code = config.locations.default_sale_code()
         return templates.TemplateResponse(
             request=request,
-            name="partials/sales_document_panel.html",
+            name="features/sales_documents/sales_document_panel.html",
             context={
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
@@ -740,7 +740,7 @@ def sales_doc_cart_update(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -803,7 +803,7 @@ def sales_doc_cart_remove(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -861,7 +861,7 @@ def sales_doc_cart_clear(
     pos_locations = config.locations.all_locations()
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -994,7 +994,7 @@ def sales_doc_issue(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -1114,7 +1114,7 @@ def tab_documents(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_documents.html",
+        name="features/sales_documents/tab_documents.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),

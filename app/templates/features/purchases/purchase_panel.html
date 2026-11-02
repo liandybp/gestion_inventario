@@ -82,7 +82,7 @@
     </div>
   </form>
   
-  {% include 'partials/purchases_history.html' %}
+  {% include 'features/purchases/purchases_history.html' %}
 
   <div id="purchase-edit" class="mt-12"></div>
 </div>
@@ -90,6 +90,6 @@
 {% if refresh_product_panel %}
   {# Producto creado por la compra: refresca datalist #product-options e historial (hx-swap-oob). #}
   {% with oob=True, message=None, invoice_created_products=None %}
-    {% include 'partials/product_panel.html' %}
+    {% include 'features/products/product_panel.html' %}
   {% endwith %}
 {% endif %}

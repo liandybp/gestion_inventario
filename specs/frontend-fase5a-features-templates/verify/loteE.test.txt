@@ -1,0 +1,64 @@
+OK: 91 snapshots equivalentes
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+__________________________ test_partials_dir_is_gone ___________________________
+
+    def test_partials_dir_is_gone() -> None:
+        """El directorio `partials/` ya no existe (migrado a `features/<dominio>/`)."""
+        partials = ROOT / "app" / "templates" / "partials"
+>       assert not partials.exists(), (
+            f"partials/ sigue existiendo con {len(list(partials.iterdir()))} ficheros; "
+            "debe haber sido eliminado en el Lote E"
+        )
+E       AssertionError: partials/ sigue existiendo con 0 ficheros; debe haber sido eliminado en el Lote E
+E       assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/home/liandy/PyCharmMiscProject/gestion_inventario/app/templates/partials').exists
+
+tests/unit/test_templates_layout.py:50: AssertionError
+_________________________ test_no_partials_references __________________________
+
+    def test_no_partials_references() -> None:
+        """Ningún fichero .py/.html/.js referencia `partials/` en literales de cadena."""
+        hits: list[str] = []
+        for base in (ROOT / "app", ROOT / "tests"):
+            for path in sorted(base.rglob("*")):
+                if path.is_file() and path.suffix in (".py", ".html", ".js"):
+                    text = path.read_text(encoding="utf-8")
+                    for m in re.finditer(r"partials/[\w/]+\.html", text):
+                        hits.append(f"{path.relative_to(ROOT)}:{m.start()}")
+>       assert hits == [], (
+            "referencias a `partials/` encontradas:\n" + "\n".join(hits)
+        )
+E       AssertionError: referencias a `partials/` encontradas:
+E         tests/e2e/test_ui_tour_csp_e2e.py:4157
+E       assert ['tests/e2e/t..._e2e.py:4157'] == []
+E         
+E         Left contains one more item: 'tests/e2e/test_ui_tour_csp_e2e.py:4157'
+E         Use -v to get more diff
+
+tests/unit/test_templates_layout.py:65: AssertionError
+=============================== warnings summary ===============================
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: 174 warnings
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/unit/test_templates_layout.py::test_literal_template_names_resolve
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:1056: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_templates_layout.py::test_partials_dir_is_gone - Asser...
+FAILED tests/unit/test_templates_layout.py::test_no_partials_references - Ass...
+2 failed, 1 passed, 178 warnings in 0.29s
+
+--- stderr ---
+/home/liandy/.local/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer

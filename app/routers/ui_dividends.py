@@ -63,7 +63,7 @@ def tab_dividends(
     extractions = extractions[:200]
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_dividends.html",
+        name="features/dividends/tab_dividends.html",
         context={
             "summary": summary,
             "extractions": extractions,

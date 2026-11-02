@@ -55,7 +55,7 @@ def tab_agent(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "partials/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
     )
 
 
@@ -66,7 +66,7 @@ def messages_view(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     ctx.ensure_admin_or_owner()
     business_id = ctx.business_id
     messages = chat_store.list_messages(db, business_id)
-    return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
+    return templates.TemplateResponse(request, "features/agent/agent_messages.html", {"messages": messages})
 
 
 @router.post("/agent/conversation/clear", response_class=HTMLResponse)
@@ -77,7 +77,7 @@ def clear_conversation(request: Request, db: Session = Depends(session_dep)) -> 
     business_id = ctx.business_id
     chat_store.clear_messages(db, business_id)
     messages = chat_store.list_messages(db, business_id)  # queda vacío
-    return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
+    return templates.TemplateResponse(request, "features/agent/agent_messages.html", {"messages": messages})
 
 
 @router.post("/agent/chat", response_class=HTMLResponse)
@@ -94,7 +94,7 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
     if not message:
         # A blank message would fire paid LLM calls for nothing (B3).
         return templates.TemplateResponse(
-            request, "partials/agent_reply.html",
+            request, "features/agent/agent_reply.html",
             {"reply": "Escribí una pregunta."},
             status_code=422,
         )
@@ -108,7 +108,7 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
 
     if not _check_agent_rate(rate_key):
         return templates.TemplateResponse(
-            request, "partials/agent_reply.html",
+            request, "features/agent/agent_reply.html",
             {"reply": "Demasiadas peticiones. Esperá un momento."},
             status_code=429,
         )
@@ -138,7 +138,7 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
     chat_store.add_message(db, business_id, "assistant", reply, user_id=created_by)
 
     return templates.TemplateResponse(
-        request, "partials/agent_chat_turn.html",
+        request, "features/agent/agent_chat_turn.html",
         {"user_content": message, "reply": reply, "widgets": widgets, "currency_symbol": currency_symbol}
     )
 
@@ -151,7 +151,7 @@ def delete(request: Request, widget_id: int, db: Session = Depends(session_dep))
     widget_store.delete_widget(db, business_id, widget_id)
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "partials/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
     )
 
 
@@ -161,4 +161,4 @@ def widgets_view(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
     ctx.ensure_admin_or_owner()
     business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
-    return templates.TemplateResponse(request, "partials/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)})
+    return templates.TemplateResponse(request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)})

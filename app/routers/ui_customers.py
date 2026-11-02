@@ -37,7 +37,7 @@ def customers_table(request: Request, db: Session = Depends(session_dep), query:
     customers = _list_customers(db, query=query, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/customers_table.html",
+        name="features/customers/customers_table.html",
         context={
             "customers": customers,
             "can_delete_customers": ctx.role in ("admin", "owner"),
@@ -98,7 +98,7 @@ def customer_create(
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
             "can_delete_customers": ctx.role in ("admin", "owner"),
@@ -140,7 +140,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/customer_detail.html",
+        name="features/customers/customer_detail.html",
         context={
             "customer": customer,
             "documents": docs,
@@ -168,7 +168,7 @@ def customer_edit_form(request: Request, customer_id: int, db: Session = Depends
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return templates.TemplateResponse(
         request=request,
-        name="partials/customer_edit_form.html",
+        name="features/customers/customer_edit_form.html",
         context={
             "customer": customer,
         },
@@ -217,7 +217,7 @@ def customer_update(
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
             "can_delete_customers": ctx.role in ("admin", "owner"),
@@ -245,7 +245,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
         customers = _list_customers(db, query="", business_id=bid)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_customers.html",
+            name="features/customers/tab_customers.html",
             context={
                 "customers": customers,
                 "can_delete_customers": ctx.role in ("admin", "owner"),
@@ -261,7 +261,7 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
             "can_delete_customers": ctx.role in ("admin", "owner"),
@@ -280,7 +280,7 @@ def tab_customers(request: Request, db: Session = Depends(session_dep), query: s
     customers = CustomerRepository(db, bid).list_like(query=q, limit=200)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
             "can_delete_customers": ctx.role in ("admin", "owner"),

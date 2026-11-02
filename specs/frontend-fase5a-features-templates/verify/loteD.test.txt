@@ -1,0 +1,21 @@
+OK: 91 snapshots equivalentes
+.                                                                        [100%]
+=============================== warnings summary ===============================
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: 58 warnings
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/unit/test_templates_layout.py::test_literal_template_names_resolve
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:1056: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 60 warnings in 0.24s
+
+--- stderr ---
+/home/liandy/.local/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer

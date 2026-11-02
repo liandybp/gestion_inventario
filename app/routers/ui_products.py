@@ -62,7 +62,7 @@ def product_delete(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
+            name="features/products/product_panel.html",
             context={
                 "message": "Producto eliminado",
                 "message_class": "ok",
@@ -74,7 +74,7 @@ def product_delete(
     except HTTPException as e:
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
+            name="features/products/product_panel.html",
             context={
                 "message": "Error al eliminar producto",
                 "message_detail": str(e.detail),
@@ -89,7 +89,7 @@ def product_delete(
         _log.exception("product_delete fallback: %s", e)
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
+            name="features/products/product_panel.html",
             context={
                 "message": "Error al eliminar producto",
                 "message_detail": str(e),
@@ -115,7 +115,7 @@ def product_edit_form(
     product = product_service.get_by_sku(sku)
     return templates.TemplateResponse(
         request=request,
-        name="partials/product_edit_form.html",
+        name="features/products/product_edit_form.html",
         context={"product": product},
     )
 
@@ -175,7 +175,7 @@ def product_update(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
+            name="features/products/product_panel.html",
             context={
                 "message": "Producto actualizado",
                 "message_detail": f"SKU: {updated.sku}",
@@ -207,7 +207,7 @@ def product_update(
         )
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_edit_form.html",
+            name="features/products/product_edit_form.html",
             context={"product": form_product, "new_sku_value": new_sku or sku, "form_error": str(e.detail)},
             status_code=e.status_code,
             headers={"HX-Retarget": "#product-edit-modal", "HX-Reswap": "outerHTML"},
@@ -231,7 +231,7 @@ def product_edit_form_inventory(
     current_stock = inventory_service.stock(sku, location_code=loc).quantity
     return templates.TemplateResponse(
         request=request,
-        name="partials/product_edit_form_inventory.html",
+        name="features/products/product_edit_form_inventory.html",
         context={
             "product": product,
             "current_stock": float(current_stock or 0),
@@ -364,7 +364,7 @@ def product_update_inventory(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_inventory.html",
+            name="features/stock/tab_inventory.html",
             context={
                 "locations": locations,
                 "default_location_code": default_location_code,
@@ -393,7 +393,7 @@ def product_update_inventory(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_inventory.html",
+            name="features/stock/tab_inventory.html",
             context={
                 "locations": locations,
                 "default_location_code": default_location_code,
@@ -443,7 +443,7 @@ def product_from_invoice(
     if not parsed.lines:
         return templates.TemplateResponse(
             request=request,
-            name="partials/product_panel.html",
+            name="features/products/product_panel.html",
             context={
                 "message": "No se pudo importar la factura",
                 "message_detail": "No se encontraron líneas de productos en el PDF.",
@@ -545,7 +545,7 @@ def product_from_invoice(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/product_panel.html",
+        name="features/products/product_panel.html",
         context={
             "message": message,
             "message_detail": message_detail,
@@ -646,7 +646,7 @@ def product_suggest(
     products = ProductService(db, business_id=business_id).search(query=query, limit=30)
     return templates.TemplateResponse(
         request=request,
-        name="partials/product_suggest_options.html",
+        name="features/products/product_suggest_options.html",
         context={"products": products, "fmt": fmt if fmt in _SUGGEST_FORMATS else "label"},
     )
 
@@ -689,7 +689,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
     response = templates.TemplateResponse(
         request=request,
-        name="partials/tab_inventory.html",
+        name="features/stock/tab_inventory.html",
         context={
             "locations": locations,
             "pos_locations": pos_locations,

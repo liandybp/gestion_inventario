@@ -103,7 +103,7 @@ def user_create(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -128,7 +128,7 @@ def user_create(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -171,7 +171,7 @@ def user_create(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -198,7 +198,7 @@ def user_edit_form(
     user_business_ids = get_user_business_ids(db, user_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/user_edit_form.html",
+        name="features/users/user_edit_form.html",
         context={
             "user": user,
             "businesses": businesses,
@@ -234,7 +234,7 @@ def user_update(
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
-            name="partials/user_edit_form.html",
+            name="features/users/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
@@ -259,7 +259,7 @@ def user_update(
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
-            name="partials/user_edit_form.html",
+            name="features/users/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
@@ -297,7 +297,7 @@ def user_update(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -329,7 +329,7 @@ def user_delete(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -375,7 +375,7 @@ def user_delete(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -400,7 +400,7 @@ def user_reset_password_form(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return templates.TemplateResponse(
         request=request,
-        name="partials/user_reset_password_form.html",
+        name="features/users/user_reset_password_form.html",
         context={"user": user},
     )
 
@@ -444,7 +444,7 @@ def user_reset_password(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -466,7 +466,7 @@ def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,

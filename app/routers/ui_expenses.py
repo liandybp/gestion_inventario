@@ -55,7 +55,7 @@ def expense_create(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo registrado",
                 "message_class": "ok",
@@ -70,7 +70,7 @@ def expense_create(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al registrar gasto",
                 "message_detail": str(e),
@@ -96,7 +96,7 @@ def expense_edit_form(
     expense = service.get_expense(expense_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/expense_edit_form.html",
+        name="features/expenses/expense_edit_form.html",
         context={
             "expense": expense,
             "expense_date_value": dt_to_local_input(expense.expense_date),
@@ -133,7 +133,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo eliminado",
                 "message_class": "ok",
@@ -147,7 +147,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al eliminar costo operativo",
                 "message_detail": str(e.detail),
@@ -164,7 +164,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al eliminar costo operativo",
                 "message_detail": str(e),
@@ -214,7 +214,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo actualizado",
                 "message_class": "ok",
@@ -228,7 +228,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al actualizar gasto",
                 "message_detail": str(e.detail),
@@ -245,7 +245,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al actualizar gasto",
                 "message_detail": str(e),
@@ -312,7 +312,7 @@ def tab_expenses(
     total = inventory_service.total_expenses(start=eff_start, end=eff_end)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_expenses.html",
+        name="features/expenses/tab_expenses.html",
         context={
             "expenses": expenses,
             "expenses_total": total,

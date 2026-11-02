@@ -116,7 +116,7 @@ def must_change_password_form(request: Request, db: Session = Depends(session_de
         return HTMLResponse("")
     return templates.TemplateResponse(
         request=request,
-        name="partials/must_change_password_form.html",
+        name="features/auth/must_change_password_form.html",
         context={"user": user},
     )
 
@@ -138,7 +138,7 @@ def must_change_password_submit(
     if not new_password:
         response = templates.TemplateResponse(
             request=request,
-            name="partials/must_change_password_form.html",
+            name="features/auth/must_change_password_form.html",
             context={
                 "user": user,
                 "message": "Error",
@@ -152,7 +152,7 @@ def must_change_password_submit(
     if (confirm_password or "") != (new_password or ""):
         response = templates.TemplateResponse(
             request=request,
-            name="partials/must_change_password_form.html",
+            name="features/auth/must_change_password_form.html",
             context={
                 "user": user,
                 "message": "Error",

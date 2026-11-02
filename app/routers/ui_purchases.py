@@ -56,7 +56,7 @@ def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optio
 
 def _product_panel_refresh(product_service: ProductService) -> dict:
     """Contexto para refrescar #product-panel (historial + datalist inicial) fuera de banda
-    en el cliente (ver partials/product_panel.html).
+    en el cliente (ver features/products/product_panel.html).
 
     El datalist inicial trae los 200 primeros productos; el recién creado se encuentra al
     teclear gracias a las sugerencias dinámicas (GET /ui/product-suggest).
@@ -87,7 +87,7 @@ def purchase_from_invoice(
         user = get_current_user_from_session(db, request)
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": message,
@@ -324,12 +324,12 @@ def purchase_from_invoice(
         message_class = "ok" if not errors else "warn"
         status = 200
 
-    # Productos nuevos: refrescar #product-panel fuera de banda (partials/product_panel.html).
+    # Productos nuevos: refrescar #product-panel fuera de banda (features/products/product_panel.html).
     invoice_refresh = _product_panel_refresh(product_service) if created_products else {}
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/purchase_panel.html",
+        name="features/purchases/purchase_panel.html",
         context={
             "user": user,
             "message": message,
@@ -449,7 +449,7 @@ def purchase(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra registrada",
@@ -467,7 +467,7 @@ def purchase(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error en compra",
@@ -542,7 +542,7 @@ def purchase_edit_form(
     _, _, currency_code, _ = _purchase_config_values(db, request)
     return templates.TemplateResponse(
         request=request,
-        name="partials/purchase_edit_form.html",
+        name="features/purchases/purchase_edit_form.html",
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -597,7 +597,7 @@ def purchase_update(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra actualizada",
@@ -613,7 +613,7 @@ def purchase_update(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al actualizar compra",
@@ -657,7 +657,7 @@ def purchase_delete(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra eliminada",
@@ -672,7 +672,7 @@ def purchase_delete(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compra",
@@ -690,7 +690,7 @@ def purchase_delete(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compra",
@@ -771,7 +771,7 @@ def purchase_delete_selected(
                 detail = detail + " Detalle: " + "; ".join(skipped[:6])
             return templates.TemplateResponse(
                 request=request,
-                name="partials/purchase_panel.html",
+                name="features/purchases/purchase_panel.html",
                 context={
                     "user": user,
                     "message": "No se pudo eliminar",
@@ -814,7 +814,7 @@ def purchase_delete_selected(
             detail = detail + f" Ignorados: {len(skipped)} (" + "; ".join(skipped[:3]) + ")"
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": msg,
@@ -830,7 +830,7 @@ def purchase_delete_selected(
     except HTTPException as e:
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compras",
@@ -907,7 +907,7 @@ def tab_purchases(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_purchases.html",
+        name="features/purchases/tab_purchases.html",
         context={
             "user": user,
             "products": product_service.recent(limit=20),

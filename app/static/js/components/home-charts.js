@@ -1,4 +1,4 @@
-// Gráficos de Inicio (partials/home_charts.html): barras mensuales, línea de ventas diarias y
+// Gráficos de Inicio (features/home/home_charts.html): barras mensuales, línea de ventas diarias y
 // pastel de ventas por artículo. Los datos llegan en <script type="application/json">.
 // Chart.js es un script clásico del <head>: ya está cargado cuando se ejecutan los módulos.
 import { onContent } from '../core/content.js';

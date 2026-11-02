@@ -1,6 +1,6 @@
-// Widgets de gráfico del copiloto (partials/widget_chart.html):
+// Widgets de gráfico del copiloto (features/agent/widget_chart.html):
 // <canvas data-js-widget-chart='{"type":..,"title":..,"payload":{labels,values}}'>.
-// Los widgets nuevos llegan en un swap OOB (#agent-grid en partials/agent_chat_turn.html):
+// Los widgets nuevos llegan en un swap OOB (#agent-grid en features/agent/agent_chat_turn.html):
 // htmx 1.9 emite htmx:afterSwap también sobre cada elemento OOB, así que core/content.js
 // los recibe como `root`.
 import { onContent } from '../core/content.js';

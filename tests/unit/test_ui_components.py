@@ -153,7 +153,7 @@ def test_pages_extend_expected_layout(name: str, parent: str) -> None:
 )
 def test_profit_items_edit_form_renders_each_kind(kind: str, modal_id: str, editable_field: str) -> None:
     movement = SimpleNamespace(id=7, quantity=2.0, unit_cost=1.5, unit_price=3.0, note="n")
-    html = templates.env.get_template("partials/profit_items_edit_form.html").render(
+    html = templates.env.get_template("features/profit_items/profit_items_edit_form.html").render(
         kind=kind, movement=movement, product_label="SKU - Prod", movement_date_value="",
         lot_code="L1", product_options=[],
     )
@@ -169,7 +169,7 @@ def test_profit_items_edit_form_rejects_unknown_kind() -> None:
 
     movement = SimpleNamespace(id=7, quantity=2.0, unit_cost=1.5, unit_price=3.0, note="n")
     with pytest.raises(TemplateRuntimeError, match="kind desconocido: transfer"):
-        templates.env.get_template("partials/profit_items_edit_form.html").render(
+        templates.env.get_template("features/profit_items/profit_items_edit_form.html").render(
             kind="transfer", movement=movement, product_label="SKU - Prod", movement_date_value="",
             lot_code="L1", product_options=[],
         )
@@ -191,4 +191,4 @@ def test_old_profit_items_templates_are_gone(kind: str) -> None:
     from jinja2 import TemplateNotFound
 
     with pytest.raises(TemplateNotFound):
-        templates.env.get_template(f"partials/profit_items_{kind}_edit_form.html")
+        templates.env.get_template(f"features/profit_items/profit_items_{kind}_edit_form.html")

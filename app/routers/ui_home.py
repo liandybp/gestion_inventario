@@ -286,7 +286,7 @@ def tab_home(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_home.html",
+        name="features/home/tab_home.html",
         context={
             "totals": totals,
             "locations": locations,
@@ -344,7 +344,7 @@ def home_charts(
     )
     return templates.TemplateResponse(
         request=request,
-        name="partials/home_charts.html",
+        name="features/home/home_charts.html",
         context={
             "selected_location_code": selected_location_code,
             **charts_ctx,

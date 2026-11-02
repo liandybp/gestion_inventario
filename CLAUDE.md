@@ -55,7 +55,7 @@ gestion_inventario/
 │   ├── services/            ← Business logic (finance, inventory, product,
 │   │                           reporting, sales_document)
 │   ├── routers/             ← ~25 routers (3 API JSON + ~22 UI HTMX)
-│   ├── templates/           ← Jinja2 + HTMX partials
+│   ├── templates/           ← Jinja2 + HTMX (layouts/, components/, features/<dominio>/)
 │   └── static/              ← CSS, JS, uploads
 ├── tests/
 │   ├── conftest.py
@@ -150,6 +150,20 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Release 0.5.0, fase 5a del frontend: `partials/` → `features/<dominio>/` (2026-11-02, sesión 24, rama
+      `feature/frontend-fase5a`)** — PAE `specs/frontend-fase5a-features-templates/` (30 envelopes, `cc_local_pae`
+      lotes A-D; el lote E paró y lo cerró Claude Code aplicando T26-T30 tal cual). 54 plantillas movidas con el
+      mismo nombre a 21 dominios (16 carpetas nuevas + las 5 de la fase 4), 2 muertas borradas
+      (`action_result.html`, `products_history.html`). Guarda `tests/unit/test_templates_layout.py`: cada nombre
+      literal de plantilla (routers + `include/extends/from/import`) se carga de verdad, `partials/` no existe y
+      ninguna línea de `app/` ni `tests/` lo nombra. HTML idéntico (91 snapshots) y estilos idénticos (0
+      diferencias) a la baseline de `bf38a2b`. Revisión + auditoría 4.60 🟢 con el lote E pendiente → corregido
+      (`docs/auditorias/2026-11-02-frontend-fase5a-features-templates.md`): `cc_local` había borrado la entrada de
+      la fase 4 de este fichero, escrito CHANGELOG/diagnóstico con afirmaciones falsas, debilitado la guarda y
+      añadido `profit-items` a un e2e de operador (rompía). 499 unit, 94 e2e.
+      - Pendiente: fase 5b (consultas fuera de los routers UI + `UIContext` completo,
+        `specs/frontend-fase5b-queries-uicontext/`, requirements + design aprobados), después bump único de 0.5.0
+        y `develop` → `main`.
 - [x] **Release 0.5.0, fase 4 del frontend: plantillas OOB, `UIContext` y sidebar data-driven — en `develop` y
       probada en staging (2026-11-01, sesión 23)** — merge `990e61d` (`feature/frontend-fase4`). HTML en Python
       movido a `templates/features/<dominio>/` (macros `qty_label`/`number_input`/`text_input` compartidas por
