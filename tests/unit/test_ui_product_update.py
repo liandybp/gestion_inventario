@@ -84,7 +84,9 @@ def _update_inventory(db: Session, sku: str, **form):
 
 def test_edit_inventory_failed_update_deletes_new_image(db_session: Session, business_id: int, _route, monkeypatch) -> None:
     _, deleted = _route
-    monkeypatch.setattr(ui_products, "get_active_business_config", lambda _db, _req: MagicMock(locations=MagicMock(pos=[])))
+    # raising=False: ui_products deja de importarla al pasar a ctx.config (fase 5b); UIContext usa get_business_config.
+    monkeypatch.setattr(ui_products, "get_active_business_config", lambda _db, _req: MagicMock(locations=MagicMock(pos=[])), raising=False)
+    monkeypatch.setattr("app.routers.ui_context.get_business_config", lambda _db, _bid: MagicMock(locations=MagicMock(pos=[])))
     _add(db_session, business_id, "PI-1")
     _add(db_session, business_id, "PI-2")
 
@@ -97,7 +99,9 @@ def test_edit_inventory_failed_update_deletes_new_image(db_session: Session, bus
 def test_edit_inventory_failure_after_update_keeps_image(db_session: Session, business_id: int, _route, monkeypatch) -> None:
     """El producto (con la imagen) ya se guardó: un fallo posterior del ajuste no la borra."""
     _, deleted = _route
-    monkeypatch.setattr(ui_products, "get_active_business_config", lambda _db, _req: MagicMock(locations=MagicMock(pos=[])))
+    # raising=False: ui_products deja de importarla al pasar a ctx.config (fase 5b); UIContext usa get_business_config.
+    monkeypatch.setattr(ui_products, "get_active_business_config", lambda _db, _req: MagicMock(locations=MagicMock(pos=[])), raising=False)
+    monkeypatch.setattr("app.routers.ui_context.get_business_config", lambda _db, _bid: MagicMock(locations=MagicMock(pos=[])))
     _add(db_session, business_id, "PI-3")
 
     resp = _update_inventory(db_session, "PI-3", desired_stock=-1)

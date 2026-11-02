@@ -24,7 +24,9 @@ def _patch(monkeypatch, business_id: int) -> None:
         central=SimpleNamespace(code="CENTRAL", name="Central"),
         pos=[SimpleNamespace(code="POS1", name="Tienda")],
     ))
-    monkeypatch.setattr("app.routers.ui_transfers.get_active_business_config", lambda _db, _request: cfg)
+    # raising=False: ui_transfers deja de importarla al pasar a ctx.config (fase 5b); UIContext usa get_business_config.
+    monkeypatch.setattr("app.routers.ui_transfers.get_active_business_config", lambda _db, _request: cfg, raising=False)
+    monkeypatch.setattr("app.routers.ui_context.get_business_config", lambda _db, _bid: cfg)
 
 
 def test_print_by_movement_id_strips_colon_when_transfer_has_note(
