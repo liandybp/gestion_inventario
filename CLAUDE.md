@@ -150,20 +150,29 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
-- [x] **Release 0.5.0, fase 4 del frontend: plantillas OOB, `UIContext` y sidebar data-driven (2026-11-01,
-      rama `feature/frontend-fase4`, sin push)** — HTML en Python movido a `templates/features/<dominio>/`
-      (macros `qty_label`/`number_input`/`text_input` compartidas por panel y fragmento). `UIContext` perezoso en
-      los 20 routers UI (`ui_auth.py` fuera): cada handler hace `ctx = ui_context(request, db)` en el cuerpo (llamada
-      directa, no `Depends`, para que los tests puedan llamar a los handlers); `role_of()` es la única
-      normalización del rol. Consultas de usuario por petición: de 3-4 a 2 (`require_active_business_id` aún
-      consulta el usuario por dentro; resolverlo es fase 5). Sidebar con `NAV_ITEMS`/`visible_nav_items`/
-      `default_tab`. Red: arnés H-303 (91 capturas: fragmentos, POST con error, roles, estados vacíos) y e2e de
-      caracterización. 5 tests unitarios adaptados redirigiendo sus `monkeypatch` a `app.routers.ui_context`.
-      - **Revisión + auditoría** (`docs/auditorias/2026-11-01-frontend-fase4-oob-uicontext.md`, 4.25 🟢) y
-        correcciones: permisos por rol decididos por el usuario (owner ve Clientes; operador vende, crea/edita
-        clientes sin borrarlos y gestiona documentos de venta; formularios de edición de gastos/ventas solo
-        admin/owner) y tres bugs previos en producción: filtro de fechas de Utilidades por artículo (500,
-        `timedelta`), borrar documento de venta (500, FK) y autorrelleno de Documentos con SKU inexistente (404).
+- [x] **Release 0.5.0, fase 4 del frontend: plantillas OOB, `UIContext` y sidebar data-driven — en `develop` y
+      probada en staging (2026-11-01, sesión 23)** — merge `990e61d` (`feature/frontend-fase4`). HTML en Python
+      movido a `templates/features/<dominio>/` (macros `qty_label`/`number_input`/`text_input` compartidas por
+      panel y fragmento). `UIContext` perezoso en los 20 routers UI (`ui_auth.py` fuera): cada handler hace
+      `ctx = ui_context(request, db)` en el cuerpo (llamada directa, no `Depends`, para que los tests puedan llamar
+      a los handlers); `role_of()` es la única normalización del rol. Consultas de usuario por petición: de 3-4 a 2
+      (`require_active_business_id` aún consulta el usuario por dentro; resolverlo es fase 5). Sidebar con
+      `NAV_ITEMS`/`visible_nav_items`/`default_tab`. Red: arnés H-303 (91 capturas: fragmentos, POST con error,
+      roles, estados vacíos) y e2e de caracterización.
+      - **Revisión + auditoría** (`docs/auditorias/2026-11-01-frontend-fase4-oob-uicontext.md`, 4.25 → **4.65 🟢**
+        tras corregir) y correcciones: permisos por rol decididos por el usuario (owner ve Clientes; operador
+        vende, crea/edita clientes sin borrarlos y gestiona documentos de venta — sidebar con Documentos/Clientes;
+        formularios de edición de gastos/ventas solo admin/owner) y **tres bugs ya en producción**, destapados por
+        la auditoría: filtro de fechas de Utilidades por artículo (500, `timedelta` sin importar desde la fase B
+        del 2026-08-15), borrar documento de venta (500, `IntegrityError` por FK — líneas sin borrar antes que el
+        documento) y autorrelleno de Documentos con SKU inexistente (404 en vez de fragmento vacío). 496 unit, 94
+        e2e, 91 snapshots, estilos calculados idénticos en los dos temas.
+      - **Probada en staging como admin y como operador** (usuario de prueba creado y borrado en la misma sesión):
+        las 17 pestañas, el filtro de fechas, crear+borrar un documento de venta, y los permisos del operador
+        (Clientes sin botón Eliminar → 403 directo; Documentos con borrar; sin botón "Edit" en Ventas; 403 en
+        editar gasto/venta). Log del servicio sin `csp_violation` ni error 500 tras el despliegue.
+      - Pendiente de decisión: `.serena/`/`.idea/` versionados en `develop` (arrastrado desde las fases 1-3).
+        Fase 5 (reagrupar `partials/` en `features/<dominio>/`, sacar queries de routers) sin empezar.
 - [x] **Release 0.5.0 (fases 1-3 + PAE-015) en `develop` y probada en staging (2026-11-01, sesión 23)** — merge
       `77c25bb`. El CI cayó en "UI snapshots" porque la baseline de Inicio dependía de la fecha: el arnés congela el
       reloj de `ui_home` (`b201f64`). Recorrido de staging con Playwright (17 pestañas × 3 negocios, dos temas,

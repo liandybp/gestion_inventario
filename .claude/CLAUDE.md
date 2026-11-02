@@ -257,9 +257,11 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Fase 4:       cerrada en `feature/frontend-fase4` (2026-11-01, sin push, entra en 0.5.0) — plantillas OOB en
+Fase 4:       en `develop` y probada en staging (2026-11-01, merge `990e61d`, entra en 0.5.0) — plantillas OOB en
               `templates/features/<dominio>/`, `UIContext` perezoso (`ctx = ui_context(request, db)`, llamada
               directa) en los 20 routers UI, `role_of()` única normalización del rol, sidebar `NAV_ITEMS`.
+              Auditoría 4.25 → 4.65 🟢; 3 bugs de producción corregidos (timedelta, FK al borrar documento, 404
+              de autorrelleno). Pendiente: fase 5 (partials/ → features/, queries fuera de routers).
 Permisos:     owner ve Clientes; operador ve Ventas, Documentos y Clientes: vende, crea/edita clientes (borrar
               = 403 y botón oculto) y crea/edita/borra documentos de venta. Editar gastos/ventas: admin/owner.
 Tests:        496 unit (SQLite en memoria) + 94 e2e (Playwright, fixture js_errors autouse) + 91 snapshots
