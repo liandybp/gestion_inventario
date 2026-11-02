@@ -390,7 +390,7 @@ def profit_items_sale_delete(
             detail={},
         )
         db.commit()
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
+    return _render_profit_items_tab(ctx=ctx, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
 
 
 @router.post("/tabs/profit-items/sale/delete-selected", response_class=HTMLResponse)

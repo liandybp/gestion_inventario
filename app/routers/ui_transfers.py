@@ -150,6 +150,156 @@ def transfer_update(
     all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
     default_from_location_code = central_code
     default_to_location_code = config.locations.default_sale_code()
+    from_code = default_from_location_code
+    to_code = default_to_location_code
+
+    mv_out: Optional[InventoryMovement] = None
+
+    def _safe_product_options(code: str) -> list:
+        try:
+            return [
+                p for p in service.stock_list(query="", location_code=code) if float(p.quantity or 0) > 0
+            ]
+        except Exception:
+            _log.error("product_options fallback en _safe_product_options")
+            return []
+
+    def _tab_error(detail: str) -> HTMLResponse:
+        user = ctx.user
+        try:
+            recent_transfer_out = service.movement_history(
+                movement_type="transfer_out", start_date=None, end_date=None, limit=50
+            )
+            recent_transfer_in = service.movement_history(
+                movement_type="transfer_in", start_date=None, end_date=None, limit=50
+            )
+        except Exception:
+            _log.error("recent transfer history fallback en _tab_error")
+            recent_transfer_out = []
+            recent_transfer_in = []
+
+        return templates.TemplateResponse(
+            request=request,
+            name="features/transfers/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Error al actualizar traspaso",
+                "message_detail": detail,
+                "message_class": "error",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": _safe_product_options(from_code),
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
+                "default_to_location_code": default_to_location_code,
+                "note_value": note or "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+
+    try:
+        out_id = service._transfer_out_id_for_movement_id(movement_id)
+        mv_out = db.get(InventoryMovement, out_id)
+        if mv_out is None or mv_out.type != "transfer_out":
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+        if int(getattr(mv_out, "business_id", 0) or 0) != int(bid):
+            raise HTTPException(status_code=404, detail="Transfer movement not found")
+    except HTTPException as e:
+        return _tab_error(str(e.detail))
+    except Exception as e:
+        _log.exception("transfer_update lookup fallback: %s", e)
+        return _tab_error(str(e))
+
+    from_code = default_from_location_code
+    to_code = default_to_location_code
+    try:
+        if mv_out is not None:
+            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+    except Exception:
+        _log.error("transfer_codes_from_out_note fallback en transfer_update")
+        from_code = default_from_location_code
+        to_code = default_to_location_code
+
+    product_options = _safe_product_options(from_code)
+    if not product_options and from_code != default_from_location_code:
+        from_code = default_from_location_code
+        product_options = _safe_product_options(from_code)
+
+    try:
+        result = service.update_transfer_shipment(
+            movement_id=movement_id,
+            quantity=float(quantity),
+            movement_date=parse_dt(movement_date),
+            note=note or None,
+        )
+        user = ctx.user
+        if user is not None:
+            log_event(
+                db,
+                user,
+                action="transfer_update",
+                entity_type="movement",
+                entity_id=str(result.movement.id),
+                detail={"quantity": float(quantity)},
+            )
+            db.commit()  # H-041: el audit flushea; commit explícito (update_transfer_shipment ya commiteó)
+
+        recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
+        recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
+        return templates.TemplateResponse(
+            request=request,
+            name="features/transfers/tab_transfers.html",
+            context={
+                "user": user,
+                "message": "Traspaso actualizado",
+                "message_detail": f"Stock después: {result.stock_after}",
+                "message_class": "ok" if not result.warning else "warn",
+                "movement_date_default": dt_to_local_input(datetime.now(timezone.utc)),
+                "product_options": product_options,
+                "all_locations": all_locations,
+                "from_location_code": from_code,
+                "to_location_code": to_code,
+                "default_from_location_code": default_from_location_code,
+                "default_to_location_code": default_to_location_code,
+                "note_value": "",
+                "rows_count": 12,
+                "recent_transfer_out": recent_transfer_out,
+                "recent_transfer_in": recent_transfer_in,
+            },
+        )
+    except HTTPException as e:
+        return _tab_error(str(e.detail))
+    except Exception as e:
+        _log.exception("update_transfer_shipment fallback: %s", e)
+        return _tab_error(str(e))
+
+
+@router.post("/movement/transfer/delete-selected", response_class=HTMLResponse)
+def transfer_delete_selected(
+    request: Request,
+    movement_ids: list[int] = Form([]),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    if is_desktop():
+        raise HTTPException(status_code=404, detail="No disponible en modo desktop")
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    service = InventoryService(db, business_id=bid)
+
+    config = ctx.config
+    pos_locations = [
+        {"code": loc.code, "name": loc.name}
+        for loc in (config.locations.pos or [])
+        if getattr(loc, "code", None)
+    ]
+    central_code = str(config.locations.central.code).strip()
+    all_locations = [{"code": central_code, "name": str(config.locations.central.name)}] + pos_locations
+    default_from_location_code = central_code
+    default_to_location_code = config.locations.default_sale_code()
 
     from_code = default_from_location_code
     to_code = default_to_location_code
@@ -502,7 +652,7 @@ def transfer_product_options(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     options = [
         p
@@ -550,7 +700,7 @@ def transfer_print(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
 
     ref_clean = (ref or "").strip()
     if not ref_clean and movement_id:
@@ -652,7 +802,7 @@ def transfer_bulk_modal(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
 
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     to_code = (to_location_code or "").strip() or cfg.locations.default_sale_code()
@@ -746,7 +896,7 @@ async def transfer_bulk_execute(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
 
     form = await request.form()
 
