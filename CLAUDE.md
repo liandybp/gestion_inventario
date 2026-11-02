@@ -148,6 +148,15 @@ Archivo `app/business_config.conf` (INI):
 - Control de inventario por lotes
 - Los lotes marcados como `is_initial_stock` se consumen primero
 
+## Próximas evoluciones (Roadmap)
+
+Ver `docs/roadmap/2026-08-17-oportunidades-evolucion.md` para análisis completo de
+7 oportunidades de valor identificadas (cobros, caducidad FEFO, proveedores,
+notificaciones, barcode, export CSV, conteo físico). Prioridad: P0 (cobros +
+caducidad FEFO) → P1 → P2 → P3.
+
+---
+
 ## Estado actual
 
 - [x] **Copiloto: tool `product_movements` + fechas de "este mes" (2026-11-02, sesión 24, rama
