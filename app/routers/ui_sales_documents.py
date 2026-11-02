@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config, get_business_config
 from app.repositories.location_repository import LocationRepository
 
 from datetime import datetime, timedelta, timezone
@@ -14,7 +13,6 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_active_business_code
 from app.services.product_service import ProductService
 from app.services.sales_document_service import SalesDocumentService
 
@@ -199,7 +197,7 @@ def sales_doc_preview(
     ctx = ui_context(request, db)
     _ = ctx.user
     _ = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -262,7 +260,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc = SalesDocumentService(db, bid).get(doc_id)
     if doc is None:
@@ -340,7 +338,7 @@ async def sales_doc_update(
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
@@ -536,7 +534,7 @@ def sales_doc_cart_add(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
     product_service = ProductService(db, business_id=bid)
 
     try:
@@ -692,7 +690,7 @@ def sales_doc_cart_update(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -770,7 +768,7 @@ def sales_doc_cart_remove(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -832,7 +830,7 @@ def sales_doc_cart_clear(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -891,7 +889,7 @@ def sales_doc_issue(
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -1031,7 +1029,7 @@ def sales_doc_pdf(
 
     items = svc.get_items_ordered(doc.id)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
     try:
@@ -1082,7 +1080,7 @@ def tab_documents(
     _ = ctx.user
     bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()

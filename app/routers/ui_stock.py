@@ -10,9 +10,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
-from app.repositories.business_repository import get_active_business_config
 from app.schemas import SupplierReturnLotCreate
-from app.security import get_active_business_code
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.logger import get_logger
@@ -48,7 +46,7 @@ def stock_table(
     _log.debug("stock_table - User: %s, Role: %s, bid: %s, location: %s, category: %s",
                user.username if user else 'None', user.role if user else 'None', bid, location_code, category)
     inventory_service = InventoryService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     central_code = str(config.locations.central.code).strip()
     loc = (location_code or "").strip() or None
     effective_code = (loc or central_code).strip()
@@ -97,7 +95,7 @@ def stock_delete_product(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     central_code = str(config.locations.central.code).strip()
 
     message = None
@@ -165,7 +163,7 @@ def stock_delete_selected(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     central_code = str(config.locations.central.code).strip()
 
     clean_skus: list[str] = []
@@ -246,7 +244,7 @@ def ui_supplier_return(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     user = ctx.user
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     locations = [{"code": config.locations.central.code, "name": config.locations.central.name}]
     pos_locations: list[dict[str, str]] = []
@@ -376,7 +374,7 @@ def restock_table(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
-    business_code = get_active_business_code(db, request)
+    business_code = ctx.business_code
     bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()
@@ -421,7 +419,7 @@ def restock_print(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
-    business_code = get_active_business_code(db, request)
+    business_code = ctx.business_code
     bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
     selected_location_code = (location_code or "").strip()

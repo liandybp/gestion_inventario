@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -14,7 +13,6 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
-from app.security import get_active_business_code, require_active_business_id
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.settings import is_desktop
@@ -48,15 +46,15 @@ from .ui_common import (
     parse_typed_float,
     templates,
 )
-from .ui_context import ui_context
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _location_id_for_code
 from app.utils import query_match
 
 router = APIRouter()
 
 
-def _sale_pos_context(db: Session, request: Request, location_code: str = "") -> tuple[list[dict[str, str]], str, str]:
-    config = get_active_business_config(db, request)
+def _sale_pos_context(ctx: "UIContext", location_code: str = "") -> tuple[list[dict[str, str]], str, str]:
+    config = ctx.config
     pos_locations: list[dict[str, str]] = []
     central = getattr(config.locations, "central", None)
     central_code = str(getattr(central, "code", "") or "").strip()
@@ -98,8 +96,7 @@ def sale_product_options(
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     _pos_locations, _default_sale_location_code, selected_location_code = _sale_pos_context(
-        db,
-        request,
+        ctx,
         location_code,
     )
     items = _sale_product_options(service, location_code=selected_location_code)
@@ -111,10 +108,10 @@ def sale_product_options(
     )
 
 
-def _sales_doc_context(db: Session, request: Request) -> dict:
-    config = get_active_business_config(db, request)
-    bid = require_active_business_id(db, request)
-    session = getattr(request, "session", None) or {}
+def _sales_doc_context(ctx: "UIContext") -> dict:
+    config = ctx.config
+    bid = ctx.business_id
+    session = getattr(ctx.request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):
         cart = []
@@ -123,10 +120,10 @@ def _sales_doc_context(db: Session, request: Request) -> dict:
         draft = {}
     doc_stmt = select(SalesDocument).where(SalesDocument.business_id == int(bid))
     recent_documents = list(
-        db.scalars(doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(10))
+        ctx.db.scalars(doc_stmt.order_by(SalesDocument.issue_date.desc(), SalesDocument.id.desc()).limit(10))
     )
     cust_stmt = select(Customer).where(Customer.business_id == int(bid))
-    customers = list(db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
+    customers = list(ctx.db.scalars(cust_stmt.order_by(Customer.name.asc(), Customer.id.asc()).limit(200)))
     return {
         "sales_doc_config": config.sales_documents.model_dump(),
         "currency": config.currency.model_dump(),
@@ -190,8 +187,7 @@ def sale(
     service = InventoryService(db, business_id=bid)
     user = ctx.user
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
-        db,
-        request,
+        ctx,
         location_code,
     )
     product_options = _sale_product_options(service, location_code=selected_location_code)
@@ -248,7 +244,7 @@ def sale(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
         )
     except HTTPException as e:
@@ -267,7 +263,7 @@ def sale(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=e.status_code,
         )
@@ -289,8 +285,7 @@ def sale_barcode(
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(
-        db,
-        request,
+        ctx,
         location_code,
     )
     product_options = _sale_product_options(service, location_code=selected_location_code)
@@ -386,7 +381,7 @@ def sale_barcode(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=400,
         )
@@ -436,7 +431,7 @@ def sale_update(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(ctx)
     product_options = _sale_product_options(service, location_code=selected_location_code)
     sku = extract_sku(product)
     try:
@@ -475,7 +470,7 @@ def sale_update(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
         )
     except HTTPException as e:
@@ -494,7 +489,7 @@ def sale_update(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=e.status_code,
         )
@@ -510,7 +505,7 @@ def sale_delete(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(ctx)
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         service.delete_sale_movement(movement_id)
@@ -539,7 +534,7 @@ def sale_delete(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
         )
     except HTTPException as e:
@@ -558,7 +553,7 @@ def sale_delete(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=e.status_code,
         )
@@ -579,7 +574,7 @@ def sale_delete(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=400,
         )
@@ -594,7 +589,7 @@ def sale_delete_selected(
     ctx = ui_context(request, db)
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(db, request)
+    pos_locations, default_sale_location_code, selected_location_code = _sale_pos_context(ctx)
     product_options = _sale_product_options(service, location_code=selected_location_code)
     user = ctx.user
 
@@ -615,7 +610,7 @@ def sale_delete_selected(
                     "pos_locations": pos_locations,
                     "default_sale_location_code": default_sale_location_code,
                     "sale_location_code": selected_location_code,
-                    **_sales_doc_context(db, request),
+                    **_sales_doc_context(ctx),
                 },
                 status_code=200,
             )
@@ -661,7 +656,7 @@ def sale_delete_selected(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=200,
         )
@@ -680,7 +675,7 @@ def sale_delete_selected(
                 "pos_locations": pos_locations,
                 "default_sale_location_code": default_sale_location_code,
                 "sale_location_code": selected_location_code,
-                **_sales_doc_context(db, request),
+                **_sales_doc_context(ctx),
             },
             status_code=200,
         )
@@ -739,8 +734,8 @@ def tab_sales(
         display_month = filter_month
         display_year = filter_year
 
-    business_code = get_active_business_code(db, request)
-    config = get_active_business_config(db, request)
+    business_code = ctx.business_code
+    config = ctx.config
     session = getattr(request, "session", None) or {}
     cart = session.get("sales_doc_cart")
     if not isinstance(cart, list):

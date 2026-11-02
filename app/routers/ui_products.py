@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 from types import SimpleNamespace
 
 from datetime import datetime, timezone
@@ -14,7 +13,6 @@ from app.deps import session_dep
 from app.models import Product
 from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import AdjustmentCreate, ProductUpdate
-from app.security import get_active_business_code
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.invoice_parsers import parse_autodoc_pdf
@@ -348,7 +346,7 @@ def product_update_inventory(
                     )
                     db.commit()
 
-        config = get_active_business_config(db, request)
+        config = ctx.config
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -377,7 +375,7 @@ def product_update_inventory(
         )
     except HTTPException as e:
         delete_uploaded_image(unsaved_image_url)
-        config = get_active_business_config(db, request)
+        config = ctx.config
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -416,7 +414,7 @@ def product_from_invoice(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
     purchase_cfg = getattr(config, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
@@ -657,8 +655,8 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     user = ctx.user
-    business_code = get_active_business_code(db, request)
-    config = get_active_business_config(db, request)
+    business_code = ctx.business_code
+    config = ctx.config
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
     pos_locations: list[dict[str, str]] = []
     for loc in (config.locations.pos or []):
