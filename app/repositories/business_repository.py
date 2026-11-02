@@ -136,6 +136,14 @@ def get_active_business_config(db: Session, request: Request) -> BusinessConfig:
     return get_business_config(db, bid)
 
 
+def get_business_code(db: Session, business_id: Optional[int]) -> Optional[str]:
+    """Código del negocio (None si no hay id o el negocio no existe)."""
+    if business_id is None:
+        return None
+    code = db.scalar(select(Business.code).where(Business.id == int(business_id)))
+    return (str(code).strip() if code is not None else None) or None
+
+
 # ── CRUD de negocios (extraído de ui_businesses, H-028) ───────────────────────
 
 def list_businesses(db: Session) -> list[Business]:

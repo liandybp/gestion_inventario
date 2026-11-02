@@ -11,6 +11,7 @@ from app.deps import session_dep
 from app.logger import get_logger
 
 _log = get_logger(__name__)
+_UNSET = object()
 from app.models import Business, User, UserBusiness
 
 
@@ -45,8 +46,11 @@ def get_user_business_ids(db: Session, user_id: int) -> list[int]:
     return [int(r) for r in rows]
 
 
-def get_active_business_id(db: Session, request: Request) -> Optional[int]:
-    user = get_current_user_from_session(db, request)
+def get_active_business_id(
+    db: Session, request: Request, *, user: object = _UNSET
+) -> Optional[int]:
+    if user is _UNSET:
+        user = get_current_user_from_session(db, request)
     if user is None:
         return None
 
