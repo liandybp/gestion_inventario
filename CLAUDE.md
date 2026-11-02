@@ -4,11 +4,12 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.4.15` (ver `VERSION`) — hotfix desplegado en dev y producción (`main`, `01c66b2`) el 2026-10-19:
-  guardar el formulario de un negocio borraba el saldo inicial de dividendos (`value="..."` + `tojson` sin escapar
-  comillas dobles). Recambios lo perdió el 2026-10-18 22:15 (pendientes en negativo); restaurado en prod con UPDATE
-  (`{"Negocio": 1375, "Liandy": 2715, "Randy": 0}`, del `.conf`/backfill V4). También: e2e intermitentes por la
-  carrera de la carga inicial de `#tab-content` (esperar `#tab-content > *` tras el login). 386 unit + 44 e2e.
+- **Versión actual:** `0.5.0` (ver `VERSION`, tag `v0.5.0`) — **en producción desde el 2026-11-02** (`main`,
+  `bca1835`): frontend modular (fases 0-5: JS en módulos ES, CSS sin inline, CSP `script-src`/`style-src 'self'`,
+  plantillas por dominio, routers sin ORM, `UIContext`), tools del copiloto `sales_by_location_monthly` y
+  `product_movements`, rangos de fecha del prompt y los quick wins de la auditoría de la release (4.70 🟢,
+  `docs/auditorias/2026-11-02-release-0.5.0.md`). Volcado previo al despliegue en `laptop-server`:
+  `~/backups/pre-release-0.5.0-20261102-1945.sql.gz`. 543 unit, 95 e2e, 91 snapshots.
 - **Rama principal:** `develop`
 - **Repo:** `gitea.legatumbp.com/liandybp/gestion_inventario` (mirror a `github.com/liandybp/gestion_inventario`)
 - **Obsidian:** [[05-Proyectos/gestion-inventario]]
