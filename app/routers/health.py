@@ -54,7 +54,11 @@ def _agent_llm_ok() -> str:
     try:
         import urllib.request
 
-        urllib.request.urlopen(f"{base}/models", timeout=2).read()
+        req = urllib.request.Request(f"{base}/models")
+        if settings.AGENT_LLM_API_KEY:
+            # Sin la key, una API externa responde 401 y el check marcaba "degraded" en falso.
+            req.add_header("Authorization", f"Bearer {settings.AGENT_LLM_API_KEY}")
+        urllib.request.urlopen(req, timeout=2).read()
         return "ok"
     except Exception:
         return "degraded"

@@ -70,9 +70,18 @@ def _summary(body: dict, legacy: bool) -> dict:
 
 @router.post("/csp-report", status_code=204)
 async def csp_report(request: Request) -> Response:
-    raw = await request.body()
-    if len(raw) > MAX_BODY_BYTES:
+    # Rechazar antes de leer: endpoint público, un cuerpo enorme no debe llegar a memoria.
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
         return Response(status_code=413)
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():  # tope también si Content-Length falta o miente
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            return Response(status_code=413)
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     try:
         payload = json.loads(raw or b"null")
     except (ValueError, UnicodeDecodeError):

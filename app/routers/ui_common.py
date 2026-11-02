@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import math
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -18,27 +19,50 @@ from app.utils import month_range
 templates = Jinja2Templates(directory="app/templates")
 
 
+_STATIC_VERSION_CACHE: dict[tuple, str] = {}
+_STATIC_VERSION_TTL_S = 1.0
+_static_version_checked: dict[str, tuple[float, str]] = {}  # root -> (última comprobación, versión)
+
+
 def _static_asset_version(static_dir: Path | None = None) -> str:
     """Versión de cache-busting derivada del contenido de los assets estáticos.
 
-    Se calcula en CADA render (no se congela en import): ``uvicorn --reload``
-    solo vigila ``*.py``, así que editar un ``.css``/``.js`` no reinicia el
-    proceso; con un hash por render, el ``?v=`` cambia igual y el navegador/CDN
-    invalida la caché. Las rutas parten de ``__file__`` para no depender del CWD.
+    Se comprueba en CADA render (no se congela en import): ``uvicorn --reload`` solo vigila ``*.py``, así que
+    editar un ``.css``/``.js`` no reinicia el proceso. El hash del contenido solo se recalcula cuando cambia la
+    firma (ruta, tamaño y mtime de cada fichero): antes se leían y hasheaban todos los assets en cada llamada.
     """
-    digest = hashlib.sha1()
     root = static_dir or Path(__file__).resolve().parent.parent / "static"
-    # Todos los .css/.js (también los módulos de js/core, js/components...): el hash cambia
-    # si cambia cualquiera, aunque main.js no cambie. La ruta entra en el hash (renombrar
-    # un módulo también invalida la caché).
+    now = time.monotonic()
+    last = _static_version_checked.get(str(root))
+    if last is not None and now - last[0] < _STATIC_VERSION_TTL_S:
+        return last[1]  # varias llamadas por render (y renders seguidos) no vuelven a tocar el disco
+    # Todos los .css/.js (también los módulos de js/core, js/components...): el hash cambia si cambia
+    # cualquiera, aunque main.js no cambie. La ruta entra en el hash (renombrar un módulo también invalida).
     files = sorted(p for sub in ("css", "js") for p in (root / sub).rglob("*") if p.suffix in (".css", ".js"))
+    signature: list[tuple[str, int, int]] = []
+    for path in files:
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        signature.append((path.relative_to(root).as_posix(), st.st_size, st.st_mtime_ns))
+    key = (str(root), tuple(signature))
+    cached = _STATIC_VERSION_CACHE.get(key)
+    if cached is not None:
+        _static_version_checked[str(root)] = (now, cached)
+        return cached
+    digest = hashlib.sha1()
     for path in files:
         try:
             digest.update(path.relative_to(root).as_posix().encode())
             digest.update(path.read_bytes())
         except OSError:
             continue
-    return digest.hexdigest()[:8]
+    version = digest.hexdigest()[:8]
+    _STATIC_VERSION_CACHE.clear()  # una sola entrada vigente por proceso
+    _STATIC_VERSION_CACHE[key] = version
+    _static_version_checked[str(root)] = (now, version)
+    return version
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
