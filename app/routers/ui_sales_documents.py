@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
 
 from app.utils import query_match
 
-from .ui_common import extract_sku, parse_dt, templates
+from .ui_common import parse_dt, templates
 from .ui_context import ui_context
 from app.logger import get_logger
 

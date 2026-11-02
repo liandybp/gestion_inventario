@@ -16,14 +16,13 @@ from app.repositories.purchase_repository import PurchaseRepository
 from app.models import Product
 from app.schemas import PurchaseCreate
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
     _DEV_ACTIONS_ENABLED,
     dt_to_local_input,
-    extract_sku,
     month_range,
     parse_dt,
     parse_typed_float,

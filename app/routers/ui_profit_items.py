@@ -11,25 +11,19 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import InventoryLot, InventoryMovement, Product
-from app.security import (
-    get_active_business_code,
-    get_current_user_from_session,
-    require_active_business_id,
-)
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.logger import get_logger
 from app.utils import query_match
 
 from .ui_common import (
     dt_to_local_input,
-    extract_sku,
     month_range,
     parse_dt,
     templates,
 )
-from .ui_context import ui_context
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _home_locations_context, _location_id_for_code
 
 _log = get_logger(__name__)
@@ -39,8 +33,7 @@ router = APIRouter()
 
 def _render_profit_items_tab(
     *,
-    request: Request,
-    db: Session,
+    ctx: "UIContext",
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -49,15 +42,15 @@ def _render_profit_items_tab(
     message_detail: Optional[str] = None,
     message_class: Optional[str] = None,
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
-    reporting = ReportingService(db, business_id=bid)
+    bid = ctx.business_id
+    user = ctx.user
+    reporting = ReportingService(ctx.db, business_id=bid)
 
-    business_code = get_active_business_code(db, request)
-    locations, default_loc_code = _home_locations_context(ui_context(request, db))
+    business_code = ctx.business_code
+    locations, default_loc_code = _home_locations_context(ctx)
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
-        _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
+        _location_id_for_code(ctx.db, selected_location_code, business_id=bid, business_code=business_code)
         if selected_location_code
         else None
     )
@@ -91,7 +84,7 @@ def _render_profit_items_tab(
             )
         ]
     return templates.TemplateResponse(
-        request=request,
+        request=ctx.request,
         name="features/profit_items/tab_profit_items.html",
         context={
             "user": user,
@@ -121,8 +114,7 @@ def tab_profit_items(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -195,8 +187,7 @@ def profit_items_adjustment_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -280,8 +271,7 @@ def profit_items_transfer_in_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -366,8 +356,7 @@ def profit_items_sale_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -435,8 +424,7 @@ def profit_items_sale_delete_selected(
 
     if not ids:
         return _render_profit_items_tab(
-            request=request,
-            db=db,
+            ctx=ctx,
             query=query,
             start_date=start_date,
             end_date=end_date,
@@ -472,8 +460,7 @@ def profit_items_sale_delete_selected(
     if errors:
         detail = detail + " Errores: " + "; ".join(errors[:5])
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -565,8 +552,7 @@ def profit_items_purchase_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,

@@ -14,7 +14,7 @@ from app.logger import get_logger
 from app.models import Customer, InventoryMovement, Product, SalesDocument
 from app.schemas import SaleCreate
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.settings import is_desktop
 from app.sync.outbox import append_event
 
@@ -41,7 +41,6 @@ def _dt_to_local_input_s(dt: datetime) -> str:
 
 from .ui_common import (
     barcode_to_sku,
-    extract_sku,
     parse_dt,
     parse_typed_float,
     templates,

@@ -121,13 +121,6 @@ def dt_to_local_input(dt: datetime) -> str:
 
 
 
-def extract_sku(product_field: str) -> str:
-    value = (product_field or "").strip()
-    if " - " in value:
-        value = value.split(" - ", 1)[0].strip()
-    return value
-
-
 def parse_optional_float(value: Optional[str]) -> Optional[float]:
     if value is None:
         return None

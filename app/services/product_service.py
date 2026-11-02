@@ -17,6 +17,13 @@ from app.logger import get_logger
 _log = get_logger(__name__)
 
 
+def extract_sku(product_field: str) -> str:
+    value = (product_field or "").strip()
+    if " - " in value:
+        value = value.split(" - ", 1)[0].strip()
+    return value
+
+
 def _ensure_finite(**fields: float | None) -> None:
     """422 si algún valor es NaN o infinito: Pydantic y float() los aceptan y `nan < 0` es False."""
     for field, value in fields.items():

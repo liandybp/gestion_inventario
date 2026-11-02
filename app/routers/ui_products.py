@@ -14,13 +14,12 @@ from app.models import Product
 from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import AdjustmentCreate, ProductUpdate
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.invoice_parsers import parse_autodoc_pdf
 from sqlalchemy import select
 
 from .ui_common import (
     barcode_to_sku,
-    extract_sku,
     delete_uploaded_image,
     parse_typed_float,
     save_product_image,
