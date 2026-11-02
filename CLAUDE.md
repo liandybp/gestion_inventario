@@ -226,7 +226,7 @@ Archivo `app/business_config.conf` (INI):
       - Pendiente solo el flujo: push → `develop` → dev → `main`, con confirmación del usuario.
 - [x] **PAE-015 — Copiloto: ventas por punto de venta mes a mes (2026-10-24, rama `feature/frontend-modular`,
       sin push, entra en 0.5.0)** — bug de prod del 2026-10-18 (total por ubicación sin meses, 7 meses en vez de 6,
-      título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (34 tools), gráfico multi-serie
+      título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (35 tools), gráfico multi-serie
       en `components/widget-chart.js` (solo bar/line), reglas de prompt ("últimos N meses", honestidad, dividendos
       pendiente vs retirado), título legible del widget de rescate y aviso cuando falla la tool del widget
       mostrado. Un primer intento (Haiku) se descartó (3.10 🔴, rama `backup/pae015-haiku`, borrada el 2026-10-24); PAE regenerado sobre

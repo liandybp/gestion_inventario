@@ -60,6 +60,9 @@ Reglas:
 - Para "productos sin venta"/"stock muerto"/"qué no se ha vendido" usa dead_stock
   (bar/table, argumento days opcional, default 90).
 - Para "rotación de inventario"/"cada cuánto rota el stock" usa inventory_turnover (kpi).
+- Para "movimientos"/"historial"/"entradas y salidas"/"kárdex" de UN artículo concreto (código o
+  nombre) usa product_movements (table) con sku=<código> y start/end del período pedido; si pide un
+  punto de venta, pasa location. movement_history es para los últimos movimientos SIN artículo concreto.
 - Para "últimos gastos" usa expenses_list (table); para "historial de movimientos/
   traspasos/ajustes" usa movement_history (table).
 - Para "mejores clientes"/"facturación por cliente" usa sales_by_customer (bar/table).

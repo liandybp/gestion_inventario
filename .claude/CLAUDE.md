@@ -284,7 +284,7 @@ Tests:        496 unit (SQLite en memoria) + 94 e2e (Playwright, fixture js_erro
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
               /sync/{register,push,conflicts} (offline-desktop-sync)
-              UI HTMX: dashboard completo + copiloto IA (34 tools) + tab Coach + sync banner
+              UI HTMX: dashboard completo + copiloto IA (35 tools) + tab Coach + sync banner
               + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
               + creación de producto solo desde "Registrar compra" con precio de venta opcional (v0.4.11)
               + GET /ui/product-suggest (sugerencias dinámicas al teclear, v0.4.12; NO en Ventas ni
