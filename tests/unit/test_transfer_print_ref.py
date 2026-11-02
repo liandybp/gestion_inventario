@@ -19,7 +19,7 @@ REF = "TP-CENTRAL-POS1-260115100000"
 def _patch(monkeypatch, business_id: int) -> None:
     from app.routers import ui_context as _uc
     monkeypatch.setattr(_uc.UIContext, "ensure_admin_or_owner", lambda self: None)
-    monkeypatch.setattr(_uc, "require_active_business_id", lambda _db, _request: business_id)
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
     cfg = SimpleNamespace(locations=SimpleNamespace(
         central=SimpleNamespace(code="CENTRAL", name="Central"),
         pos=[SimpleNamespace(code="POS1", name="Tienda")],

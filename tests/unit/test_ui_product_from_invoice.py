@@ -20,7 +20,7 @@ from app.routers import ui_products
 def _patch_route(monkeypatch, business_id: int, lines: list[InvoiceLine]) -> None:
     from app.routers import ui_context as _uc
     monkeypatch.setattr(_uc.UIContext, "ensure_admin_or_owner", lambda self: None)
-    monkeypatch.setattr(_uc, "require_active_business_id", lambda _db, _req: business_id)
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
     monkeypatch.setattr(_uc, "get_current_user_from_session", lambda _db, _req: None)
     monkeypatch.setattr(
         ui_products,

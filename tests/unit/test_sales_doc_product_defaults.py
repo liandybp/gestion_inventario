@@ -16,7 +16,7 @@ def _request() -> MagicMock:
 
 
 def test_unknown_sku_returns_empty_fragment(db_session, business_id, monkeypatch) -> None:
-    monkeypatch.setattr(_uc, "require_active_business_id", lambda _db, _req: business_id)
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
 
     response = sales_doc_product_defaults(request=_request(), product="NO-EXISTE", db=db_session)
 
@@ -25,7 +25,7 @@ def test_unknown_sku_returns_empty_fragment(db_session, business_id, monkeypatch
 
 
 def test_known_sku_fills_price(db_session, business_id, monkeypatch) -> None:
-    monkeypatch.setattr(_uc, "require_active_business_id", lambda _db, _req: business_id)
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
     db_session.add(Product(business_id=business_id, sku="SD-1", name="Doc", min_stock=0, default_sale_price=3.5))
     db_session.commit()
 
