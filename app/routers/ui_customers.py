@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import timezone
 from typing import Optional
@@ -13,7 +12,6 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.repositories.customer_repository import CustomerRepository
 from app.models import Customer
-from app.security import get_active_business_code
 from app.routers.ui_context import ui_context
 from app.settings import is_desktop
 from app.sync.outbox import append_event
@@ -136,7 +134,7 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 
     top_items = repo.top_items(customer.id, limit=10)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     return templates.TemplateResponse(
         request=request,

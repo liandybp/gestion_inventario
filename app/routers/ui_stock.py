@@ -406,7 +406,7 @@ def restock_table(
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code, db, request),
+            "selected_location_name": _location_name_for_code(selected_location_code, ctx),
             "restock_scope": selected_scope,
         },
     )
@@ -450,7 +450,7 @@ def restock_print(
         context={
             "items": items,
             "selected_location_code": selected_location_code,
-            "selected_location_name": _location_name_for_code(selected_location_code, db, request),
+            "selected_location_name": _location_name_for_code(selected_location_code, ctx),
             "print_mode": True,
             "generated_at": datetime.now(timezone.utc),
         },

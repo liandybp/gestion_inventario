@@ -51,7 +51,8 @@ def test_location_name_for_code_no_nameerror(db_session):
     ``db``/``request`` fuera de scope → NameError y 500 en ``/ui/restock-table``.
     """
     from app.routers.ui_tabs_common import _location_name_for_code
+    from app.routers.ui_context import UIContext
 
-    result = _location_name_for_code("CENTRAL", db_session, _FakeRequest())
+    result = _location_name_for_code("CENTRAL", UIContext(request=_FakeRequest(), db=db_session))
     assert isinstance(result, str)
     assert result  # no vacío

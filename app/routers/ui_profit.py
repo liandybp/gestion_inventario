@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 from app.services.reporting_service import ReportingService
 from app.utils import month_range
@@ -37,9 +36,9 @@ def tab_profit(
     user = ctx.user
     reporting = ReportingService(db, business_id=bid)
     finance = FinanceService(db, business_id=bid)
-    business_code = get_active_business_code(db, request)
 
-    locations, default_loc_code = _home_locations_context(db, request)
+    business_code = ctx.business_code
+    locations, default_loc_code = _home_locations_context(ctx)
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
         _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)

@@ -54,7 +54,7 @@ def _render_profit_items_tab(
     reporting = ReportingService(db, business_id=bid)
 
     business_code = get_active_business_code(db, request)
-    locations, default_loc_code = _home_locations_context(db, request)
+    locations, default_loc_code = _home_locations_context(ui_context(request, db))
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
         _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)

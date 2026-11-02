@@ -1,6 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
-
 import threading
 import time
 from collections import defaultdict
@@ -14,7 +12,7 @@ from app.agent import runner
 from app.agent import widgets as widget_store
 from app.deps import session_dep
 from app.routers.ui_common import templates
-from app.routers.ui_context import ui_context
+from app.routers.ui_context import UIContext, ui_context
 from app.security import get_active_business_code
 from app.settings import AGENT_RATE_LIMIT, AGENT_RATE_WINDOW
 
@@ -27,10 +25,9 @@ _agent_attempts: dict[str, list[float]] = defaultdict(list)
 _agent_lock = threading.Lock()
 
 
-def _currency_symbol(db, request) -> str:
+def _currency_symbol(ctx: "UIContext") -> str:
     """Símbolo de moneda del negocio activo (H-011, consistente con el dashboard)."""
-    config = get_active_business_config(db, request)
-    symbol = getattr(getattr(config, "currency", None), "symbol", None)
+    symbol = getattr(getattr(ctx.config, "currency", None), "symbol", None)
     return str(symbol) if symbol else "€"
 
 
@@ -55,7 +52,7 @@ def tab_agent(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "features/agent/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)}
     )
 
 
@@ -88,7 +85,7 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
 
     user = ctx.user
     rate_key = user.username if user is not None else (request.client.host if request.client else "unknown")
-    currency_symbol = _currency_symbol(db, request)
+    currency_symbol = _currency_symbol(ctx)
 
     message = (message or "").strip()
     if not message:
@@ -151,7 +148,7 @@ def delete(request: Request, widget_id: int, db: Session = Depends(session_dep))
     widget_store.delete_widget(db, business_id, widget_id)
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)}
     )
 
 
@@ -161,4 +158,4 @@ def widgets_view(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
     ctx.ensure_admin_or_owner()
     business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
-    return templates.TemplateResponse(request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)})
+    return templates.TemplateResponse(request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)})

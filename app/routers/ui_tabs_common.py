@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import InventoryLot, InventoryMovement, Location, Product
-from app.repositories.business_repository import get_active_business_config
+from app.routers.ui_context import UIContext
 from app.repositories.location_repository import LocationRepository
 
 
@@ -68,8 +68,8 @@ def _month_label_es(dt: datetime) -> str:
     return f"{month_names[int(dt.month) - 1].title()} {dt.year}"
 
 
-def _home_locations_context(db: Session, request: Request) -> tuple[list[dict], str]:
-    config = get_active_business_config(db, request)
+def _home_locations_context(ctx: "UIContext") -> tuple[list[dict], str]:
+    config = ctx.config
     locations: list[dict] = [{"code": "", "name": "Vista General"}]
     if getattr(getattr(config, "locations", None), "central", None) is not None:
         central_code = str(getattr(config.locations.central, "code", "") or "").strip()
@@ -97,9 +97,9 @@ def _location_id_for_code(
         )
     except HTTPException:
         return None
-def _location_name_for_code(location_code: str, db: Session, request: Request) -> str:
+def _location_name_for_code(location_code: str, ctx: "UIContext") -> str:
     code = (location_code or "").strip()
-    locations, _default_loc_code = _home_locations_context(db, request)
+    locations, _default_loc_code = _home_locations_context(ctx)
     for loc in locations:
         if (str(loc.get("code") or "").strip()) == code:
             name = str(loc.get("name") or "").strip()

@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.repositories.business_repository import get_active_business_config
 from app.services.finance_service import FinanceService
 from app.utils import month_range, query_match
 
@@ -36,7 +35,7 @@ def tab_dividends(
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     month_start, month_end = month_range(now)
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     if not start_date and not end_date:
         start_dt, end_dt = month_start, month_end
