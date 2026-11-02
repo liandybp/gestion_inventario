@@ -15,6 +15,21 @@ class LocationRepository:
         self._business_id = int(business_id)
         self._business_code = business_code or ""
 
+    def labels(self) -> tuple[dict[int, str], dict[str, str]]:
+        """({location_id: nombre}, {code: nombre}); el nombre vacío cae al código."""
+        rows = self._db.execute(
+            select(Location.id, Location.code, Location.name).where(
+                Location.business_id == self._business_id
+            )
+        ).all()
+        by_id: dict[int, str] = {}
+        by_code: dict[str, str] = {}
+        for loc_id, code, name in rows:
+            label = (str(name or "").strip()) or (str(code or "").strip()) or ""
+            by_id[int(loc_id)] = label
+            by_code[str(code or "").strip()] = label
+        return by_id, by_code
+
     def location_id_for_code(self, code: str, *, auto_create: bool = True) -> int:
         """Resuelve código→id. Si no existe y auto_create, lo crea (flush)."""
         c = (code or "").strip()
