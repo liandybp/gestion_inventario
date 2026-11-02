@@ -280,7 +280,7 @@ Cada lote se verifica contra el commit anterior con `--base` y `--expect-files` 
 ```bash
 cc_local_pae ~/PyCharmMiscProject/gestion_inventario specs/copiloto-movimientos-articulo/tasks.md \
   --test-cmd '! (.venv/bin/python -m pyflakes app | grep "undefined name" | grep -v "migrations.py:[0-9]*:[0-9]*: undefined name .Session.") && python3 tests/snapshots/ui_snapshot.py check tests/snapshots/baseline && SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/unit -q --override-ini="addopts="' \
-  --lot0-test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/e2e/test_agent_product_movements_e2e.py tests/unit/test_reporting_product_movements.py -q --no-cov --override-ini="addopts="'
+  --lot0-test-cmd 'SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test python3 -m pytest tests/e2e/test_agent_product_movements_e2e.py tests/unit/test_reporting_product_movements.py -q --override-ini="addopts="'
 ```
 
 > Sin `--free-port`: los e2e usan puerto dinámico (`_free_port()` en `tests/e2e/conftest.py`).
