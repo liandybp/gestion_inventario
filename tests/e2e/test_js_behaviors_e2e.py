@@ -199,7 +199,7 @@ def test_agent_chat_turn_renders_oob_widget_chart(tour_server, page: Page, js_er
     chat (que llamaría al LLM) se sustituye por la plantilla real con un widget de barras."""
     base_url, _ = tour_server
     widget = {"id": 9999, "type": "bar", "title": "Ventas OOB", "payload": {"labels": ["x", "y"], "values": [3, 4]}}
-    body = templates.env.get_template("partials/agent_chat_turn.html").render(
+    body = templates.env.get_template("features/agent/agent_chat_turn.html").render(
         user_content="hola", reply="Respuesta e2e", widgets=[widget], currency_symbol="€"
     )
     page.route("**/ui/agent/chat", lambda route: route.fulfill(status=200, content_type="text/html", body=body))

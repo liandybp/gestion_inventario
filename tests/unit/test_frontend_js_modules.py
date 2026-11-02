@@ -160,7 +160,7 @@ def _attrs_of(html: str, tag: str, element_id: str | None = None) -> dict[str, s
 def test_widget_chart_spec_survives_hostile_title() -> None:
     title = "</canvas><script>x</script> \"q\" 'a' & <b>"
     w = {"id": 3, "type": "pie", "title": title, "payload": {"labels": ["<b>A</b>", "B'"], "values": [1, 2]}}
-    html = templates.env.get_template("partials/widget_chart.html").render(w=w)
+    html = templates.env.get_template("features/agent/widget_chart.html").render(w=w)
     assert "<script" not in html and "<b>" not in html
     spec = json.loads(_attrs_of(html, "canvas")["data-js-widget-chart"])
     assert spec == {"type": "pie", "title": title, "payload": w["payload"]}

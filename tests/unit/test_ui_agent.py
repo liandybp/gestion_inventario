@@ -139,7 +139,7 @@ def test_tab_agent_admin_renders_widgets(db_session, business_id):
     finally:
         uic.templates.TemplateResponse = original
 
-    assert rendered["name"] == "partials/tab_agent.html"
+    assert rendered["name"] == "features/agent/tab_agent.html"
     # El símbolo depende de la config del negocio (archivo en disco); solo
     # verificamos que se pase al contexto y que el widget esté presente.
     assert rendered["context"]["currency_symbol"]

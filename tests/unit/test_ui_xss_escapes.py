@@ -97,7 +97,7 @@ def test_home_charts_json_cannot_break_out_of_script_tag() -> None:
     reporting.sales_metrics_table.return_value = []
 
     ctx = _home_charts_context(reporting, datetime(2026, 10, 15, tzinfo=timezone.utc))
-    html = templates.get_template("partials/home_charts.html").render(ctx)
+    html = templates.get_template("features/home/home_charts.html").render(ctx)
 
     assert "<img" not in html
     assert html.count("</script>") == 3  # solo los cierres legítimos de los 3 bloques JSON

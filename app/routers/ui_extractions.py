@@ -63,7 +63,7 @@ def extraction_create(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Retiro registrado",
                 "message_class": "ok",
@@ -79,7 +79,7 @@ def extraction_create(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Error al registrar retiro",
                 "message_detail": str(e),
@@ -124,7 +124,7 @@ def extraction_delete(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Retiro eliminado",
                 "message_class": "ok",
@@ -139,7 +139,7 @@ def extraction_delete(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Error al eliminar retiro",
                 "message_detail": str(e.detail),
@@ -157,7 +157,7 @@ def extraction_delete(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Error al eliminar retiro",
                 "message_detail": str(e),
@@ -185,7 +185,7 @@ def extraction_edit_form(
     config = get_active_business_config(db, request)
     return templates.TemplateResponse(
         request=request,
-        name="partials/extraction_edit_form.html",
+        name="features/extractions/extraction_edit_form.html",
         context={
             "extraction": extraction,
             "extraction_date_value": dt_to_local_input(extraction.extraction_date),
@@ -235,7 +235,7 @@ def extraction_update(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Retiro actualizado",
                 "message_class": "ok",
@@ -250,7 +250,7 @@ def extraction_update(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Error al actualizar retiro",
                 "message_detail": str(e.detail),
@@ -268,7 +268,7 @@ def extraction_update(
         extractions = service.list_extractions(start=start, end=end, limit=200)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_dividends.html",
+            name="features/dividends/tab_dividends.html",
             context={
                 "message": "Error al actualizar retiro",
                 "message_detail": str(e),
