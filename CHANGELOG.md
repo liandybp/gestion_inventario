@@ -2,8 +2,13 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
-## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
+## 0.5.0 (2026-11-02 — release del frontend modular, fases 0-5)
 
+- fix(release): quick wins de la auditoría de la release (`docs/auditorias/2026-11-02-release-0.5.0.md`):
+  `/health` envía la API key al comprobar el LLM (producción marcaba `agent_llm: degraded` en falso),
+  `/csp-report` rechaza cuerpos grandes antes de leerlos y `static_version()` solo recalcula el hash cuando
+  cambian los estáticos (TTL de 1 s; de 0,66 a 0,02 ms por llamada). `develop` incluye ya el roadmap que se
+  commiteó directamente en `main`.
 - feat(agent): nueva tool `product_movements` — movimientos de un artículo en un período (compras, ventas,
   traspasos, ajustes y devoluciones a proveedor) con fila de saldo inicial y saldo acumulado, filtro por
   ubicación y nota de descuadre contra el stock por lotes. 35 tools.
