@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.agent.tools import tool_schemas
@@ -16,8 +16,10 @@ Eres el copiloto de un negocio de inventario. Hoy es {today}. Responde con un JS
 Reglas:
 - Usa UNA tool de datos como máximo por turno (o tool=null para Q&A puro).
 - Los números SIEMPRE los obtiene la tool; nunca los inventes.
-- Para fechas relativas ("este mes", "mes anterior", "este año") usa la fecha de
-  hoy ({today}) como referencia. Nunca uses fechas de años pasados por defecto.
+- Para "este mes" usa EXACTAMENTE start={month_start} y end={today}; para "mes pasado"/
+  "mes anterior" usa EXACTAMENTE start={prev_start} y end={prev_end}. Son rangos ya
+  calculados: no los recalcules. Para otras fechas relativas ("este año", "esta semana")
+  usa hoy ({today}) como referencia. Nunca uses fechas de años pasados por defecto.
 - widgets: máximo 1 por turno. Elige el type que MEJOR represente los datos que
   pide el usuario (decide TÚ según la semántica, no atado a la tool):
   * "kpi"        -> un valor único (total vendido, valor de inventario, stock)
@@ -94,8 +96,17 @@ def build_system_prompt(last_tool: Optional[dict] = None) -> str:
     # Fecha fresca en cada llamada: el modelo necesita saber qué día es para
     # resolver fechas relativas correctamente (ej. "mes anterior" -> 2026-07,
     # no 2023-10 como salía antes por no tener contexto de fecha).
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    prompt = SYSTEM_PROMPT_TEMPLATE.format(schemas=_TOOL_SCHEMAS_JSON, today=today)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1)
+    prev_end = month_start - timedelta(days=1)
+    # A principios de mes el modelo tomaba "este mes" por el anterior: los rangos van calculados.
+    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        schemas=_TOOL_SCHEMAS_JSON,
+        today=now.strftime("%Y-%m-%d"),
+        month_start=month_start.strftime("%Y-%m-%d"),
+        prev_start=prev_end.replace(day=1).strftime("%Y-%m-%d"),
+        prev_end=prev_end.strftime("%Y-%m-%d"),
+    )
     if last_tool:
         prompt += (
             "\n\nContexto adicional: el último widget mostrado en esta conversación usó "
