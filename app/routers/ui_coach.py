@@ -57,6 +57,7 @@ def set_cash_baseline(
         amount=payload.amount,
         created_by=user.id if user else None,
     )
+    db.commit()
     report = service.health_score()
     recommendations = service.recommendations()
     return templates.TemplateResponse(
