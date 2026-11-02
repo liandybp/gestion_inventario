@@ -28,8 +28,11 @@ from app.business_config import (
     parse_opening_pending,
     parse_partners,
 )
-from app.models import Business, Location, Product, User, UserBusiness
+from app.logger import get_logger
+from app.models import Business, InventoryLot, InventoryMovement, Location, Product, SalesDocument, User, UserBusiness
 from app.security import get_active_business_id
+
+_log = get_logger(__name__)
 
 
 def get_business_locations(db: Session, business_id: int) -> LocationsConfig:
@@ -221,3 +224,108 @@ def count_related(db: Session, business_id: int, code: Optional[str] = None) -> 
         "locations": other_location_count,
         "user_businesses": user_business_count,
     }
+
+
+def location_has_data(db: Session, location_id: int) -> bool:
+    """True si la ubicación tiene movimientos/lotes/documentos asociados."""
+    for model in (InventoryMovement, InventoryLot, SalesDocument):
+        try:
+            count = db.scalar(
+                select(func.count()).select_from(model).where(model.location_id == int(location_id))
+            )
+            if count:
+                return True
+        except Exception:
+            _log.exception("location_has_data: fallo de query en %s", model.__tablename__)
+            continue
+    return False
+
+
+def list_businesses_by_ids(db: Session, ids: list[int]) -> list[Business]:
+    if not ids:
+        return []
+    return list(
+        db.scalars(select(Business).where(Business.id.in_([int(i) for i in ids])).order_by(Business.code.asc()))
+    )
+
+
+def create_locations(
+    db: Session,
+    business_id: int,
+    central: tuple[str, str],
+    pos: list[tuple[str, str]],
+    default_pos_code: str,
+) -> None:
+    db.add(Location(
+        business_id=int(business_id),
+        code=central[0],
+        name=central[1],
+        role="central",
+        position=0,
+    ))
+    for i, (pcode, pname) in enumerate(pos, start=1):
+        db.add(Location(
+            business_id=int(business_id),
+            code=pcode,
+            name=pname,
+            role="pos",
+            position=i,
+            is_default=(pcode == default_pos_code),
+        ))
+
+
+def reconcile_locations(
+    db: Session,
+    business_id: int,
+    central: tuple[str, str],
+    pos: list[tuple[str, str]],
+    default_pos_code: str,
+) -> Optional[str]:
+    bid = int(business_id)
+    central_code, central_name = central
+    central_row = db.scalar(select(Location).where(Location.business_id == bid, Location.role == "central"))
+    if central_row is None:
+        central_row = db.scalar(select(Location).where(Location.business_id == bid, Location.code == central_code))
+    if central_row is None:
+        central_row = Location(business_id=bid, code=central_code, name=central_name, role="central", position=0)
+        db.add(central_row)
+    else:
+        central_row.code = central_code
+        central_row.name = central_name
+        central_row.role = "central"
+        central_row.position = 0
+
+    parsed = [s for s in pos if (s[0] or "").strip()]
+    existing = list(db.scalars(
+        select(Location).where(Location.business_id == bid, Location.role == "pos")
+        .order_by(Location.position.asc(), Location.id.asc())
+    ).all())
+
+    for loc in existing:
+        loc.is_default = False
+
+    for i, (pcode, pname) in enumerate(parsed, start=1):
+        is_def = (pcode == default_pos_code)
+        if i - 1 < len(existing):
+            loc = existing[i - 1]
+            loc.code = pcode
+            loc.name = pname
+            loc.role = "pos"
+            loc.position = i
+            loc.is_default = is_def
+        else:
+            db.add(Location(business_id=bid, code=pcode, name=pname,
+                            role="pos", position=i, is_default=is_def))
+
+    if len(existing) > len(parsed):
+        for loc in existing[len(parsed):]:
+            if location_has_data(db, int(loc.id)):
+                return f"No se puede eliminar la ubicación '{loc.name}' ({loc.code}) porque tiene datos asociados."
+            db.delete(loc)
+
+    db.flush()
+    return None
+
+
+def delete_locations(db: Session, business_id: int) -> None:
+    db.query(Location).filter(Location.business_id == int(business_id)).delete(synchronize_session=False)

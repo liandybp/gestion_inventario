@@ -4,50 +4,13 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import InventoryLot, InventoryMovement, Location, Product
 from app.routers.ui_context import UIContext
+from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.location_repository import LocationRepository
 
 
-def _deletable_skus(db: Session, skus: list[str], *, business_id: int) -> set[str]:
-    clean = [str(s).strip() for s in (skus or []) if str(s).strip()]
-    if not clean:
-        return set()
-
-    rows = db.execute(
-        select(Product.id, Product.sku).where(
-            Product.sku.in_(clean),
-            Product.business_id == int(business_id),
-        )
-    ).all()
-    if not rows:
-        return set()
-
-    product_ids = [int(pid) for pid, _ in rows]
-    id_to_sku = {int(pid): str(sku) for pid, sku in rows}
-
-    movement_pids = set(
-        db.scalars(
-            select(InventoryMovement.product_id)
-            .where(InventoryMovement.product_id.in_(product_ids))
-            .where(InventoryMovement.business_id == int(business_id))
-            .distinct()
-        ).all()
-    )
-    lot_pids = set(
-        db.scalars(
-            select(InventoryLot.product_id)
-            .where(InventoryLot.product_id.in_(product_ids))
-            .where(InventoryLot.business_id == int(business_id))
-            .distinct()
-        ).all()
-    )
-    blocked = movement_pids | lot_pids
-
-    return {sku for pid, sku in id_to_sku.items() if pid not in blocked}
 
 
 def _month_label_es(dt: datetime) -> str:
@@ -126,21 +89,9 @@ def _restock_items_with_location_history(
     if not skus:
         return items
 
-    history_skus = {
-        str(sku).strip()
-        for sku in db.scalars(
-            select(Product.sku)
-            .select_from(InventoryMovement)
-            .join(Product, Product.id == InventoryMovement.product_id)
-            .where(
-                InventoryMovement.business_id == int(business_id),
-                InventoryMovement.location_id == int(location_id),
-                Product.sku.in_(skus),
-            )
-            .distinct()
-        ).all()
-        if str(sku or "").strip()
-    }
+    history_skus = InventoryRepository(
+        db, business_id=int(business_id)
+    ).skus_with_location_history(int(location_id), skus)
     if not history_skus:
         return []
 

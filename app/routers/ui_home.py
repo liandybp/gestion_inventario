@@ -5,11 +5,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Business
+from app.repositories.business_repository import get_business, list_businesses, list_businesses_by_ids
 from app.security import get_user_business_ids
 from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
@@ -162,21 +161,15 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     businesses = []
     active_business = None
     if active_business_id is not None:
-        active_business = db.get(Business, int(active_business_id))
+        active_business = get_business(db, int(active_business_id))
     role = role_of(user)
     if user is not None:
         if role == "admin":
-            businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+            businesses = list_businesses(db)
         elif role == "owner":
             assigned = get_user_business_ids(db, user.id)
             if assigned:
-                businesses = list(
-                    db.scalars(
-                        select(Business)
-                        .where(Business.id.in_(assigned))
-                        .order_by(Business.code.asc())
-                    )
-                )
+                businesses = list_businesses_by_ids(db, assigned)
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
