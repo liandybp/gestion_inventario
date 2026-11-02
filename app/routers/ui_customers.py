@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse

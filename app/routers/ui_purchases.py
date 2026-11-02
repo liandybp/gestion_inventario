@@ -21,7 +21,6 @@ from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
-    _DEV_ACTIONS_ENABLED,
     dt_to_local_input,
     month_range,
     parse_dt,

@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.models import Product
 from app.repositories.product_repository import ProductRepository
 from app.schemas import SupplierReturnLotCreate
 from app.services.inventory_service import InventoryService

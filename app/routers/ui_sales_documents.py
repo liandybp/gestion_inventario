@@ -6,12 +6,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import and_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
+from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
 from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
