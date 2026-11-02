@@ -170,3 +170,25 @@ class SalesDocumentService:
                 for c in customers
             ],
         }
+
+    def delete_document(self, doc: SalesDocument) -> None:
+        items = self.get_items(doc.id)
+        for it in items:
+            self._db.delete(it)
+        # Sin relationship entre documento y líneas, el unit of work no sabe el orden: borrar las
+        # líneas primero o la FK sales_document_items.document_id rechaza el DELETE del documento.
+        self._db.flush()
+        self._db.delete(doc)
+
+    def delete_item(self, item: SalesDocumentItem) -> None:
+        self._db.delete(item)
+
+    def add_item(self, item: SalesDocumentItem) -> None:
+        self._db.add(item)
+
+    def add_document(self, doc: SalesDocument, items: list[SalesDocumentItem]) -> None:
+        self._db.add(doc)
+        self._db.flush()
+        for it in items:
+            it.document_id = doc.id
+            self._db.add(it)

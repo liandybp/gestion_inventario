@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config, get_business_config
 from app.repositories.location_repository import LocationRepository
 
 from datetime import datetime, timedelta, timezone
@@ -7,20 +6,17 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import and_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
+from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_active_business_code
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
 
 from app.utils import query_match
 
-from .ui_common import extract_sku, parse_dt, templates
+from .ui_common import parse_dt, templates
 from .ui_context import ui_context
 from app.logger import get_logger
 
@@ -199,7 +195,7 @@ def sales_doc_preview(
     ctx = ui_context(request, db)
     _ = ctx.user
     _ = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -262,7 +258,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc = SalesDocumentService(db, bid).get(doc_id)
     if doc is None:
@@ -270,13 +266,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    items = SalesDocumentService(db, bid).get_items(doc.id)
-    for it in items:
-        db.delete(it)
-    # Sin relationship entre documento y líneas, el unit of work no sabe el orden: borrar las
-    # líneas primero o la FK sales_document_items.document_id rechaza el DELETE del documento.
-    db.flush()
-    db.delete(doc)
+    SalesDocumentService(db, bid).delete_document(doc)
     db.commit()
 
     cart = _get_cart(request)
@@ -340,7 +330,7 @@ async def sales_doc_update(
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
@@ -370,7 +360,7 @@ async def sales_doc_update(
     for it in items:
         del_flag = form.get(f"del_{it.id}")
         if del_flag:
-            db.delete(it)
+            SalesDocumentService(db, bid).delete_item(it)
             continue
 
         desc = (form.get(f"desc_{it.id}") or it.description or "").strip() or "(sin descripción)"
@@ -407,7 +397,8 @@ async def sales_doc_update(
 
     if new_desc and new_qty > 0:
         new_line_total = float(new_qty * new_price)
-        db.add(
+        svc = SalesDocumentService(db, bid)
+        svc.add_item(
             SalesDocumentItem(
                 document_id=doc.id,
                 line_no=next_line,
@@ -536,7 +527,7 @@ def sales_doc_cart_add(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
     product_service = ProductService(db, business_id=bid)
 
     try:
@@ -692,7 +683,7 @@ def sales_doc_cart_update(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -770,7 +761,7 @@ def sales_doc_cart_remove(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -832,7 +823,7 @@ def sales_doc_cart_clear(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -891,7 +882,7 @@ def sales_doc_issue(
     ctx = ui_context(request, db)
     _ = ctx.user
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -978,13 +969,7 @@ def sales_doc_issue(
         total=subtotal,
     )
 
-    db.add(doc)
-    db.flush()
-
-    for it in items:
-        it.document_id = doc.id
-        db.add(it)
-
+    SalesDocumentService(db, bid).add_document(doc, items)
     db.commit()
 
     _clear_cart(request)
@@ -1031,7 +1016,7 @@ def sales_doc_pdf(
 
     items = svc.get_items_ordered(doc.id)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
     try:
@@ -1082,7 +1067,7 @@ def tab_documents(
     _ = ctx.user
     bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()

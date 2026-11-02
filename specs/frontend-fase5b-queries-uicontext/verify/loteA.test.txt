@@ -1,0 +1,47 @@
+.........................                                                [100%]
+=============================== warnings summary ===============================
+../../.local/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
+  /home/liandy/.local/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+../../.local/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
+  /home/liandy/.local/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func) or (
+
+../../.local/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
+  /home/liandy/.local/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:300
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:300
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:300
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:300
+  /home/liandy/.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    asyncio.iscoroutinefunction(func)
+
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:302
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:302
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:302
+../../.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:302
+  /home/liandy/.local/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: 1212 warnings
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:179: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+../../.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450: 25 warnings
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:450: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/unit/test_ui_query_count.py::test_route_returns_200_and_records_counts[admin-/ui/tabs/sales]
+  /home/liandy/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:1056: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+25 passed, 1249 warnings in 1.35s
+OK: 91 snapshots equivalentes
+
+--- stderr ---
+/home/liandy/.local/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer

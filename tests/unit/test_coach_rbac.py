@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.auth import hash_password
-from app.models import User
+from app.models import CashBaseline, User
 from app.routers import ui_coach
 
 
@@ -81,7 +81,7 @@ def test_admin_post_cash_baseline(db_session, business_id):
         req, baseline_date="2026-01-01T00:00:00", amount=100, db=db_session
     )
     assert resp.status_code == 200
-    baseline = db_session.query(ui_coach.CashBaseline).one()
+    baseline = db_session.query(CashBaseline).one()
     assert baseline.amount == 100
 
 
@@ -119,7 +119,7 @@ def test_admin_post_action_done(db_session, business_id):
     )
     assert resp.status_code == 200
     user = db_session.query(User).filter_by(username="admin").one()
-    log = db_session.query(ui_coach.CashBaseline).all()
+    log = db_session.query(CashBaseline).all()
     from app.models import CoachActionLog
 
     action = db_session.query(CoachActionLog).one()

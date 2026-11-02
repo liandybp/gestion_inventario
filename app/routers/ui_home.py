@@ -5,16 +5,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Business
-from app.security import (
-    get_active_business_code,
-    get_active_business_id,
-    get_user_business_ids,
-)
+from app.repositories.business_repository import get_business, list_businesses, list_businesses_by_ids
+from app.security import get_user_business_ids
 from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
@@ -162,25 +157,19 @@ def ui_root() -> RedirectResponse:
 def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     ctx = ui_context(request, db)
     user = ctx.user
-    active_business_id = get_active_business_id(db, request)
+    active_business_id = ctx.active_business_id
     businesses = []
     active_business = None
     if active_business_id is not None:
-        active_business = db.get(Business, int(active_business_id))
+        active_business = get_business(db, int(active_business_id))
     role = role_of(user)
     if user is not None:
         if role == "admin":
-            businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+            businesses = list_businesses(db)
         elif role == "owner":
             assigned = get_user_business_ids(db, user.id)
             if assigned:
-                businesses = list(
-                    db.scalars(
-                        select(Business)
-                        .where(Business.id.in_(assigned))
-                        .order_by(Business.code.asc())
-                    )
-                )
+                businesses = list_businesses_by_ids(db, assigned)
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -207,14 +196,14 @@ def tab_home(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
-    business_code = get_active_business_code(db, request)
+    business_code = ctx.business_code
     bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     reporting = ReportingService(db, business_id=bid)
     finance = FinanceService(db, business_id=bid)
 
-    locations, _default_loc_code = _home_locations_context(db, request)
+    locations, _default_loc_code = _home_locations_context(ctx)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(
         db,
@@ -317,7 +306,7 @@ def home_charts(
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
-    business_code = get_active_business_code(db, request)
+    business_code = ctx.business_code
     bid = ctx.business_id
     user = ctx.user
     reporting = ReportingService(db, business_id=bid)

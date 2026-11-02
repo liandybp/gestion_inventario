@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
 import math
@@ -16,22 +15,19 @@ from app.deps import session_dep
 from app.repositories.purchase_repository import PurchaseRepository
 from app.models import Product
 from app.schemas import PurchaseCreate
-from app.security import get_active_business_code, get_current_user_from_session
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
-    _DEV_ACTIONS_ENABLED,
     dt_to_local_input,
-    extract_sku,
     month_range,
     parse_dt,
     parse_typed_float,
     templates,
 )
-from .ui_context import ui_context
+from .ui_context import UIContext, ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -39,8 +35,8 @@ _log = get_logger(__name__)
 router = APIRouter()
 
 
-def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optional[float], str, str]:
-    cfg = get_active_business_config(db, request)
+def _purchase_config_values(ctx: "UIContext") -> tuple[float, Optional[float], str, str]:
+    cfg = ctx.config
     purchase_cfg = getattr(cfg, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
@@ -79,12 +75,12 @@ def purchase_from_invoice(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(db, request)
+    vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
     def _render_error(message: str, detail: str) -> HTMLResponse:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
             name="features/purchases/purchase_panel.html",
@@ -364,7 +360,7 @@ def purchase(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
@@ -503,7 +499,7 @@ def purchase_label_print(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    _, _, currency_code, _ = _purchase_config_values(db, request)
+    _, _, currency_code, _ = _purchase_config_values(ctx)
     repo = PurchaseRepository(db, bid)
     mv = repo.get_movement(movement_id)
     if mv is None or mv.type != "purchase":
@@ -539,7 +535,7 @@ def purchase_edit_form(
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     product = repo.get_product(mv.product_id)
     lot = repo.get_lot_by_movement(mv.id)
-    _, _, currency_code, _ = _purchase_config_values(db, request)
+    _, _, currency_code, _ = _purchase_config_values(ctx)
     return templates.TemplateResponse(
         request=request,
         name="features/purchases/purchase_edit_form.html",
@@ -569,7 +565,7 @@ def purchase_update(
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     ctx.ensure_admin_or_owner()
     sku = extract_sku(product)
@@ -638,7 +634,7 @@ def purchase_delete(
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     try:
         ctx.ensure_admin_or_owner()
@@ -715,7 +711,7 @@ def purchase_delete_selected(
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
     ctx = ui_context(request, db)
     bid = ctx.business_id
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     user = ctx.user
 
@@ -862,7 +858,7 @@ def tab_purchases(
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     user = ctx.user
-    config = get_active_business_config(db, request)
+    config = ctx.config
     purchase_currency_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
     purchase_currency_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "€"
     

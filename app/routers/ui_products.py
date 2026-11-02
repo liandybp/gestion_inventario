@@ -1,8 +1,6 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 from types import SimpleNamespace
 
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -12,17 +10,14 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
+from app.repositories.product_repository import ProductRepository
 from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import AdjustmentCreate, ProductUpdate
-from app.security import get_active_business_code
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.invoice_parsers import parse_autodoc_pdf
-from sqlalchemy import select
 
 from .ui_common import (
-    barcode_to_sku,
-    extract_sku,
     delete_uploaded_image,
     parse_typed_float,
     save_product_image,
@@ -348,7 +343,7 @@ def product_update_inventory(
                     )
                     db.commit()
 
-        config = get_active_business_config(db, request)
+        config = ctx.config
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -377,7 +372,7 @@ def product_update_inventory(
         )
     except HTTPException as e:
         delete_uploaded_image(unsaved_image_url)
-        config = get_active_business_config(db, request)
+        config = ctx.config
         locations = [{"code": "CENTRAL", "name": "Almacén Central"}]
         for pos_loc in (config.locations.pos or []):
             if getattr(pos_loc, "code", None):
@@ -416,7 +411,7 @@ def product_from_invoice(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    config = get_active_business_config(db, request)
+    config = ctx.config
     purchase_cfg = getattr(config, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
@@ -600,15 +595,11 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
             p = None
 
     if p is None:
-        p = db.scalar(
-            select(Product)
-            .where(Product.business_id == int(business_id), Product.name.ilike(value))
-            .order_by(Product.id.asc())
-        )
+        p = ProductRepository(db, business_id=business_id).first_by_name(value)
 
     if p is None:
         try:
-            p = product_service.get_by_sku(barcode_to_sku(db, value, business_id=business_id))
+            p = product_service.get_by_sku(product_service.barcode_to_sku(value))
         except HTTPException:
             return HTMLResponse("")
 
@@ -657,8 +648,8 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     user = ctx.user
-    business_code = get_active_business_code(db, request)
-    config = get_active_business_config(db, request)
+    business_code = ctx.business_code
+    config = ctx.config
     locations = [{"code": "", "name": "Vista General"}, {"code": config.locations.central.code, "name": "Almacén central"}]
     pos_locations: list[dict[str, str]] = []
     for loc in (config.locations.pos or []):
@@ -676,13 +667,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
     categories: list[str] = []
     try:
-        rows = db.execute(
-            select(Product.category)
-            .where(Product.business_id == int(bid))
-            .distinct()
-            .order_by(Product.category.asc())
-        ).all()
-        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+        categories = ProductRepository(db, business_id=bid).list_categories()
     except Exception:
         _log.error("categories fallback en tab_inventory")
         categories = []

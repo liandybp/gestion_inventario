@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Product
+from app.models import InventoryLot, InventoryMovement, Product
 
 
 def _normalize_text(text: str) -> str:
@@ -75,3 +75,68 @@ class ProductRepository:
 
     def add(self, product: Product) -> None:
         self._db.add(product)
+
+    def get_by_lot_code(self, code: str) -> Optional[Product]:
+        code = (code or "").strip()
+        lot_stmt = select(InventoryLot).where(InventoryLot.lot_code == code)
+        lot_stmt = lot_stmt.where(InventoryLot.business_id == self._business_id)
+        lot = self._db.scalar(lot_stmt)
+        if lot is None and not code.endswith("00000"):
+            lot_stmt = select(InventoryLot).where(InventoryLot.lot_code == f"{code}00000")
+            lot_stmt = lot_stmt.where(InventoryLot.business_id == self._business_id)
+            lot = self._db.scalar(lot_stmt)
+        if lot is None:
+            return None
+        product = self._db.get(Product, lot.product_id)
+        if product is not None and int(getattr(product, "business_id", 0) or 0) == self._business_id:
+            return product
+        return None
+
+    def first_by_name(self, value: str) -> Optional[Product]:
+        return self._db.scalar(
+            select(Product)
+            .where(Product.business_id == self._business_id, Product.name.ilike(value))
+            .order_by(Product.id.asc())
+        )
+
+    def list_categories(self) -> list[str]:
+        rows = self._db.execute(
+            select(Product.category)
+            .where(Product.business_id == self._business_id)
+            .distinct()
+            .order_by(Product.category.asc())
+        ).all()
+        return [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+
+    def deletable_skus(self, skus: list[str]) -> set[str]:
+        clean = [str(s).strip() for s in (skus or []) if str(s).strip()]
+        if not clean:
+            return set()
+        rows = self._db.execute(
+            select(Product.id, Product.sku).where(
+                Product.sku.in_(clean),
+                Product.business_id == self._business_id,
+            )
+        ).all()
+        if not rows:
+            return set()
+        product_ids = [int(pid) for pid, _ in rows]
+        id_to_sku = {int(pid): str(sku) for pid, sku in rows}
+        movement_pids = set(
+            self._db.scalars(
+                select(InventoryMovement.product_id)
+                .where(InventoryMovement.product_id.in_(product_ids))
+                .where(InventoryMovement.business_id == self._business_id)
+                .distinct()
+            ).all()
+        )
+        lot_pids = set(
+            self._db.scalars(
+                select(InventoryLot.product_id)
+                .where(InventoryLot.product_id.in_(product_ids))
+                .where(InventoryLot.business_id == self._business_id)
+                .distinct()
+            ).all()
+        )
+        blocked = movement_pids | lot_pids
+        return {sku for pid, sku in id_to_sku.items() if pid not in blocked}

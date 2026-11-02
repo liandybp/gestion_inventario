@@ -7,7 +7,8 @@ from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.security import get_current_user_from_session, require_active_business_id
+from app.repositories.business_repository import get_business_code, get_business_config
+from app.security import get_active_business_id, get_current_user_from_session
 
 _UNSET = object()
 
@@ -22,7 +23,9 @@ class UIContext:
     request: Request
     db: Session
     _user: object = field(default=_UNSET, repr=False)
-    _business_id: Optional[int] = field(default=None, repr=False)
+    _active_bid: object = field(default=_UNSET, repr=False)
+    _business_code: object = field(default=_UNSET, repr=False)
+    _config: object = field(default=_UNSET, repr=False)
 
     @property
     def user(self) -> Optional[User]:
@@ -34,11 +37,31 @@ class UIContext:
     def role(self) -> str:
         return role_of(self.user)
 
+    # Valores de la petición: no releer tras modificar el negocio (ui_businesses.py no
+    # lee config/código tras escribir; ui_auth.py no usa UIContext).
+    @property
+    def active_business_id(self) -> Optional[int]:
+        if self._active_bid is _UNSET:
+            self._active_bid = get_active_business_id(self.db, self.request, user=self.user)
+        return self._active_bid  # type: ignore[return-value]
+
     @property
     def business_id(self) -> int:
-        if self._business_id is None:
-            self._business_id = require_active_business_id(self.db, self.request)
-        return self._business_id
+        if self.active_business_id is None:
+            raise HTTPException(status_code=409, detail="Active business_id is required")
+        return int(self.active_business_id)
+
+    @property
+    def business_code(self) -> Optional[str]:
+        if self._business_code is _UNSET:
+            self._business_code = get_business_code(self.db, self.active_business_id)
+        return self._business_code  # type: ignore[return-value]
+
+    @property
+    def config(self) -> object:
+        if self._config is _UNSET:
+            self._config = get_business_config(self.db, self.active_business_id)
+        return self._config
 
     def ensure_admin(self) -> None:
         if self.role != "admin":

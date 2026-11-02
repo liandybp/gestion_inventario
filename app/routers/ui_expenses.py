@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 from app.utils import query_match
 

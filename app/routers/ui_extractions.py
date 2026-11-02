@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timezone
 from typing import Optional
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_active_business_code
 from app.services.finance_service import FinanceService
 
 from .ui_common import dt_to_local_input, month_range, parse_dt, templates
@@ -38,7 +36,7 @@ def extraction_create(
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     try:
         ctx.ensure_admin_or_owner()
         service.create_extraction(
@@ -104,7 +102,7 @@ def extraction_delete(
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     try:
         ctx.ensure_admin_or_owner()
         service.delete_extraction(extraction_id)
@@ -182,7 +180,7 @@ def extraction_edit_form(
     bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     extraction = service.get_extraction(extraction_id)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     return templates.TemplateResponse(
         request=request,
         name="features/extractions/extraction_edit_form.html",
@@ -209,7 +207,7 @@ def extraction_update(
     service = FinanceService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     start, end = month_range(now)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     try:
         ctx.ensure_admin_or_owner()
         service.update_extraction(

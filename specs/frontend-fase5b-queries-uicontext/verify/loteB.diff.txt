@@ -1,0 +1,11 @@
+app/routers/ui_agent.py
+app/routers/ui_customers.py
+app/routers/ui_dividends.py
+app/routers/ui_extractions.py
+app/routers/ui_home.py
+app/routers/ui_profit.py
+app/routers/ui_profit_items.py
+app/routers/ui_stock.py
+app/routers/ui_tabs_common.py
+tests/unit/test_profit_items_date_filter.py
+tests/unit/test_ui_regressions.py

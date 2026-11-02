@@ -22,8 +22,8 @@ def _request() -> MagicMock:
 
 def test_customer_defaults_escapes_client_id_and_address(db_session, business_id, monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.routers.ui_context.require_active_business_id",
-        lambda _db, _request: business_id,
+        "app.routers.ui_context.get_active_business_id",
+        lambda _db, _request, **_kw: business_id,
     )
     payload = '<script>alert(1)</script>'
     customer = Customer(
@@ -50,8 +50,8 @@ def test_customer_defaults_escapes_client_id_and_address(db_session, business_id
 
 def test_product_defaults_sale_escapes_unit_of_measure(db_session, business_id, monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.routers.ui_context.require_active_business_id",
-        lambda _db, _request: business_id,
+        "app.routers.ui_context.get_active_business_id",
+        lambda _db, _request, **_kw: business_id,
     )
     product = Product(
         business_id=business_id,

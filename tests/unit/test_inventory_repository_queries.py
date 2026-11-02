@@ -181,3 +181,53 @@ def test_recent_sales_filters_by_location_id(db_session: Session, business_id: i
     assert central_sales[0][8] == "Almacen central"
     assert pos_sales[0][8] == "Punto 1"
 
+
+def test_get_movement_isolates_by_business_and_type(db_session: Session, business_id: int) -> None:
+    from app.models import Business, InventoryMovement
+
+    other = Business(code="otro", name="Otro")
+    db_session.add(other)
+    db_session.commit()
+    db_session.refresh(other)
+    p = _create_product(db_session, business_id, "SKU-MV", "Movimiento")
+    t0 = datetime.now(timezone.utc)
+    sale = InventoryMovement(
+        business_id=int(other.id), product_id=p.id, location_id=None,
+        type="sale", quantity=-1, unit_cost=None, unit_price=5,
+        movement_date=t0, note=None,
+    )
+    db_session.add(sale)
+    db_session.commit()
+
+    repo = InventoryRepository(db_session, business_id=business_id)
+    # de otro negocio → None (REQ-7)
+    assert repo.get_movement(sale.id, ("sale",)) is None
+    # tipo distinto → None
+    sale.business_id = business_id
+    db_session.commit()
+    assert repo.get_movement(sale.id, ("purchase",)) is None
+    # negocio y tipo correctos → el movimiento
+    assert repo.get_movement(sale.id, ("sale",)) is sale
+
+
+def test_transfer_out_by_ref_scopes_to_business(db_session: Session, business_id: int) -> None:
+    from app.models import Business, InventoryMovement
+
+    other = Business(code="otro2", name="Otro2")
+    db_session.add(other)
+    db_session.commit()
+    db_session.refresh(other)
+    p = _create_product(db_session, business_id, "SKU-TREF", "Traspaso")
+    t0 = datetime.now(timezone.utc)
+    mv = InventoryMovement(
+        business_id=int(other.id), product_id=p.id, location_id=None,
+        type="transfer_out", quantity=1, unit_cost=1.0, unit_price=None,
+        movement_date=t0, note="ref=TP-XYZ: n",
+    )
+    db_session.add(mv)
+    db_session.commit()
+
+    repo = InventoryRepository(db_session, business_id=business_id)
+    assert repo.transfer_out_by_ref("TP-XYZ") == []
+    assert repo.skus_with_movements("transfer_out", start=None, end=None) == set()
+

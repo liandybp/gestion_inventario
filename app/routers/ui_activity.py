@@ -6,12 +6,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import AuditLog
 from app.logger import get_logger
+from app.repositories.audit_repository import list_auth_events
 
 from .ui_common import (
     month_range,
@@ -43,20 +43,13 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
 
-    stmt = (
-        select(AuditLog)
-        .where(AuditLog.entity_type == "auth")
-        .where(AuditLog.action.in_(["login", "logout"]))
+    rows = list_auth_events(
+        db,
+        username=username,
+        start=start_dt,
+        end=end_dt,
+        limit=2000,
     )
-    if username:
-        stmt = stmt.where(AuditLog.username == username)
-    if start_dt is not None:
-        stmt = stmt.where(AuditLog.created_at >= start_dt)
-    if end_dt is not None:
-        stmt = stmt.where(AuditLog.created_at < end_dt)
-
-    stmt = stmt.order_by(AuditLog.created_at.desc()).limit(2000)
-    rows = db.execute(stmt).scalars().all()
 
     def fmt_dt(dt: Optional[datetime]) -> str:
         if dt is None:

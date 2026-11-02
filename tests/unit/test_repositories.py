@@ -122,3 +122,48 @@ def test_inventory_repository_stock_and_fifo_order(db_session: Session, business
 
     fifo = repo.fifo_lots_for_product_id(product.id)
     assert [lot.lot_code for lot in fifo] == ["L1", "L2"]
+
+
+def test_product_repo_lookup_methods_are_scoped_to_business(db_session: Session, business_id: int) -> None:
+    other = Business(code="otro", name="Otro")
+    db_session.add(other)
+    db_session.commit()
+    db_session.refresh(other)
+    used = _create_product(db_session, business_id, "SKU-CAT1", "Camiseta")
+    used.category = "Ropa"
+    free = _create_product(db_session, business_id, "SKU-CAT3", "Gorra")
+    free.category = " Accesorios "
+    foreign = _create_product(db_session, int(other.id), "SKU-CAT2", "Pantalon")
+    foreign.category = "Ajena"
+    db_session.flush()
+    mv = InventoryMovement(
+        business_id=business_id, product_id=used.id, location_id=None, type="purchase",
+        quantity=2, unit_cost=1, unit_price=None, movement_date=datetime.now(timezone.utc), note=None,
+    )
+    db_session.add(mv)
+    db_session.flush()
+    db_session.add(InventoryLot(
+        business_id=business_id, movement_id=mv.id, product_id=used.id, location_id=None,
+        lot_code="LOTCAT00000", received_at=datetime.now(timezone.utc),
+        unit_cost=1, qty_received=2, qty_remaining=2,
+    ))
+    foreign_mv = InventoryMovement(
+        business_id=int(other.id), product_id=foreign.id, location_id=None, type="purchase",
+        quantity=1, unit_cost=1, unit_price=None, movement_date=datetime.now(timezone.utc), note=None,
+    )
+    db_session.add(foreign_mv)
+    db_session.flush()
+    db_session.add(InventoryLot(
+        business_id=int(other.id), movement_id=foreign_mv.id, product_id=foreign.id, location_id=None,
+        lot_code="LOTAJENO", received_at=datetime.now(timezone.utc),
+        unit_cost=1, qty_received=1, qty_remaining=1,
+    ))
+    db_session.commit()
+
+    repo = ProductRepository(db_session, business_id=business_id)
+    assert repo.first_by_name("camiseta").sku == "SKU-CAT1"
+    assert repo.first_by_name("Pantalon") is None
+    assert repo.list_categories() == ["Accesorios", "Ropa"]
+    assert repo.get_by_lot_code("LOTCAT").sku == "SKU-CAT1"  # sufijo 00000
+    assert repo.get_by_lot_code("LOTAJENO") is None
+    assert repo.deletable_skus(["SKU-CAT1", "SKU-CAT3", "SKU-CAT2"]) == {"SKU-CAT3"}

@@ -29,3 +29,12 @@
   index implies compound uniqueness. Any code deriving new IDs/SKUs/client_ids by scoping
   a "next number" query to `business_id` alone will eventually collide across businesses.
   See `mem:known_bug_patterns` — this has caused 3 separate production incidents.
+- Routers UI: los routers de `app/routers/ui_*.py` no usan el ORM directamente (`select(`, `db.get(`,
+  `db.scalar(`, `db.scalars(`, `db.execute(`, `db.query(`, `db.add(`, `db.delete(`) ni resuelven el
+  negocio por su cuenta (`get_active_business_config/code/id`, `require_active_business_id`,
+  `get_current_user_from_session` fuera de `ui_context.py`/`ui_auth.py`): la guarda es
+  `tests/unit/test_routers_no_orm.py`. El contexto de la petición es `UIContext` (`ctx.config`,
+  `ctx.business_code`, `ctx.active_business_id`, `ctx.user`), creado en el cuerpo del handler con
+  `ctx = ui_context(request, db)`. Los métodos de repositorio/servicio no hacen `commit()`.
+- Tests que parchean la resolución del negocio: `monkeypatch.setattr(ui_context, "get_active_business_id",
+  lambda _db, _req, **_kw: bid)` (acepta `user=`); `require_active_business_id` ya no existe en `ui_context`.

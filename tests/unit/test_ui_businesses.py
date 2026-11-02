@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import func, select
@@ -9,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.models import Business, Location, User
 from app.routers.ui_businesses import (
-    _write_business_config,
     business_create,
     business_delete,
     business_edit_form,
@@ -44,22 +42,6 @@ def admin_user(db_session: Session) -> User:
     return user
 
 
-@pytest.fixture(autouse=True)
-def _mock_write_config() -> None:
-    """Prevent _write_business_config from touching the real filesystem."""
-    with patch(
-        "app.routers.ui_businesses._write_business_config",
-        side_effect=_fake_write_config,
-    ):
-        yield
-
-
-def _fake_write_config(*, code: str, issuer_name: str, **kwargs: object) -> Path:
-    """No-op stub that returns a path without touching disk.
-
-    Matches the keyword-only signature of the real ``_write_business_config``.
-    """
-    return Path(f"/tmp/mock_configs/business_config.{code}.conf")
 
 
 class TestBusinessCreate:
