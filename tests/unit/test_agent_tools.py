@@ -380,3 +380,50 @@ def test_sales_by_location_monthly_months_bounds(db_session, business_id):
     assert len(fn(service, {"months": None})["labels"]) == 6
     assert len(fn(service, {"months": 0})["labels"]) == 1
     assert len(fn(service, {"months": 500})["labels"]) == 24
+
+
+def test_product_movements_unknown_sku_raises_404(db_session, business_id):
+    service = InventoryService(db_session, business_id)
+    with pytest.raises(HTTPException) as exc:
+        TOOL_REGISTRY["product_movements"]["fn"](service, {"sku": "NOPE"})
+    assert exc.value.status_code == 404
+
+
+def test_product_movements_unknown_location_raises_404(db_session, business_id, sample_product):
+    service = InventoryService(db_session, business_id)
+    with pytest.raises(HTTPException) as exc:
+        TOOL_REGISTRY["product_movements"]["fn"](
+            service, {"sku": "SKU100001", "location": "NOPE"}
+        )
+    assert exc.value.status_code == 404
+
+
+def test_product_movements_default_period(db_session, business_id):
+    from datetime import timedelta
+
+    p = Product(business_id=business_id, sku="PM-DEF", name="P", min_stock=0,
+                unit_of_measure="ud", default_purchase_cost=1.0, default_sale_price=2.0,
+                lead_time_days=0)
+    loc = Location(business_id=business_id, code="CENTRAL", name="Central")
+    db_session.add_all([p, loc])
+    db_session.flush()
+    now = datetime.now(timezone.utc)
+    db_session.add(InventoryMovement(
+        business_id=business_id, product_id=p.id, location_id=loc.id,
+        type="purchase", quantity=7.0, unit_cost=1.0, unit_price=None,
+        movement_date=now - timedelta(days=120), note=None,
+    ))
+    db_session.add(InventoryMovement(
+        business_id=business_id, product_id=p.id, location_id=loc.id,
+        type="purchase", quantity=3.0, unit_cost=1.0, unit_price=None,
+        movement_date=now, note=None,
+    ))
+    db_session.commit()
+
+    result = TOOL_REGISTRY["product_movements"]["fn"](
+        InventoryService(db_session, business_id), {"sku": "PM-DEF"})
+    rows = result["rows"]
+    assert rows[0] == ["", "Saldo inicial", "Todas", "", "", 7.0, ""]
+    assert len(rows) == 2
+    assert rows[1][1] == "Compra"
+    assert rows[1][5] == 10.0
