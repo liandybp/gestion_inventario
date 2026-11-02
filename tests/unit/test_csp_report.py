@@ -87,3 +87,16 @@ def test_reports_per_minute_are_capped(caplog, monkeypatch) -> None:
     for _ in range(5):
         assert client.post("/csp-report", content=json.dumps(LEGACY)).status_code == 204
     assert len(_violations(caplog)) == 3
+
+
+def test_oversized_streamed_body_without_content_length_is_rejected(caplog) -> None:
+    """H-R03: el tope se aplica leyendo por trozos, también si falta Content-Length."""
+    from app.routers.csp_report import MAX_BODY_BYTES
+
+    def _chunks():
+        for _ in range(MAX_BODY_BYTES // 1024 + 2):
+            yield b"x" * 1024
+
+    resp = TestClient(app).post("/csp-report", content=_chunks())
+    assert resp.status_code == 413
+    assert "csp_violation" not in caplog.text
