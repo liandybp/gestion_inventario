@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.logger import get_logger
-from app.models import Customer, InventoryMovement, Product, SalesDocument
+from app.models import Customer, SalesDocument
 from app.schemas import SaleCreate
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService, extract_sku
 from app.settings import is_desktop
@@ -361,12 +363,10 @@ def sale_edit_form(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "sale":
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("sale",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Sale movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Sale movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,

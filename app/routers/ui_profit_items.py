@@ -5,12 +5,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.models import InventoryLot, InventoryMovement, Product
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
 from app.services.product_service import ProductService, extract_sku
@@ -135,12 +135,10 @@ def profit_items_adjustment_edit_form(
     ctx = ui_context(request, db)
     ctx.ensure_admin()
     bid = ctx.business_id
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "adjustment":
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("adjustment",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Adjustment movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Adjustment movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     return templates.TemplateResponse(
         request=request,
         name="features/profit_items/profit_items_edit_form.html",
@@ -208,12 +206,10 @@ def profit_items_transfer_in_edit_form(
     ctx = ui_context(request, db)
     ctx.ensure_admin()
     bid = ctx.business_id
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "transfer_in":
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("transfer_in",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     return templates.TemplateResponse(
         request=request,
         name="features/profit_items/profit_items_edit_form.html",
@@ -246,10 +242,8 @@ def profit_items_transfer_in_update(
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "transfer_in":
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("transfer_in",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
 
     result = service.update_transfer_movement(
@@ -292,12 +286,10 @@ def profit_items_sale_edit_form(
     ctx = ui_context(request, db)
     ctx.ensure_admin()
     bid = ctx.business_id
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "sale":
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("sale",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Sale movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Sale movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
@@ -484,13 +476,11 @@ def profit_items_purchase_edit_form(
     ctx = ui_context(request, db)
     ctx.ensure_admin()
     bid = ctx.business_id
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "purchase":
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("purchase",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Purchase movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Purchase movement not found")
-    product = db.get(Product, mv.product_id)
-    lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
+    lot = PurchaseRepository(db, bid).get_lot_by_movement(mv.id)
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,

@@ -7,8 +7,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-from sqlalchemy.sql import func
 
 from app.audit import log_event
 from app.deps import session_dep
@@ -16,7 +14,9 @@ from app.logger import get_logger
 from app.schemas import TransferCreate, TransferLineCreate
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
-from app.models import InventoryMovement, Product
+from app.models import InventoryMovement
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.settings import is_desktop
 
 from .ui_common import dt_to_local_input, month_range, parse_dt, templates
@@ -77,13 +77,13 @@ def transfer_edit_form(
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    out_id = service._transfer_out_id_for_movement_id(movement_id)
-    mv = db.get(InventoryMovement, out_id)
-    if mv is None or mv.type != "transfer_out":
+    out_id = service.transfer_out_id_for_movement_id(movement_id)
+    repo = InventoryRepository(db, business_id=bid)
+    purchase_repo = PurchaseRepository(db, bid)
+    mv = repo.get_movement(out_id, ("transfer_out",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    product = db.get(Product, mv.product_id)
+    product = purchase_repo.get_product(mv.product_id)
 
     note_value = ""
     raw = str(mv.note or "")
@@ -178,11 +178,10 @@ def transfer_update(
         )
 
     try:
-        out_id = service._transfer_out_id_for_movement_id(movement_id)
-        mv_out = db.get(InventoryMovement, out_id)
-        if mv_out is None or mv_out.type != "transfer_out":
-            raise HTTPException(status_code=404, detail="Transfer movement not found")
-        if int(getattr(mv_out, "business_id", 0) or 0) != int(bid):
+        out_id = service.transfer_out_id_for_movement_id(movement_id)
+        repo = InventoryRepository(db, business_id=bid)
+        mv_out = repo.get_movement(out_id, ("transfer_out",))
+        if mv_out is None:
             raise HTTPException(status_code=404, detail="Transfer movement not found")
     except HTTPException as e:
         return _tab_error(str(e.detail))
@@ -194,7 +193,7 @@ def transfer_update(
     to_code = default_to_location_code
     try:
         if mv_out is not None:
-            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+            from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
         _log.error("transfer_codes_from_out_note fallback en transfer_update")
         from_code = default_from_location_code
@@ -312,7 +311,7 @@ def transfer_delete_selected(
     out_ids: set[int] = set()
     for mid in movement_ids:
         try:
-            out_ids.add(int(service._transfer_out_id_for_movement_id(int(mid))))
+            out_ids.add(int(service.transfer_out_id_for_movement_id(int(mid))))
         except Exception:
             _log.debug("transfer out_id lookup skip: %r", mid)
             continue
@@ -396,13 +395,14 @@ def transfer_delete(
     default_from_location_code = central_code
     default_to_location_code = config.locations.default_sale_code()
 
-    out_id = service._transfer_out_id_for_movement_id(movement_id)
-    mv_out = db.get(InventoryMovement, out_id)
+    out_id = service.transfer_out_id_for_movement_id(movement_id)
+    repo = InventoryRepository(db, business_id=bid)
+    mv_out = repo.get_movement(out_id, ("transfer_out",))
     from_code = default_from_location_code
     to_code = default_to_location_code
     try:
         if mv_out is not None:
-            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+            from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
         _log.error("transfer_codes_from_out_note fallback en transfer_delete")
         from_code = default_from_location_code
@@ -450,9 +450,11 @@ def transfer_delete(
             },
         )
     except HTTPException as e:
-        out_id = service._transfer_out_id_for_movement_id(movement_id)
-        mv = db.get(InventoryMovement, out_id)
-        product = db.get(Product, mv.product_id) if mv else None
+        out_id = service.transfer_out_id_for_movement_id(movement_id)
+        repo = InventoryRepository(db, business_id=bid)
+        purchase_repo = PurchaseRepository(db, bid)
+        mv = repo.get_movement(out_id, ("transfer_out",))
+        product = purchase_repo.get_product(mv.product_id) if mv else None
 
         response = templates.TemplateResponse(
             request=request,
@@ -681,10 +683,8 @@ def transfer_print(
 
     ref_clean = (ref or "").strip()
     if not ref_clean and movement_id:
-        mv = db.get(InventoryMovement, int(movement_id))
+        mv = InventoryRepository(db, business_id=bid).get_movement(int(movement_id), ("transfer_out", "transfer_in"))
         if mv is None:
-            raise HTTPException(status_code=404, detail="Transfer not found")
-        if int(getattr(mv, "business_id", 0) or 0) != int(bid):
             raise HTTPException(status_code=404, detail="Transfer not found")
         # Mismo patrón que InventoryService._transfer_codes_from_out_note: con nota, el texto es
         # "…ref=TP-…: <nota>" y un split por espacios dejaba la ref con ':' al final (H-311).
@@ -694,56 +694,26 @@ def transfer_print(
     if not ref_clean:
         raise HTTPException(status_code=422, detail="ref is required")
 
-    mvs = list(
-        db.scalars(
-            select(InventoryMovement)
-            .where(
-                InventoryMovement.type == "transfer_out",
-                InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
-            )
-            .order_by(InventoryMovement.movement_date.asc(), InventoryMovement.id.asc())
-        )
-    )
-    if bid is not None:
-        mvs = [m for m in mvs if int(getattr(m, "business_id", 0) or 0) == int(bid)]
+    mvs = InventoryRepository(db, business_id=bid).transfer_out_by_ref(ref_clean)
     if not mvs:
         raise HTTPException(status_code=404, detail="Transfer not found")
 
-    from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mvs[0].note or ""))
+    from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mvs[0].note or ""))
     movement_date = mvs[0].movement_date
 
     code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
     for loc in (cfg.locations.pos or []):
         code_to_name[str(loc.code)] = str(loc.name)
 
-    stmt = (
-        select(
-            Product.sku,
-            Product.name,
-            func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
-            func.coalesce(Product.default_sale_price, 0).label("sale_price"),
-        )
-        .select_from(InventoryMovement)
-        .join(Product, Product.id == InventoryMovement.product_id)
-        .where(
-            InventoryMovement.type == "transfer_out",
-            InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
-        )
-        .group_by(Product.id)
-        .order_by(Product.sku.asc())
-    )
-    if bid is not None:
-        stmt = stmt.where(InventoryMovement.business_id == int(bid))
-    rows = db.execute(stmt).all()
-
+    rows = InventoryRepository(db, business_id=bid).transfer_items_by_ref(ref_clean)
     items: list[dict] = []
     for sku, name, qty, sale_price in rows:
         sp = float(sale_price or 0)
         items.append(
             {
-                "sku": str(sku or ""),
-                "name": str(name or ""),
-                "qty": float(qty or 0),
+                "sku": sku,
+                "name": name,
+                "qty": qty,
                 "sale_price": sp,
                 "sale_price_10": sp * 0.10,
             }
@@ -778,8 +748,9 @@ def transfer_bulk_modal(
     ctx = ui_context(request, db)
     ctx.ensure_admin_or_owner()
     bid = ctx.business_id
-    service = InventoryService(db, business_id=bid)
     cfg = ctx.config
+    service = InventoryService(db, business_id=bid)
+    repo = InventoryRepository(db, business_id=bid)
 
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     to_code = (to_location_code or "").strip() or cfg.locations.default_sale_code()
@@ -822,22 +793,7 @@ def transfer_bulk_modal(
         end_dt = parse_dt(to_date_s) if to_date_s else None
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
-        mv_filters = [
-            InventoryMovement.business_id == bid,
-            InventoryMovement.type == "transfer_out",
-        ]
-        if start_dt is not None:
-            mv_filters.append(InventoryMovement.movement_date >= start_dt)
-        if end_dt is not None:
-            mv_filters.append(InventoryMovement.movement_date < end_dt)
-        transferred_skus = set(
-            db.scalars(
-                select(Product.sku)
-                .join(InventoryMovement, InventoryMovement.product_id == Product.id)
-                .where(*mv_filters)
-                .distinct()
-            ).all()
-        )
+        transferred_skus = repo.skus_with_movements("transfer_out", start=start_dt, end=end_dt)
         products = [p for p in products if p["sku"] in transferred_skus]
 
     return templates.TemplateResponse(
