@@ -4,6 +4,14 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- refactor(frontend): fase 5b — las consultas salen de los routers UI hacia repositorios/servicios y
+  `UIContext` queda completo (campos perezosos `active_business_id`/`business_code`/`config`, todos a
+  partir de `ctx.user`). `get_active_business_id` acepta `user=` opcional (sin cambios de lógica). Los
+  routers UI ya no usan el ORM directo (guarda `tests/unit/test_routers_no_orm.py`) ni resuelven el
+  negocio por su cuenta; de 4 a 1 SELECT sobre `users` por petición UI (guarda
+  `tests/unit/test_ui_query_count.py`). Se borra `_write_business_config` (código muerto desde que la
+  configuración vive en BD, con un `configparser` sin importar). HTML sin cambios (arnés y estilos
+  idénticos a la baseline de 5a).
 - refactor(frontend): fase 5a — las 54 plantillas de `partials/` pasan a `features/<dominio>/` (mismo
   nombre, solo cambia la carpeta), se borran las 2 muertas (`action_result.html`, `products_history.html`)
   y una guarda (`tests/unit/test_templates_layout.py`) impide volver a `partials/` y detecta rutas de

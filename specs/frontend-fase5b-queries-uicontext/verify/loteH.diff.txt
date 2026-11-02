@@ -1,0 +1,13 @@
+app/repositories/user_repository.py
+app/routers/ui_agent.py
+app/routers/ui_auth.py
+app/routers/ui_coach.py
+app/routers/ui_customers.py
+app/routers/ui_expenses.py
+app/routers/ui_extractions.py
+app/routers/ui_sales.py
+app/routers/ui_sales_documents.py
+app/routers/ui_users.py
+app/services/coach_service.py
+app/services/sales_document_service.py
+tests/unit/test_ui_query_count.py

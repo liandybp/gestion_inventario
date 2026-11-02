@@ -238,7 +238,9 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 3. **requirements.txt**: no añadir dependencias sin confirmación. Listarlas y pedir aprobación.
 4. **app/auth.py**: no cambiar la lógica de hash_password (PBKDF2 200k iteraciones) ni verify_password sin confirmación.
 5. **app/db.py**: todos los modelos heredan de `Base` de `app/db.py`. No crear bases alternativas.
-6. **app/deps.py**: no modificar require_user_api, require_admin_api, require_active_business_id — son el control de acceso centralizado.
+6. **app/security.py**: `get_active_business_id` acepta `user=` opcional; no cambiar su lógica ni la
+   de los `require_*`. `app/deps.py`: no modificar `require_user_api`, `require_admin_api`,
+   `require_active_business_id` — son el control de acceso centralizado.
 7. **Routers UI**: `ui_tabs.py` fue dividido en `ui_stock.py`/`ui_profit.py`/`ui_activity.py`/`ui_history.py`/`ui_dividends.py`/`ui_home.py`/`ui_tabs_common.py` (Fase B). El dashboard ya no es monolítico.
 8. **Migraciones**: no modificar archivos existentes en migrations — solo crear nuevos.
 
@@ -257,6 +259,12 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
+Fase 5b:      los routers UI no usan el ORM ni resuelven el negocio: todo pasa por `ctx = ui_context(request, db)`
+              (`ctx.user`, `ctx.active_business_id`, `ctx.business_id` (409), `ctx.business_code`, `ctx.config`) y
+              por repositorios/servicios (`ProductService.resolve_sku/barcode_to_sku`, `InventoryRepository.get_movement`,
+              `business_repository.reconcile_locations`, `SalesDocumentService.add_document/delete_document`...).
+              Los métodos nuevos no hacen `commit()`: la transacción la cierra el router. Guardas
+              `tests/unit/test_routers_no_orm.py` y `tests/unit/test_ui_query_count.py` (1 SELECT a `users` por petición).
 Fase 5a:      `partials/` ya no existe: las plantillas viven en `templates/features/<dominio>/` con su nombre de
               siempre (p. ej. `features/sales/sale_panel.html`); `layouts/` y `components/` siguen igual. La guarda
               `tests/unit/test_templates_layout.py` falla si una ruta de plantilla no carga o si alguien nombra

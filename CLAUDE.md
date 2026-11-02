@@ -150,6 +150,19 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Release 0.5.0, fase 5b del frontend: consultas fuera de los routers UI y `UIContext` completo (2026-11-02,
+      sesión 24, rama `feature/frontend-fase5b`)** — PAE `specs/frontend-fase5b-queries-uicontext/` (60 envelopes vía
+      SDD-Agent; Opus Fases 1-2, `cc_deepseek` Fases 3-4, `cc_local_pae` lotes A-H). Los routers UI no usan el ORM
+      ni resuelven el negocio: `ctx.config`/`ctx.business_code`/`ctx.active_business_id` en las ~50 llamadas,
+      auxiliares con `ctx`, `get_active_business_id(user=)` en `security.py`, `ProductService.resolve_sku`/
+      `barcode_to_sku`/`extract_sku`, `InventoryRepository.get_movement` (negocio + tipo), escrituras en
+      `business_repository`/`SalesDocumentService`/`UserRepository`/`CoachService` (sin `commit`: la transacción la
+      cierra el router). Guardas `test_routers_no_orm.py` y `test_ui_query_count.py`: **de 4 a 1 SELECT a `users` por
+      petición**. Borrado `_write_business_config` (muerto, `configparser` sin importar). Auditoría **4.75 🟢**
+      (`docs/auditorias/2026-11-02-frontend-fase5b-queries-uicontext.md`): `cc_local` dejó lotes a medias o dañados
+      (147 líneas borradas en `ui_transfers.py`, un lote E "OK" sin migrar routers, firmas erróneas que los tests no
+      veían); todo corregido por Claude Code. 521 unit, 94 e2e, 91 snapshots y estilos idénticos.
+      - Pendiente: bump único de 0.5.0, `develop` → `main` y despliegue a producción.
 - [x] **Release 0.5.0, fase 5a del frontend: `partials/` → `features/<dominio>/` (2026-11-02, sesión 24, rama
       `feature/frontend-fase5a`)** — PAE `specs/frontend-fase5a-features-templates/` (30 envelopes, `cc_local_pae`
       lotes A-D; el lote E paró y lo cerró Claude Code aplicando T26-T30 tal cual). 54 plantillas movidas con el
