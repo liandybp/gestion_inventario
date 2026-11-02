@@ -97,7 +97,11 @@ def _location_id_for_code(
         )
     except HTTPException:
         return None
-def _location_name_for_code(location_code: str, db: Session, request: Request) -> str:
+def _location_name_for_code(
+    location_code: str,
+    db: Session,
+    request: Request,
+) -> str:
     code = (location_code or "").strip()
     locations, _default_loc_code = _home_locations_context(db, request)
     for loc in locations:
