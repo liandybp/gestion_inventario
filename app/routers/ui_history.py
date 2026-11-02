@@ -62,7 +62,7 @@ def tab_history(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_history.html",
+        name="features/history/tab_history.html",
         context={
             "movements": movements,
             "user": user,
@@ -158,7 +158,7 @@ def history_adjustments_delete_selected(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_history.html",
+        name="features/history/tab_history.html",
         context={
             "movements": movements,
             "user": user,

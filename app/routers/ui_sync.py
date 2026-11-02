@@ -28,7 +28,7 @@ def do_sync(request: Request, db: Session = Depends(session_dep)) -> HTMLRespons
         _log.error("Sync manual (/ui/sync) falló inesperadamente", exc_info=True)
         result = {"ok": False, "error": "Fallo interno durante la sincronización, ver logs."}
     return templates.TemplateResponse(
-        request=request, name="partials/sync_status.html",
+        request=request, name="features/sync/sync_status.html",
         context={"result": result, "state": get_sync_state(db), "app_mode": app_mode_label(), "user": user},
     )
 
@@ -38,7 +38,7 @@ def sync_status(request: Request, db: Session = Depends(session_dep)) -> HTMLRes
     ctx = ui_context(request, db)
     user = ctx.user
     return templates.TemplateResponse(
-        request=request, name="partials/sync_status.html",
+        request=request, name="features/sync/sync_status.html",
         context={"result": None, "state": get_sync_state(db), "app_mode": app_mode_label(), "user": user},
     )
 
@@ -63,6 +63,6 @@ def provision(
     provision_state(db, server_url=server_url, device_token=device_token)
     user = ctx.user
     return templates.TemplateResponse(
-        request=request, name="partials/sync_status.html",
+        request=request, name="features/sync/sync_status.html",
         context={"result": None, "state": get_sync_state(db), "app_mode": app_mode_label(), "user": user},
     )

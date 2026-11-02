@@ -408,7 +408,7 @@ def business_create(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al crear negocio",
@@ -503,7 +503,7 @@ def business_create(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al crear negocio",
@@ -534,7 +534,7 @@ def business_create(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio creado",
@@ -562,7 +562,7 @@ def business_edit_form(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/business_edit_form.html",
+        name="features/businesses/business_edit_form.html",
         context={"business": business, "config": config},
     )
 
@@ -631,7 +631,7 @@ def business_update(
     if existing is not None:
         response = templates.TemplateResponse(
             request=request,
-            name="partials/business_edit_form.html",
+            name="features/businesses/business_edit_form.html",
             context={
                 "business": business,
                 "config": get_business_config(db, business_id),
@@ -677,7 +677,7 @@ def business_update(
         db.rollback()
         response = templates.TemplateResponse(
             request=request,
-            name="partials/business_edit_form.html",
+            name="features/businesses/business_edit_form.html",
             context={
                 "business": business,
                 "config": get_business_config(db, business_id),
@@ -706,7 +706,7 @@ def business_update(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio actualizado",
@@ -735,7 +735,7 @@ def business_delete(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -768,7 +768,7 @@ def business_delete(
             parts.append("ubicaciones adicionales")
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -793,7 +793,7 @@ def business_delete(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -820,7 +820,7 @@ def business_delete(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio eliminado",
@@ -837,6 +837,6 @@ def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTML
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={"businesses": businesses},
     )

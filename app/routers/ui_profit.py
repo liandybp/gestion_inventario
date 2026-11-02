@@ -64,7 +64,7 @@ def tab_profit(
     )
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_profit.html",
+        name="features/profit/tab_profit.html",
         context={
             "user": user,
             "summary": summary,

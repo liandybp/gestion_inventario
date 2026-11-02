@@ -42,7 +42,7 @@
       </aside>
 
       <main class="main-content">
-        {% include "partials/sync_status.html" %}
+        {% include "features/sync/sync_status.html" %}
 
         <div id="tab-content"
              hx-get="/ui/tabs/{{ default_tab }}" hx-trigger="load" hx-swap="innerHTML">

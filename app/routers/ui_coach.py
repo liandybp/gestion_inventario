@@ -27,7 +27,7 @@ def tab_coach(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     report = service.health_score()
     recommendations = service.recommendations()
     return templates.TemplateResponse(
-        request, "partials/tab_coach.html",
+        request, "features/coach/tab_coach.html",
         {"report": report, "recommendations": recommendations},
     )
 
@@ -64,7 +64,7 @@ def set_cash_baseline(
     report = service.health_score()
     recommendations = service.recommendations()
     return templates.TemplateResponse(
-        request, "partials/tab_coach.html",
+        request, "features/coach/tab_coach.html",
         {"report": report, "recommendations": recommendations},
     )
 
@@ -90,6 +90,6 @@ def update_action(
     report = service.health_score()
     recommendations = service.recommendations()
     return templates.TemplateResponse(
-        request, "partials/tab_coach.html",
+        request, "features/coach/tab_coach.html",
         {"report": report, "recommendations": recommendations},
     )

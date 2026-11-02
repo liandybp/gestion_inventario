@@ -135,7 +135,7 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_activity.html",
+        name="features/activity/tab_activity.html",
         context={
             "sessions": sessions,
             "events": event_rows,
