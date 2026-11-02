@@ -1,0 +1,86 @@
+/* Tokens de color de toda la app (antes en app.css). Los cargan el dashboard, el login y las impresiones;
+   login e impresiones no cargan theme-init.js, así que siempre usan los valores claros de :root. */
+:root {
+  --brand-navy: #0b2d42;
+  --brand-sidebar: #0b2d42;
+  --brand-red: #cf1f27;
+  --brand-bg: #f8fafc;
+  --brand-surface: #ffffff;
+  --brand-border: #e5e7eb;
+  --brand-text: #0f172a;
+  --brand-muted: #64748b;
+  --row-odd: #ffffff;
+  --row-even: rgba(59, 130, 246, 0.06);
+  --row-hover: rgba(59, 130, 246, 0.12);
+  --badge-info-bg: #eef6ff;
+  --badge-info-text: #0b2d42;
+  /* Gráficos (components/chart-palette.js lee estas variables). Widgets del copiloto: */
+  --chart-1: #0b2d42;
+  --chart-2: #cf1f27;
+  --chart-3: #2a6f97;
+  --chart-4: #4c9a8c;
+  --chart-5: #d97706;
+  --chart-6: #7c3aed;
+  --chart-7: #0891b2;
+  --chart-8: #64748b;
+  --chart-accent: #0b2d42;
+  --chart-accent-fill: rgba(11, 45, 66, 0.08);
+  --chart-grid: rgba(15, 23, 42, 0.06);
+  --chart-slice-border: #ffffff;
+  --chart-label-stroke: rgba(15, 23, 42, 0.6);
+  --chart-label-fill: #ffffff;
+  /* Texto y líneas de ejes/leyendas de todos los gráficos (Chart.defaults.color/borderColor): */
+  --chart-text: #666;
+  --chart-border: rgba(0, 0, 0, 0.1);
+  /* Gráficos de Inicio: */
+  --home-chart-sales: rgba(11,45,66,0.85);
+  --home-chart-purchases: rgba(203, 58, 66, 0.75);
+  --home-chart-profit: rgba(16, 185, 129, 0.75);
+  --home-chart-line-fill: rgba(11,45,66,0.10);
+  --home-pie-1: rgba(11,45,66,0.85);
+  --home-pie-2: rgba(203, 58, 66, 0.75);
+  --home-pie-3: rgba(16, 185, 129, 0.75);
+  --home-pie-4: rgba(59, 130, 246, 0.75);
+  --home-pie-5: rgba(245, 158, 11, 0.75);
+  --home-pie-6: rgba(99, 102, 241, 0.75);
+  --home-pie-7: rgba(236, 72, 153, 0.75);
+  --home-pie-8: rgba(34, 197, 94, 0.65);
+  --home-pie-9: rgba(148, 163, 184, 0.75);
+  --home-pie-10: rgba(15, 118, 110, 0.70);
+  --home-pie-11: rgba(107, 114, 128, 0.55);
+}
+
+[data-theme="dark"] {
+  --brand-bg: #0f172a;
+  --brand-surface: #1e293b;
+  --brand-border: #334155;
+  --brand-text: #f1f5f9;
+  --brand-muted: #94a3b8;
+  /* --brand-navy es el ACENTO (botones/FAB). El sidebar y los headers de tabla
+     se fuerzan a navy oscuro abajo, para que la barra de pestañas no sea azul. */
+  --brand-navy: #2563eb;
+  --brand-red: #ef4444;
+  --row-odd: #1e293b;
+  --row-even: #182234;
+  --row-hover: rgba(148, 163, 184, 0.15);
+  --badge-info-bg: rgba(59, 130, 246, 0.15);
+  --badge-info-text: #93c5fd;
+  /* Paleta oscura de los widgets: 7 colores (--chart-8 sin valor corta la lista). */
+  --chart-1: #60a5fa;
+  --chart-2: #f87171;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #a78bfa;
+  --chart-6: #22d3ee;
+  --chart-7: #94a3b8;
+  --chart-8: initial;
+  --chart-accent: #93c5fd;
+  --chart-accent-fill: rgba(147, 197, 253, 0.12);
+  --chart-grid: rgba(148, 163, 184, 0.15);
+  --chart-text: #cbd5e1;
+  --chart-border: rgba(148, 163, 184, 0.2);
+  /* Inicio: el navy de la serie de ventas no se distingue del fondo oscuro. */
+  --home-chart-sales: rgba(96, 165, 250, 0.85);
+  --home-chart-line-fill: rgba(96, 165, 250, 0.15);
+  --home-pie-1: rgba(147, 197, 253, 0.85);
+}

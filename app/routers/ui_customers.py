@@ -1,8 +1,6 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -13,15 +11,11 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.repositories.customer_repository import CustomerRepository
 from app.models import Customer
-from app.security import (
-    get_active_business_code,
-    get_current_user_from_session,
-    require_active_business_id,
-)
+from app.routers.ui_context import ui_context
 from app.settings import is_desktop
 from app.sync.outbox import append_event
 
-from .ui_common import ensure_admin, templates
+from .ui_common import templates
 
 _log = get_logger(__name__)
 
@@ -34,14 +28,16 @@ def _list_customers(db: Session, query: str, limit: int = 200, business_id: int 
 
 @router.get("/customers/table", response_class=HTMLResponse)
 def customers_table(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     customers = _list_customers(db, query=query, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/customers_table.html",
+        name="features/customers/customers_table.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": query,
         },
     )
@@ -57,8 +53,9 @@ def customer_create(
     email: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     client_id = (client_id or "").strip()
     name = (name or "").strip()
     if not client_id:
@@ -98,9 +95,10 @@ def customer_create(
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente creado",
             "message_class": "ok",
@@ -110,8 +108,9 @@ def customer_create(
 
 @router.get("/customer/{customer_id}", response_class=HTMLResponse)
 def customer_detail(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -134,11 +133,11 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 
     top_items = repo.top_items(customer.id, limit=10)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/customer_detail.html",
+        name="features/customers/customer_detail.html",
         context={
             "customer": customer,
             "documents": docs,
@@ -156,8 +155,9 @@ def customer_detail(request: Request, customer_id: int, db: Session = Depends(se
 
 @router.get("/customer/{customer_id}/edit", response_class=HTMLResponse)
 def customer_edit_form(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -165,7 +165,7 @@ def customer_edit_form(request: Request, customer_id: int, db: Session = Depends
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return templates.TemplateResponse(
         request=request,
-        name="partials/customer_edit_form.html",
+        name="features/customers/customer_edit_form.html",
         context={
             "customer": customer,
         },
@@ -183,8 +183,9 @@ def customer_update(
     email: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -213,9 +214,10 @@ def customer_update(
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente actualizado",
             "message_class": "ok",
@@ -225,8 +227,10 @@ def customer_update(
 
 @router.post("/customer/{customer_id}/delete", response_class=HTMLResponse)
 def customer_delete(request: Request, customer_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()  # el operador crea y edita clientes, pero no los borra
+    _ = ctx.user
+    bid = ctx.business_id
     customer = CustomerRepository(db, bid).get(customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -238,24 +242,26 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
         customers = _list_customers(db, query="", business_id=bid)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_customers.html",
+            name="features/customers/tab_customers.html",
             context={
                 "customers": customers,
+                "can_delete_customers": ctx.role in ("admin", "owner"),
                 "query": "",
                 "message": "No se puede eliminar: el cliente tiene documentos asociados",
                 "message_class": "error",
             },
         )
 
-    db.delete(customer)
+    CustomerRepository(db, bid).delete(customer)
     db.commit()
 
     customers = _list_customers(db, query="", business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": "",
             "message": "Cliente eliminado",
             "message_class": "ok",
@@ -265,16 +271,16 @@ def customer_delete(request: Request, customer_id: int, db: Session = Depends(se
 
 @router.get("/tabs/customers", response_class=HTMLResponse)
 def tab_customers(request: Request, db: Session = Depends(session_dep), query: str = "") -> HTMLResponse:
-    ensure_admin(db, request)
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     q = (query or "").strip()
     customers = CustomerRepository(db, bid).list_like(query=q, limit=200)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_customers.html",
+        name="features/customers/tab_customers.html",
         context={
             "customers": customers,
+            "can_delete_customers": ctx.role in ("admin", "owner"),
             "query": q,
         },
     )

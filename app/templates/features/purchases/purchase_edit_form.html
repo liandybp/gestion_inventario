@@ -1,0 +1,15 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('purchase-edit-modal', 'Editar compra') %}
+      <form hx-post="/ui/movement/purchase/{{ movement.id }}/update" hx-target="#purchase-panel" hx-swap="outerHTML">
+        {{ field('Artículo', 'product', value=product_label, required=True, attrs={'list': 'product-options', 'data-product-suggest': 'label'}) }}
+        {{ field('Cantidad', 'quantity', type='number', value=movement.quantity, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Costo unitario (' ~ (purchase_currency_code or 'EUR') ~ ')', 'unit_cost', type='number', value=movement.unit_cost or 0, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Fecha', 'movement_date', type='datetime-local', value=movement_date_value) }}
+        {{ field('Lote', 'lot_code', value=lot_code) }}
+        {{ field('Nota', 'note', value=movement.note or '') }}
+
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="purchase-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

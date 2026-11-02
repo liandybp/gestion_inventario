@@ -82,6 +82,17 @@ class InventoryRepository:
         total = self._db.scalar(stmt)
         return float(total or 0)
 
+    def quantity_before(self, product_id: int, before: datetime, location_id: Optional[int] = None) -> float:
+        """Suma con signo de las cantidades del artículo con movement_date < before (saldo inicial)."""
+        stmt = select(func.coalesce(func.sum(InventoryMovement.quantity), 0)).where(
+            InventoryMovement.business_id == self._business_id,
+            InventoryMovement.product_id == int(product_id),
+            InventoryMovement.movement_date < before,
+        )
+        if location_id is not None:
+            stmt = stmt.where(InventoryMovement.location_id == int(location_id))
+        return float(self._db.scalar(stmt) or 0)
+
     def fifo_lots_for_product_id(self, product_id: int, location_id: Optional[int] = None) -> list[InventoryLot]:
         stmt = (
             select(InventoryLot)
@@ -365,6 +376,90 @@ class InventoryRepository:
         if limit is None:
             return rows
         return rows[: int(limit or 0)]
+
+    def get_movement(self, movement_id: int, types: tuple[str, ...]) -> Optional[InventoryMovement]:
+        mv = self._db.get(InventoryMovement, int(movement_id))
+        if mv is None:
+            return None
+        if mv.type not in types:
+            return None
+        if int(getattr(mv, "business_id", 0) or 0) != self._business_id:
+            return None
+        return mv
+
+    def skus_with_location_history(self, location_id: int, skus: list[str]) -> set[str]:
+        return {
+            str(sku).strip()
+            for sku in self._db.scalars(
+                select(Product.sku)
+                .select_from(InventoryMovement)
+                .join(Product, Product.id == InventoryMovement.product_id)
+                .where(
+                    InventoryMovement.business_id == self._business_id,
+                    InventoryMovement.location_id == int(location_id),
+                    Product.sku.in_(skus),
+                )
+                .distinct()
+            ).all()
+            if str(sku or "").strip()
+        }
+
+    def transfer_out_by_ref(self, ref: str) -> list[InventoryMovement]:
+        return list(
+            self._db.scalars(
+                select(InventoryMovement)
+                .where(
+                    InventoryMovement.type == "transfer_out",
+                    InventoryMovement.note.ilike(f"%ref={ref}%"),
+                    InventoryMovement.business_id == self._business_id,
+                )
+                .order_by(InventoryMovement.movement_date.asc(), InventoryMovement.id.asc())
+            )
+        )
+
+    def transfer_items_by_ref(self, ref: str) -> list[tuple[str, str, float, float]]:
+        rows = self._db.execute(
+            select(
+                Product.sku,
+                Product.name,
+                func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
+                func.coalesce(Product.default_sale_price, 0).label("sale_price"),
+            )
+            .select_from(InventoryMovement)
+            .join(Product, Product.id == InventoryMovement.product_id)
+            .where(
+                InventoryMovement.type == "transfer_out",
+                InventoryMovement.note.ilike(f"%ref={ref}%"),
+                InventoryMovement.business_id == self._business_id,
+            )
+            .group_by(Product.id)
+            .order_by(Product.sku.asc())
+        ).all()
+        return [(str(sku or ""), str(name or ""), float(qty or 0), float(sale_price or 0))
+                for sku, name, qty, sale_price in rows]
+
+    def skus_with_movements(
+        self,
+        movement_type: str,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> set[str]:
+        mv_filters = [
+            InventoryMovement.business_id == self._business_id,
+            InventoryMovement.type == movement_type,
+        ]
+        if start is not None:
+            mv_filters.append(InventoryMovement.movement_date >= start)
+        if end is not None:
+            mv_filters.append(InventoryMovement.movement_date < end)
+        return set(
+            self._db.scalars(
+                select(Product.sku)
+                .join(InventoryMovement, InventoryMovement.product_id == Product.id)
+                .where(*mv_filters)
+                .distinct()
+            ).all()
+        )
 
     def _fill_reordered_audit_usernames(self, rows: list[MovementHistoryRow]) -> list[MovementHistoryRow]:
         """Resuelve el username de ventas/traspasos cuyo audit se emite ANTES de la

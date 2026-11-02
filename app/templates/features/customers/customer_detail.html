@@ -1,0 +1,48 @@
+<div class="card">
+  <div class="flex justify-between gap-12 items-center flex-wrap">
+    <h3 class="m-0">Cliente: {{ customer.name }}</h3>
+    <button type="button" class="btn-secondary" data-clear-target="#customer-detail">Cerrar</button>
+  </div>
+
+  <div class="grid grid-2 mt-10">
+    <div>
+      <div><strong>ID:</strong> <code>{{ customer.client_id }}</code></div>
+      {% if customer.address %}<div><strong>Dirección:</strong> {{ customer.address }}</div>{% endif %}
+      {% if customer.phone %}<div><strong>Teléfono:</strong> {{ customer.phone }}</div>{% endif %}
+      {% if customer.email %}<div><strong>Email:</strong> {{ customer.email }}</div>{% endif %}
+    </div>
+    <div>
+      <div><strong>Total facturado:</strong> {{ currency_symbol }}{{ '%.2f'|format(metrics.total_invoices or 0) }}</div>
+      <div><strong>Total presupuestos:</strong> {{ currency_symbol }}{{ '%.2f'|format(metrics.total_quotes or 0) }}</div>
+      <div><strong>Nº compras:</strong> {{ metrics.count_invoices or 0 }}</div>
+      <div><strong>Última compra:</strong> {{ metrics.last_purchase or '' }}</div>
+    </div>
+  </div>
+
+  <h4 class="mt-14">Documentos</h4>
+  <div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Fecha</th>
+        <th>Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in documents %}
+        <tr>
+          <td><code>{{ d.code }}</code></td>
+          <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
+          <td class="text-right">{{ d.currency_symbol }}{{ '%.2f'|format(d.total or 0) }}</td>
+          <td class="text-right"><a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a></td>
+        </tr>
+      {% endfor %}
+      {% if not documents %}
+        <tr><td colspan="4" class="muted">Sin documentos.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>

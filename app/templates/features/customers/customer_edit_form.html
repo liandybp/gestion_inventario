@@ -1,0 +1,13 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('customer-edit-modal', 'Editar cliente') %}
+      <form hx-post="/ui/customer/{{ customer.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        {{ field('ID cliente', 'client_id', value=customer.client_id, required=True) }}
+        {{ field('Nombre', 'name', value=customer.name, required=True) }}
+        {{ field('Dirección (opcional)', 'address', value=customer.address or '') }}
+        {{ field('Teléfono (opcional)', 'phone', value=customer.phone or '') }}
+        {{ field('Email (opcional)', 'email', value=customer.email or '') }}
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="customer-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

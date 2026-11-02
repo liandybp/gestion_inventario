@@ -1,0 +1,4 @@
+app/routers/ui_products.py
+app/routers/ui_profit.py
+app/routers/ui_profit_items.py
+app/routers/ui_purchases.py

@@ -1,0 +1,243 @@
+<div class="tab-panel">
+<div class="tab-header">
+<h1>
+Gestión de Usuarios
+</h1>
+</div>
+<div class="panel">
+<div class="panel-header">
+<h2>
+Crear Nuevo Usuario
+</h2>
+</div>
+<form class="form-grid" hx-post="/ui/users/create" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="form-group">
+<label for="new-username">
+Usuario *
+</label>
+<input autocomplete="off" id="new-username" name="username" required type="text">
+</div>
+<div class="form-group">
+<label for="new-password">
+Contraseña *
+</label>
+<input autocomplete="new-password" id="new-password" name="password" required type="password">
+</div>
+<div class="form-group">
+<label for="new-role">
+Rol *
+</label>
+<select id="new-role" name="role" required>
+<option value="operator">
+Operador
+</option>
+<option value="owner">
+Dueño
+</option>
+<option value="admin">
+Administrador
+</option>
+</select>
+</div>
+<div class="form-group">
+<label>
+Negocios
+</label>
+<div class="checkbox-group">
+<label class="checkbox-label">
+<input name="business_ids" type="checkbox" value="3">
+Bazar Mariela
+</label>
+<label class="checkbox-label">
+<input name="business_ids" type="checkbox" value="1">
+Recambios
+</label>
+<label class="checkbox-label">
+<input name="business_ids" type="checkbox" value="2">
+Ropa
+</label>
+</div>
+<small class="muted">
+Dueño puede tener varios negocios; Operador usa el primero seleccionado
+</small>
+</div>
+<div class="form-group">
+<label>
+<input checked name="is_active" type="checkbox" value="true">
+Usuario activo
+</label>
+</div>
+<div class="form-actions">
+<button class="btn-primary" type="submit">
+Crear Usuario
+</button>
+</div>
+</form>
+</div>
+<div class="panel">
+<div class="panel-header">
+<h2>
+Usuarios Existentes
+</h2>
+</div>
+<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>
+Usuario
+</th>
+<th>
+Rol
+</th>
+<th>
+Negocio
+</th>
+<th>
+Estado
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<strong>
+admin
+</strong>
+</td>
+<td>
+<span class="badge badge-admin">
+Administrador
+</span>
+</td>
+<td>
+Recambios
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/1/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/1/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'admin'?" hx-post="/ui/user/1/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
+<tr>
+<td>
+<strong>
+operator
+</strong>
+</td>
+<td>
+<span class="badge badge-operator">
+Operador
+</span>
+</td>
+<td>
+Recambios
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/2/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/2/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'operator'?" hx-post="/ui/user/2/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
+<tr>
+<td>
+<strong>
+snap-operator
+</strong>
+</td>
+<td>
+<span class="badge badge-operator">
+Operador
+</span>
+</td>
+<td>
+<span class="muted">
+Sin asignar
+</span>
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/3/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/3/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'snap-operator'?" hx-post="/ui/user/3/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
+<tr>
+<td>
+<strong>
+snap-owner
+</strong>
+</td>
+<td>
+<span class="badge badge-operator">
+Dueño
+</span>
+</td>
+<td>
+Recambios
+</td>
+<td>
+<span class="badge badge-success">
+Activo
+</span>
+</td>
+<td>
+<div class="action-buttons">
+<button class="btn-secondary btn-sm" hx-get="/ui/user/4/edit" hx-swap="innerHTML" hx-target="#modal-container" title="Editar usuario" type="button">
+✏️ Editar
+</button>
+<button class="btn-sm btn-warning" hx-get="/ui/user/4/reset-password-form" hx-swap="innerHTML" hx-target="#modal-container" title="Resetear contraseña" type="button">
+🔑 Reset
+</button>
+<button class="btn-danger btn-sm" hx-confirm="¿Estás seguro de eliminar el usuario 'snap-owner'?" hx-post="/ui/user/4/delete" hx-swap="innerHTML" hx-target="#tab-content" title="Eliminar usuario">
+🗑️ Eliminar
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>

@@ -1,0 +1,49 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('user-edit-modal', 'Editar Usuario: ' ~ user.username) %}
+
+      {% if message %}
+      <div class="message {{ message_class }}">
+        <strong>{{ message }}</strong>
+        {% if message_detail %}<div class="muted">{{ message_detail }}</div>{% endif %}
+      </div>
+      {% endif %}
+
+      <form hx-post="/ui/user/{{ user.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        {{ field('Usuario *', 'username', type='text', id='edit-username', value=user.username, required=True, attrs={'autocomplete': 'off'}) }}
+
+        <div class="row">
+          <label for="edit-role">Rol *</label>
+          <select id="edit-role" name="role" required>
+            <option value="operator" {% if (user.role or '')|lower == 'operator' %}selected{% endif %}>Operador</option>
+            <option value="owner" {% if (user.role or '')|lower == 'owner' %}selected{% endif %}>Dueño</option>
+            <option value="admin" {% if (user.role or '')|lower == 'admin' %}selected{% endif %}>Administrador</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>Negocios</label>
+          <div>
+            <div class="checkbox-group">
+              {% for b in businesses %}
+              <label class="checkbox-label">
+                <input type="checkbox" name="business_ids" value="{{ b.id }}" {% if b.id in user_business_ids %}checked{% endif %} /> {{ b.name }}
+              </label>
+              {% endfor %}
+            </div>
+            <small class="muted">Dueño puede tener varios negocios; Operador usa el primero seleccionado</small>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>
+            <input type="checkbox" name="is_active" value="true" {% if user.is_active %}checked{% endif %} />
+            Usuario activo
+          </label>
+          <div></div>
+        </div>
+
+        <button type="submit">Guardar Cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="user-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

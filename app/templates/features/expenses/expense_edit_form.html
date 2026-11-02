@@ -1,0 +1,11 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('expense-edit-modal', 'Editar gasto') %}
+      <form hx-post="/ui/expense/{{ expense.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        {{ field('Fecha', 'expense_date', type='datetime-local', value=expense_date_value or '') }}
+        {{ field('Cantidad', 'amount', type='number', value=expense.amount or 0, required=True, attrs={'step': '0.0001'}) }}
+        {{ field('Concepto', 'concept', value=expense.concept, required=True) }}
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="expense-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

@@ -1,6 +1,6 @@
 # gestion_inventario
 
-> Contexto de proyecto para OpenCode + Qwen3.6-35B-A3B
+> Contexto de proyecto para cc_local (Claude Code + Qwen3.6-35B-A3B)
 > Generado desde: ~/obsidian-lab/Templates/template-claude-md.md
 > Leer completo antes de tocar cualquier archivo.
 
@@ -60,7 +60,7 @@ gestion_inventario/
 │   ├── services/                # coach, coach_rules, finance, inventory, product,
 │   │   │                           reporting, sales_document
 │   ├── static/                  # CSS, JS, uploads
-│   └── templates/               # Jinja2 templates (partials/, components/)
+│   └── templates/               # Jinja2 templates (layouts/, components/, features/<dominio>/)
 ├── tests/                       # 149 unit (SQLite memoria) + 16 e2e (Playwright)
 ├── docker-compose.yml           # ⚠️ No editar sin confirmación explícita
 ├── docker-compose-homelab.yml
@@ -238,7 +238,9 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 3. **requirements.txt**: no añadir dependencias sin confirmación. Listarlas y pedir aprobación.
 4. **app/auth.py**: no cambiar la lógica de hash_password (PBKDF2 200k iteraciones) ni verify_password sin confirmación.
 5. **app/db.py**: todos los modelos heredan de `Base` de `app/db.py`. No crear bases alternativas.
-6. **app/deps.py**: no modificar require_user_api, require_admin_api, require_active_business_id — son el control de acceso centralizado.
+6. **app/security.py**: `get_active_business_id` acepta `user=` opcional; no cambiar su lógica ni la
+   de los `require_*`. `app/deps.py`: no modificar `require_user_api`, `require_admin_api`,
+   `require_active_business_id` — son el control de acceso centralizado.
 7. **Routers UI**: `ui_tabs.py` fue dividido en `ui_stock.py`/`ui_profit.py`/`ui_activity.py`/`ui_history.py`/`ui_dividends.py`/`ui_home.py`/`ui_tabs_common.py` (Fase B). El dashboard ya no es monolítico.
 8. **Migraciones**: no modificar archivos existentes en migrations — solo crear nuevos.
 
@@ -257,12 +259,32 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-Tests:        385 unit (SQLite en memoria) + 43 e2e (Playwright), todos verdes
+Fase 5b:      los routers UI no usan el ORM ni resuelven el negocio: todo pasa por `ctx = ui_context(request, db)`
+              (`ctx.user`, `ctx.active_business_id`, `ctx.business_id` (409), `ctx.business_code`, `ctx.config`) y
+              por repositorios/servicios (`ProductService.resolve_sku/barcode_to_sku`, `InventoryRepository.get_movement`,
+              `business_repository.reconcile_locations`, `SalesDocumentService.add_document/delete_document`...).
+              Los métodos nuevos no hacen `commit()`: la transacción la cierra el router. Guardas
+              `tests/unit/test_routers_no_orm.py` y `tests/unit/test_ui_query_count.py` (1 SELECT a `users` por petición).
+Fase 5a:      `partials/` ya no existe: las plantillas viven en `templates/features/<dominio>/` con su nombre de
+              siempre (p. ej. `features/sales/sale_panel.html`); `layouts/` y `components/` siguen igual. La guarda
+              `tests/unit/test_templates_layout.py` falla si una ruta de plantilla no carga o si alguien nombra
+              `partials/`. Pendiente: fase 5b (consultas fuera de los routers UI).
+Fase 4:       en `develop` y probada en staging (2026-11-01, merge `990e61d`, entra en 0.5.0) — plantillas OOB en
+              `templates/features/<dominio>/`, `UIContext` perezoso (`ctx = ui_context(request, db)`, llamada
+              directa) en los 20 routers UI, `role_of()` única normalización del rol, sidebar `NAV_ITEMS`.
+              Auditoría 4.25 → 4.65 🟢; 3 bugs de producción corregidos (timedelta, FK al borrar documento, 404
+              de autorrelleno). Pendiente: fase 5 (partials/ → features/, queries fuera de routers).
+Permisos:     owner ve Clientes; operador ve Ventas, Documentos y Clientes: vende, crea/edita clientes (borrar
+              = 403 y botón oculto) y crea/edita/borra documentos de venta. Editar gastos/ventas: admin/owner.
+Tests:        496 unit (SQLite en memoria) + 94 e2e (Playwright, fixture js_errors autouse) + 91 snapshots
+              (tests/snapshots/ui_snapshot.py, reloj de Inicio congelado en 2026-10-24; H-303: roles
+              operator/owner, POST con error, fragmentos OOB y estados vacíos), todos verdes; arnés de
+              estilos calculados tests/snapshots/style_snapshot.py (74 capturas, fuera de CI)
               + eval de precisión del copiloto (tests/eval/, marker agent_eval,
               corre a demanda contra el LLM real: pytest tests/eval -m agent_eval -v -s)
 Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/transfer/adjustment),
               /sync/{register,push,conflicts} (offline-desktop-sync)
-              UI HTMX: dashboard completo + copiloto IA (33 tools) + tab Coach + sync banner
+              UI HTMX: dashboard completo + copiloto IA (35 tools) + tab Coach + sync banner
               + checkbox "pagado por transferencia" en venta rápida (v0.4.10)
               + creación de producto solo desde "Registrar compra" con precio de venta opcional (v0.4.11)
               + GET /ui/product-suggest (sugerencias dinámicas al teclear, v0.4.12; NO en Ventas ni
@@ -330,6 +352,27 @@ precisión de minuto. Corregido con milisegundos, **acotado a `ui_sales.py` +
 (sin el fix) sigue en uso por compras/traspasos/gastos/extracciones/dividendos, con
 el mismo riesgo latente, sin corregir a propósito (fuera de alcance de esa sesión).
 
+**PAE-015 implementado (2026-10-24, rama `feature/frontend-modular`):** tool `sales_by_location_monthly`
+(34 tools), gráfico multi-serie en `app/static/js/components/widget-chart.js` (solo bar/line), reglas de prompt,
+título del widget de rescate y aviso de fallo. Re-auditoría 4.70 🟢. **DoD cerrado (2026-10-24):** tool contra prod en solo lectura = tabla de `requirements.md` (oct. 3199,0 en Playa por ventas del 19-21); prueba manual dada por hecha.
+
+**Release 0.5.0 en `develop` y probada en staging (2026-11-01):** fases 1-3 + PAE-015 mergeadas (`77c25bb`),
+arnés con reloj congelado (`b201f64`), tema oscuro legible en gráficos y Escape en modales (`b741a46`). `main` espera
+a las fases 4-5. Fase 4 en `specs/frontend-fase4-oob-uicontext/` (requirements + design; PAE en preparación).
+- Colores de gráficos: `--chart-text`/`--chart-border` (texto y líneas de ejes) los aplica
+  `components/chart-palette.js::applyChartDefaults()` antes de cada render; cada token de color tiene que existir en
+  `:root` y, si cambia en oscuro, en `[data-theme="dark"]` de `tokens.css`.
+- Modales: `core/modals.js` cierra con botón, clic en overlay o Escape, salvo `data-modal-static="1"`.
+
+**Fases 1-3 del frontend modular (detalle):**
+- El JS vive en módulos ES bajo `app/static/js/` (sin build, sin JS inline; CSP `script-src 'self'`).
+- El CSS vive en `app/static/css/`: `tokens.css` (colores, temas), `utilities.css` (utilidades compartidas),
+  `app.css`, `login.css`, `print.css` y `label-print.css`. CSP `style-src 'self'`.
+- En las plantillas no se añaden `<script>` inline, `on*=`, `style=`, `<style>` ni colores hex: lo rechazan
+  `tests/unit/test_frontend_js_modules.py`, `tests/unit/test_frontend_css.py` y la CSP.
+- Las violaciones de CSP en producción quedan en el log (`WARNING csp_violation`, `app/routers/csp_report.py`).
+- Fase 3: re-auditoría 4.90 🟢 (`docs/auditorias/2026-10-24-frontend-fase3-css-csp-reaudit.md`).
+
 **Otros pendientes acumulados de sesiones previas:** fix estructural de SKU único
 compuesto `(business_id, sku)` pospuesto por decisión explícita del usuario; verde
 definitivo del copiloto (≥4.2, timeout global del agente); `.conf` legacy sin
@@ -338,7 +381,7 @@ healthcheck corregido esta sesión — `Dockerfile` ya copia `VERSION`).
 
 ---
 
-## Reglas operacionales para OpenCode
+## Reglas operacionales para cc_local
 
 - **Scope**: solo tocar archivos listados en el PAE activo (sección 3.2).
 - **Archivos nuevos**: reportar nombre y ubicación antes de crear.

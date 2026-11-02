@@ -1,27 +1,23 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config, get_business_config
 from app.repositories.location_repository import LocationRepository
 
 from datetime import datetime, timedelta, timezone
-import html
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import and_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Customer, Location, Product, SalesDocument, SalesDocumentItem
+from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
 
 from app.utils import query_match
 
-from .ui_common import ensure_admin_or_owner, extract_sku, parse_dt, templates
+from .ui_common import parse_dt, templates
+from .ui_context import ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -196,9 +192,10 @@ def sales_doc_preview(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    _ = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    _ = ctx.business_id
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -238,7 +235,7 @@ def sales_doc_preview(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_preview.html",
+        name="features/sales_documents/sales_document_preview.html",
         context={
             "doc_type": doc_type_norm,
             "location_code": selected_location_code,
@@ -258,9 +255,10 @@ def sales_doc_preview(
 
 @router.post("/sales-doc/{doc_id}/delete", response_class=HTMLResponse)
 def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    config = ctx.config
 
     doc = SalesDocumentService(db, bid).get(doc_id)
     if doc is None:
@@ -268,10 +266,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
     if int(getattr(doc, "business_id", 0) or 0) != int(bid):
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    items = SalesDocumentService(db, bid).get_items(doc.id)
-    for it in items:
-        db.delete(it)
-    db.delete(doc)
+    SalesDocumentService(db, bid).delete_document(doc)
     db.commit()
 
     cart = _get_cart(request)
@@ -283,7 +278,7 @@ def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(sessio
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -306,8 +301,9 @@ def sales_doc_edit_form(
     doc_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
     if doc is None:
@@ -317,7 +313,7 @@ def sales_doc_edit_form(
     items = svc.get_items_ordered(doc.id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_edit_form.html",
+        name="features/sales_documents/sales_document_edit_form.html",
         context={
             "doc": doc,
             "items": items,
@@ -331,9 +327,10 @@ async def sales_doc_update(
     doc_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    config = ctx.config
 
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
@@ -363,7 +360,7 @@ async def sales_doc_update(
     for it in items:
         del_flag = form.get(f"del_{it.id}")
         if del_flag:
-            db.delete(it)
+            SalesDocumentService(db, bid).delete_item(it)
             continue
 
         desc = (form.get(f"desc_{it.id}") or it.description or "").strip() or "(sin descripción)"
@@ -400,7 +397,8 @@ async def sales_doc_update(
 
     if new_desc and new_qty > 0:
         new_line_total = float(new_qty * new_price)
-        db.add(
+        svc = SalesDocumentService(db, bid)
+        svc.add_item(
             SalesDocumentItem(
                 document_id=doc.id,
                 line_no=next_line,
@@ -435,7 +433,7 @@ async def sales_doc_update(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -459,21 +457,29 @@ def sales_doc_product_defaults(
     product: str = "",
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     sku = extract_sku(product)
     if not sku:
         return HTMLResponse("")
 
-    p = ProductService(db, business_id=bid).get_by_sku(sku)
+    try:
+        p = ProductService(db, business_id=bid).get_by_sku(sku)
+    except HTTPException:
+        # Texto libre o SKU aún inexistente: sin autorrelleno, igual que product_defaults_purchase/sale.
+        return HTMLResponse("")
     price = "" if p.default_sale_price is None else str(float(p.default_sale_price))
-    return HTMLResponse(
-        f"<input id='sales-doc-unit-price' hx-swap-oob='true' name='unit_price' type='number' step='0.0001' min='0' value='{html.escape(price)}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/_product_defaults_oob.html",
+        context={"price": price},
     )
 
 
 @router.get("/sales-doc/customer-defaults", response_class=HTMLResponse)
 def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Session = Depends(session_dep)) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     raw = (client_name or "").strip()
     if not raw:
         return HTMLResponse("")
@@ -496,10 +502,10 @@ def sales_doc_customer_defaults(request: Request, client_name: str = "", db: Ses
     if customer is None:
         return HTMLResponse("")
 
-    addr = (customer.address or "")
-    return HTMLResponse(
-        f"<input id='sales-doc-client-id' hx-swap-oob='true' name='client_id' value='{html.escape(str(customer.client_id or ''))}' required />"
-        f"<input id='sales-doc-client-address' hx-swap-oob='true' name='client_address' value='{html.escape(addr)}' />"
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/_customer_defaults_oob.html",
+        context={"client_id": str(customer.client_id or ""), "client_address": customer.address or ""},
     )
 
 
@@ -519,8 +525,9 @@ def sales_doc_cart_add(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
     product_service = ProductService(db, business_id=bid)
 
     try:
@@ -576,7 +583,7 @@ def sales_doc_cart_add(
             pos_locations = config.locations.all_locations()
             return templates.TemplateResponse(
                 request=request,
-                name="partials/sales_document_panel.html",
+                name="features/sales_documents/sales_document_panel.html",
                 context={
                     "sales_doc_config": config.sales_documents.model_dump(),
                     "currency": config.currency.model_dump(),
@@ -617,7 +624,7 @@ def sales_doc_cart_add(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/sales_document_panel.html",
+            name="features/sales_documents/sales_document_panel.html",
             context={
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
@@ -641,7 +648,7 @@ def sales_doc_cart_add(
         default_doc_location_code = config.locations.default_sale_code()
         return templates.TemplateResponse(
             request=request,
-            name="partials/sales_document_panel.html",
+            name="features/sales_documents/sales_document_panel.html",
             context={
                 "sales_doc_config": config.sales_documents.model_dump(),
                 "currency": config.currency.model_dump(),
@@ -674,8 +681,9 @@ def sales_doc_cart_update(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -723,7 +731,7 @@ def sales_doc_cart_update(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -751,8 +759,9 @@ def sales_doc_cart_remove(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -785,7 +794,7 @@ def sales_doc_cart_remove(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -812,8 +821,9 @@ def sales_doc_cart_clear(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -842,7 +852,7 @@ def sales_doc_cart_clear(
     pos_locations = config.locations.all_locations()
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -869,9 +879,10 @@ def sales_doc_issue(
     currency_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
-    config = get_active_business_config(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    config = ctx.config
 
     doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
     if doc_type_norm not in ("F", "P"):
@@ -958,13 +969,7 @@ def sales_doc_issue(
         total=subtotal,
     )
 
-    db.add(doc)
-    db.flush()
-
-    for it in items:
-        it.document_id = doc.id
-        db.add(it)
-
+    SalesDocumentService(db, bid).add_document(doc, items)
     db.commit()
 
     _clear_cart(request)
@@ -974,7 +979,7 @@ def sales_doc_issue(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/sales_document_panel.html",
+        name="features/sales_documents/sales_document_panel.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),
@@ -999,8 +1004,9 @@ def sales_doc_pdf(
     db: Session = Depends(session_dep),
     download: int = 0,
 ) -> Response:
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     svc = SalesDocumentService(db, bid)
     doc = svc.get(doc_id)
     if doc is None:
@@ -1010,7 +1016,7 @@ def sales_doc_pdf(
 
     items = svc.get_items_ordered(doc.id)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
 
     try:
@@ -1057,11 +1063,11 @@ def tab_documents(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    _ = get_current_user_from_session(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
 
     pos_locations = config.locations.all_locations()
     default_doc_location_code = config.locations.default_sale_code()
@@ -1093,7 +1099,7 @@ def tab_documents(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_documents.html",
+        name="features/sales_documents/tab_documents.html",
         context={
             "sales_doc_config": config.sales_documents.model_dump(),
             "currency": config.currency.model_dump(),

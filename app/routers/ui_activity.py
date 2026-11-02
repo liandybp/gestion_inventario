@@ -6,19 +6,19 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
 from app.models import AuditLog
 from app.logger import get_logger
+from app.repositories.audit_repository import list_auth_events
 
 from .ui_common import (
-    ensure_admin,
     month_range,
     parse_dt,
     templates,
 )
+from .ui_context import ui_context
 
 _log = get_logger(__name__)
 
@@ -27,7 +27,8 @@ router = APIRouter()
 
 @router.get("/tabs/activity", response_class=HTMLResponse)
 def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
 
     username: str = (request.query_params.get("username") or "").strip()
     role_filter: str = (request.query_params.get("role") or "").strip().lower()
@@ -42,20 +43,13 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
 
-    stmt = (
-        select(AuditLog)
-        .where(AuditLog.entity_type == "auth")
-        .where(AuditLog.action.in_(["login", "logout"]))
+    rows = list_auth_events(
+        db,
+        username=username,
+        start=start_dt,
+        end=end_dt,
+        limit=2000,
     )
-    if username:
-        stmt = stmt.where(AuditLog.username == username)
-    if start_dt is not None:
-        stmt = stmt.where(AuditLog.created_at >= start_dt)
-    if end_dt is not None:
-        stmt = stmt.where(AuditLog.created_at < end_dt)
-
-    stmt = stmt.order_by(AuditLog.created_at.desc()).limit(2000)
-    rows = db.execute(stmt).scalars().all()
 
     def fmt_dt(dt: Optional[datetime]) -> str:
         if dt is None:
@@ -134,7 +128,7 @@ def tab_activity(request: Request, db: Session = Depends(session_dep)) -> HTMLRe
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_activity.html",
+        name="features/activity/tab_activity.html",
         context={
             "sessions": sessions,
             "events": event_rows,

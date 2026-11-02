@@ -1,0 +1,7 @@
+
+--- stderr ---
+ERROR: usage: python3 -m pytest [options] [file_or_dir] [file_or_dir] [...]
+python3 -m pytest: error: unrecognized arguments: --no-cov
+  inifile: /home/liandy/PyCharmMiscProject/gestion_inventario/pytest.ini
+  rootdir: /home/liandy/PyCharmMiscProject/gestion_inventario
+

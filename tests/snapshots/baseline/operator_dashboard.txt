@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Inventario
+</title>
+</head>
+<body>
+<button aria-label="Abrir menú" class="mobile-menu-toggle" id="mobile-menu-toggle">
+☰
+</button>
+<div class="mobile-menu-overlay" id="mobile-menu-overlay">
+</div>
+<div class="app-layout">
+<aside class="sidebar" id="sidebar">
+<div class="sidebar-header">
+<h2>
+Dashboard
+</h2>
+<div class="sidebar-user">
+snap-operator
+</div>
+<div class="mt-6 muted">
+Negocio: Recambios
+</div>
+<div class="sidebar-theme-row">
+<button aria-label="Cambiar tema" class="sidebar-theme" title="Cambiar tema claro/oscuro" type="button">
+🌓
+</button>
+<a class="sidebar-logout" href="/ui/logout">
+Cerrar sesión
+</a>
+</div>
+</div>
+<nav aria-label="Secciones" class="sidebar-nav" role="navigation">
+<button aria-selected="true" class="sidebar-item" hx-get="/ui/tabs/sales" hx-swap="innerHTML" hx-target="#tab-content" id="tab-sales">
+Ventas
+</button>
+<button aria-selected="false" class="sidebar-item" hx-get="/ui/tabs/documents" hx-swap="innerHTML" hx-target="#tab-content" id="tab-documents">
+Documentos
+</button>
+<button aria-selected="false" class="sidebar-item" hx-get="/ui/tabs/customers" hx-swap="innerHTML" hx-target="#tab-content" id="tab-customers">
+Clientes
+</button>
+</nav>
+</aside>
+<main class="main-content">
+<div class="sync-banner" id="sync-banner">
+</div>
+<div hx-get="/ui/tabs/sales" hx-swap="innerHTML" hx-trigger="load" id="tab-content">
+</div>
+</main>
+</div>
+<div id="modal-container">
+</div>
+</body>
+</html>

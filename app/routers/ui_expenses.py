@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.finance_service import FinanceService
 from app.utils import query_match
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, month_range, parse_dt, templates
+
+from .ui_context import ui_context
 
 from app.logger import get_logger
 
@@ -30,14 +31,15 @@ def expense_create(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
         service.create_expense(amount=amount, concept=concept, expense_date=parse_dt(expense_date))
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -52,7 +54,7 @@ def expense_create(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo registrado",
                 "message_class": "ok",
@@ -67,7 +69,7 @@ def expense_create(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al registrar gasto",
                 "message_detail": str(e),
@@ -86,12 +88,14 @@ def expense_edit_form(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     expense = service.get_expense(expense_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/expense_edit_form.html",
+        name="features/expenses/expense_edit_form.html",
         context={
             "expense": expense,
             "expense_date_value": dt_to_local_input(expense.expense_date),
@@ -105,14 +109,15 @@ def expense_delete(
     expense_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.delete_expense(expense_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -127,7 +132,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo eliminado",
                 "message_class": "ok",
@@ -141,7 +146,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al eliminar costo operativo",
                 "message_detail": str(e.detail),
@@ -158,7 +163,7 @@ def expense_delete(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al eliminar costo operativo",
                 "message_detail": str(e),
@@ -180,8 +185,9 @@ def expense_update(
     concept: str = Form(...),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = FinanceService(db, business_id=bid)
     start, end = month_range(datetime.now(timezone.utc))
     try:
@@ -192,7 +198,7 @@ def expense_update(
             expense_date=parse_dt(expense_date),
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -207,7 +213,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Costo operativo actualizado",
                 "message_class": "ok",
@@ -221,7 +227,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al actualizar gasto",
                 "message_detail": str(e.detail),
@@ -238,7 +244,7 @@ def expense_update(
         total = service.total_expenses(start=start, end=end)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_expenses.html",
+            name="features/expenses/tab_expenses.html",
             context={
                 "message": "Error al actualizar gasto",
                 "message_detail": str(e),
@@ -262,8 +268,9 @@ def tab_expenses(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     inventory_service = FinanceService(db, business_id=bid)
     
     now = datetime.now(timezone.utc)
@@ -304,7 +311,7 @@ def tab_expenses(
     total = inventory_service.total_expenses(start=eff_start, end=eff_end)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_expenses.html",
+        name="features/expenses/tab_expenses.html",
         context={
             "expenses": expenses,
             "expenses_total": total,

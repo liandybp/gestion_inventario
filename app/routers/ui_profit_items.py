@@ -1,36 +1,29 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.models import InventoryLot, InventoryMovement, Product
-from app.security import (
-    get_active_business_code,
-    get_current_user_from_session,
-    require_active_business_id,
-)
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.logger import get_logger
 from app.utils import query_match
 
 from .ui_common import (
     dt_to_local_input,
-    ensure_admin,
-    ensure_admin_or_owner,
-    extract_sku,
     month_range,
     parse_dt,
     templates,
 )
+from .ui_context import UIContext, ui_context
 from .ui_tabs_common import _home_locations_context, _location_id_for_code
 
 _log = get_logger(__name__)
@@ -40,8 +33,7 @@ router = APIRouter()
 
 def _render_profit_items_tab(
     *,
-    request: Request,
-    db: Session,
+    ctx: "UIContext",
     query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -50,15 +42,15 @@ def _render_profit_items_tab(
     message_detail: Optional[str] = None,
     message_class: Optional[str] = None,
 ) -> HTMLResponse:
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
-    reporting = ReportingService(db, business_id=bid)
+    bid = ctx.business_id
+    user = ctx.user
+    reporting = ReportingService(ctx.db, business_id=bid)
 
-    business_code = get_active_business_code(db, request)
-    locations, default_loc_code = _home_locations_context(db, request)
+    business_code = ctx.business_code
+    locations, default_loc_code = _home_locations_context(ctx)
     selected_location_code = (location_code or "").strip() or (default_loc_code or "")
     location_id = (
-        _location_id_for_code(db, selected_location_code, business_id=bid, business_code=business_code)
+        _location_id_for_code(ctx.db, selected_location_code, business_id=bid, business_code=business_code)
         if selected_location_code
         else None
     )
@@ -92,8 +84,8 @@ def _render_profit_items_tab(
             )
         ]
     return templates.TemplateResponse(
-        request=request,
-        name="partials/tab_profit_items.html",
+        request=ctx.request,
+        name="features/profit_items/tab_profit_items.html",
         context={
             "user": user,
             "message": message,
@@ -119,10 +111,10 @@ def tab_profit_items(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -140,18 +132,18 @@ def profit_items_adjustment_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "adjustment":
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("adjustment",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Adjustment movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Adjustment movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_adjustment_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
+            "kind": "adjustment",
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
             "movement_date_value": dt_to_local_input(mv.movement_date),
@@ -174,13 +166,14 @@ def profit_items_adjustment_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     service.update_adjustment_movement(movement_id=movement_id, unit_cost=float(unit_cost))
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -192,8 +185,7 @@ def profit_items_adjustment_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -211,18 +203,18 @@ def profit_items_transfer_in_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "transfer_in":
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("transfer_in",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_transfer_in_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
+            "kind": "transfer_in",
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
             "movement_date_value": dt_to_local_input(mv.movement_date),
@@ -245,14 +237,13 @@ def profit_items_transfer_in_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "transfer_in":
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("transfer_in",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
 
     result = service.update_transfer_movement(
@@ -262,7 +253,7 @@ def profit_items_transfer_in_update(
         movement_date=mv.movement_date,
         note=mv.note,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -274,8 +265,7 @@ def profit_items_transfer_in_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -293,19 +283,19 @@ def profit_items_sale_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "sale":
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("sale",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Sale movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Sale movement not found")
-    product = db.get(Product, mv.product_id)
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_sale_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
+            "kind": "sale",
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
             "movement_date_value": dt_to_local_input(mv.movement_date),
@@ -333,8 +323,9 @@ def profit_items_sale_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)
     result = service.update_sale(
@@ -345,7 +336,7 @@ def profit_items_sale_update(
         movement_date=parse_dt(movement_date),
         note=note or None,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -357,8 +348,7 @@ def profit_items_sale_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -376,11 +366,12 @@ def profit_items_sale_delete(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     service.delete_sale_movement(movement_id)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -391,7 +382,7 @@ def profit_items_sale_delete(
             detail={},
         )
         db.commit()
-    return _render_profit_items_tab(request=request, db=db, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
+    return _render_profit_items_tab(ctx=ctx, query=query, start_date=start_date, end_date=end_date, location_code=location_code)
 
 
 @router.post("/tabs/profit-items/sale/delete-selected", response_class=HTMLResponse)
@@ -404,10 +395,11 @@ def profit_items_sale_delete_selected(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     ids: list[int] = []
     seen: set[int] = set()
@@ -424,8 +416,7 @@ def profit_items_sale_delete_selected(
 
     if not ids:
         return _render_profit_items_tab(
-            request=request,
-            db=db,
+            ctx=ctx,
             query=query,
             start_date=start_date,
             end_date=end_date,
@@ -461,8 +452,7 @@ def profit_items_sale_delete_selected(
     if errors:
         detail = detail + " Errores: " + "; ".join(errors[:5])
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,
@@ -483,20 +473,20 @@ def profit_items_purchase_edit_form(
     end_date: Optional[str] = None,
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
-    mv = db.get(InventoryMovement, movement_id)
-    if mv is None or mv.type != "purchase":
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
+    mv = InventoryRepository(db, business_id=bid).get_movement(movement_id, ("purchase",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Purchase movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Purchase movement not found")
-    product = db.get(Product, mv.product_id)
-    lot = db.scalar(select(InventoryLot).where(InventoryLot.movement_id == mv.id))
+    product = PurchaseRepository(db, bid).get_product(mv.product_id)
+    lot = PurchaseRepository(db, bid).get_lot_by_movement(mv.id)
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_purchase_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
+            "kind": "purchase",
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
             "movement_date_value": dt_to_local_input(mv.movement_date),
@@ -526,8 +516,9 @@ def profit_items_purchase_update(
     location_code: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
     sku = extract_sku(product)
     result = service.update_purchase(
@@ -539,7 +530,7 @@ def profit_items_purchase_update(
         lot_code=lot_code or None,
         note=note or None,
     )
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if user is not None:
         log_event(
             db,
@@ -551,8 +542,7 @@ def profit_items_purchase_update(
         )
         db.commit()
     return _render_profit_items_tab(
-        request=request,
-        db=db,
+        ctx=ctx,
         query=query,
         start_date=start_date,
         end_date=end_date,

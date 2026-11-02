@@ -1,0 +1,12 @@
+{% if state == 'empty' %}
+<select name='lot_id' disabled><option value=''>-- Ingrese SKU --</option></select>
+{% elif state == 'error' %}
+<select name='lot_id' disabled><option value=''>Error: {{ error_msg }}</option></select>
+{% elif state == 'none' %}
+<select name='lot_id' disabled><option value=''>Sin lotes en esta ubicación</option></select>
+{% else %}
+<select name='lot_id' required>
+  <option value=''>-- Selecciona lote --</option>
+  {% for lot in lots %}<option value='{{ lot.id }}'>{{ lot.lot_code }} | disp={{ (lot.qty_remaining or 0) | float }} | costo={{ (lot.unit_cost or 0) | float }}</option>{% endfor %}
+</select>
+{% endif %}

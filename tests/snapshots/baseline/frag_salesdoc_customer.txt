@@ -1,0 +1,3 @@
+status=200
+<input hx-swap-oob="true" id="sales-doc-client-id" name="client_id" required value="C-SNAP">
+<input hx-swap-oob="true" id="sales-doc-client-address" name="client_address" value="Calle 1 <b>"H"</b> & 'co'">

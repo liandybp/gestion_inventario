@@ -1,5 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
 import math
@@ -16,22 +15,19 @@ from app.deps import session_dep
 from app.repositories.purchase_repository import PurchaseRepository
 from app.models import Product
 from app.schemas import PurchaseCreate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, extract_sku
 from app.settings import is_desktop
 from app.invoice_parsers import parse_invoice_pdf
 
 from .ui_common import (
-    _DEV_ACTIONS_ENABLED,
     dt_to_local_input,
-    ensure_admin_or_owner,
-    extract_sku,
     month_range,
     parse_dt,
     parse_typed_float,
     templates,
 )
+from .ui_context import UIContext, ui_context
 from app.logger import get_logger
 
 _log = get_logger(__name__)
@@ -39,8 +35,8 @@ _log = get_logger(__name__)
 router = APIRouter()
 
 
-def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optional[float], str, str]:
-    cfg = get_active_business_config(db, request)
+def _purchase_config_values(ctx: "UIContext") -> tuple[float, Optional[float], str, str]:
+    cfg = ctx.config
     purchase_cfg = getattr(cfg, "purchase", None)
     vat_rate = float(getattr(purchase_cfg, "invoice_vat_rate", 1.21) or 1.21)
     fx_rate = getattr(purchase_cfg, "invoice_fx_rate", None)
@@ -55,7 +51,8 @@ def _purchase_config_values(db: Session, request: Request) -> tuple[float, Optio
 
 
 def _product_panel_refresh(product_service: ProductService) -> dict:
-    """Contexto para refrescar #product-panel (historial + datalist inicial) vía hx-swap-oob.
+    """Contexto para refrescar #product-panel (historial + datalist inicial) fuera de banda
+    en el cliente (ver features/products/product_panel.html).
 
     El datalist inicial trae los 200 primeros productos; el recién creado se encuentra al
     teclear gracias a las sugerencias dinámicas (GET /ui/product-suggest).
@@ -75,17 +72,18 @@ def purchase_from_invoice(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    vat_rate, fx_rate, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
     def _render_error(message: str, detail: str) -> HTMLResponse:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": message,
@@ -170,7 +168,7 @@ def purchase_from_invoice(
             + diag_txt,
         )
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     invoice_movement_dt = parsed.invoice_date
 
@@ -322,12 +320,12 @@ def purchase_from_invoice(
         message_class = "ok" if not errors else "warn"
         status = 200
 
-    # Productos nuevos: refrescar #product-panel vía hx-swap-oob.
+    # Productos nuevos: refrescar #product-panel fuera de banda (features/products/product_panel.html).
     invoice_refresh = _product_panel_refresh(product_service) if created_products else {}
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/purchase_panel.html",
+        name="features/purchases/purchase_panel.html",
         context={
             "user": user,
             "message": message,
@@ -359,9 +357,10 @@ def purchase(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     product_service = ProductService(db, business_id=bid)
 
@@ -380,7 +379,7 @@ def purchase(
         parsed_cost = parse_typed_float(unit_cost, "El costo unitario debe ser un número mayor o igual que 0")
         parsed_sale_price = parse_typed_float(sale_price, "El precio de venta debe ser un número mayor o igual que 0")
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         existing_product = PurchaseRepository(db, bid).get_product_by_sku(sku) if sku else None
 
         created_product: Product | None = None
@@ -446,7 +445,7 @@ def purchase(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra registrada",
@@ -461,10 +460,10 @@ def purchase(
         )
     except HTTPException as e:
         db.rollback()
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error en compra",
@@ -497,9 +496,10 @@ def purchase_label_print(
     copies: int = 1,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    _, _, currency_code, _ = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    _, _, currency_code, _ = _purchase_config_values(ctx)
     repo = PurchaseRepository(db, bid)
     mv = repo.get_movement(movement_id)
     if mv is None or mv.type != "purchase":
@@ -524,8 +524,9 @@ def purchase_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     repo = PurchaseRepository(db, bid)
     mv = repo.get_movement(movement_id)
     if mv is None or mv.type != "purchase":
@@ -534,10 +535,10 @@ def purchase_edit_form(
         raise HTTPException(status_code=404, detail="Purchase movement not found")
     product = repo.get_product(mv.product_id)
     lot = repo.get_lot_by_movement(mv.id)
-    _, _, currency_code, _ = _purchase_config_values(db, request)
+    _, _, currency_code, _ = _purchase_config_values(ctx)
     return templates.TemplateResponse(
         request=request,
-        name="partials/purchase_edit_form.html",
+        name="features/purchases/purchase_edit_form.html",
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -562,10 +563,11 @@ def purchase_update(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    bid = require_active_business_id(db, request)
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
-    ensure_admin_or_owner(db, request)
+    ctx.ensure_admin_or_owner()
     sku = extract_sku(product)
     try:
         result = service.update_purchase(
@@ -578,7 +580,7 @@ def purchase_update(
             note=note or None,
         )
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -591,7 +593,7 @@ def purchase_update(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra actualizada",
@@ -604,10 +606,10 @@ def purchase_update(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al actualizar compra",
@@ -630,14 +632,15 @@ def purchase_delete(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    bid = require_active_business_id(db, request)
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         service.delete_purchase_movement(movement_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -650,7 +653,7 @@ def purchase_delete(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Compra eliminada",
@@ -662,10 +665,10 @@ def purchase_delete(
             },
         )
     except HTTPException as e:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compra",
@@ -680,10 +683,10 @@ def purchase_delete(
         )
     except Exception as e:
         _log.exception("purchase_delete fallback: %s", e)
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compra",
@@ -706,13 +709,14 @@ def purchase_delete_selected(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    bid = require_active_business_id(db, request)
-    _, _, currency_code, currency_symbol = _purchase_config_values(db, request)
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    _, _, currency_code, currency_symbol = _purchase_config_values(ctx)
     service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     try:
-        ensure_admin_or_owner(db, request)
+        ctx.ensure_admin_or_owner()
         raw_ids = [int(x) for x in (movement_ids or []) if int(x) > 0]
 
         skipped: list[str] = []
@@ -763,7 +767,7 @@ def purchase_delete_selected(
                 detail = detail + " Detalle: " + "; ".join(skipped[:6])
             return templates.TemplateResponse(
                 request=request,
-                name="partials/purchase_panel.html",
+                name="features/purchases/purchase_panel.html",
                 context={
                     "user": user,
                     "message": "No se pudo eliminar",
@@ -806,7 +810,7 @@ def purchase_delete_selected(
             detail = detail + f" Ignorados: {len(skipped)} (" + "; ".join(skipped[:3]) + ")"
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": msg,
@@ -822,7 +826,7 @@ def purchase_delete_selected(
     except HTTPException as e:
         return templates.TemplateResponse(
             request=request,
-            name="partials/purchase_panel.html",
+            name="features/purchases/purchase_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar compras",
@@ -848,12 +852,13 @@ def tab_purchases(
     end_date: Optional[str] = None,
     db: Session = Depends(session_dep)
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
-    config = get_active_business_config(db, request)
+    user = ctx.user
+    config = ctx.config
     purchase_currency_code = str(getattr(config.currency, "code", "") or "").strip().upper() or "EUR"
     purchase_currency_symbol = str(getattr(config.currency, "symbol", "") or "").strip() or "€"
     
@@ -898,7 +903,7 @@ def tab_purchases(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_purchases.html",
+        name="features/purchases/tab_purchases.html",
         context={
             "user": user,
             "products": product_service.recent(limit=20),

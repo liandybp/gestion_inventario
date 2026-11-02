@@ -1,0 +1,113 @@
+<div>
+<h2>
+Inventario
+</h2>
+<div class="card mt-12">
+<div class="row">
+<label>
+Ubicación
+</label>
+<select id="inventory_location_code" name="location_code">
+<option selected value="">
+Vista General
+</option>
+<option value="CENTRAL">
+Almacén central
+</option>
+<option value="POS1">
+Punto de venta Playa
+</option>
+<option value="POS2">
+Taller Boyeros
+</option>
+<option value="POS3">
+Taller Cerro
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Stock
+</label>
+<select id="inventory_stock_filter" name="stock_filter">
+<option value="all">
+Todos
+</option>
+<option value="in_stock">
+Con inventario
+</option>
+<option value="zero">
+Sin inventario
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Categoría
+</label>
+<select id="inventory_category" name="category">
+<option selected value="">
+Todas
+</option>
+<option value="Cat">
+Cat
+</option>
+</select>
+</div>
+<div class="row">
+<label>
+Buscar
+</label>
+<input id="inventory_query" name="query" placeholder="Buscar por SKU o nombre">
+</div>
+<div hx-get="/ui/stock-table" hx-include="#inventory_query,#inventory_location_code,#inventory_stock_filter,#inventory_category" hx-swap="innerHTML" hx-trigger="load, keyup changed delay:300ms from:#inventory_query, change from:#inventory_location_code, change from:#inventory_stock_filter, change from:#inventory_category, stockTableRefresh from:body" id="stock-table">
+</div>
+<div class="mt-12">
+<h3 class="m-0">
+Devolución a proveedor
+</h3>
+<form class="mt-10" hx-include="#inventory_location_code" hx-post="/ui/movements/return-supplier" hx-swap="innerHTML" hx-target="#tab-content">
+<div class="grid grid-3">
+<div class="row">
+<label>
+Producto (SKU o nombre)
+</label>
+<input data-product-suggest="sku" id="return-sku-input" list="return-products-list" name="sku" placeholder="Buscar por SKU o nombre" required>
+<datalist id="return-products-list">
+<option value="SNAP-1">
+SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'
+</option>
+<option value="SNAP-NEW">
+SNAP-NEW - Producto Nuevo
+</option>
+</datalist>
+</div>
+<div class="row">
+<label>
+Lote
+</label>
+<div hx-get="/ui/return-supplier/lots" hx-include="#return-sku-input, #inventory_location_code" hx-swap="innerHTML" hx-target="this" hx-trigger="load, change from:#return-sku-input delay:300ms" id="return-supplier-lots">
+</div>
+</div>
+<div class="row">
+<label>
+Cantidad
+</label>
+<input min="0" name="quantity" required step="0.0001" type="number" value="1">
+</div>
+</div>
+<div class="mt-10 row">
+<label>
+Nota (opcional)
+</label>
+<input name="note" placeholder="Motivo / proveedor">
+</div>
+<button type="submit">
+Registrar devolución
+</button>
+</form>
+</div>
+<div class="mt-12" id="inventory-edit">
+</div>
+</div>
+</div>

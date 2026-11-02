@@ -1,0 +1,97 @@
+{% from 'components/forms.html' import qty_label, number_input %}
+<div class="card" id="sale-panel">
+  <h2>Venta</h2>
+
+  <div class="card">
+    <h3 class="mt-0">Registrar venta</h3>
+    <p class="muted mt-n6">Usa una sola casilla para buscar por nombre/SKU o escanear el código de barras.</p>
+    <form hx-post="/ui/sale" hx-target="#sale-panel" hx-swap="outerHTML">
+      <div class="row">
+        <label>Ubicación</label>
+        <select name="location_code"
+                hx-get="/ui/sale/product-options"
+                hx-trigger="change"
+                hx-target="#product-options"
+                hx-swap="innerHTML">
+          {% for loc in pos_locations %}
+            <option value="{{ loc['code'] }}" {% if (sale_location_code or default_sale_location_code) == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Artículo / código</label>
+        <input name="product" list="product-options" placeholder="Nombre, SKU o barcode" autocomplete="off" required
+               hx-get="/ui/product-defaults/sale" hx-trigger="change" hx-target="#sale-defaults" hx-swap="innerHTML"
+               data-js-enter-focus="quantity" />
+      </div>
+      <div class="row">{{ qty_label('sale-qty-label') }}<input name="quantity" type="number" step="0.0001" min="0" value="1" required /></div>
+      <div class="row"><label>Precio unitario</label>{{ number_input('sale-unit-price', 'unit_price') }}</div>
+      <div class="row"><label>Fecha</label><input name="movement_date" type="datetime-local" step="0.001" value="{{ movement_date_default or '' }}" /></div>
+      <div class="row"><label>Nota</label><input name="note" placeholder="(opcional)" /></div>
+      <div class="row"><label>Pagado por transferencia</label><input type="checkbox" name="paid_by_transfer" value="1" /></div>
+      <button type="submit">Registrar venta</button>
+    </form>
+  </div>
+
+  <datalist id="product-options">
+    {% include 'features/sales/_product_options.html' %}
+  </datalist>
+
+  {% if message %}
+    <div class="{{ message_class }} msg-box mt-12">
+      <strong>{{ message }}</strong>
+      {% if message_detail %}<div>{{ message_detail }}</div>{% endif %}
+    </div>
+  {% endif %}
+
+  <h3 class="mt-16">Historial de ventas</h3>
+  
+  <form hx-get="/ui/tabs/sales" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="card mb-12"
+        hx-trigger="submit, keyup changed delay:300ms from:#sales-filter-query, change from:#sales-filter-start, change from:#sales-filter-end, change from:#sales-filter-location, change from:#sales-filter-payment, change from:#sales-filter-show-all">
+    <div class="flex gap-12 items-center flex-wrap">
+      <div>
+        <label class="filter-label">Buscar artículo</label>
+        <input id="sales-filter-query" type="text" name="query" value="{{ filter_query or '' }}" placeholder="SKU o nombre" hx-preserve="true" />
+      </div>
+      <div>
+        <label class="filter-label">Punto de venta</label>
+        <select id="sales-filter-location" name="location_code">
+          <option value="" {% if not (filter_location_code or '') %}selected{% endif %}>Todos</option>
+          {% for loc in pos_locations %}
+            <option value="{{ loc['code'] }}" {% if (filter_location_code or '') == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Método de pago</label>
+        <select id="sales-filter-payment" name="payment_method">
+          <option value="" {% if not (filter_payment_method or '') %}selected{% endif %}>Todos</option>
+          <option value="transfer" {% if (filter_payment_method or '') == 'transfer' %}selected{% endif %}>Transferencia</option>
+          <option value="cash" {% if (filter_payment_method or '') == 'cash' %}selected{% endif %}>Efectivo/otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Desde</label>
+        <input id="sales-filter-start" type="date" name="start_date" value="{{ filter_start_date or '' }}" />
+      </div>
+      <div>
+        <label class="filter-label">Hasta</label>
+        <input id="sales-filter-end" type="date" name="end_date" value="{{ filter_end_date or '' }}" />
+      </div>
+      <div class="flex items-center gap-8">
+        <input id="sales-filter-show-all" type="checkbox" name="show_all" value="1" {% if filter_show_all %}checked{% endif %} />
+        <label for="sales-filter-show-all" class="filter-label m-0">Ver todos</label>
+      </div>
+      <button type="submit" class="mb-0">Filtrar</button>
+      <a href="/ui/tabs/sales?show_all=1" hx-get="/ui/tabs/sales?show_all=1" hx-target="#sales-history" hx-select="#sales-history" hx-swap="outerHTML" class="text-sm">Ver todos</a>
+    </div>
+  </form>
+  
+  <div id="sales-history">
+    {% include 'features/sales/sales_history.html' %}
+  </div>
+
+  <div id="sale-edit" class="mt-12"></div>
+</div>
+
+<div id="sale-defaults"></div>

@@ -1,58 +1,33 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
 
 from datetime import datetime, timedelta, timezone
-from html import escape
 import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-from sqlalchemy.sql import func
 
 from app.audit import log_event
 from app.deps import session_dep
 from app.logger import get_logger
 from app.schemas import TransferCreate, TransferLineCreate
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
 from app.services.inventory_service import InventoryService
-from app.models import InventoryMovement, Product
+from app.services.product_service import ProductService
+from app.models import InventoryMovement
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.purchase_repository import PurchaseRepository
 from app.settings import is_desktop
 
-from .ui_common import dt_to_local_input, ensure_admin_or_owner, extract_sku, month_range, parse_dt, templates
+from .ui_common import dt_to_local_input, month_range, parse_dt, templates
+from .ui_context import ui_context
 from .ui_tabs_common import _location_id_for_code
-from app.utils import query_match
 
 _log = get_logger(__name__)
 
 router = APIRouter()
 
 
-def _resolve_transfer_sku(db: Session, business_id: int, product_input: str) -> str:
-    value = (product_input or "").strip()
-    if not value:
-        raise HTTPException(status_code=422, detail="product is required")
-
-    extracted = extract_sku(value)
-    for candidate in (extracted, value):
-        cand = (candidate or "").strip()
-        if not cand:
-            continue
-        p = db.scalar(select(Product).where(Product.business_id == int(business_id), Product.sku == cand))
-        if p is not None:
-            return str(p.sku)
-
-    by_name = db.scalar(
-        select(Product)
-        .where(Product.business_id == int(business_id), Product.name.ilike(value))
-        .order_by(Product.id.asc())
-    )
-    if by_name is not None:
-        return str(by_name.sku)
-
-    raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 
 def _parse_transfer_lines(products: list[str], quantities: list[str]) -> list[TransferLineCreate]:
@@ -97,16 +72,17 @@ def transfer_edit_form(
     movement_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    out_id = service._transfer_out_id_for_movement_id(movement_id)
-    mv = db.get(InventoryMovement, out_id)
-    if mv is None or mv.type != "transfer_out":
+    out_id = service.transfer_out_id_for_movement_id(movement_id)
+    repo = InventoryRepository(db, business_id=bid)
+    purchase_repo = PurchaseRepository(db, bid)
+    mv = repo.get_movement(out_id, ("transfer_out",))
+    if mv is None:
         raise HTTPException(status_code=404, detail="Transfer movement not found")
-    if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-        raise HTTPException(status_code=404, detail="Transfer movement not found")
-    product = db.get(Product, mv.product_id)
+    product = purchase_repo.get_product(mv.product_id)
 
     note_value = ""
     raw = str(mv.note or "")
@@ -114,7 +90,7 @@ def transfer_edit_form(
         note_value = raw.split(":", 1)[1].strip()
     return templates.TemplateResponse(
         request=request,
-        name="partials/transfer_edit_form.html",
+        name="features/transfers/transfer_edit_form.html",
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -136,10 +112,11 @@ def transfer_update(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -164,7 +141,7 @@ def transfer_update(
             return []
 
     def _tab_error(detail: str) -> HTMLResponse:
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         try:
             recent_transfer_out = service.movement_history(
                 movement_type="transfer_out", start_date=None, end_date=None, limit=50
@@ -179,7 +156,7 @@ def transfer_update(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Error al actualizar traspaso",
@@ -200,11 +177,10 @@ def transfer_update(
         )
 
     try:
-        out_id = service._transfer_out_id_for_movement_id(movement_id)
-        mv_out = db.get(InventoryMovement, out_id)
-        if mv_out is None or mv_out.type != "transfer_out":
-            raise HTTPException(status_code=404, detail="Transfer movement not found")
-        if int(getattr(mv_out, "business_id", 0) or 0) != int(bid):
+        out_id = service.transfer_out_id_for_movement_id(movement_id)
+        repo = InventoryRepository(db, business_id=bid)
+        mv_out = repo.get_movement(out_id, ("transfer_out",))
+        if mv_out is None:
             raise HTTPException(status_code=404, detail="Transfer movement not found")
     except HTTPException as e:
         return _tab_error(str(e.detail))
@@ -216,7 +192,7 @@ def transfer_update(
     to_code = default_to_location_code
     try:
         if mv_out is not None:
-            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+            from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
         _log.error("transfer_codes_from_out_note fallback en transfer_update")
         from_code = default_from_location_code
@@ -234,7 +210,7 @@ def transfer_update(
             movement_date=parse_dt(movement_date),
             note=note or None,
         )
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -250,7 +226,7 @@ def transfer_update(
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso actualizado",
@@ -284,11 +260,12 @@ def transfer_delete_selected(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -302,13 +279,13 @@ def transfer_delete_selected(
     from_code = default_from_location_code
     to_code = default_to_location_code
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     if not movement_ids:
         recent_transfer_out = service.movement_history(movement_type="transfer_out", start_date=None, end_date=None, limit=50)
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "No hay traspasos seleccionados",
@@ -333,7 +310,7 @@ def transfer_delete_selected(
     out_ids: set[int] = set()
     for mid in movement_ids:
         try:
-            out_ids.add(int(service._transfer_out_id_for_movement_id(int(mid))))
+            out_ids.add(int(service.transfer_out_id_for_movement_id(int(mid))))
         except Exception:
             _log.debug("transfer out_id lookup skip: %r", mid)
             continue
@@ -371,7 +348,7 @@ def transfer_delete_selected(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_transfers.html",
+        name="features/transfers/tab_transfers.html",
         context={
             "user": user,
             "message": msg,
@@ -402,10 +379,11 @@ def transfer_delete(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    config = get_active_business_config(db, request)
+    config = ctx.config
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -416,13 +394,14 @@ def transfer_delete(
     default_from_location_code = central_code
     default_to_location_code = config.locations.default_sale_code()
 
-    out_id = service._transfer_out_id_for_movement_id(movement_id)
-    mv_out = db.get(InventoryMovement, out_id)
+    out_id = service.transfer_out_id_for_movement_id(movement_id)
+    repo = InventoryRepository(db, business_id=bid)
+    mv_out = repo.get_movement(out_id, ("transfer_out",))
     from_code = default_from_location_code
     to_code = default_to_location_code
     try:
         if mv_out is not None:
-            from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mv_out.note or ""))
+            from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mv_out.note or ""))
     except Exception:
         _log.error("transfer_codes_from_out_note fallback en transfer_delete")
         from_code = default_from_location_code
@@ -435,7 +414,7 @@ def transfer_delete(
     try:
         service.delete_transfer_shipment(movement_id)
 
-        user = get_current_user_from_session(db, request)
+        user = ctx.user
         if user is not None:
             log_event(
                 db,
@@ -451,7 +430,7 @@ def transfer_delete(
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso eliminado",
@@ -470,13 +449,15 @@ def transfer_delete(
             },
         )
     except HTTPException as e:
-        out_id = service._transfer_out_id_for_movement_id(movement_id)
-        mv = db.get(InventoryMovement, out_id)
-        product = db.get(Product, mv.product_id) if mv else None
+        out_id = service.transfer_out_id_for_movement_id(movement_id)
+        repo = InventoryRepository(db, business_id=bid)
+        purchase_repo = PurchaseRepository(db, bid)
+        mv = repo.get_movement(out_id, ("transfer_out",))
+        product = purchase_repo.get_product(mv.product_id) if mv else None
 
         response = templates.TemplateResponse(
             request=request,
-            name="partials/transfer_edit_form.html",
+            name="features/transfers/transfer_edit_form.html",
             context={
                 "movement": mv,
                 "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -496,11 +477,12 @@ def transfer_delete(
 async def create_transfer(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
-    config = get_active_business_config(db, request)
+    config = ctx.config
     pos_locations = [
         {"code": loc.code, "name": loc.name}
         for loc in (config.locations.pos or [])
@@ -528,7 +510,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
 
     movement_date = parse_dt(movement_date_raw) if movement_date_raw else None
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     try:
         if user is not None:
@@ -571,7 +553,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso registrado",
@@ -614,7 +596,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
         
         response = templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Error en traspaso",
@@ -644,28 +626,22 @@ def transfer_product_options(
     db: Session = Depends(session_dep),
     from_location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     options = [
         p
         for p in service.stock_list(query="", location_code=from_code)
         if float(getattr(p, "quantity", 0) or 0) > 0
     ]
-    parts: list[str] = []
-    for p in options:
-        sku = str(getattr(p, "sku", "") or "")
-        name = str(getattr(p, "name", "") or "")
-        if not sku:
-            continue
-        label = f"{sku} - {name}" if name else sku
-        parts.append(f'<option value="{escape(label)}"></option>')
-        parts.append(f'<option value="{escape(sku)}"></option>')
-        if name:
-            parts.append(f'<option value="{escape(name)}"></option>')
-    return HTMLResponse("\n".join(parts))
+    return templates.TemplateResponse(
+        request=request,
+        name="features/transfers/_product_options.html",
+        context={"product_options": options},
+    )
 
 
 @router.get("/transfers/stock/{sku}", response_class=HTMLResponse)
@@ -675,13 +651,14 @@ async def get_transfer_stock(
     db: Session = Depends(session_dep),
     location_code: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
 
     try:
-        resolved_sku = _resolve_transfer_sku(db, business_id=bid, product_input=sku)
-        config = get_active_business_config(db, request)
+        resolved_sku = ProductService(db, business_id=bid).resolve_sku(sku)
+        config = ctx.config
         effective_code = (location_code or "").strip() or str(config.locations.central.code)
         stock = service.stock_for_location(resolved_sku, location_code=effective_code)
         return HTMLResponse(f"{float(stock or 0):g}")
@@ -697,79 +674,45 @@ def transfer_print(
     ref: str = "",
     movement_id: int = 0,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
 
     ref_clean = (ref or "").strip()
     if not ref_clean and movement_id:
-        mv = db.get(InventoryMovement, int(movement_id))
+        mv = InventoryRepository(db, business_id=bid).get_movement(int(movement_id), ("transfer_out", "transfer_in"))
         if mv is None:
             raise HTTPException(status_code=404, detail="Transfer not found")
-        if int(getattr(mv, "business_id", 0) or 0) != int(bid):
-            raise HTTPException(status_code=404, detail="Transfer not found")
-        raw = str(mv.note or "")
-        if "ref=" in raw:
-            try:
-                ref_clean = raw.split("ref=", 1)[1].split()[0].strip()
-            except Exception:
-                _log.debug("transfer_print ref parse fallback")
-                ref_clean = ""
+        # Mismo patrón que InventoryService._transfer_codes_from_out_note: con nota, el texto es
+        # "…ref=TP-…: <nota>" y un split por espacios dejaba la ref con ':' al final (H-311).
+        ref_m = re.search(r"\bref=([^\s:;]+)", str(mv.note or ""))
+        ref_clean = ref_m.group(1).strip() if ref_m else ""
 
     if not ref_clean:
         raise HTTPException(status_code=422, detail="ref is required")
 
-    mvs = list(
-        db.scalars(
-            select(InventoryMovement)
-            .where(
-                InventoryMovement.type == "transfer_out",
-                InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
-            )
-            .order_by(InventoryMovement.movement_date.asc(), InventoryMovement.id.asc())
-        )
-    )
-    if bid is not None:
-        mvs = [m for m in mvs if int(getattr(m, "business_id", 0) or 0) == int(bid)]
+    mvs = InventoryRepository(db, business_id=bid).transfer_out_by_ref(ref_clean)
     if not mvs:
         raise HTTPException(status_code=404, detail="Transfer not found")
 
-    from_code, to_code, _ref = service._transfer_codes_from_out_note(str(mvs[0].note or ""))
+    from_code, to_code, _ref = service.transfer_codes_from_out_note(str(mvs[0].note or ""))
     movement_date = mvs[0].movement_date
 
     code_to_name = {str(cfg.locations.central.code): str(cfg.locations.central.name)}
     for loc in (cfg.locations.pos or []):
         code_to_name[str(loc.code)] = str(loc.name)
 
-    stmt = (
-        select(
-            Product.sku,
-            Product.name,
-            func.coalesce(func.sum(func.abs(InventoryMovement.quantity)), 0).label("qty"),
-            func.coalesce(Product.default_sale_price, 0).label("sale_price"),
-        )
-        .select_from(InventoryMovement)
-        .join(Product, Product.id == InventoryMovement.product_id)
-        .where(
-            InventoryMovement.type == "transfer_out",
-            InventoryMovement.note.ilike(f"%ref={ref_clean}%"),
-        )
-        .group_by(Product.id)
-        .order_by(Product.sku.asc())
-    )
-    if bid is not None:
-        stmt = stmt.where(InventoryMovement.business_id == int(bid))
-    rows = db.execute(stmt).all()
-
+    rows = InventoryRepository(db, business_id=bid).transfer_items_by_ref(ref_clean)
     items: list[dict] = []
     for sku, name, qty, sale_price in rows:
         sp = float(sale_price or 0)
         items.append(
             {
-                "sku": str(sku or ""),
-                "name": str(name or ""),
-                "qty": float(qty or 0),
+                "sku": sku,
+                "name": name,
+                "qty": qty,
                 "sale_price": sp,
                 "sale_price_10": sp * 0.10,
             }
@@ -801,10 +744,12 @@ def transfer_bulk_modal(
     from_date: str = "",
     to_date: str = "",
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    cfg = ctx.config
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    repo = InventoryRepository(db, business_id=bid)
 
     from_code = (from_location_code or "").strip() or str(cfg.locations.central.code).strip()
     to_code = (to_location_code or "").strip() or cfg.locations.default_sale_code()
@@ -819,7 +764,7 @@ def transfer_bulk_modal(
     if from_code == to_code:
         return templates.TemplateResponse(
             request=request,
-            name="partials/transfer_bulk_modal.html",
+            name="features/transfers/transfer_bulk_modal.html",
             context={
                 "from_code": from_code,
                 "to_code": to_code,
@@ -847,27 +792,12 @@ def transfer_bulk_modal(
         end_dt = parse_dt(to_date_s) if to_date_s else None
         if end_dt is not None:
             end_dt = end_dt + timedelta(days=1)
-        mv_filters = [
-            InventoryMovement.business_id == bid,
-            InventoryMovement.type == "transfer_out",
-        ]
-        if start_dt is not None:
-            mv_filters.append(InventoryMovement.movement_date >= start_dt)
-        if end_dt is not None:
-            mv_filters.append(InventoryMovement.movement_date < end_dt)
-        transferred_skus = set(
-            db.scalars(
-                select(Product.sku)
-                .join(InventoryMovement, InventoryMovement.product_id == Product.id)
-                .where(*mv_filters)
-                .distinct()
-            ).all()
-        )
+        transferred_skus = repo.skus_with_movements("transfer_out", start=start_dt, end=end_dt)
         products = [p for p in products if p["sku"] in transferred_skus]
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/transfer_bulk_modal.html",
+        name="features/transfers/transfer_bulk_modal.html",
         context={
             "from_code": from_code,
             "to_code": to_code,
@@ -894,10 +824,11 @@ async def transfer_bulk_execute(
 ) -> HTMLResponse:
     if is_desktop():
         raise HTTPException(status_code=404, detail="No disponible en modo desktop")
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     service = InventoryService(db, business_id=bid)
-    cfg = get_active_business_config(db, request)
+    cfg = ctx.config
 
     form = await request.form()
 
@@ -918,13 +849,13 @@ async def transfer_bulk_execute(
     except ValueError:
         movement_date = None
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     def _modal_response(message: str, message_class: str, message_detail: str,
                         checked_skus: set, quantities_map: dict, keep_open: bool) -> HTMLResponse:
         response = templates.TemplateResponse(
             request=request,
-            name="partials/transfer_bulk_modal.html",
+            name="features/transfers/transfer_bulk_modal.html",
             context={
                 "from_code": from_code,
                 "to_code": to_code,
@@ -1005,13 +936,14 @@ def tab_transfers(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
 
     inventory_service = InventoryService(db, business_id=bid)
-    business_code = get_active_business_code(db, request)
-    config = get_active_business_config(db, request)
+    business_code = ctx.business_code
+    config = ctx.config
 
     # all_locations() ya incluye la central → no volver a prependerla (bug duplicado)
     all_locations = config.locations.all_locations()
@@ -1105,7 +1037,7 @@ def tab_transfers(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_transfers.html",
+        name="features/transfers/tab_transfers.html",
         context={
             "user": user,
             "product_options": product_options,

@@ -45,7 +45,7 @@ def test_service_requires_business_id(db_session: Session) -> None:
 def test_transfer_codes_parser_ok(db_session: Session, business_id: int) -> None:
     service = InventoryService(db_session, business_id=business_id)
 
-    from_code, to_code, ref = service._transfer_codes_from_out_note("Transfer CENTRAL->POS1 ref=TP-123: nota")
+    from_code, to_code, ref = service.transfer_codes_from_out_note("Transfer CENTRAL->POS1 ref=TP-123: nota")
 
     assert from_code == "CENTRAL"
     assert to_code == "POS1"
@@ -56,7 +56,7 @@ def test_transfer_codes_parser_invalid_note(db_session: Session, business_id: in
     service = InventoryService(db_session, business_id=business_id)
 
     with pytest.raises(HTTPException) as exc:
-        service._transfer_codes_from_out_note("nota sin formato")
+        service.transfer_codes_from_out_note("nota sin formato")
 
     assert exc.value.status_code == 409
 

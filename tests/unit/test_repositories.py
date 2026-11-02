@@ -4,8 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Business, InventoryLot, InventoryMovement, Product
+from app.models import Business, InventoryLot, InventoryMovement, Location, Product
 from app.repositories.inventory_repository import InventoryRepository, _query_match
+from app.repositories.location_repository import LocationRepository
 from app.repositories.product_repository import ProductRepository
 
 
@@ -122,3 +123,122 @@ def test_inventory_repository_stock_and_fifo_order(db_session: Session, business
 
     fifo = repo.fifo_lots_for_product_id(product.id)
     assert [lot.lot_code for lot in fifo] == ["L1", "L2"]
+
+
+def test_product_repo_lookup_methods_are_scoped_to_business(db_session: Session, business_id: int) -> None:
+    other = Business(code="otro", name="Otro")
+    db_session.add(other)
+    db_session.commit()
+    db_session.refresh(other)
+    used = _create_product(db_session, business_id, "SKU-CAT1", "Camiseta")
+    used.category = "Ropa"
+    free = _create_product(db_session, business_id, "SKU-CAT3", "Gorra")
+    free.category = " Accesorios "
+    foreign = _create_product(db_session, int(other.id), "SKU-CAT2", "Pantalon")
+    foreign.category = "Ajena"
+    db_session.flush()
+    mv = InventoryMovement(
+        business_id=business_id, product_id=used.id, location_id=None, type="purchase",
+        quantity=2, unit_cost=1, unit_price=None, movement_date=datetime.now(timezone.utc), note=None,
+    )
+    db_session.add(mv)
+    db_session.flush()
+    db_session.add(InventoryLot(
+        business_id=business_id, movement_id=mv.id, product_id=used.id, location_id=None,
+        lot_code="LOTCAT00000", received_at=datetime.now(timezone.utc),
+        unit_cost=1, qty_received=2, qty_remaining=2,
+    ))
+    foreign_mv = InventoryMovement(
+        business_id=int(other.id), product_id=foreign.id, location_id=None, type="purchase",
+        quantity=1, unit_cost=1, unit_price=None, movement_date=datetime.now(timezone.utc), note=None,
+    )
+    db_session.add(foreign_mv)
+    db_session.flush()
+    db_session.add(InventoryLot(
+        business_id=int(other.id), movement_id=foreign_mv.id, product_id=foreign.id, location_id=None,
+        lot_code="LOTAJENO", received_at=datetime.now(timezone.utc),
+        unit_cost=1, qty_received=1, qty_remaining=1,
+    ))
+    db_session.commit()
+
+    repo = ProductRepository(db_session, business_id=business_id)
+    assert repo.first_by_name("camiseta").sku == "SKU-CAT1"
+    assert repo.first_by_name("Pantalon") is None
+    assert repo.list_categories() == ["Accesorios", "Ropa"]
+    assert repo.get_by_lot_code("LOTCAT").sku == "SKU-CAT1"  # sufijo 00000
+    assert repo.get_by_lot_code("LOTAJENO") is None
+    assert repo.deletable_skus(["SKU-CAT1", "SKU-CAT3", "SKU-CAT2"]) == {"SKU-CAT3"}
+
+
+def test_quantity_before_frontier_and_sign(db_session: Session, business_id: int) -> None:
+    product = _create_product(db_session, business_id, "SKU-QB", "Qb")
+    repo = InventoryRepository(db_session, business_id=business_id)
+    base = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    db_session.add_all([
+        InventoryMovement(business_id=business_id, product_id=product.id, location_id=None,
+                          type="purchase", quantity=10, unit_cost=1, unit_price=None,
+                          movement_date=base, note=None),
+        InventoryMovement(business_id=business_id, product_id=product.id, location_id=None,
+                          type="sale", quantity=-3, unit_cost=1, unit_price=5,
+                          movement_date=base + timedelta(days=1), note=None),
+    ])
+    db_session.commit()
+    assert repo.quantity_before(product.id, base) == 0.0
+    assert repo.quantity_before(product.id, base + timedelta(hours=1)) == 10.0
+    assert repo.quantity_before(product.id, base + timedelta(days=2)) == 7.0
+
+
+def test_quantity_before_by_location(db_session: Session, business_id: int) -> None:
+    product = _create_product(db_session, business_id, "SKU-QL", "Ql")
+    central = Location(business_id=business_id, code="CENTRAL", name="Central")
+    pos = Location(business_id=business_id, code="POS1", name="Pos")
+    db_session.add_all([central, pos])
+    db_session.flush()
+    base = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    db_session.add_all([
+        InventoryMovement(business_id=business_id, product_id=product.id, location_id=central.id,
+                          type="purchase", quantity=10, unit_cost=1, unit_price=None,
+                          movement_date=base, note=None),
+        InventoryMovement(business_id=business_id, product_id=product.id, location_id=pos.id,
+                          type="purchase", quantity=5, unit_cost=1, unit_price=None,
+                          movement_date=base + timedelta(days=1), note=None),
+    ])
+    db_session.commit()
+    repo = InventoryRepository(db_session, business_id=business_id)
+    after = base + timedelta(days=2)
+    assert repo.quantity_before(product.id, after, location_id=pos.id) == 5.0
+    assert repo.quantity_before(product.id, after) == 15.0
+
+
+def test_quantity_before_scoped_to_business(db_session: Session, business_id: int) -> None:
+    product = _create_product(db_session, business_id, "SKU-QISO", "Qiso")
+    other = Business(code="otro", name="Otro")
+    db_session.add(other)
+    db_session.commit()
+    other_prod = Product(business_id=other.id, sku="SKU-QOTRO", name="Otro", min_stock=0,
+                         unit_of_measure="ud", default_purchase_cost=1.0, default_sale_price=2.0,
+                         lead_time_days=0)
+    db_session.add(other_prod)
+    db_session.flush()
+    base = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    db_session.add(InventoryMovement(business_id=other.id, product_id=other_prod.id, location_id=None,
+                                     type="purchase", quantity=50, unit_cost=1, unit_price=None,
+                                     movement_date=base, note=None))
+    db_session.commit()
+    repo = InventoryRepository(db_session, business_id=business_id)
+    assert repo.quantity_before(product.id, base + timedelta(days=1)) == 0.0
+
+
+def test_location_repository_labels(db_session: Session, business_id: int) -> None:
+    db_session.add_all([
+        Location(business_id=business_id, code="CENTRAL", name="Almacén central"),
+        Location(business_id=business_id, code="POS1", name=""),
+    ])
+    db_session.commit()
+    repo = LocationRepository(db_session, business_id)
+    by_id, by_code = repo.labels()
+    central_id = db_session.query(Location.id).filter(
+        Location.code == "CENTRAL", Location.business_id == business_id).scalar()
+    assert by_id[int(central_id)] == "Almacén central"
+    assert by_code["CENTRAL"] == "Almacén central"
+    assert by_code["POS1"] == "POS1"

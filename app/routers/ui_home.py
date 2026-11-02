@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.deps import session_dep
-from app.models import Business
-from app.security import (
-    get_active_business_code,
-    get_active_business_id,
-    get_current_user_from_session,
-    get_user_business_ids,
-    require_active_business_id,
-)
+from app.repositories.business_repository import get_business, list_businesses, list_businesses_by_ids
+from app.security import get_user_business_ids
 from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
 from app.services.reporting_service import ReportingService
@@ -28,10 +20,11 @@ from app.sync.client import get_sync_state
 
 from .ui_common import (
     dt_to_local_input,
-    ensure_admin_or_owner,
     parse_dt,
     templates,
 )
+from .ui_context import role_of, ui_context
+from .ui_nav import default_tab, visible_nav_items
 from .ui_tabs_common import _home_locations_context, _location_id_for_code, _month_label_es
 
 router = APIRouter()
@@ -103,15 +96,16 @@ def _home_charts_context(
             pie_values.append(rest_total)
             pie_qtys.append(float(sum(float(r.get("qty") or 0) for r in rest_items)))
 
-    monthly_sales_pie_json = json.dumps({"labels": pie_labels, "values": pie_values, "qtys": pie_qtys})
+    # Los payloads de los gráficos van como dicts: la plantilla los serializa con
+    # `tojson`, que escapa < > & ' (un nombre de producto con "</script>" no puede
+    # cerrar el <script type="application/json">). Nunca json.dumps + |safe.
+    monthly_sales_pie_data = {"labels": pie_labels, "values": pie_values, "qtys": pie_qtys}
 
     daily = reporting.daily_sales_series(start=chart_start, end=chart_end, location_id=location_id)
-    monthly_sales_daily_line_json = json.dumps(
-        {
-            "labels": [d.get("day") for d in daily],
-            "sales": [d.get("sales", 0) for d in daily],
-        }
-    )
+    monthly_sales_daily_line_data = {
+        "labels": [d.get("day") for d in daily],
+        "sales": [d.get("sales", 0) for d in daily],
+    }
 
     if start_dt is None and end_dt is None:
         monthly = reporting.monthly_overview(months=12, now=now, location_id=location_id)
@@ -128,14 +122,12 @@ def _home_charts_context(
             start_dt=chart_start,
             end_dt=chart_end,
         )
-    monthly_chart_json = json.dumps(
-        {
-            "labels": [m.get("month") for m in monthly],
-            "sales": [m.get("sales", 0) for m in monthly],
-            "purchases": [m.get("purchases", 0) for m in monthly],
-            "profit": [m.get("gross_profit", 0) for m in monthly],
-        }
-    )
+    monthly_chart_data = {
+        "labels": [m.get("month") for m in monthly],
+        "sales": [m.get("sales", 0) for m in monthly],
+        "purchases": [m.get("purchases", 0) for m in monthly],
+        "profit": [m.get("gross_profit", 0) for m in monthly],
+    }
 
     metrics_items = reporting.sales_metrics_table(
         now=now,
@@ -147,9 +139,9 @@ def _home_charts_context(
 
     return {
         "month_label": month_label,
-        "monthly_sales_pie_json": monthly_sales_pie_json,
-        "monthly_sales_daily_line_json": monthly_sales_daily_line_json,
-        "monthly_chart_json": monthly_chart_json,
+        "monthly_sales_pie_data": monthly_sales_pie_data,
+        "monthly_sales_daily_line_data": monthly_sales_daily_line_data,
+        "monthly_chart_data": monthly_chart_data,
         "metrics_items": metrics_items,
         "metrics_start_date_value": dt_to_local_input(start_dt)[:10] if start_dt else "",
         "metrics_end_date_value": dt_to_local_input((end_dt - timedelta(seconds=1)))[:10] if end_dt else "",
@@ -163,26 +155,21 @@ def ui_root() -> RedirectResponse:
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    user = get_current_user_from_session(db, request)
-    active_business_id = get_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    user = ctx.user
+    active_business_id = ctx.active_business_id
     businesses = []
     active_business = None
     if active_business_id is not None:
-        active_business = db.get(Business, int(active_business_id))
+        active_business = get_business(db, int(active_business_id))
+    role = role_of(user)
     if user is not None:
-        role = (user.role or "").lower()
         if role == "admin":
-            businesses = list(db.scalars(select(Business).order_by(Business.code.asc())))
+            businesses = list_businesses(db)
         elif role == "owner":
             assigned = get_user_business_ids(db, user.id)
             if assigned:
-                businesses = list(
-                    db.scalars(
-                        select(Business)
-                        .where(Business.id.in_(assigned))
-                        .order_by(Business.code.asc())
-                    )
-                )
+                businesses = list_businesses_by_ids(db, assigned)
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -193,6 +180,8 @@ def dashboard(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
             "active_business": active_business,
             "app_mode": app_mode_label(),
             "state": get_sync_state(db) if is_desktop() else None,
+            "nav_items": visible_nav_items(role, app_mode_label()),
+            "default_tab": default_tab(role),
         },
     )
 
@@ -205,15 +194,16 @@ def tab_home(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_code = ctx.business_code
+    bid = ctx.business_id
     product_service = ProductService(db, business_id=bid)
     inventory_service = InventoryService(db, business_id=bid)
     reporting = ReportingService(db, business_id=bid)
     finance = FinanceService(db, business_id=bid)
 
-    locations, _default_loc_code = _home_locations_context(db, request)
+    locations, _default_loc_code = _home_locations_context(ctx)
     selected_location_code = (location_code or "").strip()
     selected_location_id = _location_id_for_code(
         db,
@@ -285,7 +275,7 @@ def tab_home(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_home.html",
+        name="features/home/tab_home.html",
         context={
             "totals": totals,
             "locations": locations,
@@ -314,10 +304,11 @@ def home_charts(
     metrics_start_date: Optional[str] = None,
     metrics_end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_code = get_active_business_code(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_code = ctx.business_code
+    bid = ctx.business_id
+    user = ctx.user
     reporting = ReportingService(db, business_id=bid)
     now = datetime.now(timezone.utc)
     selected_location_code = (location_code or "").strip()
@@ -342,7 +333,7 @@ def home_charts(
     )
     return templates.TemplateResponse(
         request=request,
-        name="partials/home_charts.html",
+        name="features/home/home_charts.html",
         context={
             "selected_location_code": selected_location_code,
             **charts_ctx,

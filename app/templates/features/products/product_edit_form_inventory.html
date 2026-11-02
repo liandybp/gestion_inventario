@@ -1,0 +1,31 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('product-inventory-edit-modal', 'Editar producto') %}
+
+      <form hx-post="/ui/product/{{ product.sku }}/update-inventory" hx-target="#tab-content" hx-swap="innerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
+        <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
+        {{ field('SKU', 'new_sku', value=product.sku) }}
+        {{ field('Nombre', 'name', value=product.name, required=True) }}
+        {{ field('Unidad', 'unit_of_measure', value=product.unit_of_measure or '') }}
+        <div class="row">
+          <label>Imagen</label>
+          <div>
+            {% if product.image_url %}
+              <div class="mb-6">
+                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="thumb thumb-lg" />
+              </div>
+            {% endif %}
+            <input name="image_file" type="file" accept="image/*" />
+          </div>
+        </div>
+        {{ field('Categoría', 'category', value=product.category or '') }}
+        {{ field('Stock actual', 'desired_stock', type='number', value=current_stock or 0, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Inventario inicial', 'initial_inventory', type='checkbox', value='1') }}
+        {{ field('Stock mínimo', 'min_stock', type='number', value=product.min_stock or 0, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Tiempo de aprovisionamiento (días)', 'lead_time_days', type='number', value=product.lead_time_days or 0, attrs={'step': '1', 'min': '0'}) }}
+        {{ field('Costo compra por defecto', 'default_purchase_cost', type='number', value=product.default_purchase_cost or '', attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Precio venta por defecto', 'default_sale_price', type='number', value=product.default_sale_price or '', attrs={'step': '0.0001', 'min': '0'}) }}
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="product-inventory-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

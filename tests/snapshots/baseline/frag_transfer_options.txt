@@ -1,0 +1,7 @@
+status=200
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+<option value="SNAP-1">
+</option>
+<option value="Producto Snapshot <b>"H"</b> & 'co'">
+</option>

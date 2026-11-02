@@ -1,0 +1,6 @@
+status=200
+<select disabled name="lot_id">
+<option value="">
+-- Ingrese SKU --
+</option>
+</select>

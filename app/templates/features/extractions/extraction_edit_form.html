@@ -1,0 +1,20 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('extraction-edit-modal', 'Editar retiro') %}
+      <form hx-post="/ui/extraction/{{ extraction.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        {{ field('Fecha', 'extraction_date', type='datetime-local', value=extraction_date_value or '') }}
+        <div class="row">
+          <label>Parte</label>
+          <select name="party" class="select-plain">
+            <option value="{{ dividends.business_label }}" {% if extraction.party == dividends.business_label %}selected{% endif %}>{{ dividends.business_label }}</option>
+            {% for p in dividends.partners %}
+              <option value="{{ p }}" {% if extraction.party == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {{ field('Cantidad', 'amount', type='number', value=extraction.amount or 0, required=True, attrs={'step': '0.0001'}) }}
+        {{ field('Concepto', 'concept', value=extraction.concept, required=True) }}
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="extraction-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

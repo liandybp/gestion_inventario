@@ -1,0 +1,6 @@
+{# Gráfico de un widget del copiloto: lo dibuja static/js/components/widget-chart.js.
+   Comillas simples en el atributo: tojson escapa < > & ' pero no ". #}
+<div class="widget-chart-wrap">
+  <canvas id="chart-{{ w.id }}" role="img" aria-label="{{ w.title }}"
+          data-js-widget-chart='{{ {"type": w.type, "title": w.title, "payload": (w.payload or {})} | tojson }}'></canvas>
+</div>

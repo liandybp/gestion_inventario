@@ -36,6 +36,9 @@ GOLDEN_CASES: list[dict] = [
      "expected_tool": "profit_by_location", "expected_type": {"bar", "table"}, "date_range": "this_month"},
     {"id": "sales_by_location", "message": "Ventas por ubicación este mes",
      "expected_tool": "sales_by_location", "expected_type": {"bar", "pie", "table"}, "date_range": "this_month"},
+    {"id": "sales_by_location_monthly_6m",
+     "message": "Diagrama de barras con las ventas de cada punto de venta mes a mes en los últimos 6 meses",
+     "expected_tool": "sales_by_location_monthly", "expected_type": {"bar"}, "expected_args": {"months": 6}},
     {"id": "top5_sales_by_product", "message": "Dame el top 5 de productos más vendidos",
      "expected_tool": "sales_by_product", "expected_type": {"bar", "pie"}, "expected_args": {"limit": 5}},
     {"id": "top5_profit_by_product", "message": "¿Cuáles son los 5 productos que más ganancia generaron?",
@@ -74,6 +77,13 @@ GOLDEN_CASES: list[dict] = [
      "expected_tool": "customers_summary", "expected_type": {"kpi", "table"}},
     {"id": "sales_documents_summary", "message": "¿Cuánto facturé este mes comparado con lo presupuestado?",
      "expected_tool": "sales_documents_summary", "expected_type": {"kpi", "table"}, "date_range": "this_month"},
+    {"id": "product_movements_last_3_months", "message": "movimientos del artículo SKU000190 de los últimos 3 meses",
+     "expected_tool": "product_movements", "expected_type": {"table"}, "expected_args": {"sku": "SKU000190"}},
+    {"id": "product_movements_kardex_period", "message": "kárdex de SKU000190 entre junio y septiembre",
+     "expected_tool": "product_movements", "expected_type": {"table"}, "expected_args": {"sku": "SKU000190"}},
+    {"id": "product_movements_location", "message": "movimientos de SKU000190 en Playa este mes",
+     "expected_tool": "product_movements", "expected_type": {"table"},
+     "expected_args": {"sku": "SKU000190"}, "expected_args_present": ["location"]},
 ]
 
 

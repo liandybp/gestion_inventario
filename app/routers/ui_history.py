@@ -9,15 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
-from app.security import (
-    get_current_user_from_session,
-    require_active_business_id,
-)
+from app.routers.ui_context import ui_context
 from app.services.inventory_service import InventoryService
 from app.logger import get_logger
 
 from .ui_common import (
-    ensure_admin_or_owner,
     month_range,
     parse_dt,
     templates,
@@ -37,9 +33,10 @@ def tab_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
-    user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
+    user = ctx.user
     inventory_service = InventoryService(db, business_id=bid)
 
     query_filter = (query or "").strip()
@@ -65,7 +62,7 @@ def tab_history(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_history.html",
+        name="features/history/tab_history.html",
         context={
             "movements": movements,
             "user": user,
@@ -90,10 +87,11 @@ def history_adjustments_delete_selected(
     end_date: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    bid = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    bid = ctx.business_id
     inventory_service = InventoryService(db, business_id=bid)
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
 
     ids: list[int] = []
     seen: set[int] = set()
@@ -160,7 +158,7 @@ def history_adjustments_delete_selected(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_history.html",
+        name="features/history/tab_history.html",
         context={
             "movements": movements,
             "user": user,

@@ -1,0 +1,74 @@
+{% set can_manage = user and ((user.role or '')|lower == 'admin' or (user.role or '')|lower == 'owner') %}
+{% if can_manage %}
+<form hx-post="/ui/movement/sale/delete-selected"
+      hx-target="#sale-panel"
+      hx-swap="outerHTML">
+  <div class="flex gap-12 items-center flex-wrap my-8-10">
+    <button type="submit" class="mb-0" hx-confirm="¿Eliminar las ventas seleccionadas?">Eliminar seleccionados</button>
+  </div>
+{% endif %}
+
+<div class="table-wrapper">
+<table>
+  <thead>
+    <tr>
+      {% if can_manage %}
+      <th>
+        <input type="checkbox" aria-label="Seleccionar todo"
+               data-js-select-all="sale_ids" />
+      </th>
+      {% endif %}
+      <th class="col-date">Fecha</th>
+      <th>Img</th>
+      <th>SKU</th>
+      <th>Nombre</th>
+      <th>Unidad</th>
+      <th>Cant.</th>
+      <th>Precio</th>
+      <th>Punto de venta</th>
+      <th>Pago</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for id, d, sku, name, uom, image_url, qty, unit_price, pos_name, lot_codes, paid_by_transfer in sales %}
+      <tr>
+        {% if can_manage %}
+        <td>
+          <input type="checkbox" name="sale_ids" value="{{ id }}" aria-label="Seleccionar venta {{ id }}" />
+        </td>
+        {% endif %}
+        <td class="col-date">{{ d.strftime('%Y-%m-%d %H:%M') if d else '' }}</td>
+        <td>
+          {% if image_url %}
+            <img src="{{ image_url }}" alt="" class="thumb" />
+          {% endif %}
+        </td>
+        <td>{{ sku }}</td>
+        <td>{{ name }}</td>
+        <td>{{ uom or '' }}</td>
+        <td>{{ '%.0f'|format(qty or 0) }}</td>
+        <td>{{ '%.2f'|format(unit_price or 0) }}</td>
+        <td>
+          {{ pos_name or '' }}
+        </td>
+        <td>
+          {% if paid_by_transfer %}Transferencia{% else %}Efectivo/otro{% endif %}
+        </td>
+        <td>
+          {% if can_manage %}
+          <button type="button"
+                  hx-get="/ui/movement/sale/{{ id }}/edit"
+                  hx-target="body"
+                  hx-swap="beforeend">Edit</button>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if can_manage %}
+</form>
+{% endif %}

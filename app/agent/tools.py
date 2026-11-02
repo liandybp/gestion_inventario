@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
+from app.repositories.product_repository import ProductRepository
 from app.services.finance_service import FinanceService
 from app.services.inventory_service import InventoryService
+from app.services.product_service import ProductService
 from app.services.reporting_service import ReportingService
 from app.services.sales_document_service import SalesDocumentService
 from app.services.coach_service import CoachService
@@ -251,6 +253,24 @@ def sales_by_location(service: InventoryService, args: dict) -> dict:
     }
 
 
+@tool("sales_by_location_monthly",
+      "Ventas de cada ubicación/punto de venta mes a mes, una serie por ubicación (months opcional, "
+      "default 6, máx 24: últimos N meses calendario incluyendo el actual). Para barras agrupadas por mes.",
+      {"type": "object", "properties": {"months": {"type": "integer"}}})
+def sales_by_location_monthly(service: InventoryService, args: dict) -> dict:
+    reporting = ReportingService(service.db, service.business_id)
+    months = args.get("months")
+    # Solo la ausencia usa el default; 0 o 500 los acota el servicio a 1..24 (REQ-2).
+    data = reporting.sales_by_location_monthly(months=6 if months is None else int(months))
+    series = data["series"]
+    return {
+        "labels": data["months"],
+        "datasets": [{"label": s["location"], "data": s["values"]} for s in series],
+        "columns": ["Mes"] + [s["location"] for s in series],
+        "rows": [[m] + [s["values"][i] for s in series] for i, m in enumerate(data["months"])],
+    }
+
+
 @tool("stock_list", "Lista de stock con flag de reposición (query opcional).",
       {"type": "object", "properties": {"query": {"type": "string"}}})
 def stock_list(service: InventoryService, args: dict) -> dict:
@@ -423,6 +443,36 @@ def movement_history(service: InventoryService, args: dict) -> dict:
             for r in rows
         ],
     }
+
+
+@tool("product_movements",
+      "Movimientos de UN artículo (sku: código, 'SKU - nombre' o nombre exacto) en un período: compras, ventas, "
+      "traspasos, ajustes y devoluciones, con saldo inicial y saldo acumulado. start/end ISO opcionales "
+      "(por defecto los últimos 3 meses); location opcional (código o nombre) para un solo punto de venta.",
+      {"type": "object", "properties": {"sku": {"type": "string"}, "start": {"type": "string"},
+       "end": {"type": "string"}, "location": {"type": "string"}}, "required": ["sku"]})
+def product_movements(service: InventoryService, args: dict) -> dict:
+    product_service = ProductService(service.db, service.business_id)
+    sku = product_service.resolve_sku(args.get("sku") or "")
+    product = ProductRepository(service.db, business_id=service.business_id).get_by_sku(sku)
+
+    location_id = _resolve_location_id(service, args["location"]) if args.get("location") else None
+
+    if args.get("start"):
+        start = _iso(args["start"])
+    else:
+        today = datetime.now(timezone.utc)
+        start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        for _ in range(2):
+            if start.month == 1:
+                start = start.replace(year=start.year - 1, month=12)
+            else:
+                start = start.replace(month=start.month - 1)
+    end = _parse_end(args["end"]) if args.get("end") else _parse_end(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+
+    return ReportingService(service.db, service.business_id).product_movements(
+        product_id=int(product.id), sku=sku, start=start, end=end, location_id=location_id,
+    )
 
 
 @tool("low_stock", "Productos con stock por debajo del mínimo (necesitan reposición).",

@@ -1,0 +1,15 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('sale-edit-modal', 'Editar venta') %}
+      <form hx-post="/ui/movement/sale/{{ movement.id }}/update" hx-target="#sale-panel" hx-swap="outerHTML">
+        {{ field('Artículo', 'product', value=product_label, required=True, attrs={'list': 'product-options'}) }}
+        {{ field('Cantidad', 'quantity', type='number', value=(movement.quantity * -1) if movement.quantity < 0 else movement.quantity, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Precio unitario', 'unit_price', type='number', value=movement.unit_price or 0, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Fecha', 'movement_date', type='datetime-local', value=movement_date_value, attrs={'step': '0.001'}) }}
+        {{ field('Nota', 'note', value=movement.note or '') }}
+        {{ field('Pagado por transferencia', 'paid_by_transfer', type='checkbox', value='1', checked=movement.paid_by_transfer) }}
+
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="sale-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

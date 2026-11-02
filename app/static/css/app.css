@@ -1,19 +1,5 @@
 *, *::before, *::after { box-sizing: border-box; }
 
-:root {
-  --brand-navy: #0b2d42;
-  --brand-sidebar: #0b2d42;
-  --brand-red: #cf1f27;
-  --brand-bg: #f8fafc;
-  --brand-surface: #ffffff;
-  --brand-border: #e5e7eb;
-  --brand-text: #0f172a;
-  --brand-muted: #64748b;
-  --row-odd: #ffffff;
-  --row-even: rgba(59, 130, 246, 0.06);
-  --row-hover: rgba(59, 130, 246, 0.12);
-}
-
 body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   margin: 0;
@@ -370,15 +356,10 @@ a { color: var(--brand-red); }
 .mb-4 { margin-bottom: 4px; }
 .mb-6 { margin-bottom: 6px; }
 .mb-8 { margin-bottom: 8px; }
-.mb-12 { margin-bottom: 12px; }
 .mb-16 { margin-bottom: 16px; }
 .mb-0 { margin-bottom: 0; }
 
 .ml-8 { margin-left: 8px; }
-
-.flex {
-  display: flex;
-}
 
 .d-inline { display: inline; }
 .d-block { display: block; }
@@ -387,20 +368,11 @@ a { color: var(--brand-red); }
   flex-wrap: wrap;
 }
 
-.items-center {
-  align-items: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
 .justify-end {
   justify-content: flex-end;
 }
 
 .gap-10 { gap: 10px; }
-.gap-12 { gap: 12px; }
 
 .text-sm { font-size: 13px; }
 
@@ -998,20 +970,6 @@ a { color: var(--brand-red); }
 
 /* ═══ Tema oscuro ═══
    La app ya usa variables CSS, así que redefinir las variables cambia todo. */
-[data-theme="dark"] {
-  --brand-bg: #0f172a;
-  --brand-surface: #1e293b;
-  --brand-border: #334155;
-  --brand-text: #f1f5f9;
-  --brand-muted: #94a3b8;
-  /* --brand-navy es el ACENTO (botones/FAB). El sidebar y los headers de tabla
-     se fuerzan a navy oscuro abajo, para que la barra de pestañas no sea azul. */
-  --brand-navy: #2563eb;
-  --brand-red: #ef4444;
-  --row-odd: #1e293b;
-  --row-even: #182234;
-  --row-hover: rgba(148, 163, 184, 0.15);
-}
 [data-theme="dark"] thead th { background: #0b2d42; }
 [data-theme="dark"] .widget-header { color: var(--brand-text); }
 [data-theme="dark"] .error { background: rgba(239, 68, 68, 0.12); }
@@ -1050,3 +1008,60 @@ input[type="checkbox"] {
 }
 .widget-table tbody tr:nth-child(even) td { background: var(--row-even); }
 .widget-table tbody tr:hover td { background: var(--row-hover); }
+
+/* ═══ Fase 3 (release 0.5.0): sin estilos inline ═══
+   CSP style-src 'self': las plantillas no llevan style="…". Estas clases sustituyen a los antiguos atributos con
+   los mismos valores; van al final para ganar a las reglas generales, como hacía el inline. */
+
+/* htmx: includeIndicatorStyles=false (meta htmx-config); mismas reglas que inyectaba htmx 1.9. */
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+
+.w-3p { width: 3%; }
+.w-5p { width: 5%; }
+.w-6p { width: 6%; }
+.w-7p { width: 7%; }
+.w-8p { width: 8%; }
+.w-9p { width: 9%; }
+.w-15p { width: 15%; }
+.w-23p { width: 23%; }
+.w-62p { width: 62%; }
+.w-100px { width: 100px; }
+.w-110px { width: 110px; }
+.w-120px { width: 120px; }
+.w-140px { width: 140px; }
+.w-150px { width: 150px; }
+.min-w-85 { min-width: 85px; }
+
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-14 { margin-bottom: 14px; }
+.ml-10 { margin-left: 10px; }
+.my-8-10 { margin: 8px 0 10px 0; }
+
+.d-inline-block { display: inline-block; }
+.cols-auto-1fr { grid-template-columns: auto 1fr; }
+.no-underline { text-decoration: none; }
+.scroll-48vh { max-height: 48vh; overflow-y: auto; }
+.touch-scroll { -webkit-overflow-scrolling: touch; }
+
+.msg-box { padding: 12px; border-radius: 10px; }
+.msg-box-sm { padding: 10px; border-radius: 8px; }
+.modal-container-760 { max-width: 760px; }
+/* .filter-label (más arriba) fija margin-bottom: el antiguo inline margin:0 le ganaba. */
+.filter-label.m-0 { margin: 0; }
+
+.thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid var(--brand-border); }
+.thumb-lg { width: 64px; height: 64px; }
+
+.select-business { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid var(--brand-border); }
+.select-plain {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--brand-border);
+  border-radius: 8px;
+  background: var(--brand-surface);
+  color: var(--brand-text);
+}

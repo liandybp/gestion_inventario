@@ -6,32 +6,28 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.business_config import parse_opening_pending
 from app.deps import session_dep
-from app.models import (
-    InventoryLot,
-    InventoryMovement,
-    Location,
-    SalesDocument,
-)
 from app.repositories.business_repository import (
     count_other_businesses,
     count_related,
     create_business,
+    create_locations,
     delete_business,
+    delete_locations,
     get_business,
     get_business_by_code,
     get_business_by_code_excluding,
     get_business_config,
     list_businesses,
+    reconcile_locations,
 )
-from app.routers.ui_common import ensure_admin, templates
-from app.security import get_current_user_from_session
+from app.routers.ui_common import templates
+from app.routers.ui_context import ui_context
 
 _log = logging.getLogger(__name__)
 _APP_DIR = Path(__file__).resolve().parent.parent
@@ -59,91 +55,14 @@ def _parse_optional_float(value) -> float | None:
         return None
 
 
-def _location_has_data(db, location_id: int) -> bool:
-    """True si la ubicación tiene movimientos/lotes/documentos asociados."""
-    for model in (InventoryMovement, InventoryLot, SalesDocument):
-        try:
-            count = db.scalar(
-                select(func.count()).select_from(model).where(model.location_id == int(location_id))
-            )
-            if count:
-                return True
-        except Exception:
-            _log.exception("_location_has_data: fallo de query en %s", model.__tablename__)
-            continue
-    return False
-
-
-def _reconcile_locations(db, business, central_raw, pos_raw, default_pos_raw, code) -> str | None:
-    """Reconcilia las ubicaciones del negocio en BD con los specs del form.
-
-    Actualiza central/POS en sitio, añade los nuevos y borra los sobrantes SOLO
-    si no tienen datos asociados; si los tienen, devuelve un mensaje de error.
-    """
-    def _parse_spec(raw, fb_code, fb_name) -> tuple[str, str]:
-        s = (raw or "").strip()
-        if not s:
-            return fb_code, fb_name
-        if ":" in s:
-            c, n = s.split(":", 1)
-            return ((c or "").strip() or fb_code), ((n or "").strip() or fb_name)
-        return s, s
-
-    bid = int(business.id)
-
-    # CENTRAL
-    central_code, central_name = _parse_spec(central_raw, "CENTRAL", "Almacén Central")
-    central_code = _prefix_location_code(central_code, code)
-    central = db.scalar(select(Location).where(Location.business_id == bid, Location.role == "central"))
-    if central is None:
-        central = db.scalar(select(Location).where(Location.business_id == bid, Location.code == central_code))
-    if central is None:
-        central = Location(business_id=bid, code=central_code, name=central_name, role="central", position=0)
-        db.add(central)
-    else:
-        central.code = central_code
-        central.name = central_name
-        central.role = "central"
-        central.position = 0
-
-    # POS (vacío = negocio sin POS: no crear y borrar los sobrantes sin datos)
-    raw_parts = [p.strip() for p in (pos_raw or "").split(",") if p.strip()]
-    parsed = [
-        s for s in (_parse_spec(p, "POS1", "Punto de venta 1") for p in raw_parts)
-        if (s[0] or "").strip()
-    ]
-    default_pos_code = _prefix_location_code((default_pos_raw or "").strip(), code)
-
-    existing = list(db.scalars(
-        select(Location).where(Location.business_id == bid, Location.role == "pos")
-        .order_by(Location.position.asc(), Location.id.asc())
-    ).all())
-
-    for loc in existing:
-        loc.is_default = False
-
-    for i, (pcode, pname) in enumerate(parsed, start=1):
-        loc_code = _prefix_location_code(pcode, code)
-        is_def = (loc_code == default_pos_code)
-        if i - 1 < len(existing):
-            loc = existing[i - 1]
-            loc.code = loc_code
-            loc.name = pname
-            loc.role = "pos"
-            loc.position = i
-            loc.is_default = is_def
-        else:
-            db.add(Location(business_id=bid, code=loc_code, name=pname,
-                            role="pos", position=i, is_default=is_def))
-
-    if len(existing) > len(parsed):
-        for loc in existing[len(parsed):]:
-            if _location_has_data(db, int(loc.id)):
-                return f"No se puede eliminar la ubicación '{loc.name}' ({loc.code}) porque tiene datos asociados."
-            db.delete(loc)
-
-    db.flush()
-    return None
+def _parse_spec_of(raw, fb_code, fb_name) -> tuple[str, str]:
+    s = (raw or "").strip()
+    if not s:
+        return fb_code, fb_name
+    if ":" in s:
+        c, n = s.split(":", 1)
+        return ((c or "").strip() or fb_code), ((n or "").strip() or fb_name)
+    return s, s
 
 
 def _str_form(value, fallback: str = "") -> str:
@@ -196,155 +115,6 @@ def _prefix_location_spec(spec: str, business_code: str) -> str:
     return _prefix_location_code(spec, business_code)
 
 
-def _prefix_location_list(spec_list: str, business_code: str) -> str:
-    """Prefix every ``CODE:NAME`` entry in a comma-separated list."""
-    return ", ".join(
-        _prefix_location_spec(p, business_code)
-        for p in (spec_list or "").split(",")
-        if p.strip()
-    )
-
-
-def _write_business_config(
-    *,
-    code: str,
-    # ── issuer ──────────────────────────────────────────────
-    issuer_name: str,
-    issuer_tax_id: str = "",
-    issuer_address: str = "",
-    issuer_city: str = "",
-    issuer_postal_code: str = "",
-    issuer_country: str = "",
-    issuer_email: str = "",
-    issuer_phone: str = "",
-    # ── currency ────────────────────────────────────────────
-    currency_code: str = "USD",
-    currency_symbol: str = "$",
-    # ── purchase ────────────────────────────────────────────
-    purchase_source_currency: str = "EUR",
-    purchase_vat_rate: str = "1.21",
-    purchase_fx_rate: str = "",
-    # ── sales_documents ─────────────────────────────────────
-    sales_default_type: str = "F",
-    sales_enabled_types: str = "F,P",
-    sales_invoice_label: str = "Factura",
-    sales_quote_label: str = "Presupuesto",
-    # ── dividends ───────────────────────────────────────────
-    dividends_business_label: str = "Negocio",
-    dividends_partners: str = "",
-    dividends_opening_pending: str = "",
-    dividends_opening_pending_as_of: str = "",
-    # ── locations ───────────────────────────────────────────
-    locations_central: str = "",
-    locations_pos: str = "",
-    locations_default_pos: str = "",
-    # ── inventory ───────────────────────────────────────────
-    inventory_replenishment_lead_time_days: str = "25",
-) -> Path:
-    """Generate business_config.<code>.conf and return its path.
-
-    Accepts every field that can appear in a business config file so the
-    operator can customise everything from the UI.  Sensible defaults are
-    provided for optional fields (matching :class:`BusinessConfig`).
-    """
-    config_path = _APP_DIR / f"business_config.{code}.conf"
-
-    # ── Normalise optional fields ───────────────────────────
-    _s = lambda v, fb="": (v or "").strip() or fb
-
-    # issuer
-    iss_name = _s(issuer_name, "Mi Negocio")
-    iss_tax = _s(issuer_tax_id)
-    iss_addr = _s(issuer_address)
-    iss_city = _s(issuer_city)
-    iss_pc = _s(issuer_postal_code)
-    iss_country = _s(issuer_country)
-    iss_email = _s(issuer_email)
-    iss_phone = _s(issuer_phone)
-
-    # currency
-    cur_code = _s(currency_code, "USD")
-    cur_sym = _s(currency_symbol, "$")
-
-    # purchase
-    pur_src = _s(purchase_source_currency, "EUR")
-    pur_vat = _s(purchase_vat_rate, "1.21")
-    pur_fx = _s(purchase_fx_rate)  # empty → no conversion
-
-    # sales documents
-    sd_type = _s(sales_default_type, "F").upper()
-    if sd_type not in ("F", "P"):
-        sd_type = "F"
-    sd_enabled = _s(sales_enabled_types, "F,P").upper()
-    sd_inv_label = _s(sales_invoice_label, "Factura")
-    sd_quote_label = _s(sales_quote_label, "Presupuesto")
-
-    # dividends
-    div_biz_label = _s(dividends_business_label, "Negocio")
-    div_partners_raw = _s(dividends_partners)
-    div_partners = ", ".join(
-        p.strip() for p in div_partners_raw.split(",") if p.strip()
-    )
-    div_opening = _s(dividends_opening_pending)
-    div_opening_as_of = _s(dividends_opening_pending_as_of)
-
-    # locations — prefix codes with the business code to keep them unique
-    loc_central = _prefix_location_spec(
-        _s(locations_central) or "CENTRAL:Almacén Central", code
-    )
-    loc_pos = _prefix_location_list(_s(locations_pos), code)
-    loc_def = _prefix_location_code(_s(locations_default_pos), code)
-
-    # inventory
-    inv_lead = _s(inventory_replenishment_lead_time_days, "25")
-
-    # ── Write sections ──────────────────────────────────────
-    parser = configparser.ConfigParser()
-    parser["issuer"] = {
-        "name": iss_name,
-        "tax_id": iss_tax,
-        "address": iss_addr,
-        "city": iss_city,
-        "postal_code": iss_pc,
-        "country": iss_country,
-        "email": iss_email,
-        "phone": iss_phone,
-    }
-    parser["currency"] = {
-        "code": cur_code,
-        "symbol": cur_sym,
-    }
-    parser["purchase"] = {
-        "invoice_source_currency": pur_src,
-        "invoice_vat_rate": pur_vat,
-        "invoice_fx_rate": pur_fx,
-    }
-    parser["sales_documents"] = {
-        "default_type": sd_type,
-        "enabled_types": sd_enabled,
-        "invoice_label": sd_inv_label,
-        "quote_label": sd_quote_label,
-    }
-    parser["dividends"] = {
-        "business_label": div_biz_label,
-        "partners": div_partners,
-        "opening_pending": div_opening,
-        "opening_pending_as_of": div_opening_as_of,
-    }
-    parser["locations"] = {
-        "central": loc_central,
-        "pos": loc_pos,
-        "default_pos": loc_def,
-    }
-    parser["inventory"] = {
-        "replenishment_lead_time_days": inv_lead,
-    }
-
-    with open(config_path, "w", encoding="utf-8") as f:
-        parser.write(f)
-
-    _log.info("Config file written: %s", config_path)
-    return config_path
 
 
 @router.post("/businesses/create", response_class=HTMLResponse)
@@ -387,8 +157,9 @@ def business_create(
     # ── dependencies ────────────────────────────────────────────
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
 
     code = code.strip().lower()
     name = name.strip()
@@ -407,7 +178,7 @@ def business_create(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al crear negocio",
@@ -448,28 +219,13 @@ def business_create(
         _s(locations_central), "CENTRAL", "Almacén Central"
     )
     central_code = _prefix_location_code(central_code, code)
-    db.add(Location(
-        business_id=new_business.id,
-        code=central_code,
-        name=central_name,
-        role="central",
-        position=0,
-    ))
 
     # POS list (vacío = negocio sin POS); descartar specs sin código (p.ej. ':Tienda')
     pos_specs = [s for s in _parse_loc_list(_s(locations_pos)) if (s[0] or "").strip()]
     default_pos_code = _prefix_location_code(_s(locations_default_pos), code)
 
-    for i, (pcode, pname) in enumerate(pos_specs, start=1):
-        ploc_code = _prefix_location_code(pcode, code)
-        db.add(Location(
-            business_id=new_business.id,
-            code=ploc_code,
-            name=pname,
-            role="pos",
-            position=i,
-            is_default=(ploc_code == default_pos_code),
-        ))
+    pos_final = [(_prefix_location_code(pcode, code), pname) for pcode, pname in pos_specs]
+    create_locations(db, new_business.id, (central_code, central_name), pos_final, default_pos_code)
 
     # ── Config en BD (fuente única de verdad; el .conf es legacy) ──
     new_business.issuer_name = name
@@ -502,7 +258,7 @@ def business_create(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al crear negocio",
@@ -533,7 +289,7 @@ def business_create(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio creado",
@@ -551,7 +307,8 @@ def business_edit_form(
     business_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -560,7 +317,7 @@ def business_edit_form(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/business_edit_form.html",
+        name="features/businesses/business_edit_form.html",
         context={"business": business, "config": config},
     )
 
@@ -606,8 +363,9 @@ def business_update(
     # ── dependencies ────────────────────────────────────────────
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -628,7 +386,7 @@ def business_update(
     if existing is not None:
         response = templates.TemplateResponse(
             request=request,
-            name="partials/business_edit_form.html",
+            name="features/businesses/business_edit_form.html",
             context={
                 "business": business,
                 "config": get_business_config(db, business_id),
@@ -669,12 +427,22 @@ def business_update(
     business.inventory_replenishment_lead_time_days = _parse_float(_s(inventory_replenishment_lead_time_days, "25"), 25.0)
 
     # ── Reconciliar ubicaciones en sitio (sin borrar las que tienen datos) ──
-    reconcile_error = _reconcile_locations(db, business, _s(locations_central), _s(locations_pos), _s(locations_default_pos), code)
+    central_raw, pos_raw, default_pos_raw = _s(locations_central), _s(locations_pos), _s(locations_default_pos)
+    central_code, central_name = _parse_spec_of(central_raw, "CENTRAL", "Almacén Central")
+    central_final = (_prefix_location_code(central_code, code), central_name)
+    raw_parts = [p.strip() for p in (pos_raw or "").split(",") if p.strip()]
+    parsed = [
+        s for s in (_parse_spec_of(p, "POS1", "Punto de venta 1") for p in raw_parts)
+        if (s[0] or "").strip()
+    ]
+    pos_final = [(_prefix_location_code(pc, code), pn) for pc, pn in parsed]
+    default_pos_final = _prefix_location_code((default_pos_raw or "").strip(), code)
+    reconcile_error = reconcile_locations(db, business.id, central_final, pos_final, default_pos_final)
     if reconcile_error:
         db.rollback()
         response = templates.TemplateResponse(
             request=request,
-            name="partials/business_edit_form.html",
+            name="features/businesses/business_edit_form.html",
             context={
                 "business": business,
                 "config": get_business_config(db, business_id),
@@ -703,7 +471,7 @@ def business_update(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio actualizado",
@@ -719,8 +487,9 @@ def business_delete(
     business_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     business = get_business(db, business_id)
     if business is None:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
@@ -731,7 +500,7 @@ def business_delete(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -764,7 +533,7 @@ def business_delete(
             parts.append("ubicaciones adicionales")
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -779,7 +548,7 @@ def business_delete(
         )
 
     # Borrar todas las ubicaciones del negocio, luego el negocio
-    db.query(Location).filter(Location.business_id == business_id).delete(synchronize_session=False)
+    delete_locations(db, business_id)
 
     try:
         delete_business(db, business_id)
@@ -789,7 +558,7 @@ def business_delete(
         businesses = list_businesses(db)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_businesses.html",
+            name="features/businesses/tab_businesses.html",
             context={
                 "businesses": businesses,
                 "message": "Error al eliminar",
@@ -816,7 +585,7 @@ def business_delete(
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={
             "businesses": businesses,
             "message": "Negocio eliminado",
@@ -828,10 +597,11 @@ def business_delete(
 
 @router.get("/tabs/businesses", response_class=HTMLResponse)
 def tab_businesses(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     businesses = list_businesses(db)
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_businesses.html",
+        name="features/businesses/tab_businesses.html",
         context={"businesses": businesses},
     )

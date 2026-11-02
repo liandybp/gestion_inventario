@@ -1,0 +1,16 @@
+{% from 'components/ui.html' import flash %}
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% call modal('transfer-edit-modal', 'Editar traspaso') %}
+      {{ flash(message, message_class or '', message_detail) }}
+
+      <form hx-post="/ui/movement/transfer/{{ movement.id }}/update" hx-target="#tab-content" hx-swap="innerHTML">
+        {{ field('Artículo', 'product', value=product_label, disabled=True) }}
+        {{ field('Cantidad', 'quantity', type='number', value=quantity_value, required=True, attrs={'step': '0.0001', 'min': '0'}) }}
+        {{ field('Fecha', 'movement_date', type='datetime-local', value=movement_date_value) }}
+        {{ field('Nota', 'note', value=note_value or '') }}
+
+        <button type="submit">Guardar cambios</button>
+        <button type="button" class="btn-secondary ml-8" data-modal-close="transfer-edit-modal">Cancelar</button>
+      </form>
+{% endcall %}

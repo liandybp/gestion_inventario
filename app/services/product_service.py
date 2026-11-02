@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 
 from fastapi import HTTPException
@@ -15,6 +16,13 @@ from app.services.sku_range import SKURangeExhausted, next_sku_in_range
 from app.logger import get_logger
 
 _log = get_logger(__name__)
+
+
+def extract_sku(product_field: str) -> str:
+    value = (product_field or "").strip()
+    if " - " in value:
+        value = value.split(" - ", 1)[0].strip()
+    return value
 
 
 def _ensure_finite(**fields: float | None) -> None:
@@ -183,6 +191,90 @@ class ProductService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
         return product
+
+    def barcode_to_sku(self, barcode: str) -> str:
+        code = (barcode or "").strip()
+        if not code:
+            raise HTTPException(status_code=422, detail="barcode is required")
+
+        def _barcode_sku_candidates(raw_code: str) -> list[str]:
+            seen: set[str] = set()
+            out: list[str] = []
+
+            def _add(value: str) -> None:
+                v = (value or "").strip()
+                if not v:
+                    return
+                key = v.upper()
+                if key in seen:
+                    return
+                seen.add(key)
+                out.append(v)
+
+            head = raw_code.split("|", 1)[0].strip()
+            if head:
+                _add(head)
+                _add(head.split("-", 1)[0].strip())
+
+            code_upper = raw_code.upper()
+
+            qs_match = re.search(r"(?:^|[?&;])(sku|spp)=([^&;\s]+)", raw_code, flags=re.IGNORECASE)
+            if qs_match:
+                _add(qs_match.group(2))
+
+            kv_match = re.search(r"(?:SKU|SPP)\s*[:=]\s*([A-Za-z0-9._\-/]+)", raw_code, flags=re.IGNORECASE)
+            if kv_match:
+                _add(kv_match.group(1))
+
+            if code_upper.startswith("SPP"):
+                tail = raw_code[3:].lstrip(" :|=-_/\\")
+                if tail:
+                    _add(tail)
+                    _add(tail.split("|", 1)[0].strip())
+
+            return out
+
+        for sku_candidate in _barcode_sku_candidates(code):
+            product = self._products.get_by_sku(sku_candidate)
+            if product is not None:
+                return product.sku
+
+        product = self._products.get_by_lot_code(code)
+        if product is not None:
+            return product.sku
+
+        raise HTTPException(status_code=404, detail="Barcode not recognized")
+
+    def resolve_sku(self, value: str, *, barcode_fallback: bool = False) -> str:
+        val = (value or "").strip()
+        if not val:
+            raise HTTPException(status_code=422, detail="product is required")
+
+        extracted = extract_sku(val)
+        for candidate in (extracted, val):
+            cand = (candidate or "").strip()
+            if not cand:
+                continue
+            by_sku = self._products.get_by_sku(cand)
+            if by_sku is not None:
+                return str(by_sku.sku)
+
+        by_name = self._products.first_by_name(val)
+        if by_name is not None:
+            return str(by_name.sku)
+
+        if barcode_fallback:
+            try:
+                return self.barcode_to_sku(val)
+            except HTTPException:
+                pass
+
+        detail = (
+            "Producto no encontrado. Usa SKU, nombre exacto o código de barras válido."
+            if barcode_fallback
+            else "Producto no encontrado"
+        )
+        raise HTTPException(status_code=404, detail=detail)
 
     def update(self, original_sku: str, payload: ProductUpdate) -> Product:
         product = self.get_by_sku(original_sku)

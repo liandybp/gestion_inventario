@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import and_, func, select
@@ -282,3 +282,13 @@ class CoachService:
                      CoachActionLog.status.in_(("dismissed", "done"))))
         ).all()
         return {r[0] for r in rows}
+
+    def add_cash_baseline(self, baseline_date: date, amount: float, created_by: Optional[int]) -> CashBaseline:
+        row = CashBaseline(
+            business_id=self._business_id,
+            baseline_date=baseline_date,
+            amount=amount,
+            created_by=created_by,
+        )
+        self._db.add(row)
+        return row

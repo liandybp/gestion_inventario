@@ -681,7 +681,7 @@ class InventoryService:
             warning=warning,
         )
 
-    def _transfer_out_id_for_movement_id(self, movement_id: int) -> int:
+    def transfer_out_id_for_movement_id(self, movement_id: int) -> int:
         mv = self._db.get(InventoryMovement, movement_id)
         if mv is None or mv.type not in ("transfer_in", "transfer_out"):
             raise HTTPException(status_code=404, detail="Transfer movement not found")
@@ -702,10 +702,10 @@ class InventoryService:
         return int(m.group(1))
 
     def _transfer_to_code_from_out_note(self, note: str) -> str:
-        _from_code, to_code, _ref = self._transfer_codes_from_out_note(note)
+        _from_code, to_code, _ref = self.transfer_codes_from_out_note(note)
         return to_code
 
-    def _transfer_codes_from_out_note(self, note: str) -> tuple[str, str, Optional[str]]:
+    def transfer_codes_from_out_note(self, note: str) -> tuple[str, str, Optional[str]]:
         raw = str(note or "")
         m = re.search(r"Transfer\s+([^\s:;]+)->([^\s:;]+)", raw)
         if not m:
@@ -919,7 +919,7 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        from_code, to_code, ref = self._transfer_codes_from_out_note(str(mv_out.note or ""))
+        from_code, to_code, ref = self.transfer_codes_from_out_note(str(mv_out.note or ""))
         from_loc_id = self._location_id_for_code(from_code)
         to_loc_id = self._location_id_for_code(to_code)
         mv_dt = self._movement_datetime(movement_date)
@@ -1058,7 +1058,7 @@ class InventoryService:
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        _from_code, to_code, _ref = self._transfer_codes_from_out_note(str(mv_out.note or ""))
+        _from_code, to_code, _ref = self.transfer_codes_from_out_note(str(mv_out.note or ""))
         mv_dt = self._movement_datetime(mv_out.movement_date)
         to_loc_id = self._location_id_for_code(to_code)
 

@@ -1,0 +1,15 @@
+status=200
+<select name="lot_id" required>
+<option value="">
+-- Selecciona lote --
+</option>
+<option value="1">
+LOT-SNAP-1 | disp=7.0 | costo=1.0
+</option>
+<option value="2">
+TR-LOT-SNAP-1-POS1-260115100000-3 | disp=2.0 | costo=1.0
+</option>
+<option value="3">
+ADJ-SNAP-1-260115100000-5 | disp=2.0 | costo=1.0
+</option>
+</select>

@@ -12,7 +12,8 @@ from app.routers import ui_products
 
 
 def _suggest(db: Session, business_id: int, monkeypatch, q: str, fmt: str = "label") -> str:
-    monkeypatch.setattr(ui_products, "require_active_business_id", lambda _db, _req: business_id)
+    from app.routers import ui_context as _uc
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
     request = MagicMock()
     request.session = {}
     resp = ui_products.product_suggest(request=request, q=q, fmt=fmt, db=db)
@@ -69,7 +70,7 @@ def test_formats(db_session: Session, business_id: int, monkeypatch, fmt: str, e
 
 @pytest.mark.parametrize(
     "template",
-    ["partials/sale_panel.html", "partials/sale_edit_form.html", "partials/tab_transfers.html"],
+    ["features/sales/sale_panel.html", "features/sales/sale_edit_form.html", "features/transfers/tab_transfers.html"],
 )
 def test_stock_filtered_lists_do_not_use_dynamic_suggest(template: str) -> None:
     """H-201/H-202: Ventas y Traspasos sugieren solo productos con stock en la ubicación."""

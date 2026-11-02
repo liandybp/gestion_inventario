@@ -1,0 +1,45 @@
+{% from 'components/ui.html' import card %}
+{% call card('Listado') %}
+  <div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Teléfono</th>
+        <th>Email</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in customers %}
+        <tr>
+          <td><code>{{ c.client_id }}</code></td>
+          <td>{{ c.name }}</td>
+          <td>{{ c.phone or '' }}</td>
+          <td>{{ c.email or '' }}</td>
+          <td class="text-right">
+            <button type="button"
+                    hx-get="/ui/customer/{{ c.id }}"
+                    hx-target="#customer-detail"
+                    hx-swap="innerHTML">Ver</button>
+            <button type="button" class="ml-8"
+                    hx-get="/ui/customer/{{ c.id }}/edit"
+                    hx-target="body"
+                    hx-swap="beforeend">Editar</button>
+            {% if can_delete_customers %}
+            <form hx-post="/ui/customer/{{ c.id }}/delete" hx-target="#tab-content" hx-swap="innerHTML" class="d-inline ml-8">
+              <button type="submit" formnovalidate class="btn-danger"
+                      hx-confirm="¿Eliminar este cliente?">Eliminar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      {% if not customers %}
+        <tr><td colspan="5" class="muted">Sin clientes.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+{% endcall %}

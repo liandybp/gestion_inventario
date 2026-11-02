@@ -2,62 +2,87 @@ from __future__ import annotations
 
 import hashlib
 import math
-import re
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, UploadFile
+from fastapi import HTTPException, UploadFile
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from jinja2.exceptions import TemplateRuntimeError
 
-from app.models import InventoryLot, Product
-from app.security import get_current_user_from_session
 from app.settings import DEV_ACTIONS_ENABLED, UPLOAD_MAX_MB
 from app.utils import month_range
 
 templates = Jinja2Templates(directory="app/templates")
 
 
-def _static_asset_version() -> str:
+_STATIC_VERSION_CACHE: dict[tuple, str] = {}
+_STATIC_VERSION_TTL_S = 1.0
+_static_version_checked: dict[str, tuple[float, str]] = {}  # root -> (última comprobación, versión)
+
+
+def _static_asset_version(static_dir: Path | None = None) -> str:
     """Versión de cache-busting derivada del contenido de los assets estáticos.
 
-    Se calcula en CADA render (no se congela en import): ``uvicorn --reload``
-    solo vigila ``*.py``, así que editar ``app.css``/``app.js`` no reinicia el
-    proceso; con un hash por render, el ``?v=`` cambia igual y el navegador/CDN
-    invalida la caché. Las rutas parten de ``__file__`` para no depender del CWD.
+    Se comprueba en CADA render (no se congela en import): ``uvicorn --reload`` solo vigila ``*.py``, así que
+    editar un ``.css``/``.js`` no reinicia el proceso. El hash del contenido solo se recalcula cuando cambia la
+    firma (ruta, tamaño y mtime de cada fichero): antes se leían y hasheaban todos los assets en cada llamada.
     """
-    digest = hashlib.sha1()
-    static_dir = Path(__file__).resolve().parent.parent / "static"
-    for rel in ("css/app.css", "js/app.js", "js/htmx.min.js", "js/chart.umd.min.js", "js/JsBarcode.all.min.js"):
+    root = static_dir or Path(__file__).resolve().parent.parent / "static"
+    now = time.monotonic()
+    last = _static_version_checked.get(str(root))
+    if last is not None and now - last[0] < _STATIC_VERSION_TTL_S:
+        return last[1]  # varias llamadas por render (y renders seguidos) no vuelven a tocar el disco
+    # Todos los .css/.js (también los módulos de js/core, js/components...): el hash cambia si cambia
+    # cualquiera, aunque main.js no cambie. La ruta entra en el hash (renombrar un módulo también invalida).
+    files = sorted(p for sub in ("css", "js") for p in (root / sub).rglob("*") if p.suffix in (".css", ".js"))
+    signature: list[tuple[str, int, int]] = []
+    for path in files:
         try:
-            digest.update((static_dir / rel).read_bytes())
+            st = path.stat()
         except OSError:
             continue
-    return digest.hexdigest()[:8]
+        signature.append((path.relative_to(root).as_posix(), st.st_size, st.st_mtime_ns))
+    key = (str(root), tuple(signature))
+    cached = _STATIC_VERSION_CACHE.get(key)
+    if cached is not None:
+        _static_version_checked[str(root)] = (now, cached)
+        return cached
+    digest = hashlib.sha1()
+    for path in files:
+        try:
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes())
+        except OSError:
+            continue
+    version = digest.hexdigest()[:8]
+    _STATIC_VERSION_CACHE.clear()  # una sola entrada vigente por proceso
+    _STATIC_VERSION_CACHE[key] = version
+    _static_version_checked[str(root)] = (now, version)
+    return version
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
 
+
+def _template_error(message: str) -> str:
+    """Hace fallar el render desde una plantilla (Jinja no tiene `raise`).
+
+    Para parámetros de macros/plantillas que solo admiten unos valores (`kind`, `heading`):
+    un valor fuera de la lista debe ser un error visible, no un modal con título vacío o un
+    id que el JS no encuentra (H-308).
+    """
+    raise TemplateRuntimeError(message)
+
+
+templates.env.globals["template_error"] = _template_error
+
 _DEV_ACTIONS_ENABLED = DEV_ACTIONS_ENABLED
 
 _UPLOAD_DIR = Path("app/static/uploads")
-
-
-def ensure_admin(db: Session, request: Request) -> None:
-    user = get_current_user_from_session(db, request)
-    if user is None or (user.role or "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Admin required")
-
-
-def ensure_admin_or_owner(db: Session, request: Request) -> None:
-    user = get_current_user_from_session(db, request)
-    role = (user.role or "").strip().lower() if user is not None else ""
-    if user is None or role not in ("admin", "owner"):
-        raise HTTPException(status_code=403, detail="Admin required")
 
 
 MAX_IMAGE_SIZE_MB = UPLOAD_MAX_MB
@@ -116,13 +141,6 @@ def dt_to_local_input(dt: datetime) -> str:
 
 
 
-def extract_sku(product_field: str) -> str:
-    value = (product_field or "").strip()
-    if " - " in value:
-        value = value.split(" - ", 1)[0].strip()
-    return value
-
-
 def parse_optional_float(value: Optional[str]) -> Optional[float]:
     if value is None:
         return None
@@ -167,79 +185,3 @@ def delete_uploaded_image(image_url: Optional[str]) -> None:
         pass
 
 
-def barcode_to_sku(db: Session, barcode: str, business_id: Optional[int] = None) -> str:
-    code = (barcode or "").strip()
-    if not code:
-        raise HTTPException(status_code=422, detail="barcode is required")
-
-    business_id_int = int(business_id) if business_id is not None else None
-
-    def _product_by_sku(sku: str) -> Optional[Product]:
-        stmt = select(Product).where(Product.sku == sku)
-        if business_id_int is not None:
-            stmt = stmt.where(Product.business_id == business_id_int)
-        return db.scalar(stmt)
-
-    def _barcode_sku_candidates(raw_code: str) -> list[str]:
-        seen: set[str] = set()
-        out: list[str] = []
-
-        def _add(value: str) -> None:
-            v = (value or "").strip()
-            if not v:
-                return
-            key = v.upper()
-            if key in seen:
-                return
-            seen.add(key)
-            out.append(v)
-
-        # Existing heuristics.
-        head = raw_code.split("|", 1)[0].strip()
-        if head:
-            _add(head)
-            _add(head.split("-", 1)[0].strip())
-
-        code_upper = raw_code.upper()
-
-        # Query-string style (e.g. ...?sku=SKU0001 or ...&spp=SKU0001)
-        qs_match = re.search(r"(?:^|[?&;])(sku|spp)=([^&;\s]+)", raw_code, flags=re.IGNORECASE)
-        if qs_match:
-            _add(qs_match.group(2))
-
-        # Key-value style (e.g. SKU:SKU0001, SKU=SKU0001, SPP:SKU0001)
-        kv_match = re.search(r"(?:SKU|SPP)\s*[:=]\s*([A-Za-z0-9._\-/]+)", raw_code, flags=re.IGNORECASE)
-        if kv_match:
-            _add(kv_match.group(1))
-
-        # Prefixed SPP payloads (e.g. SPP|SKU0001, SPP-SKU0001, SPP SKU0001)
-        if code_upper.startswith("SPP"):
-            tail = raw_code[3:].lstrip(" :|=-_/\\")
-            if tail:
-                _add(tail)
-                _add(tail.split("|", 1)[0].strip())
-
-        return out
-
-    for sku_candidate in _barcode_sku_candidates(code):
-        product = _product_by_sku(sku_candidate)
-        if product is not None:
-            return product.sku
-
-    lot_stmt = select(InventoryLot).where(InventoryLot.lot_code == code)
-    if business_id_int is not None:
-        lot_stmt = lot_stmt.where(InventoryLot.business_id == business_id_int)
-    lot = db.scalar(lot_stmt)
-    if lot is None and not code.endswith("00000"):
-        lot_stmt = select(InventoryLot).where(InventoryLot.lot_code == f"{code}00000")
-        if business_id_int is not None:
-            lot_stmt = lot_stmt.where(InventoryLot.business_id == business_id_int)
-        lot = db.scalar(lot_stmt)
-    if lot is not None:
-        product = db.get(Product, lot.product_id)
-        if product is not None and (
-            business_id_int is None or int(getattr(product, "business_id", 0) or 0) == business_id_int
-        ):
-            return product.sku
-
-    raise HTTPException(status_code=404, detail="Barcode not recognized")

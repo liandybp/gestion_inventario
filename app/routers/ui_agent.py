@@ -1,6 +1,4 @@
 from __future__ import annotations
-from app.repositories.business_repository import get_active_business_config
-
 import threading
 import time
 from collections import defaultdict
@@ -13,8 +11,8 @@ from app.agent import chat_store
 from app.agent import runner
 from app.agent import widgets as widget_store
 from app.deps import session_dep
-from app.routers.ui_common import ensure_admin_or_owner, templates
-from app.security import get_active_business_code, get_current_user_from_session, require_active_business_id
+from app.routers.ui_common import templates
+from app.routers.ui_context import UIContext, ui_context
 from app.settings import AGENT_RATE_LIMIT, AGENT_RATE_WINDOW
 
 # Sin prefix: main.py registra este router con prefix="/ui" (igual que los demás
@@ -26,10 +24,9 @@ _agent_attempts: dict[str, list[float]] = defaultdict(list)
 _agent_lock = threading.Lock()
 
 
-def _currency_symbol(db, request) -> str:
+def _currency_symbol(ctx: "UIContext") -> str:
     """Símbolo de moneda del negocio activo (H-011, consistente con el dashboard)."""
-    config = get_active_business_config(db, request)
-    symbol = getattr(getattr(config, "currency", None), "symbol", None)
+    symbol = getattr(getattr(ctx.config, "currency", None), "symbol", None)
     return str(symbol) if symbol else "€"
 
 
@@ -49,47 +46,51 @@ def tab_agent(request: Request, db: Session = Depends(session_dep)) -> HTMLRespo
     # GETs enforce admin/owner too (G5/D5): the Copiloto tab shows financial
     # widgets and the sidebar only exposes it to admin/owner, so a direct URL
     # must not let an operator read them.
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "partials/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/tab_agent.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)}
     )
 
 
 @router.get("/agent/messages", response_class=HTMLResponse)
 def messages_view(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     """Historial de la conversación del copiloto (por negocio)."""
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     messages = chat_store.list_messages(db, business_id)
-    return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
+    return templates.TemplateResponse(request, "features/agent/agent_messages.html", {"messages": messages})
 
 
 @router.post("/agent/conversation/clear", response_class=HTMLResponse)
 def clear_conversation(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
     """Empezar una nueva conversación: borra el historial del negocio (no los widgets)."""
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     chat_store.clear_messages(db, business_id)
     messages = chat_store.list_messages(db, business_id)  # queda vacío
-    return templates.TemplateResponse(request, "partials/agent_messages.html", {"messages": messages})
+    return templates.TemplateResponse(request, "features/agent/agent_messages.html", {"messages": messages})
 
 
 @router.post("/agent/chat", response_class=HTMLResponse)
 async def chat(request: Request, message: str = Form(...), db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
 
-    user = get_current_user_from_session(db, request)
+    user = ctx.user
     rate_key = user.username if user is not None else (request.client.host if request.client else "unknown")
-    currency_symbol = _currency_symbol(db, request)
+    currency_symbol = _currency_symbol(ctx)
 
     message = (message or "").strip()
     if not message:
         # A blank message would fire paid LLM calls for nothing (B3).
         return templates.TemplateResponse(
-            request, "partials/agent_reply.html",
+            request, "features/agent/agent_reply.html",
             {"reply": "Escribí una pregunta."},
             status_code=422,
         )
@@ -103,7 +104,7 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
 
     if not _check_agent_rate(rate_key):
         return templates.TemplateResponse(
-            request, "partials/agent_reply.html",
+            request, "features/agent/agent_reply.html",
             {"reply": "Demasiadas peticiones. Esperá un momento."},
             status_code=429,
         )
@@ -133,25 +134,27 @@ async def chat(request: Request, message: str = Form(...), db: Session = Depends
     chat_store.add_message(db, business_id, "assistant", reply, user_id=created_by)
 
     return templates.TemplateResponse(
-        request, "partials/agent_chat_turn.html",
+        request, "features/agent/agent_chat_turn.html",
         {"user_content": message, "reply": reply, "widgets": widgets, "currency_symbol": currency_symbol}
     )
 
 
 @router.post("/agent/widget/{widget_id}/delete", response_class=HTMLResponse)
 def delete(request: Request, widget_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widget_store.delete_widget(db, business_id, widget_id)
     widgets = widget_store.widgets_with_payload(db, business_id)
     return templates.TemplateResponse(
-        request, "partials/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)}
+        request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)}
     )
 
 
 @router.get("/agent/widgets", response_class=HTMLResponse)
 def widgets_view(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin_or_owner(db, request)
-    business_id = require_active_business_id(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin_or_owner()
+    business_id = ctx.business_id
     widgets = widget_store.widgets_with_payload(db, business_id)
-    return templates.TemplateResponse(request, "partials/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(db, request)})
+    return templates.TemplateResponse(request, "features/agent/widget_grid.html", {"widgets": widgets, "currency_symbol": _currency_symbol(ctx)})

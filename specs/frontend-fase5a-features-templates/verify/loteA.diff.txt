@@ -1,0 +1,2 @@
+tests/unit/test_templates_layout.py
+tools/move_templates.py

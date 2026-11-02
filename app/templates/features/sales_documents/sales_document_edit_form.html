@@ -1,0 +1,59 @@
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% set doc_title %}Editar documento <code>{{ doc.code }}</code>{% endset %}
+{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+
+      <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <div class="grid grid-2">
+      {{ field('Cliente (Nombre)', 'client_name', value=doc.client_name, required=True) }}
+      {{ field('Cliente (ID)', 'client_id', value=doc.client_id, required=True) }}
+    </div>
+    {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+
+    <h4 class="mt-14">Items</h4>
+    <div class="table-wrapper">
+      <table class="sales-doc-items-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th class="text-right">Cant.</th>
+            <th class="text-right">Precio</th>
+            <th class="text-right">Eliminar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in items %}
+            <tr>
+              <td>{{ it.line_no }}</td>
+              <td><input name="desc_{{ it.id }}" class="item-desc-input" value="{{ it.description }}" /></td>
+              <td class="text-right"><input name="qty_{{ it.id }}" class="item-num-input" type="number" step="0.0001" min="0" value="{{ it.quantity }}" /></td>
+              <td class="text-right"><input name="price_{{ it.id }}" class="item-num-input" type="number" step="0.0001" min="0" value="{{ it.unit_price }}" /></td>
+              <td class="text-right"><input name="del_{{ it.id }}" type="checkbox" /></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="mt-14">Añadir item</h4>
+    <div class="sales-doc-add-item-grid">
+      <div class="add-item-field">
+        <label>Descripción</label>
+        <input name="new_desc" />
+      </div>
+      <div class="add-item-field">
+        <label>Cantidad</label>
+        <input name="new_qty" type="number" step="0.0001" min="0" value="1" />
+      </div>
+      <div class="add-item-field">
+        <label>Precio</label>
+        <input name="new_price" type="number" step="0.0001" min="0" value="0" />
+      </div>
+    </div>
+
+    <button type="submit" class="mt-12">Guardar cambios</button>
+    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
+  </form>
+{% endcall %}

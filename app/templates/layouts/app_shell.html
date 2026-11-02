@@ -1,0 +1,16 @@
+{# Layout de la app (dashboard): tema (theme-init.js) + htmx, Chart.js, JsBarcode, app.css y main.js (módulo). #}
+{% extends "base.html" %}
+{% block head %}
+    <script src="/static/js/theme-init.js?v={{ static_version() }}"></script>
+    {# CSP style-src 'self': htmx no inyecta su hoja de .htmx-indicator (las reglas están en app.css) ni copia
+       el atributo style en el settle (lo bloquearía la CSP; el servidor ya no envía ninguno). Tampoco width/height:
+       copiados del <canvas> viejo, chocaban con Chart.js si creaba el gráfico antes del settle (20 ms). #}
+    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "attributesToSettle": ["class"]}' />
+    <script src="/static/js/htmx.min.js?v={{ static_version() }}"></script>
+    <script src="/static/js/chart.umd.min.js?v={{ static_version() }}"></script>
+    <script src="/static/js/JsBarcode.all.min.js?v={{ static_version() }}"></script>
+    <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version() }}" />
+    <link rel="stylesheet" href="/static/css/app.css?v={{ static_version() }}" />
+    <link rel="stylesheet" href="/static/css/utilities.css?v={{ static_version() }}" />
+    <script type="module" src="/static/js/main.js?v={{ static_version() }}"></script>
+{% endblock %}

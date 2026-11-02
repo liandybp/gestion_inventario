@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1" name="viewport">
+<title>
+Login
+</title>
+</head>
+<body>
+<div class="card">
+<h2 class="mt-0">
+Acceso
+</h2>
+<div class="mb-12 muted">
+Inicia sesión para usar el sistema.
+</div>
+<form action="/ui/login" method="post">
+<div class="row">
+<label>
+Usuario
+</label>
+<input autocomplete="username" name="username" required>
+</div>
+<div class="row">
+<label>
+Contraseña
+</label>
+<input autocomplete="current-password" id="login-password" name="password" required type="password">
+</div>
+<div class="row">
+<label>
+</label>
+<div class="muted">
+<label class="flex gap-8 items-center">
+<input class="w-auto" id="login-show-password" type="checkbox">
+Mostrar contraseña
+</label>
+</div>
+</div>
+<button type="submit">
+Entrar
+</button>
+</form>
+</div>
+</body>
+</html>

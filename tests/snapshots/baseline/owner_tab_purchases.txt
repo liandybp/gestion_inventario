@@ -1,0 +1,185 @@
+<div>
+<h2>
+Compras
+</h2>
+<p class="muted">
+Registra compras (si el artículo no existe, se crea con la compra) o importa una compra desde factura.
+</p>
+<div class="card" id="purchase-panel">
+<h2>
+Compra
+</h2>
+<h3 class="mt-0">
+Importar compra desde factura (PDF)
+</h3>
+<p class="mb-10 mt-n6 muted">
+Esta importación aplica IVA y, solo si está definida
+<code>
+purchase.invoice_fx_rate
+</code>
+en la configuración del negocio, aplica conversión de moneda. Si la tasa no existe o está vacía, no se convierte.
+</p>
+<form class="mb-14" enctype="multipart/form-data" hx-encoding="multipart/form-data" hx-post="/ui/purchase/from-invoice" hx-swap="outerHTML" hx-target="#purchase-panel">
+<div class="row">
+<label>
+Factura (PDF)
+</label>
+<input accept="application/pdf" name="invoice_pdf" required type="file">
+</div>
+<button type="submit">
+Importar factura
+</button>
+</form>
+<form hx-post="/ui/purchase" hx-swap="outerHTML" hx-target="#purchase-panel">
+<p class="mb-10 mt-0 muted">
+Registro manual: el costo se guarda tal como lo introduces (sin conversión automática).
+</p>
+<div class="row">
+<label>
+Artículo
+</label>
+<input data-product-suggest="label" hx-get="/ui/product-defaults/purchase" hx-swap="innerHTML" hx-target="#purchase-defaults" hx-trigger="change" list="product-options" name="product" placeholder="Busca por nombre o SKU" value="">
+</div>
+<div class="row">
+<label>
+Nombre (si es nuevo)
+</label>
+<input name="product_name" placeholder="Solo si el SKU no existe" value="">
+</div>
+<div class="row">
+<label>
+Precio de venta (si es nuevo)
+</label>
+<input min="0" name="sale_price" placeholder="Solo si el SKU no existe" step="0.0001" type="number" value="">
+</div>
+<div class="row">
+<label id="purchase-qty-label">
+Cantidad
+</label>
+<input min="0.0001" name="quantity" required step="0.0001" type="number" value="">
+</div>
+<div class="row">
+<label>
+Costo unitario (USD)
+</label>
+<input id="purchase-unit-cost" min="0" name="unit_cost" step="0.0001" type="number" value="">
+</div>
+<div class="row">
+<label>
+Fecha
+</label>
+<input name="movement_date" type="datetime-local" value="<DT>">
+</div>
+<div class="row">
+<label>
+Lote
+</label>
+<input name="lot_code" placeholder="(auto si lo dejas vacío)" value="">
+</div>
+<div class="row">
+<label>
+Nota
+</label>
+<input name="note" placeholder="(opcional)" value="">
+</div>
+<button type="submit">
+Registrar compra
+</button>
+</form>
+<div id="purchase-defaults">
+</div>
+<h3 class="mt-16">
+Historial de compras
+</h3>
+<form class="card mb-12" hx-get="/ui/tabs/purchases" hx-select="#purchases-history" hx-swap="outerHTML" hx-target="#purchases-history" hx-trigger="submit, keyup changed delay:300ms from:#purchases-filter-query, change from:#purchases-filter-start, change from:#purchases-filter-end">
+<div class="flex flex-wrap gap-12 items-center">
+<div>
+<label class="filter-label">
+Buscar artículo
+</label>
+<input id="purchases-filter-query" name="query" placeholder="SKU o nombre" type="text" value="">
+</div>
+<div>
+<label class="filter-label">
+Desde
+</label>
+<input id="purchases-filter-start" name="start_date" type="date" value="">
+</div>
+<div>
+<label class="filter-label">
+Hasta
+</label>
+<input id="purchases-filter-end" name="end_date" type="date" value="">
+</div>
+<button class="mb-0" type="submit">
+Filtrar
+</button>
+<a class="text-sm" href="/ui/tabs/purchases?show_all=1" hx-get="/ui/tabs/purchases?show_all=1" hx-select="#purchases-history" hx-swap="outerHTML" hx-target="#purchases-history">
+Ver todos
+</a>
+</div>
+</form>
+<div id="purchases-history">
+<form hx-post="/ui/movement/purchase/delete-selected" hx-swap="outerHTML" hx-target="#purchase-panel">
+<div class="flex flex-wrap gap-12 items-center my-8-10">
+<button class="mb-0" hx-confirm="¿Eliminar las compras seleccionadas?" type="submit">
+Eliminar seleccionados
+</button>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>
+<input aria-label="Seleccionar todo" type="checkbox">
+</th>
+<th class="col-date">
+Fecha
+</th>
+<th>
+Img
+</th>
+<th>
+SKU
+</th>
+<th>
+Nombre
+</th>
+<th>
+Unidad
+</th>
+<th>
+Cant.
+</th>
+<th>
+Costo
+</th>
+<th>
+Lote
+</th>
+<th>
+Barcode
+</th>
+<th>
+Acciones
+</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+</div>
+</form>
+</div>
+<div class="mt-12" id="purchase-edit">
+</div>
+</div>
+<div id="product-panel">
+<datalist id="product-options">
+<option value="SNAP-1 - Producto Snapshot <b>"H"</b> & 'co'">
+</option>
+<option value="SNAP-NEW - Producto Nuevo">
+</option>
+</datalist>
+</div>
+</div>

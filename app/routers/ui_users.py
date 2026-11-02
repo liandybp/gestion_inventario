@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.auth import hash_password
 from app.deps import session_dep
-from app.models import AuditLog, ChatMessage, DashboardWidget, User
-from app.security import get_current_user_from_session, get_user_business_ids
+from app.models import User
+from app.security import get_user_business_ids
+from app.routers.ui_context import ui_context
 from app.repositories.user_repository import UserRepository
-from app.routers.ui_common import ensure_admin, templates
+from app.routers.ui_common import templates
 
 router = APIRouter()
 
@@ -84,8 +85,9 @@ def user_create(
     is_active: bool = Form(True),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
 
     username = username.strip()
     if not username:
@@ -101,7 +103,7 @@ def user_create(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -126,7 +128,7 @@ def user_create(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -146,7 +148,7 @@ def user_create(
         is_active=bool(is_active),
         must_change_password=True,
     )
-    db.add(new_user)
+    UserRepository(db).add(new_user)
     db.flush()
     _sync_user_businesses(db, new_user, bid_list)
     db.commit()
@@ -169,7 +171,7 @@ def user_create(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -187,7 +189,8 @@ def user_edit_form(
     user_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -195,7 +198,7 @@ def user_edit_form(
     user_business_ids = get_user_business_ids(db, user_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/user_edit_form.html",
+        name="features/users/user_edit_form.html",
         context={
             "user": user,
             "businesses": businesses,
@@ -214,8 +217,9 @@ def user_update(
     is_active: bool = Form(True),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -230,7 +234,7 @@ def user_update(
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
-            name="partials/user_edit_form.html",
+            name="features/users/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
@@ -255,7 +259,7 @@ def user_update(
         user_business_ids = get_user_business_ids(db, user_id)
         response = templates.TemplateResponse(
             request=request,
-            name="partials/user_edit_form.html",
+            name="features/users/user_edit_form.html",
             context={
                 "user": user,
                 "businesses": businesses,
@@ -293,7 +297,7 @@ def user_update(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -311,8 +315,9 @@ def user_delete(
     user_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -324,7 +329,7 @@ def user_delete(
         user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_users.html",
+            name="features/users/tab_users.html",
             context={
                 "users": users,
                 "businesses": businesses,
@@ -340,17 +345,8 @@ def user_delete(
     # Desvincular registros de auditoría (FK) y asignaciones multi-negocio
     # antes de borrar el usuario, para no violar las FKs.
     UserRepository(db).set_user_businesses(int(user.id), [])
-    db.query(AuditLog).filter(AuditLog.user_id == int(user.id)).update(
-        {AuditLog.user_id: None}, synchronize_session=False
-    )
-    # Copiloto: anular las FKs de chat_messages y dashboard_widgets (sin ON DELETE)
-    db.query(ChatMessage).filter(ChatMessage.user_id == int(user.id)).update(
-        {ChatMessage.user_id: None}, synchronize_session=False
-    )
-    db.query(DashboardWidget).filter(DashboardWidget.created_by == int(user.id)).update(
-        {DashboardWidget.created_by: None}, synchronize_session=False
-    )
-    db.delete(user)
+    UserRepository(db).detach_references(int(user.id))
+    UserRepository(db).delete(user)
     db.commit()
 
     if current_user is not None:
@@ -370,7 +366,7 @@ def user_delete(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -388,13 +384,14 @@ def user_reset_password_form(
     user_id: int,
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return templates.TemplateResponse(
         request=request,
-        name="partials/user_reset_password_form.html",
+        name="features/users/user_reset_password_form.html",
         context={"user": user},
     )
 
@@ -407,8 +404,9 @@ def user_reset_password(
     must_change: bool = Form(False),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
-    ensure_admin(db, request)
-    current_user = get_current_user_from_session(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
+    current_user = ctx.user
     user = UserRepository(db).get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -437,7 +435,7 @@ def user_reset_password(
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,
@@ -451,14 +449,15 @@ def user_reset_password(
 
 @router.get("/tabs/users", response_class=HTMLResponse)
 def tab_users(request: Request, db: Session = Depends(session_dep)) -> HTMLResponse:
-    ensure_admin(db, request)
+    ctx = ui_context(request, db)
+    ctx.ensure_admin()
     users_repo = UserRepository(db)
     users = users_repo.list_users()
     businesses = users_repo.list_businesses()
     user_business_map = {int(u.id): get_user_business_ids(db, int(u.id)) for u in users}
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_users.html",
+        name="features/users/tab_users.html",
         context={
             "users": users,
             "businesses": businesses,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.agent.tools import tool_schemas
@@ -16,8 +16,10 @@ Eres el copiloto de un negocio de inventario. Hoy es {today}. Responde con un JS
 Reglas:
 - Usa UNA tool de datos como máximo por turno (o tool=null para Q&A puro).
 - Los números SIEMPRE los obtiene la tool; nunca los inventes.
-- Para fechas relativas ("este mes", "mes anterior", "este año") usa la fecha de
-  hoy ({today}) como referencia. Nunca uses fechas de años pasados por defecto.
+- Para "este mes" usa EXACTAMENTE start={month_start} y end={today}; para "mes pasado"/
+  "mes anterior" usa EXACTAMENTE start={prev_start} y end={prev_end}. Son rangos ya
+  calculados: no los recalcules. Para otras fechas relativas ("este año", "esta semana")
+  usa hoy ({today}) como referencia. Nunca uses fechas de años pasados por defecto.
 - widgets: máximo 1 por turno. Elige el type que MEJOR represente los datos que
   pide el usuario (decide TÚ según la semántica, no atado a la tool):
   * "kpi"        -> un valor único (total vendido, valor de inventario, stock)
@@ -32,8 +34,19 @@ Reglas:
   * si devuelve "columns/rows" -> table
   * sales_by_product devuelve AMBOS (labels/values Y columns/rows Producto/Cantidad/Ventas),
     así que sirve para chart (bar/pie) o para tabla (table).
+  * sales_by_location_monthly devuelve labels/datasets (una serie por ubicación) Y
+    columns/rows (Mes x ubicación): sirve para bar (barras agrupadas), line o table.
 - Para "ventas por día/semana" usa "line". Para "ventas por producto" usa "bar" o "pie".
 - Para "ventas por ubicación"/"por punto de venta" usa sales_by_location (bar/pie/table).
+- Para ventas por ubicación/punto de venta "por mes"/"mes a mes"/"cada mes" usa
+  sales_by_location_monthly con months=N (type "bar" para barras agrupadas, "line" o
+  "table"). NO uses sales_by_location para eso: solo da el total del período, sin meses.
+- "Últimos N meses" son N meses calendario INCLUYENDO el actual. Si la tool acepta
+  months, pasa months=N y no calcules start/end. Si solo acepta start/end, start es el
+  día 1 del mes actual menos N-1 meses y end es hoy.
+- Si ninguna tool da EXACTAMENTE lo que el usuario pide, dilo en reply con la forma
+  "No tengo X; te muestro Y". Nunca afirmes haber generado algo distinto de lo que
+  muestra el widget.
 - Para "cuánto gané"/"margen"/"rentabilidad" usa monthly_profit_summary (kpi) o
   profit_by_product (bar/table) para el desglose por producto.
 - Para "ganancia por categoría"/"qué categoría de producto es más rentable" usa
@@ -41,13 +54,17 @@ Reglas:
 - Para "ganancia por ubicación"/"qué POS genera más utilidad" usa profit_by_location
   (bar/table) — sales_by_location da solo ingresos, profit_by_location da ganancia.
 - Para "evolución mensual"/"tendencia de ventas y compras" usa monthly_overview (line).
-- Para "dividendos"/"pendiente por socio" usa dividends_report (table).
+- Para "dividendos"/"pendiente por socio"/"cuánto tiene pendiente cada socio" usa
+  dividends_report (table) — extractions_by_party da solo lo ya retirado, no lo pendiente.
 - Para "retiros de dinero por socio" usa extractions_by_party (bar/table).
 - Para "qué reponer"/"punto de reorden"/"stock de seguridad" usa replenishment_table
   (table) o low_stock (table) para solo los que están por debajo del mínimo.
 - Para "productos sin venta"/"stock muerto"/"qué no se ha vendido" usa dead_stock
   (bar/table, argumento days opcional, default 90).
 - Para "rotación de inventario"/"cada cuánto rota el stock" usa inventory_turnover (kpi).
+- Para "movimientos"/"historial"/"entradas y salidas"/"kárdex" de UN artículo concreto (código o
+  nombre) usa product_movements (table) con sku=<código> y start/end del período pedido; si pide un
+  punto de venta, pasa location. movement_history es para los últimos movimientos SIN artículo concreto.
 - Para "últimos gastos" usa expenses_list (table); para "historial de movimientos/
   traspasos/ajustes" usa movement_history (table).
 - Para "mejores clientes"/"facturación por cliente" usa sales_by_customer (bar/table).
@@ -79,8 +96,17 @@ def build_system_prompt(last_tool: Optional[dict] = None) -> str:
     # Fecha fresca en cada llamada: el modelo necesita saber qué día es para
     # resolver fechas relativas correctamente (ej. "mes anterior" -> 2026-07,
     # no 2023-10 como salía antes por no tener contexto de fecha).
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    prompt = SYSTEM_PROMPT_TEMPLATE.format(schemas=_TOOL_SCHEMAS_JSON, today=today)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1)
+    prev_end = month_start - timedelta(days=1)
+    # A principios de mes el modelo tomaba "este mes" por el anterior: los rangos van calculados.
+    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        schemas=_TOOL_SCHEMAS_JSON,
+        today=now.strftime("%Y-%m-%d"),
+        month_start=month_start.strftime("%Y-%m-%d"),
+        prev_start=prev_end.replace(day=1).strftime("%Y-%m-%d"),
+        prev_end=prev_end.strftime("%Y-%m-%d"),
+    )
     if last_tool:
         prompt += (
             "\n\nContexto adicional: el último widget mostrado en esta conversación usó "

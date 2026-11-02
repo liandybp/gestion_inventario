@@ -57,6 +57,7 @@ class AgentState(TypedDict, total=False):
     last_tool: Optional[dict]
     plan: Optional[PlanModel]
     tool_results: list[dict]
+    tool_failed: list[bool]
     widgets: list[dict]
     reply: str
     error: Optional[str]
@@ -152,12 +153,20 @@ def _plan_node(state: AgentState) -> AgentState:
             tool=p.tool,
             tool_args=p.tool_args,
             reply=p.reply,
-            widgets=[WidgetSpec(type="table", title=p.tool, tool=p.tool, tool_args=p.tool_args)],
+            widgets=[WidgetSpec(type="table", title=_synth_title(p.tool), tool=p.tool, tool_args=p.tool_args)],
         )
         return state
     _log_agent.warning("agent_plan_unparseable message=%r last_error=%s", state["message"], error)
     state["plan"] = PlanModel(tool=None, widgets=[], reply="No pude interpretar tu consulta.")
     return state
+
+
+def _synth_title(tool_name: str) -> str:
+    """Título legible del widget sintetizado (no el nombre interno de la tool):
+    la descripción hasta el primer " (" o ".", o el nombre si no hay descripción."""
+    spec = TOOL_REGISTRY.get(tool_name) or {}
+    desc = (spec.get("description") or "").split(" (")[0].split(".")[0].strip()
+    return desc[:255] or tool_name
 
 
 def _resolve_widget_tool_args(plan: PlanModel, widget: WidgetSpec) -> dict:
@@ -183,22 +192,28 @@ def _execute_node(state: AgentState) -> AgentState:
     # Se ejecutan todos los widgets (lógica correcta por widget); _build_node
     # luego aplica el límite de 1 widget por turno.
     results: list[dict] = []
+    failed: list[bool] = []
     service = InventoryService(state["db"], state["business_id"])
     for w in plan.widgets:
         tool_name = w.tool
         if not tool_name or tool_name not in TOOL_REGISTRY:
             results.append({})
+            failed.append(False)
             continue
         tool_args = _resolve_widget_tool_args(plan, w)
         try:
             results.append(TOOL_REGISTRY[tool_name]["fn"](service, tool_args))
+            failed.append(False)
         except HTTPException as exc:
             state["error"] = f"Tool {tool_name}: {exc.detail}"
             results.append({})
+            failed.append(True)
         except Exception as exc:
             state["error"] = f"Tool {tool_name}: {exc}"
             results.append({})
+            failed.append(True)
     state["tool_results"] = results
+    state["tool_failed"] = failed
     return state
 
 
@@ -213,14 +228,27 @@ def _build_node(state: AgentState) -> AgentState:
     widgets = []
     for i, w in enumerate(plan.widgets[:1]):
         payload = results[i] if i < len(results) else {}
-        widgets.append({"type": w.type, "title": w.title, "tool": w.tool,
+        wtype = w.type
+        # Multi-serie (datasets sin values) solo se dibuja en bar/line o como tabla;
+        # cualquier otro type saldría vacío.
+        if "datasets" in payload and "values" not in payload and wtype not in ("bar", "line", "table"):
+            wtype = "bar"
+        widgets.append({"type": wtype, "title": w.title, "tool": w.tool,
                         "tool_args": w.tool_args, "unit": w.unit, "payload": payload})
     state["widgets"] = widgets
     return state
 
 
+_TOOL_ERROR_NOTICE = "No pude obtener los datos de este widget; revisa el rango de fechas o los filtros."
+
+
 def _narrate_node(state: AgentState) -> AgentState:
-    state["reply"] = state["plan"].reply
+    reply = state["plan"].reply
+    # Si falló la tool del widget que se muestra (el primero), avisar sin el detalle
+    # técnico de la excepción. Los fallos de widgets descartados no se avisan.
+    if (state.get("tool_failed") or [False])[0]:
+        reply = f"{reply}\n\n{_TOOL_ERROR_NOTICE}"
+    state["reply"] = reply
     return state
 
 
