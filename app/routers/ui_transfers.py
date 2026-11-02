@@ -15,7 +15,7 @@ from app.deps import session_dep
 from app.logger import get_logger
 from app.schemas import TransferCreate, TransferLineCreate
 from app.services.inventory_service import InventoryService
-from app.services.product_service import extract_sku
+from app.services.product_service import ProductService
 from app.models import InventoryMovement, Product
 from app.settings import is_desktop
 
@@ -29,29 +29,6 @@ _log = get_logger(__name__)
 router = APIRouter()
 
 
-def _resolve_transfer_sku(db: Session, business_id: int, product_input: str) -> str:
-    value = (product_input or "").strip()
-    if not value:
-        raise HTTPException(status_code=422, detail="product is required")
-
-    extracted = extract_sku(value)
-    for candidate in (extracted, value):
-        cand = (candidate or "").strip()
-        if not cand:
-            continue
-        p = db.scalar(select(Product).where(Product.business_id == int(business_id), Product.sku == cand))
-        if p is not None:
-            return str(p.sku)
-
-    by_name = db.scalar(
-        select(Product)
-        .where(Product.business_id == int(business_id), Product.name.ilike(value))
-        .order_by(Product.id.asc())
-    )
-    if by_name is not None:
-        return str(by_name.sku)
-
-    raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 
 def _parse_transfer_lines(products: list[str], quantities: list[str]) -> list[TransferLineCreate]:
@@ -679,7 +656,7 @@ async def get_transfer_stock(
     service = InventoryService(db, business_id=bid)
 
     try:
-        resolved_sku = _resolve_transfer_sku(db, business_id=bid, product_input=sku)
+        resolved_sku = ProductService(db, business_id=bid).resolve_sku(sku)
         config = ctx.config
         effective_code = (location_code or "").strip() or str(config.locations.central.code)
         stock = service.stock_for_location(resolved_sku, location_code=effective_code)

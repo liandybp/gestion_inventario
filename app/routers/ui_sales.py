@@ -40,7 +40,6 @@ def _dt_to_local_input_s(dt: datetime) -> str:
 
 
 from .ui_common import (
-    barcode_to_sku,
     parse_dt,
     parse_typed_float,
     templates,
@@ -134,39 +133,6 @@ def _sales_doc_context(ctx: "UIContext") -> dict:
     }
 
 
-def _resolve_sale_sku(db: Session, business_id: int, product_input: str) -> str:
-    value = (product_input or "").strip()
-    if not value:
-        raise HTTPException(status_code=422, detail="product is required")
-
-    extracted = extract_sku(value)
-    for candidate in (extracted, value):
-        cand = (candidate or "").strip()
-        if not cand:
-            continue
-        by_sku = db.scalar(
-            select(Product).where(Product.business_id == int(business_id), Product.sku == cand)
-        )
-        if by_sku is not None:
-            return str(by_sku.sku)
-
-    by_name = db.scalar(
-        select(Product)
-        .where(Product.business_id == int(business_id), Product.name.ilike(value))
-        .order_by(Product.id.asc())
-    )
-    if by_name is not None:
-        return str(by_name.sku)
-
-    try:
-        return barcode_to_sku(db, value, business_id=business_id)
-    except HTTPException:
-        pass
-
-    raise HTTPException(
-        status_code=404,
-        detail="Producto no encontrado. Usa SKU, nombre exacto o código de barras válido.",
-    )
 
 
 @router.post("/sale", response_class=HTMLResponse)
@@ -192,7 +158,7 @@ def sale(
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         parsed_price = parse_typed_float(unit_price, "El precio unitario debe ser un número mayor o igual que 0")
-        sku = _resolve_sale_sku(db, business_id=bid, product_input=product)
+        sku = ProductService(db, business_id=bid).resolve_sku(product, barcode_fallback=True)
         if user is not None:
             log_event(
                 db,
@@ -290,7 +256,7 @@ def sale_barcode(
     product_options = _sale_product_options(service, location_code=selected_location_code)
     try:
         parsed_price = parse_typed_float(unit_price, "El precio unitario debe ser un número mayor o igual que 0")
-        sku = barcode_to_sku(db, barcode, business_id=bid)
+        sku = ProductService(db, business_id=bid).barcode_to_sku(barcode)
         user = ctx.user
         if user is not None:
             log_event(

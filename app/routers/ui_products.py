@@ -11,15 +11,14 @@ from sqlalchemy.orm import Session
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
+from app.repositories.product_repository import ProductRepository
 from app.repositories.purchase_repository import PurchaseRepository
 from app.schemas import AdjustmentCreate, ProductUpdate
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService, extract_sku
 from app.invoice_parsers import parse_autodoc_pdf
-from sqlalchemy import select
 
 from .ui_common import (
-    barcode_to_sku,
     delete_uploaded_image,
     parse_typed_float,
     save_product_image,
@@ -597,15 +596,11 @@ def product_defaults_sale(request: Request, product: str = "", db: Session = Dep
             p = None
 
     if p is None:
-        p = db.scalar(
-            select(Product)
-            .where(Product.business_id == int(business_id), Product.name.ilike(value))
-            .order_by(Product.id.asc())
-        )
+        p = ProductRepository(db, business_id=business_id).first_by_name(value)
 
     if p is None:
         try:
-            p = product_service.get_by_sku(barcode_to_sku(db, value, business_id=business_id))
+            p = product_service.get_by_sku(product_service.barcode_to_sku(value))
         except HTTPException:
             return HTMLResponse("")
 
@@ -673,13 +668,7 @@ def tab_inventory(request: Request, db: Session = Depends(session_dep)) -> HTMLR
 
     categories: list[str] = []
     try:
-        rows = db.execute(
-            select(Product.category)
-            .where(Product.business_id == int(bid))
-            .distinct()
-            .order_by(Product.category.asc())
-        ).all()
-        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+        categories = ProductRepository(db, business_id=bid).list_categories()
     except Exception:
         _log.error("categories fallback en tab_inventory")
         categories = []

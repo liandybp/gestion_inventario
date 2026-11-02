@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.deps import session_dep
 from app.models import Product
+from app.repositories.product_repository import ProductRepository
 from app.schemas import SupplierReturnLotCreate
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
@@ -18,7 +18,6 @@ from app.logger import get_logger
 from .ui_common import templates
 from .ui_context import ui_context
 from .ui_tabs_common import (
-    _deletable_skus,
     _location_id_for_code,
     _location_name_for_code,
     _normalize_restock_scope,
@@ -64,7 +63,7 @@ def stock_table(
     elif effective_filter == "zero":
         items = [i for i in items if float(i.quantity or 0) <= 0]
 
-    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
+    deletable_skus = ProductRepository(db, business_id=bid).deletable_skus([i.sku for i in items])
     return templates.TemplateResponse(
         request=request,
         name="features/stock/stock_table.html",
@@ -127,7 +126,7 @@ def stock_delete_product(
     elif effective_filter == "zero":
         items = [i for i in items if float(i.quantity or 0) <= 0]
 
-    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
+    deletable_skus = ProductRepository(db, business_id=bid).deletable_skus([i.sku for i in items])
     response = templates.TemplateResponse(
         request=request,
         name="features/stock/stock_table.html",
@@ -205,7 +204,7 @@ def stock_delete_selected(
     elif effective_filter == "zero":
         items = [i for i in items if float(i.quantity or 0) <= 0]
 
-    deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
+    deletable_skus = ProductRepository(db, business_id=bid).deletable_skus([i.sku for i in items])
 
     message = "Artículos eliminados" if deleted > 0 else "No se pudo eliminar"
     detail = f"Se eliminaron {deleted} artículo(s)."
@@ -272,13 +271,7 @@ def ui_supplier_return(
 
     categories: list[str] = []
     try:
-        rows = db.execute(
-            select(Product.category)
-            .where(Product.business_id == int(bid))
-            .distinct()
-            .order_by(Product.category.asc())
-        ).all()
-        categories = [str(c or "").strip() for (c,) in rows if str(c or "").strip()]
+        categories = ProductRepository(db, business_id=bid).list_categories()
     except Exception:
         _log.error("categories fallback en devoluciones")
         categories = []
