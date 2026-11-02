@@ -150,6 +150,15 @@ Archivo `app/business_config.conf` (INI):
 
 ## Estado actual
 
+- [x] **Copiloto: tool `product_movements` + fechas de "este mes" (2026-11-02, sesión 24, rama
+      `feature/copiloto-movimientos-articulo`, entra en 0.5.0)** — movimientos de un artículo (SKU, "SKU - nombre"
+      o nombre) en un período (por defecto 3 meses), en todas las ubicaciones o en una: fila de saldo inicial, saldo
+      acumulado, traspaso = una fila "origen → destino" (agrupa la salida con sus entradas por lote vía `out_id`),
+      nota si el saldo no cuadra con los lotes. Lógica en `ReportingService.product_movements`. 35 tools. Corregido
+      de paso un fallo previo: a principios de mes el copiloto tomaba "este mes" por el anterior; el prompt lleva ya
+      los rangos calculados (eval 96/100/100 %, antes 96/96/76 % en `develop`). Auditoría **4.90 🟢**
+      (`docs/auditorias/2026-11-02-copiloto-movimientos-articulo.md`). 539 unit, 95 e2e. Primer PAE con las
+      comprobaciones de fidelidad nuevas de `cc_local_pae`.
 - [x] **Release 0.5.0, fase 5b del frontend: consultas fuera de los routers UI y `UIContext` completo (2026-11-02,
       sesión 24, rama `feature/frontend-fase5b`)** — PAE `specs/frontend-fase5b-queries-uicontext/` (60 envelopes vía
       SDD-Agent; Opus Fases 1-2, `cc_deepseek` Fases 3-4, `cc_local_pae` lotes A-H). Los routers UI no usan el ORM
@@ -226,7 +235,7 @@ Archivo `app/business_config.conf` (INI):
       - Pendiente solo el flujo: push → `develop` → dev → `main`, con confirmación del usuario.
 - [x] **PAE-015 — Copiloto: ventas por punto de venta mes a mes (2026-10-24, rama `feature/frontend-modular`,
       sin push, entra en 0.5.0)** — bug de prod del 2026-10-18 (total por ubicación sin meses, 7 meses en vez de 6,
-      título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (34 tools), gráfico multi-serie
+      título interno, reply engañoso). Tool `sales_by_location_monthly(months)` (35 tools), gráfico multi-serie
       en `components/widget-chart.js` (solo bar/line), reglas de prompt ("últimos N meses", honestidad, dividendos
       pendiente vs retirado), título legible del widget de rescate y aviso cuando falla la tool del widget
       mostrado. Un primer intento (Haiku) se descartó (3.10 🔴, rama `backup/pae015-haiku`, borrada el 2026-10-24); PAE regenerado sobre

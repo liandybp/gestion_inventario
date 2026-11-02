@@ -82,6 +82,17 @@ class InventoryRepository:
         total = self._db.scalar(stmt)
         return float(total or 0)
 
+    def quantity_before(self, product_id: int, before: datetime, location_id: Optional[int] = None) -> float:
+        """Suma con signo de las cantidades del artículo con movement_date < before (saldo inicial)."""
+        stmt = select(func.coalesce(func.sum(InventoryMovement.quantity), 0)).where(
+            InventoryMovement.business_id == self._business_id,
+            InventoryMovement.product_id == int(product_id),
+            InventoryMovement.movement_date < before,
+        )
+        if location_id is not None:
+            stmt = stmt.where(InventoryMovement.location_id == int(location_id))
+        return float(self._db.scalar(stmt) or 0)
+
     def fifo_lots_for_product_id(self, product_id: int, location_id: Optional[int] = None) -> list[InventoryLot]:
         stmt = (
             select(InventoryLot)

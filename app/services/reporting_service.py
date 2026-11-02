@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -20,6 +21,18 @@ from app.utils import month_range as utils_month_range
 
 # Ventana máxima (meses) de sales_by_location_monthly: acota lo que pida el LLM.
 _MAX_MONTHS_WINDOW = 24
+
+_OUT_ID_RE = re.compile(r"\bout_id=(\d+)")
+_IN_FROM_RE = re.compile(r"Transfer in from\s+([^\s:;]+)")
+PRODUCT_MOVEMENTS_MAX_ROWS = 500
+_TYPE_LABELS = {
+    "purchase": "Compra",
+    "sale": "Venta",
+    "adjustment": "Ajuste",
+    "return_supplier": "Devolución a proveedor",
+    "transfer_out": "Traspaso",
+    "transfer_in": "Traspaso",
+}
 
 
 class ReportingService:
@@ -1007,4 +1020,146 @@ class ReportingService:
                 cursor = cursor.replace(month=cursor.month + 1)
 
         return series
+
+    def product_movements(
+        self,
+        *,
+        product_id: int,
+        sku: str,
+        start: datetime,
+        end: datetime,
+        location_id: Optional[int] = None,
+    ) -> dict:
+        """Movimientos de UN artículo en un período: fila de saldo inicial + una fila por
+        movimiento (los traspasos se agrupan en una fila en la vista global), con saldo
+        acumulado y columna Costo/Precio. Solo lectura; la nota de REQ-6/REQ-7 va en
+        result["note"] cuando aplica."""
+        from fastapi import HTTPException
+
+        from app.repositories.inventory_repository import InventoryRepository
+        from app.repositories.location_repository import LocationRepository
+        from app.services.inventory_service import InventoryService
+
+        inventory = InventoryRepository(self._db, self._business_id)
+        location_repo = LocationRepository(self._db, self._business_id)
+        names_by_id, names_by_code = location_repo.labels()
+
+        rows = list(reversed(
+            inventory.movement_history(sku=sku, location_id=location_id,
+                                       start_date=start, end_date=end, limit=None)
+        ))
+        initial = inventory.quantity_before(int(product_id), start, location_id)
+
+        columns = ["Fecha", "Tipo", "Ubicación", "Cantidad", "Costo/Precio", "Saldo", "Usuario"]
+
+        def _fmt_date(dt: Optional[datetime]) -> str:
+            return dt.strftime("%Y-%m-%d %H:%M") if dt else ""
+
+        def _num(v: Optional[float]) -> float:
+            return round(float(v or 0), 4)
+
+        out_rows: list[list] = [
+            ["", "Saldo inicial",
+             "Todas" if location_id is None else names_by_id.get(location_id, ""),
+             "", "", _num(initial), ""]
+        ]
+        saldo = float(initial)
+        inv_service = InventoryService(self._db, self._business_id)
+
+        def _cost_price(r) -> object:
+            if r.type == "sale":
+                return _num(r.unit_price) if r.unit_price is not None else ""
+            if r.type in ("purchase", "adjustment", "return_supplier"):
+                return _num(r.unit_cost) if r.unit_cost is not None else ""
+            return ""
+
+        def _location_name(loc_id: Optional[int]) -> str:
+            return names_by_id.get(int(loc_id), "") if loc_id is not None else ""
+
+        if location_id is None:
+            out_ids = {r.id for r in rows if r.type == "transfer_out"}
+            grouped_ins: set[int] = set()
+            for r in rows:
+                if r.type != "transfer_in":
+                    continue
+                m = _OUT_ID_RE.search(str(r.note or ""))
+                if m and int(m.group(1)) in out_ids:
+                    grouped_ins.add(r.id)
+
+            for r in rows:
+                if r.type == "transfer_in" and r.id in grouped_ins:
+                    continue
+                if r.type == "transfer_out":
+                    ins = []
+                    for x in rows:
+                        if x.type != "transfer_in":
+                            continue
+                        mm = _OUT_ID_RE.search(str(x.note or ""))
+                        if mm and int(mm.group(1)) == r.id:
+                            ins.append(x)
+                    saldo += float(r.quantity or 0) + sum(float(x.quantity or 0) for x in ins)
+                    try:
+                        from_code, to_code, _ref = inv_service.transfer_codes_from_out_note(r.note or "")
+                    except HTTPException:
+                        from_code, to_code = "", ""
+                    origen = names_by_code.get(from_code, from_code) or _location_name(r.location_id)
+                    destino = names_by_code.get(to_code, to_code) or "?"
+                    out_rows.append([_fmt_date(r.movement_date), "Traspaso",
+                                     f"{origen} → {destino}", _num(abs(r.quantity or 0)), "",
+                                     _num(saldo), r.username or ""])
+                elif r.type == "transfer_in":
+                    m = _IN_FROM_RE.search(str(r.note or ""))
+                    origen = names_by_code.get(m.group(1), m.group(1)) if m else ""
+                    label = f"← {origen}" if origen else _location_name(r.location_id)
+                    saldo += float(r.quantity or 0)
+                    out_rows.append([_fmt_date(r.movement_date), "Traspaso", label,
+                                     _num(r.quantity or 0), "", _num(saldo), r.username or ""])
+                else:
+                    saldo += float(r.quantity or 0)
+                    out_rows.append([_fmt_date(r.movement_date),
+                                     _TYPE_LABELS.get(r.type or "", r.type or ""),
+                                     _location_name(r.location_id), _num(r.quantity or 0),
+                                     _cost_price(r), _num(saldo), r.username or ""])
+        else:
+            for r in rows:
+                saldo += float(r.quantity or 0)
+                if r.type == "transfer_out":
+                    try:
+                        _from_code, to_code, _ref = inv_service.transfer_codes_from_out_note(r.note or "")
+                    except HTTPException:
+                        to_code = ""
+                    label = f"→ {names_by_code.get(to_code, to_code)}" if to_code else _location_name(r.location_id)
+                elif r.type == "transfer_in":
+                    m = _IN_FROM_RE.search(str(r.note or ""))
+                    origen = names_by_code.get(m.group(1), m.group(1)) if m else ""
+                    label = f"← {origen}" if origen else _location_name(r.location_id)
+                else:
+                    label = _location_name(r.location_id)
+                out_rows.append([_fmt_date(r.movement_date),
+                                 _TYPE_LABELS.get(r.type or "", r.type or ""),
+                                 label, _num(r.quantity or 0), _cost_price(r),
+                                 _num(saldo), r.username or ""])
+
+        final_saldo = float(saldo)
+        total_movements = len(out_rows) - 1
+        notes: list[str] = []
+        if total_movements > PRODUCT_MOVEMENTS_MAX_ROWS:
+            out_rows = out_rows[:1 + PRODUCT_MOVEMENTS_MAX_ROWS]
+            notes.append(
+                f"Se muestran los {PRODUCT_MOVEMENTS_MAX_ROWS} primeros movimientos de {total_movements}."
+            )
+
+        now = datetime.now(timezone.utc)
+        end_cmp = end if end.tzinfo is not None else end.replace(tzinfo=timezone.utc)
+        if end_cmp >= now:
+            stock = inventory.stock_for_product_id(int(product_id), location_id)
+            if abs(final_saldo - stock) > 0.0001:
+                notes.append(
+                    f"El saldo calculado ({_num(final_saldo)}) no coincide con el stock actual por lotes ({_num(stock)})."
+                )
+
+        result: dict = {"columns": columns, "rows": out_rows}
+        if notes:
+            result["note"] = " ".join(notes)
+        return result
 

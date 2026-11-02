@@ -1,0 +1,7 @@
+.claude/CLAUDE.md
+CHANGELOG.md
+CLAUDE.md
+app/agent/prompts.py
+app/templates/features/agent/widget_table.html
+tests/eval/test_agent_tool_selection_eval.py
+tests/unit/test_ui_xss_escapes.py

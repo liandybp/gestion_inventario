@@ -4,6 +4,9 @@ Este archivo se genera a partir del historial de Git (`git log`).
 
 ## 0.5.0 (sin publicar — release del frontend modular, fases 0-5)
 
+- feat(agent): nueva tool `product_movements` — movimientos de un artículo en un período (compras, ventas,
+  traspasos, ajustes y devoluciones a proveedor) con fila de saldo inicial y saldo acumulado, filtro por
+  ubicación y nota de descuadre contra el stock por lotes. 35 tools.
 - refactor(frontend): fase 5b — las consultas salen de los routers UI hacia repositorios/servicios y
   `UIContext` queda completo (campos perezosos `active_business_id`/`business_code`/`config`, todos a
   partir de `ctx.user`). `get_active_business_id` acepta `user=` opcional (sin cambios de lógica). Los

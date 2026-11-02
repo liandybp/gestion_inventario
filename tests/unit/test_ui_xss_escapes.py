@@ -105,3 +105,13 @@ def test_home_charts_json_cannot_break_out_of_script_tag() -> None:
     match = re.search(r'id="monthly-sales-pie-data">(.*?)</script>', html, re.S)
     assert match is not None
     assert json.loads(match.group(1))["labels"] == [f"SKU_XSS - {evil}"]
+
+
+def test_widget_table_note_is_escaped() -> None:
+    from app.routers.ui_common import templates
+
+    evil = '<script>alert("pm")</script>'
+    w = {"payload": {"columns": ["A"], "rows": [[1]], "note": evil}}
+    html = templates.get_template("features/agent/widget_table.html").render(w=w)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html

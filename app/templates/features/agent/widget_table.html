@@ -7,3 +7,4 @@
     {% if not (w.payload.get('rows') or []) %}<tr><td colspan="10" class="muted text-center">Sin resultados para el rango solicitado.</td></tr>{% endif %}
   </tbody>
 </table>
+{% if w.payload.get('note') %}<p class="muted">{{ w.payload.get('note') }}</p>{% endif %}

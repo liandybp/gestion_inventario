@@ -1,0 +1,7 @@
+app/agent/tools.py
+app/repositories/inventory_repository.py
+app/repositories/location_repository.py
+app/services/reporting_service.py
+tests/e2e/test_agent_product_movements_e2e.py
+tests/unit/test_agent_tools.py
+tests/unit/test_reporting_product_movements.py
