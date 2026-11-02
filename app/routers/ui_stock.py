@@ -69,7 +69,7 @@ def stock_table(
     deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
     return templates.TemplateResponse(
         request=request,
-        name="partials/stock_table.html",
+        name="features/stock/stock_table.html",
         context={
             "items": items,
             "user": user,
@@ -132,7 +132,7 @@ def stock_delete_product(
     deletable_skus = _deletable_skus(db, [i.sku for i in items], business_id=int(bid))
     response = templates.TemplateResponse(
         request=request,
-        name="partials/stock_table.html",
+        name="features/stock/stock_table.html",
         context={
             "items": items,
             "user": user,
@@ -216,7 +216,7 @@ def stock_delete_selected(
 
     response = templates.TemplateResponse(
         request=request,
-        name="partials/stock_table.html",
+        name="features/stock/stock_table.html",
         context={
             "items": items,
             "user": user,
@@ -321,7 +321,7 @@ def ui_supplier_return(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_inventory.html",
+        name="features/stock/tab_inventory.html",
         context={
             "locations": locations,
             "pos_locations": pos_locations,
@@ -402,7 +402,7 @@ def restock_table(
     items.sort(key=lambda r: float(getattr(r, "reorder_shortage", 0) or 0), reverse=True)
     return templates.TemplateResponse(
         request=request,
-        name="partials/restock_table.html",
+        name="features/stock/restock_table.html",
         context={
             "items": items,
             "selected_location_code": selected_location_code,

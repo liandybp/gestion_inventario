@@ -115,7 +115,7 @@ def transfer_edit_form(
         note_value = raw.split(":", 1)[1].strip()
     return templates.TemplateResponse(
         request=request,
-        name="partials/transfer_edit_form.html",
+        name="features/transfers/transfer_edit_form.html",
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -181,7 +181,7 @@ def transfer_update(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Error al actualizar traspaso",
@@ -252,7 +252,7 @@ def transfer_update(
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso actualizado",
@@ -311,7 +311,7 @@ def transfer_delete_selected(
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "No hay traspasos seleccionados",
@@ -374,7 +374,7 @@ def transfer_delete_selected(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_transfers.html",
+        name="features/transfers/tab_transfers.html",
         context={
             "user": user,
             "message": msg,
@@ -455,7 +455,7 @@ def transfer_delete(
         recent_transfer_in = service.movement_history(movement_type="transfer_in", start_date=None, end_date=None, limit=50)
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso eliminado",
@@ -480,7 +480,7 @@ def transfer_delete(
 
         response = templates.TemplateResponse(
             request=request,
-            name="partials/transfer_edit_form.html",
+            name="features/transfers/transfer_edit_form.html",
             context={
                 "movement": mv,
                 "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -576,7 +576,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Traspaso registrado",
@@ -619,7 +619,7 @@ async def create_transfer(request: Request, db: Session = Depends(session_dep)) 
         
         response = templates.TemplateResponse(
             request=request,
-            name="partials/tab_transfers.html",
+            name="features/transfers/tab_transfers.html",
             context={
                 "user": user,
                 "message": "Error en traspaso",
@@ -818,7 +818,7 @@ def transfer_bulk_modal(
     if from_code == to_code:
         return templates.TemplateResponse(
             request=request,
-            name="partials/transfer_bulk_modal.html",
+            name="features/transfers/transfer_bulk_modal.html",
             context={
                 "from_code": from_code,
                 "to_code": to_code,
@@ -866,7 +866,7 @@ def transfer_bulk_modal(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/transfer_bulk_modal.html",
+        name="features/transfers/transfer_bulk_modal.html",
         context={
             "from_code": from_code,
             "to_code": to_code,
@@ -924,7 +924,7 @@ async def transfer_bulk_execute(
                         checked_skus: set, quantities_map: dict, keep_open: bool) -> HTMLResponse:
         response = templates.TemplateResponse(
             request=request,
-            name="partials/transfer_bulk_modal.html",
+            name="features/transfers/transfer_bulk_modal.html",
             context={
                 "from_code": from_code,
                 "to_code": to_code,
@@ -1106,7 +1106,7 @@ def tab_transfers(
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_transfers.html",
+        name="features/transfers/tab_transfers.html",
         context={
             "user": user,
             "product_options": product_options,

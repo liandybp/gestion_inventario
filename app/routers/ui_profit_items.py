@@ -92,7 +92,7 @@ def _render_profit_items_tab(
         ]
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_profit_items.html",
+        name="features/profit_items/tab_profit_items.html",
         context={
             "user": user,
             "message": message,
@@ -151,7 +151,7 @@ def profit_items_adjustment_edit_form(
     product = db.get(Product, mv.product_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
             "kind": "adjustment",
             "movement": mv,
@@ -225,7 +225,7 @@ def profit_items_transfer_in_edit_form(
     product = db.get(Product, mv.product_id)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
             "kind": "transfer_in",
             "movement": mv,
@@ -311,7 +311,7 @@ def profit_items_sale_edit_form(
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
             "kind": "sale",
             "movement": mv,
@@ -507,7 +507,7 @@ def profit_items_purchase_edit_form(
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/profit_items_edit_form.html",
+        name="features/profit_items/profit_items_edit_form.html",
         context={
             "kind": "purchase",
             "movement": mv,

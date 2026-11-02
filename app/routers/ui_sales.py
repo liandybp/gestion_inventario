@@ -236,7 +236,7 @@ def sale(
                 )
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Venta registrada",
@@ -255,7 +255,7 @@ def sale(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error en venta",
@@ -336,7 +336,7 @@ def sale_barcode(
                 )
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Venta registrada",
@@ -354,7 +354,7 @@ def sale_barcode(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error en venta",
@@ -374,7 +374,7 @@ def sale_barcode(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error en venta",
@@ -410,7 +410,7 @@ def sale_edit_form(
     product_service = ProductService(db, business_id=bid)
     return templates.TemplateResponse(
         request=request,
-        name="partials/sale_edit_form.html",
+        name="features/sales/sale_edit_form.html",
         context={
             "movement": mv,
             "product_label": f"{product.sku} - {product.name}" if product else "",
@@ -463,7 +463,7 @@ def sale_update(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Venta actualizada",
@@ -482,7 +482,7 @@ def sale_update(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error al actualizar venta",
@@ -528,7 +528,7 @@ def sale_delete(
             db.commit()
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Venta eliminada",
@@ -546,7 +546,7 @@ def sale_delete(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar venta",
@@ -567,7 +567,7 @@ def sale_delete(
         user = ctx.user
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar venta",
@@ -604,7 +604,7 @@ def sale_delete_selected(
         if not ids:
             return templates.TemplateResponse(
                 request=request,
-                name="partials/sale_panel.html",
+                name="features/sales/sale_panel.html",
                 context={
                     "user": user,
                     "message": "No se seleccionó ninguna venta",
@@ -649,7 +649,7 @@ def sale_delete_selected(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": msg,
@@ -668,7 +668,7 @@ def sale_delete_selected(
     except HTTPException as e:
         return templates.TemplateResponse(
             request=request,
-            name="partials/sale_panel.html",
+            name="features/sales/sale_panel.html",
             context={
                 "user": user,
                 "message": "Error al eliminar ventas",
@@ -807,7 +807,7 @@ def tab_sales(
     ]
     return templates.TemplateResponse(
         request=request,
-        name="partials/tab_sales.html",
+        name="features/sales/tab_sales.html",
         context={
             "user": user,
             "sales": inventory_service.recent_sales(
