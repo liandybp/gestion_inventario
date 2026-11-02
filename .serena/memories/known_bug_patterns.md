@@ -56,3 +56,18 @@ OpenCode-authored PAE work, especially anything claiming a slice is "verde"/done
   `/health` matches `curl localhost:10000/health` on ai-lab-home.
 - **Theme tokens.** A color token that only exists in `:root` keeps its light value in dark mode. Chart.js axis
   text/lines come from `Chart.defaults` unless `applyChartDefaults()` sets them from `--chart-text`/`--chart-border`.
+
+## Refactors executed by cc_local: partial lots and silent signature errors (2026-11-02, phase 5b)
+
+- `cc_local_pae` marks a lot "OK" when tests pass and nothing outside its files changed. It does **not** check that
+  every envelope in the lot was applied: in phase 5b one lot shipped only the new repository methods while the
+  routers kept the old duplicated helpers, another lot deleted 147 lines of `ui_transfers.py`. Review each lot's diff
+  against its envelopes.
+- UI handlers are not all covered by tests: a call with the wrong signature (`_location_id_for_code(code, ctx)`,
+  `_render_profit_items_tab(request=..., db=...)`) passed the full suite. `pyflakes` catches undefined names only.
+- Removing a name from a module breaks every test that `monkeypatch.setattr`s it there (also multi-line and
+  string-path forms). Before removing, scan tests with AST, not line `grep`. Pattern used: patch
+  `ui_context.get_active_business_id` with `lambda _db, _req, **_kw: bid`; keep the old patch with `raising=False`
+  while the router still imports it.
+- New repository/service methods must not `commit()`; the router owns the transaction (cc_local moved a commit into
+  `CoachService.add_cash_baseline`).
