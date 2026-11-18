@@ -20,7 +20,7 @@ RIGHT_W = 87.3
 LABEL_W = 40.0
 ROW_H = 4.9
 PAGE_BOTTOM = 282.0
-FOOTER_H = 43.0
+FOOTER_GAP = 8.0
 BLUE_LIGHT = (220, 230, 241)
 BLUE_DARK = (17, 90, 156)
 
@@ -133,9 +133,13 @@ def _draw_title_bar(pdf: Any, y: float, doc_label: str) -> float:
     pdf.set_xy(MARGIN, y)
     pdf.cell(CONTENT_W / 2, 6.0, "DESTINATARIO:")
     pdf.set_xy(MARGIN + CONTENT_W / 2, y)
-    pdf.cell(CONTENT_W / 2, 6.0, _safe_pdf_text(doc_label.upper()), align="R")
-    _double_rule(pdf, y + 6.0)
-    return y + 8.0
+    pdf.multi_cell(
+        CONTENT_W / 2, 6.0, _safe_pdf_text(doc_label.upper()),
+        align="R", new_x="LEFT", new_y="NEXT",
+    )
+    title_bottom = pdf.get_y()
+    _double_rule(pdf, title_bottom)
+    return title_bottom + 2.0
 
 
 def _draw_client(pdf: Any, y: float, client_name: str, client_id: str, client_address: Optional[str]) -> float:
@@ -203,24 +207,34 @@ def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amou
     for item in items:
         description = _safe_pdf_text(str(item.get("description") or ""))
         unit = _safe_pdf_text(str(item.get("unit_of_measure") or ""))
+        quantity = format_quantity(item.get("quantity"))
         pdf.set_font("Helvetica", "", 8)
-        height = _count_lines(pdf, description, 78.0, 5.0) * 5.0
+        quantity_size = 8.0
+        while pdf.get_string_width(quantity) > 18.0 and quantity_size > 5.0:
+            quantity_size -= 0.5
+            pdf.set_font("Helvetica", "", quantity_size)
+
+        cells = (
+            (description, 78.0, "L", 8.0),
+            (unit, 20.0, "C", 8.0),
+            (quantity, 20.0, "C", quantity_size),
+            (format_amount(item.get("unit_price")), 30.0, "R", 8.0),
+            (format_amount(item.get("line_total")), 32.0, "R", 8.0),
+        )
+        line_count = 1
+        for text, width, _, size in cells:
+            pdf.set_font("Helvetica", "", size)
+            line_count = max(line_count, _count_lines(pdf, text, width, 5.0))
+        height = line_count * 5.0
         if y + height > PAGE_BOTTOM:
             pdf.add_page()
             y = _draw_table_header(pdf, MARGIN, price_label, amount_label)
-            pdf.set_font("Helvetica", "", 8)
-        pdf.set_xy(MARGIN, y)
-        pdf.multi_cell(78.0, 5.0, description, align="L", new_x="LEFT", new_y="NEXT")
-        cells = (
-            (unit, 20.0, "C"),
-            (format_quantity(item.get("quantity")), 20.0, "C"),
-            (format_amount(item.get("unit_price")), 30.0, "R"),
-            (format_amount(item.get("line_total")), 32.0, "R"),
-        )
-        x = MARGIN + 78.0
-        for text, width, align in cells:
+
+        x = MARGIN
+        for text, width, align, size in cells:
+            pdf.set_font("Helvetica", "", size)
             pdf.set_xy(x, y)
-            pdf.cell(width, 5.0, text, align=align)
+            pdf.multi_cell(width, 5.0, text, align=align, new_x="LEFT", new_y="NEXT")
             x += width
         y += height
     return y
@@ -230,7 +244,8 @@ def _draw_notes(pdf: Any, y: float, notes: str) -> float:
     text = _safe_pdf_text(notes)
     pdf.set_font("Helvetica", "", 8)
     height = 5.0 + _count_lines(pdf, text, CONTENT_W, 4.0) * 4.0
-    if y + height > PAGE_BOTTOM:
+    fits_on_fresh_page = height <= PAGE_BOTTOM - MARGIN
+    if y + 9.0 > PAGE_BOTTOM or (fits_on_fresh_page and y + height > PAGE_BOTTOM):
         pdf.add_page()
         y = MARGIN
     pdf.set_font("Helvetica", "B", 8)
@@ -238,8 +253,10 @@ def _draw_notes(pdf: Any, y: float, notes: str) -> float:
     pdf.cell(CONTENT_W, 5.0, "Notas:")
     pdf.set_font("Helvetica", "", 8)
     pdf.set_xy(MARGIN, y + 5.0)
+    pdf.set_auto_page_break(True, margin=pdf.h - PAGE_BOTTOM)
     pdf.multi_cell(CONTENT_W, 4.0, text, align="L", new_x="LEFT", new_y="NEXT")
-    return y + height
+    pdf.set_auto_page_break(False)
+    return pdf.get_y()
 
 
 def _bank_lines(
@@ -264,11 +281,10 @@ def _draw_footer(pdf: Any, y: float, bank_lines: list[str]) -> None:
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_xy(MARGIN, y)
     pdf.cell(85.0, 5.0, "FORMA DE PAGO")
-    left = ["Efectivo___", "Cheque___", "Transferencia Bancaria___", *bank_lines]
-    for index, text in enumerate(left, start=1):
-        fitted = _fit_text(pdf, _safe_pdf_text(text), 85.0, style="", start=8.0, minimum=6.0)
-        pdf.set_xy(MARGIN, y + 5.0 * index)
-        pdf.cell(85.0, 5.0, fitted)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_xy(MARGIN, y + 5.0)
+    for text in ("Efectivo___", "Cheque___", "Transferencia Bancaria___", *bank_lines):
+        pdf.multi_cell(85.0, 5.0, text, align="L", new_x="LEFT", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 8)
     pdf.set_xy(RIGHT_X, y)
@@ -348,10 +364,17 @@ def build_sales_document_pdf(
     if (notes or "").strip():
         y = _draw_notes(pdf, y + 2.0, str(notes))
 
-    y += 8.0
-    if y + (FOOTER_H - 8.0) > PAGE_BOTTOM:
+    bank_lines = [
+        _safe_pdf_text(line)
+        for line in _bank_lines(bank_name, bank_branch, bank_account, bank_account_currency)
+    ]
+    pdf.set_font("Helvetica", "", 8)
+    bank_height = sum(_count_lines(pdf, line, 85.0, 5.0) * 5.0 for line in bank_lines)
+    footer_height = max(25.0, 20.0 + bank_height)
+    y += FOOTER_GAP
+    if y + footer_height > PAGE_BOTTOM:
         pdf.add_page()
         y = MARGIN + 4.0
-    _draw_footer(pdf, y, _bank_lines(bank_name, bank_branch, bank_account, bank_account_currency))
+    _draw_footer(pdf, y, bank_lines)
 
     return bytes(pdf.output())
