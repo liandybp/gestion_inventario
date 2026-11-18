@@ -86,4 +86,15 @@ OpenCode-authored PAE work, especially anything claiming a slice is "verde"/done
   field) needs `ui_snapshot.py write tests/snapshots/baseline` in the same commit, or the deploy job never runs.
 - Business edit form: the single "Nombre" field writes both `Business.name` and `issuer_name` (the name printed
   on PDFs). `issuer_holder` (TCP) is read from the current business when the PDF is rendered, not snapshotted on
-  the document.
+  the document. Same for phone, email and bank data (0.5.2).
+- fpdf2 automatic page break: a custom `header()` that writes with `cell()` leaves the cursor at its own y, so the
+  content of the new page is drawn over the header. `SalesDocumentPDF.header()` must end with
+  `set_xy(MARGIN, MARGIN)` (found in the 0.5.2 review; regression test in `tests/unit/test_sales_doc_review_fixes.py`).
+- Sales-doc draft (`_set_draft`): every cart action re-posts the issue form via `hx-include`, so any field with a
+  computed default gets frozen in the session draft. Store only values the user chose (`_draft_valid_until`), and
+  recompute defaults on render.
+- Cart rows (`components/sales_doc/cart_table.html`): edited qty/price only reach the session cart via the row's
+  "Actualizar" button; "Emitir"/"Vista previa" use the session cart. Open bug (reported 2026-11-18): an edited price
+  is lost if the user issues without pressing "Actualizar".
+- A field read from the legacy `.conf` by `load_business_config` is dead unless `_backfill_business_config` copies it
+  to the DB (`.conf` is only read by that one-time backfill).

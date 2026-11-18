@@ -36,5 +36,11 @@
   `tests/unit/test_routers_no_orm.py`. El contexto de la petición es `UIContext` (`ctx.config`,
   `ctx.business_code`, `ctx.active_business_id`, `ctx.user`), creado en el cuerpo del handler con
   `ctx = ui_context(request, db)`. Los métodos de repositorio/servicio no hacen `commit()`.
+- Reglas únicas de documentos de venta (0.5.2): plazo de validez `parse_validity_days` (`app/business_config.py`,
+  0-365, defecto 15); fecha por defecto `default_valid_until` y validación `resolve_valid_until`
+  (`app/sales_documents_format.py`, funciones puras sin fpdf/ORM); longitudes de columnas de `businesses` con
+  `_fit_column` en `ui_businesses.py`. No duplicar estas reglas en routers o plantillas.
+- Errores que HTMX debe mostrar: 422 con `TemplateResponse` HTML (htmx solo hace swap de 4xx `text/html`), no
+  `HTTPException` (JSON).
 - Tests que parchean la resolución del negocio: `monkeypatch.setattr(ui_context, "get_active_business_id",
   lambda _db, _req, **_kw: bid)` (acepta `user=`); `require_active_business_id` ya no existe en `ui_context`.
