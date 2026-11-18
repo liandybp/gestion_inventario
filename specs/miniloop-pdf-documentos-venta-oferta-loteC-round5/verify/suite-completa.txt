@@ -1,0 +1,5 @@
+omitida: suite en verde en aaff12289e3eb2412ab077bda7f8ad9c58f0654d, sin cambios de código desde entonces
+specs/miniloop-pdf-documentos-venta-oferta-loteC-round4/verify/suite-completa.txt
+specs/miniloop-pdf-documentos-venta-oferta-loteC-round5/verify/codex-fix.log
+specs/miniloop-pdf-documentos-venta-oferta-loteC-round5/verify/codex-fix.md
+specs/pdf-documentos-venta-oferta/miniloop/loteC/suite_ok.json
