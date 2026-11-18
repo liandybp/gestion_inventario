@@ -2,10 +2,10 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "miniloop",
+  "fase": "escalado",
   "lote_actual": "B",
-  "exit": null,
-  "traspaso": null,
+  "exit": 3,
+  "traspaso": "Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta. El miniloop del lote B terminó con exit 3: dos rondas seguidas parchearon la misma zona: es una cuestión de diseño (ADR-026).\nparada por repetición en la ronda 5: app/routers/ui_sales_documents.py::sales_doc_preview\nver /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/miniloop/loteB/resumen.txt\nHistorial en specs/pdf-documentos-venta-oferta/miniloop/loteB/resumen.txt. Al resolverlo, relanza con: cc_pae_loop /home/liandy/PyCharmMiscProject/gestion_inventario specs/pdf-documentos-venta-oferta/tasks.md --lots B,C,D",
   "lotes": {
     "A": {
       "estado": "escalado",
@@ -21,12 +21,17 @@
       }
     },
     "B": {
-      "estado": "verde",
+      "estado": "escalado",
       "intento": 1,
       "base": "723d70fd469a3b64a0c9f238e019217252e95736",
       "head": null,
       "parada": null,
-      "miniloop": null
+      "miniloop": {
+        "tag": "loteB",
+        "exit": 3,
+        "rondas": 5,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteB/resumen.txt"
+      }
     }
   }
 }
