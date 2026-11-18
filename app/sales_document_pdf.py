@@ -19,6 +19,7 @@ RIGHT_X = 107.7
 RIGHT_W = 87.3
 LABEL_W = 40.0
 ROW_H = 4.9
+TABLE_HEADER_HEIGHT = 7.5
 PAGE_BOTTOM = 282.0
 FOOTER_GAP = 8.0
 BLUE_LIGHT = (220, 230, 241)
@@ -35,6 +36,10 @@ def _safe_pdf_text(value: str) -> str:
     except Exception:
         return ""
 
+
+def _fold_field_lines(value: Optional[str]) -> str:
+    """Convierte los saltos de línea de un campo en espacios para ajustarlo al ancho de su bloque."""
+    return " ".join((value or "").splitlines())
 
 def _fit_text(pdf: Any, text: str, width: float, style: str = "B", start: float = 9.0, minimum: float = 6.0) -> str:
     """Fija la fuente en el mayor tamaño (de `start` a `minimum`, pasos de 0,5 pt) en que `text` cabe en
@@ -199,11 +204,13 @@ def _draw_table_header(pdf: Any, y: float, price_label: str, amount_label: str) 
         pdf.cell(width, 5.0, _safe_pdf_text(label), align=align)
         x += width
     _double_rule(pdf, y + 5.2)
-    return y + 7.5
+    return y + TABLE_HEADER_HEIGHT
 
 
 def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amount_label: str) -> float:
-    """Una fila por línea. Una fila nunca se parte entre dos páginas; la tabla repite su cabecera en la nueva."""
+    """Mantiene juntas las filas que caben en una página y repite la cabecera en cada continuación."""
+    line_height = 5.0
+    page_capacity = int((PAGE_BOTTOM - MARGIN - TABLE_HEADER_HEIGHT) // line_height)
     for item in items:
         description = _safe_pdf_text(str(item.get("description") or ""))
         unit = _safe_pdf_text(str(item.get("unit_of_measure") or ""))
@@ -221,22 +228,30 @@ def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amou
             (format_amount(item.get("unit_price")), 30.0, "R", 8.0),
             (format_amount(item.get("line_total")), 32.0, "R", 8.0),
         )
-        line_count = 1
-        for text, width, _, size in cells:
+        wrapped_cells = []
+        for text, width, align, size in cells:
             pdf.set_font("Helvetica", "", size)
-            line_count = max(line_count, _count_lines(pdf, text, width, 5.0))
-        height = line_count * 5.0
-        if y + height > PAGE_BOTTOM:
+            lines = pdf.multi_cell(width, line_height, text, dry_run=True, output="LINES")
+            wrapped_cells.append((lines, width, align, size))
+
+        line_count = max(1, max(len(lines) for lines, _, _, _ in wrapped_cells))
+        if y + min(line_count, page_capacity) * line_height > PAGE_BOTTOM:
             pdf.add_page()
             y = _draw_table_header(pdf, MARGIN, price_label, amount_label)
 
-        x = MARGIN
-        for text, width, align, size in cells:
-            pdf.set_font("Helvetica", "", size)
-            pdf.set_xy(x, y)
-            pdf.multi_cell(width, 5.0, text, align=align, new_x="LEFT", new_y="NEXT")
-            x += width
-        y += height
+        for start in range(0, line_count, page_capacity):
+            if start:
+                pdf.add_page()
+                y = _draw_table_header(pdf, MARGIN, price_label, amount_label)
+            stop = min(start + page_capacity, line_count)
+            x = MARGIN
+            for lines, width, align, size in wrapped_cells:
+                pdf.set_font("Helvetica", "", size)
+                for index, line in enumerate(lines[start:stop]):
+                    pdf.set_xy(x, y + index * line_height)
+                    pdf.cell(width, line_height, line, align=align)
+                x += width
+            y += (stop - start) * line_height
     return y
 
 
@@ -338,15 +353,17 @@ def build_sales_document_pdf(
 
     band_bottom = _draw_header(
         pdf,
-        issuer_name=issuer_name,
-        issuer_holder=issuer_holder,
-        issuer_tax_id=issuer_tax_id,
-        issuer_address=issuer_address,
-        issuer_phone=issuer_phone,
-        issuer_email=issuer_email,
+        issuer_name=_fold_field_lines(issuer_name),
+        issuer_holder=_fold_field_lines(issuer_holder),
+        issuer_tax_id=_fold_field_lines(issuer_tax_id),
+        issuer_address=_fold_field_lines(issuer_address),
+        issuer_phone=_fold_field_lines(issuer_phone),
+        issuer_email=_fold_field_lines(issuer_email),
     )
     y = _draw_title_bar(pdf, band_bottom + 2.0, doc_label)
-    client_end = _draw_client(pdf, y, client_name, client_id, client_address)
+    client_end = _draw_client(
+        pdf, y, _fold_field_lines(client_name), _fold_field_lines(client_id), _fold_field_lines(client_address),
+    )
 
     doc_end = _draw_label_row(pdf, y, f"No. {doc_label}:", code)
     doc_end = _draw_label_row(pdf, doc_end, f"Fecha de {doc_label.lower()}:", format_doc_date(issue_date))
@@ -365,7 +382,7 @@ def build_sales_document_pdf(
         y = _draw_notes(pdf, y + 2.0, str(notes))
 
     bank_lines = [
-        _safe_pdf_text(line)
+        _safe_pdf_text(_fold_field_lines(line))
         for line in _bank_lines(bank_name, bank_branch, bank_account, bank_account_currency)
     ]
     pdf.set_font("Helvetica", "", 8)

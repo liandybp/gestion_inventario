@@ -331,6 +331,11 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         # negocio sin POS: un default_pos sobrante del .conf no debe sobrevivir
         default_pos = ""
 
+    try:
+        quote_validity_days = int(get("sales_documents", "quote_validity_days", "15"))
+    except ValueError:
+        quote_validity_days = 15
+    quote_validity_days = max(0, min(365, quote_validity_days))
     cfg = BusinessConfig(
         issuer=IssuerConfig(
             name=get("issuer", "name", "Mi Negocio"),
@@ -356,7 +361,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             enabled_types=parse_enabled_types(get("sales_documents", "enabled_types", "F,P")),
             invoice_label=get("sales_documents", "invoice_label", "Factura"),
             quote_label=get("sales_documents", "quote_label", "Presupuesto"),
-            quote_validity_days=get("sales_documents", "quote_validity_days", "15"),
+            quote_validity_days=quote_validity_days,
         ),
         dividends=DividendsConfig(
             business_label=get("dividends", "business_label", "Negocio"),
