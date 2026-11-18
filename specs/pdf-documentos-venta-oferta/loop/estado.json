@@ -47,12 +47,17 @@
       }
     },
     "D": {
-      "estado": "verde",
+      "estado": "convergido",
       "intento": 1,
       "base": "0c7c54486097af7a3711fdb1274da99c96ec8e3a",
-      "head": null,
+      "head": "39b2a363dd5ffa2778f9606e0035df2a8ebe78ff",
       "parada": null,
-      "miniloop": null
+      "miniloop": {
+        "tag": "loteD",
+        "exit": 0,
+        "rondas": 1,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteD/resumen.txt"
+      }
     }
   }
 }
