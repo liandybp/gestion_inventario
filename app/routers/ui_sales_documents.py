@@ -292,7 +292,7 @@ def sales_doc_preview(
             "total": total,
             "currency_code": selected_currency_code,
             "valid_until_label": format_doc_date(valid_until_date),
-            "valid_until_iso": valid_until_date.isoformat() if valid_until_date and valid_until.strip() else "",
+            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
             "currency_symbol": selected_currency_symbol,
         },
     )
