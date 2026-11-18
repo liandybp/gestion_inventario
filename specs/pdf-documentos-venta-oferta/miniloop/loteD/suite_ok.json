@@ -1,0 +1,1 @@
+{"sha": "84a27c616ae00332e90298d254fc4106efb0dea4", "cmd": "SESSION_SECRET=test DATABASE_URL=sqlite+pysqlite:///:memory: ADMIN_USERNAME=admin ADMIN_PASSWORD=test OPERATOR_USERNAME=operator OPERATOR_PASSWORD=test sh -c '.venv/bin/python tests/snapshots/ui_snapshot.py check tests/snapshots/baseline && .venv/bin/python -m pytest tests/unit -q --override-ini=\"addopts=\"'"}
