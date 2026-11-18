@@ -1,0 +1,264 @@
+exit 1
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________________ test_quote_pdf_follows_oferta_design[chromium] ________________
+
+live_server = 'http://127.0.0.1:32989'
+page = <Page url='http://127.0.0.1:32989/ui/dashboard'>
+
+    def test_quote_pdf_follows_oferta_design(live_server: str, page: Page) -> None:
+        _login(page, live_server)
+    
+        # 1. El admin guarda teléfono, email, datos bancarios y plazo de validez del negocio.
+>       _open_business_edit(page)
+
+tests/e2e/test_sales_doc_pdf_oferta_e2e.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:32989/ui/dashboard'>
+
+    def _open_business_edit(page: Page) -> None:
+        page.click("#tab-businesses")
+        page.locator('tr:has(code:text-is("recambios")) button[title="Editar negocio"]').click()
+>       expect(page.locator("#edit-issuer-bank-account")).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: None
+E       Error: element(s) not found 
+E       Call log:
+E         - Expect "to_be_visible" with timeout 5000ms
+E         - waiting for locator("#edit-issuer-bank-account")
+E       
+E       Aria snapshot:
+E       - complementary:
+E         - heading "Dashboard" [level=2]
+E         - text: "admin Negocio: Recambios"
+E         - combobox:
+E           - option "Bazar Mariela"
+E           - option "Recambios" [selected]
+E           - option "Ropa"
+E         - button "Cambiar tema": 🌓
+E         - link "Cerrar sesión":
+E           - /url: /ui/logout
+E         - navigation "Secciones":
+E           - button "Inicio"
+E           - button "Dashboard Dinámico"
+E           - button "Inventario"
+E           - button "Compras"
+E           - button "Traspasos"
+E           - button "Coach"
+E           - button "Ventas"
+E           - button "Documentos"
+E           - button "Clientes"
+E           - button "Costos operativos"
+E           - button "Utilidades por artículo"
+E           - button "Utilidades"
+E           - button "Dividendos"
+E           - button "Historial"
+E           - button "Usuarios"
+E           - button "Negocios"
+E           - button "Actividad"
+E       - main:
+E         - heading "Gestión de Negocios" [level=1]
+E         - heading "Crear Nuevo Negocio" [level=2]
+E         - text: Datos del Negocio Código *
+E         - textbox "Código *":
+E           - /placeholder: mi_negocio
+E         - text: Código único (sin espacios, usar guiones bajos) Nombre *
+E         - textbox "Nombre *":
+E           - /placeholder: Mi Negocio
+E         - text: Nombre comercial → [issuer] name Datos del Emisor [issuer] Titular (TCP)
+E         - textbox "Titular (TCP)"
+E         - text: "Aparece como \"TCP: …\" en la cabecera de los documentos NIT / Tax ID"
+E         - textbox "NIT / Tax ID":
+E           - /placeholder: J-12345678-9
+E         - text: "Ej: J-12345678-9 Dirección"
+E         - textbox "Dirección":
+E           - /placeholder: Av. Principal, Edif. Centro, Piso 2
+E         - text: "Ej: Av. Principal, Edif. Centro, Piso 2 Ciudad"
+E         - textbox "Ciudad":
+E           - /placeholder: Caracas
+E         - text: "Ej: Caracas Código Postal"
+E         - textbox "Código Postal":
+E           - /placeholder: "1010"
+E         - text: "Ej: 1010 País"
+E         - textbox "País":
+E           - /placeholder: Venezuela
+E         - text: "Ej: Venezuela Email"
+E         - textbox "Email":
+E           - /placeholder: contacto@minegocio.com
+E         - text: "Ej: contacto@minegocio.com Teléfono"
+E         - textbox "Teléfono":
+E           - /placeholder: +58 212 555-1234
+E         - text: "Ej: +58 212 555-1234 Moneda [currency] Código *"
+E         - textbox "Código *": USD
+E         - text: "Ej: USD, EUR, VES Símbolo *"
+E         - textbox "Símbolo *": $
+E         - text: "Ej: $, €, Bs. Compras [purchase] Moneda origen facturas"
+E         - textbox "Moneda origen facturas": EUR
+E         - text: "Ej: EUR (moneda en que vienen las facturas de proveedores) Tasa IVA"
+E         - textbox "Tasa IVA": "1.21"
+E         - text: "Ej: 1.21 (= 21% IVA). Usar punto decimal Tasa de cambio"
+E         - textbox "Tasa de cambio":
+E           - /placeholder: "1.15"
+E         - text: "Ej: 1.15 (1 EUR = 1.15 USD). Vacío = sin conversión Documentos de Venta [sales_documents] Tipo por defecto"
+E         - combobox "Tipo por defecto":
+E           - option "F — Factura" [selected]
+E           - option "P — Presupuesto"
+E         - text: Tipo de documento seleccionado al crear uno nuevo Tipos habilitados
+E         - textbox "Tipos habilitados": F,P
+E         - text: "Ej: F,P (separados por coma, sin espacios) Label Factura"
+E         - textbox "Label Factura": Factura
+E         - text: "Ej: Factura, Invoice Label Presupuesto"
+E         - textbox "Label Presupuesto": Presupuesto
+E         - text: "Ej: Presupuesto, Quote Dividendos [dividends] Label del negocio"
+E         - textbox "Label del negocio": Negocio
+E         - text: "Ej: Negocio, Business (cómo se llama en el reparto de dividendos) Socios"
+E         - textbox "Socios": Liandy, Randy
+E         - text: "Ej: Liandy, Randy (nombres separados por coma) Saldo pendiente inicial"
+E         - textbox "Saldo pendiente inicial":
+E           - /placeholder: "{\"Negocio\": 1375, \"Liandy\": 2715}"
+E         - text: "Ej: {\"Negocio\": 1375, \"Liandy\": 2715} (JSON) Fecha saldo pendiente"
+E         - textbox "Fecha saldo pendiente":
+E           - /placeholder: 2026-02-01
+E         - text: "Ej: 2026-02-01 (YYYY-MM-DD) Ubicaciones [locations] Almacén CENTRAL *"
+E         - textbox "Almacén CENTRAL *": CENTRAL:Almacén Central
+E         - text: "Ej: CENTRAL:Almacén Central (código:nombre) Puntos de venta (POS)"
+E         - textbox "Puntos de venta (POS)"
+E         - text: "Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...) · vacío si no hay POS POS por defecto"
+E         - textbox "POS por defecto"
+E         - text: "Ej: POS1 (código del POS seleccionado por defecto en ventas) Inventario [inventory] Lead time de reposición (días)"
+E         - spinbutton "Lead time de reposición (días)": "25"
+E         - text: "Ej: 25 (días desde que se pide hasta que se recibe la mercancía)"
+E         - button "Crear Negocio"
+E         - heading "Negocios Existentes" [level=2]
+E         - table:
+E           - rowgroup:
+E             - row "Código Nombre Creado Acciones":
+E               - columnheader "Código"
+E               - columnheader "Nombre"
+E               - columnheader "Creado"
+E               - columnheader "Acciones"
+E           - rowgroup:
+E             - row "bazar Bazar Mariela 18/11/2026 ✏️ Editar 🗑️ Eliminar":
+E               - cell "bazar":
+E                 - code: bazar
+E               - cell "Bazar Mariela":
+E                 - strong: Bazar Mariela
+E               - cell "18/11/2026"
+E               - cell "✏️ Editar 🗑️ Eliminar":
+E                 - button "✏️ Editar"
+E                 - button "🗑️ Eliminar"
+E             - row "recambios Recambios 18/11/2026 ✏️ Editar 🗑️ Eliminar":
+E               - cell "recambios":
+E                 - code: recambios
+E               - cell "Recambios":
+E                 - strong: Recambios
+E               - cell "18/11/2026"
+E               - cell "✏️ Editar 🗑️ Eliminar":
+E                 - button "✏️ Editar"
+E                 - button "🗑️ Eliminar"
+E             - row "ropa Ropa 18/11/2026 ✏️ Editar 🗑️ Eliminar":
+E               - cell "ropa":
+E                 - code: ropa
+E               - cell "Ropa":
+E                 - strong: Ropa
+E               - cell "18/11/2026"
+E               - cell "✏️ Editar 🗑️ Eliminar":
+E                 - button "✏️ Editar"
+E                 - button "🗑️ Eliminar"
+E       - heading "Editar Negocio" [level=2]
+E       - button "Cerrar": ×
+E       - text: Datos del Negocio Código *
+E       - textbox "Código *": recambios
+E       - text: Código único (sin espacios, usar guiones bajos) Nombre *
+E       - textbox "Nombre *": Recambios
+E       - text: Nombre comercial → [issuer] name Datos del Emisor [issuer] Titular (TCP)
+E       - textbox "Titular (TCP)": Randy Manuel Delgado
+E       - text: "Aparece como \"TCP: …\" en la cabecera de los documentos NIT / Tax ID"
+E       - textbox "NIT / Tax ID": "01030573448"
+E       - text: "Ej: J-12345678-9 Dirección"
+E       - textbox "Dirección"
+E       - text: "Ej: Av. Principal, Edif. Centro, Piso 2 Ciudad"
+E       - textbox "Ciudad"
+E       - text: "Ej: Caracas Código Postal"
+E       - textbox "Código Postal"
+E       - text: "Ej: 1010 País"
+E       - textbox "País"
+E       - text: "Ej: Venezuela Email"
+E       - textbox "Email"
+E       - text: "Ej: contacto@minegocio.com Teléfono"
+E       - textbox "Teléfono"
+E       - text: "Ej: +58 212 555-1234 Moneda [currency] Código *"
+E       - textbox "Código *": USD
+E       - text: "Ej: USD, EUR, VES Símbolo *"
+E       - textbox "Símbolo *": $
+E       - text: "Ej: $, €, Bs. Compras [purchase] Moneda origen facturas"
+E       - textbox "Moneda origen facturas": EUR
+E       - text: "Ej: EUR (moneda en que vienen las facturas de proveedores) Tasa IVA"
+E       - textbox "Tasa IVA": "1.21"
+E       - text: "Ej: 1.21 (= 21% IVA). Usar punto decimal Tasa de cambio"
+E       - textbox "Tasa de cambio": "1.15"
+E       - text: "Ej: 1.15 (1 EUR = 1.15 USD). Vacío = sin conversión Documentos de Venta [sales_documents] Tipo por defecto"
+E       - combobox "Tipo por defecto":
+E         - option "F — Factura" [selected]
+E         - option "P — Presupuesto"
+E       - text: Tipo de documento seleccionado al crear uno nuevo Tipos habilitados
+E       - textbox "Tipos habilitados": F,P
+E       - text: "Ej: F,P (separados por coma, sin espacios) Label Factura"
+E       - textbox "Label Factura": Factura
+E       - text: "Ej: Factura, Invoice Label Presupuesto"
+E       - textbox "Label Presupuesto": Presupuesto
+E       - text: "Ej: Presupuesto, Quote Dividendos [dividends] Label del negocio"
+E       - textbox "Label del negocio": Negocio
+E       - text: "Ej: Negocio, Business (cómo se llama en el reparto de dividendos) Socios"
+E       - textbox "Socios": Liandy, Randy
+E       - text: "Ej: Liandy, Randy (nombres separados por coma) Saldo pendiente inicial"
+E       - textbox "Saldo pendiente inicial": "{\"Liandy\": 2715.0, \"Negocio\": 1375.0, \"Randy\": 0.0}"
+E       - text: "Ej: {\"Negocio\": 1375, \"Liandy\": 2715} (JSON) Fecha saldo pendiente"
+E       - textbox "Fecha saldo pendiente": 2026-01-01
+E       - text: "Ej: 2026-02-01 (YYYY-MM-DD) Ubicaciones [locations] Almacén CENTRAL *"
+E       - textbox "Almacén CENTRAL *": CENTRAL:Almacén Central
+E       - text: "Ej: CENTRAL:Almacén Central (código:nombre) Puntos de venta (POS)"
+E       - textbox "Puntos de venta (POS)": POS1:Punto de venta Playa, POS2:Taller Boyeros, POS3:Taller Cerro
+E       - text: "Ej: POS1:Tienda Playa, POS2:Taller Boyeros (código:nombre, código:nombre, ...) · vacío si no hay POS POS por defecto"
+E       - textbox "POS por defecto": POS1
+E       - text: "Ej: POS1 (código del POS seleccionado por defecto en ventas) Inventario [inventory] Lead time de reposición (días)"
+E       - spinbutton "Lead time de reposición (días)": "25.0"
+E       - text: "Ej: 25 (días desde que se pide hasta que se recibe la mercancía)"
+E       - button "Guardar Cambios"
+E       - button "Cancelar"
+
+tests/e2e/test_sales_doc_pdf_oferta_e2e.py:44: AssertionError
+__________________ test_invoice_pdf_has_no_due_date[chromium] __________________
+
+live_server = 'http://127.0.0.1:41965'
+page = <Page url='http://127.0.0.1:41965/ui/dashboard'>
+
+    def test_invoice_pdf_has_no_due_date(live_server: str, page: Page) -> None:
+        _login(page, live_server)
+        page.click("#tab-documents")
+        expect(page.locator("#sales-doc-panel")).to_be_visible()
+        issue = page.locator("form#sales-doc-issue-form")
+        issue.locator('select[name="doc_type"]').select_option("F")
+        _fill_client(page)
+        _add_item(page, "E2E-SKU1", "10", 1)
+    
+        text, _graphics, _body = _issue_and_read_pdf(page, live_server)
+    
+        assert "FACTURA" in text
+>       assert "No. Factura:" in text
+E       AssertionError: assert 'No. Factura:' in 'DyB Autopartes\nTCP: Randy Manuel Delgado\nNIT: 01030573448\nFACTURA\nCódigo: F202611180001\nFecha: 2026-11-18\nClien...ón: E2E-OFERTA-1\nDescripción Cant. Precio Total\nProducto E2E Uno 1.00 10.00 10.00\nSubtotal: 10.00\nTotal: USD 10.00'
+
+tests/e2e/test_sales_doc_pdf_oferta_e2e.py:178: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/e2e/test_sales_doc_pdf_oferta_e2e.py::test_quote_pdf_follows_oferta_design[chromium]
+FAILED tests/e2e/test_sales_doc_pdf_oferta_e2e.py::test_invoice_pdf_has_no_due_date[chromium]
+2 failed, 1 warning in 11.16s
+
