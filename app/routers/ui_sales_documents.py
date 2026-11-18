@@ -399,8 +399,10 @@ async def sales_doc_update(
     if (doc.doc_type or "").strip().upper() == "P":
         raw_valid_until = form.get("valid_until")
         try:
+            if raw_valid_until is not None and not isinstance(raw_valid_until, str):
+                raise ValueError("El vencimiento debe ser texto")
             new_valid_until = resolve_valid_until(
-                raw_valid_until if isinstance(raw_valid_until, str) else "",
+                raw_valid_until,
                 doc_type="P",
                 issue_date=doc.issue_date,
                 validity_days=int(config.sales_documents.quote_validity_days),
