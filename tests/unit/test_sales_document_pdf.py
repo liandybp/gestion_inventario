@@ -223,8 +223,12 @@ def test_long_table_repeats_its_header_and_keeps_the_footer_whole() -> None:
 
     assert len(page_texts) >= 2
     assert all("CONCEPTO" in t and "PRECIO CUP" in t for t in page_texts)
-    assert sum(t.count("FORMA DE PAGO") for t in page_texts) == 1
-    assert "FORMA DE PAGO" in page_texts[-1]
+    for label in (
+        "FORMA DE PAGO", "Efectivo", "Cheque", "Transferencia Bancaria",
+        "Banco Metropolitano, Sucursal 248", "No. Cuenta (CUP): 0598770024085419",
+        "Recibido por:", "Cargo:", "Firma:", "Fecha: _",
+    ):
+        assert page_texts[-1].count(label) == 1, label
+        assert all(label not in text for text in page_texts[:-1]), label
     row_numbers = [int(number) for text in page_texts for number in re.findall(r"Artículo (\d+)\b", text)]
     assert row_numbers == list(range(1, 61))
-    assert all(t.count("Recibido por:") <= 1 for t in page_texts)

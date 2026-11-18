@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date, datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import func, select
@@ -131,13 +131,15 @@ def test_issue_invoice_ignores_a_garbage_due_date(db_session) -> None:
 def test_issue_form_shows_the_default_due_date_and_keeps_the_typed_one(db_session, business_id) -> None:
     db_session.get(Business, business_id).sales_quote_validity_days = 15
     db_session.commit()
-    default = (_today() + timedelta(days=15)).isoformat()
+    default = "2026-12-03"
 
     shown_default = _issue(db_session, _request([dict(CART_LINE)]), doc_type="P", valid_until="31/12/2026")
     assert f'name="valid_until" value="{default}"' not in _body(shown_default)
     assert 'name="valid_until" value="31/12/2026"' in _body(shown_default)
 
-    empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
+    with patch("app.routers.ui_common.datetime", wraps=datetime) as clock:
+        clock.now.return_value = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+        empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
     assert f'name="valid_until" value="{default}"' in _body(empty_draft)
 
 
