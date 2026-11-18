@@ -1,0 +1,2 @@
+ronda 1: limpio (suite omitida: 84a27c616a)
+convergió en la ronda 1
