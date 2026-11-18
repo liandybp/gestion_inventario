@@ -2,7 +2,7 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "implementando",
+  "fase": "miniloop",
   "lote_actual": "D",
   "exit": null,
   "traspaso": null,
@@ -47,7 +47,7 @@
       }
     },
     "D": {
-      "estado": "implementando",
+      "estado": "verde",
       "intento": 1,
       "base": "0c7c54486097af7a3711fdb1274da99c96ec8e3a",
       "head": null,
