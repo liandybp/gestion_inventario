@@ -250,3 +250,33 @@ def test_detached_payment_and_signature_page_identifies_the_document() -> None:
     assert "Documento: P202611180001" in signature_page
     assert "FORMA DE PAGO" in signature_page
     assert "Firma:" in signature_page
+
+
+def test_table_header_moves_with_a_tall_first_row() -> None:
+    lines = [f"L{i:02d}" for i in range(49)]
+    items = [{"description": "\n".join(lines), "quantity": 1, "unit_price": 2, "line_total": 2}]
+    pdf_bytes = build_sales_document_pdf(**_kwargs(items=items, subtotal=2, total=2))
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        first_page, table_page, *_ = [page.extract_text() for page in pdf.pages]
+
+    assert "DESTINATARIO:" in first_page
+    assert "CONCEPTO" not in first_page
+    assert "CONCEPTO" in table_page
+    assert re.findall(r"\bL\d{2}\b", table_page) == lines
+
+
+def test_wide_currency_code_stays_inside_each_table_column() -> None:
+    currency = "WWWWWWWW"
+    pdf_bytes = build_sales_document_pdf(**_kwargs(currency_code=currency))
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page = pdf.pages[0]
+        points_per_mm = page.width / 210
+        quantity = page.within_bbox((113 * points_per_mm, 0, 133 * points_per_mm, page.height))
+        price = page.within_bbox((133 * points_per_mm, 0, 163 * points_per_mm, page.height))
+        amount = page.within_bbox((163 * points_per_mm, 0, 195 * points_per_mm, page.height))
+
+        assert "CANTIDAD" in quantity.extract_text()
+        assert f"PRECIO {currency}" in price.extract_text()
+        assert f"IMPORTE {currency}" in amount.extract_text()

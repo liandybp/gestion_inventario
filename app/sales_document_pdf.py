@@ -197,11 +197,11 @@ def _columns(price_label: str, amount_label: str) -> tuple[tuple[str, float, str
 
 
 def _draw_table_header(pdf: Any, y: float, price_label: str, amount_label: str) -> float:
-    pdf.set_font("Helvetica", "B", 8)
     x = MARGIN
     for label, width, align in _columns(price_label, amount_label):
+        text = _fit_text(pdf, _safe_pdf_text(label), width, start=8.0, minimum=5.0)
         pdf.set_xy(x, y)
-        pdf.cell(width, 5.0, _safe_pdf_text(label), align=align)
+        pdf.cell(width, 5.0, text, align=align)
         x += width
     _double_rule(pdf, y + 5.2)
     return y + TABLE_HEADER_HEIGHT
@@ -211,6 +211,7 @@ def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amou
     """Mantiene juntas las filas que caben en una página y repite la cabecera en cada continuación."""
     line_height = 5.0
     page_capacity = int((PAGE_BOTTOM - MARGIN - TABLE_HEADER_HEIGHT) // line_height)
+    header_pending = True
     for item in items:
         description = _safe_pdf_text(str(item.get("description") or ""))
         unit = _safe_pdf_text(str(item.get("unit_of_measure") or ""))
@@ -235,9 +236,14 @@ def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amou
             wrapped_cells.append((lines, width, align, size))
 
         line_count = max(1, max(len(lines) for lines, _, _, _ in wrapped_cells))
-        if y + min(line_count, page_capacity) * line_height > PAGE_BOTTOM:
+        header_height = TABLE_HEADER_HEIGHT if header_pending else 0.0
+        if y + header_height + min(line_count, page_capacity) * line_height > PAGE_BOTTOM:
             pdf.add_page()
-            y = _draw_table_header(pdf, MARGIN, price_label, amount_label)
+            y = MARGIN
+            header_pending = True
+        if header_pending:
+            y = _draw_table_header(pdf, y, price_label, amount_label)
+            header_pending = False
 
         for start in range(0, line_count, page_capacity):
             if start:
@@ -252,6 +258,8 @@ def _draw_rows(pdf: Any, y: float, items: Iterable[dict], price_label: str, amou
                     pdf.cell(width, line_height, line, align=align)
                 x += width
             y += (stop - start) * line_height
+    if header_pending:
+        return _draw_table_header(pdf, y, price_label, amount_label)
     return y
 
 
@@ -381,8 +389,7 @@ def build_sales_document_pdf(
 
     price_label = currency_column_label("PRECIO", currency_code)
     amount_label = currency_column_label("IMPORTE", currency_code)
-    y = _draw_table_header(pdf, max(client_end, totals_end) + 6.0, price_label, amount_label)
-    y = _draw_rows(pdf, y, items, price_label, amount_label)
+    y = _draw_rows(pdf, max(client_end, totals_end) + 6.0, items, price_label, amount_label)
     _double_rule(pdf, y + 0.5)
     y += 3.0
 
