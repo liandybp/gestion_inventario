@@ -409,7 +409,17 @@ async def sales_doc_update(
             )
         except ValueError:
             _log.info("valid_until rechazado: %r", raw_valid_until)
-            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+            return templates.TemplateResponse(
+                request=request,
+                name="features/sales_documents/_valid_until_error.html",
+                context={},
+                status_code=422,
+                headers={
+                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
+                    "HX-Reswap": "innerHTML",
+                    "X-Modal-Keep": "1",
+                },
+            )
 
     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
     doc.customer_id = customer.id
