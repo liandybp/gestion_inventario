@@ -160,6 +160,23 @@ caducidad FEFO) → P1 → P2 → P3.
 
 ## Estado actual
 
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
+      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
+      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
+      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
+      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
+      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
+      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
+      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
+      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
+      el mismo lote que las plantillas (lección de 0.5.1).
+      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
+        generarse (como el TCP), no del documento emitido.
+      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
+        moneda nuevas en el selector del carrito.
+
 - [x] **0.5.1 — cabecera TCP/NIT en facturas y presupuestos (2026-11-18, sesión 25, directo en `develop`)** — campo
       nuevo `businesses.issuer_holder` (`IssuerConfig.holder`, "Titular (TCP)" en *Negocios → Crear/Editar*; columna
       añadida de forma idempotente por `_BUSINESS_CONFIG_COLS`). El PDF imprime `TCP: …` y `NIT: …` (antes "ID

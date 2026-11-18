@@ -1,0 +1,27 @@
+page 595.2 841.8
+rect x0=24.5 top=64.5 w=509.9 h=68.2 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=149.4 w=247.1 h=15.2 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=164.5 w=247.1 h=14.0 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=178.4 w=247.1 h=14.5 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=192.8 w=247.1 h=14.0 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=206.7 w=247.1 h=14.0 fill=True color=(0.863, 0.902, 0.945) stroke=0
+rect x0=287.2 top=234.5 w=247.1 h=14.0 fill=True color=(0.0667, 0.353, 0.612) stroke=0
+rect x0=287.2 top=248.4 w=247.1 h=14.0 fill=True color=(0.0667, 0.353, 0.612) stroke=0
+rect x0=391.9 top=101.8 w=118.4 h=0.7 fill=True color=(0.0, 0.0, 1.0) stroke=(0.0, 0.0, 1.0)
+rect x0=24.5 top=148.0 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+rect x0=24.5 top=149.9 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+rect x0=24.5 top=289.2 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+rect x0=24.5 top=291.1 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+rect x0=24.5 top=337.8 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+rect x0=24.5 top=339.7 w=509.9 h=1.0 fill=True color=0.0 stroke=0
+font ('BCDHEE+ArialMT', 7.7, '(0.0,)') 263
+font ('BCDFEE+Calibri-Bold', 9.6, '(0.0,)') 258
+font ('BCDEEE+Calibri', 10.6, '(0.0,)') 184
+font ('BCDGEE+Arial-BoldMT', 7.7, '(0.0,)') 116
+font ('BCDEEE+Calibri', 8.7, '(0.0,)') 108
+font ('BCDJEE+Aharoni', 7.7, '(0.0,)') 58
+font ('BCDFEE+Calibri-Bold', 8.7, '(0.0,)') 35
+font ('BCDIEE+Aharoni,Bold', 10.6, '(0.0,)') 28
+font ('BCDEEE+Calibri', 10.6, '(0.0, 0.0, 1.0)') 22
+font ('BCDKEE+Arial-Black', 10.6, '(0.0,)') 19
+font ('BCDFEE+Calibri-Bold', 10.6, '(1.0,)') 16

@@ -1,0 +1,63 @@
+{
+  "slug": "pdf-documentos-venta-oferta",
+  "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
+  "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
+  "fase": "escalado",
+  "lote_actual": null,
+  "exit": 3,
+  "traspaso": "Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta. Todos los lotes convergieron, pero la pasada final del miniloop sobre 695ec4beaa...HEAD terminó con exit 3: dos rondas seguidas parchearon la misma zona: es una cuestión de diseño (ADR-026).\nparada por repetición en la ronda 2: app/sales_document_pdf.py::build_sales_document_pdf\nver /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/miniloop/final/resumen.txt\nHistorial en specs/pdf-documentos-venta-oferta/miniloop/final/resumen.txt.",
+  "lotes": {
+    "A": {
+      "estado": "escalado",
+      "intento": 1,
+      "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
+      "head": null,
+      "parada": null,
+      "miniloop": {
+        "tag": "loteA",
+        "exit": 3,
+        "rondas": 2,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt"
+      }
+    },
+    "B": {
+      "estado": "escalado",
+      "intento": 1,
+      "base": "723d70fd469a3b64a0c9f238e019217252e95736",
+      "head": null,
+      "parada": null,
+      "miniloop": {
+        "tag": "loteB",
+        "exit": 3,
+        "rondas": 5,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteB/resumen.txt"
+      }
+    },
+    "C": {
+      "estado": "convergido",
+      "intento": 1,
+      "base": "4ddd0f3da8c4c91d8241443f8fb10f484b7ef801",
+      "head": "192fa08adbe9572021bd6c800916d35158c20a1c",
+      "parada": "verificación en rojo: tests: FAIL (exit 1)\n  última línea:   from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer\nalcance: 4 ficheros desde 1fa01e493a\n  tests/unit/test_business_bank_fields.py, tests/unit/test_sales_doc_valid_until.py, tests/unit/test_sales_document_pdf.py, tests/unit/test_sales_documents_format.py\npyflakes: PASS — 0 nombres indefinidos nuevos\nevidencia: /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/verify/loteC.{test,lint,diff}.txt",
+      "miniloop": {
+        "tag": "loteC",
+        "exit": 0,
+        "rondas": 5,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteC/resumen.txt"
+      }
+    },
+    "D": {
+      "estado": "convergido",
+      "intento": 1,
+      "base": "0c7c54486097af7a3711fdb1274da99c96ec8e3a",
+      "head": "39b2a363dd5ffa2778f9606e0035df2a8ebe78ff",
+      "parada": null,
+      "miniloop": {
+        "tag": "loteD",
+        "exit": 0,
+        "rondas": 1,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteD/resumen.txt"
+      }
+    }
+  }
+}

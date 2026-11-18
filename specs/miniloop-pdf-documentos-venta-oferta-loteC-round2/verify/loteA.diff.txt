@@ -1,0 +1,2 @@
+specs/pdf-documentos-venta-oferta/tasks.md
+tests/unit/test_sales_document_pdf.py

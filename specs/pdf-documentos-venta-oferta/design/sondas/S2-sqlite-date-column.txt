@@ -1,0 +1,6 @@
+OLD None
+NEW datetime.date(2026, 12, 3)
+issue+15d 2026-12-03
+'2026-12-03' 2026-12-03
+'' ValueError Invalid isoformat string: ''
+'03/12/2026' ValueError Invalid isoformat string: '03/12/2026'

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -42,6 +43,11 @@ class Business(Base):
     issuer_country: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     issuer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     issuer_phone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Datos bancarios del negocio (bloque "Forma de pago" del PDF de facturas/presupuestos).
+    issuer_bank_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    issuer_bank_branch: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    issuer_bank_account: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    issuer_bank_account_currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     # currency
     currency_code: Mapped[str] = mapped_column(String(8), default="EUR", server_default="EUR")
     currency_symbol: Mapped[str] = mapped_column(String(8), default="€", server_default="€")
@@ -54,6 +60,8 @@ class Business(Base):
     sales_enabled_types: Mapped[str] = mapped_column(String(16), default="F,P", server_default="F,P")
     sales_invoice_label: Mapped[str] = mapped_column(String(64), default="Factura", server_default="Factura")
     sales_quote_label: Mapped[str] = mapped_column(String(64), default="Presupuesto", server_default="Presupuesto")
+    # Plazo de validez por defecto de un presupuesto, en días (0-365).
+    sales_quote_validity_days: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
     # dividends
     dividends_business_label: Mapped[str] = mapped_column(String(64), default="Negocio", server_default="Negocio")
     dividends_partners: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -163,6 +171,9 @@ class SalesDocument(Base):
 
     currency_code: Mapped[str] = mapped_column(String(8), default="EUR", server_default="EUR")
     currency_symbol: Mapped[str] = mapped_column(String(8), default="€", server_default="€")
+
+    # Fecha de vencimiento: solo presupuestos (P). NULL en facturas y en presupuestos anteriores.
+    valid_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     subtotal: Mapped[float] = mapped_column(Numeric(14, 4, asdecimal=False), default=0, server_default="0")

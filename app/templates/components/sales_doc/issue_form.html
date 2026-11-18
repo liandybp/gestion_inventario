@@ -27,6 +27,10 @@
     <div class="row"><label>Cliente (ID)</label>{{ text_input('sales-doc-client-id', 'client_id', draft.client_id or '') }}</div>
     <div class="row"><label>Dirección (opcional)</label>{{ text_input('sales-doc-client-address', 'client_address', draft.client_address or '') }}</div>
     <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ draft.notes or '' }}" /></div>
+    <div class="row">
+      <label for="sales-doc-issue-valid-until">Vencimiento (solo presupuesto)</label>
+      <input id="sales-doc-issue-valid-until" type="date" name="valid_until" value="{{ draft.valid_until or default_valid_until(sales_doc_config.quote_validity_days) }}" />
+    </div>
     <div class="flex gap-10 flex-wrap items-center">
       <button type="button"
               hx-post="/ui/sales-doc/preview"

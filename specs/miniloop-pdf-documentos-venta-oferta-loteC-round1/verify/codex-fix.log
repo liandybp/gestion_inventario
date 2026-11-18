@@ -1,0 +1,2963 @@
+Reading additional input from stdin...
+OpenAI Codex v0.166.0
+--------
+workdir: /home/liandy/PyCharmMiscProject/gestion_inventario
+model: gpt-6.2-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1f0b8-8954-7e52-b6b8-b03c3a816f43
+--------
+user
+Revisa SOLO los cambios de 'git diff 4ddd0f3da8c4c91d8241443f8fb10f484b7ef801...889abfc50254f5a57fb0d36a34004f13cc9d70fe -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'' en este repo (ejecuta el diff tú mismo con el
+shell disponible, no asumas su contenido). No modifiques ningún fichero — sigues en solo lectura.
+
+Hallazgos ya detectados que debes corregir, además de revisar el resto del diff por tu cuenta:
+Contexto del lote: este diff es el lote C (T20–T23, líneas 1940–2841) del PAE `specs/pdf-documentos-venta-oferta/tasks.md`. Lee esos envelopes con `sed -n '<inicio>,<fin>p' specs/pdf-documentos-venta-oferta/tasks.md` antes de juzgar el diff.
+
+Estos lotes todavía NO se han aplicado: lote D (T24–T26, líneas 2844–2982). Lee también sus envelopes y no reportes como bug algo que uno de ellos ya cubre.
+
+El lote C NO cerró. cc_local_pae paró con este informe:
+verificación en rojo: tests: FAIL (exit 1)
+  última línea:   from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+alcance: 4 ficheros desde 1fa01e493a
+  tests/unit/test_business_bank_fields.py, tests/unit/test_sales_doc_valid_until.py, tests/unit/test_sales_document_pdf.py, tests/unit/test_sales_documents_format.py
+pyflakes: PASS — 0 nombres indefinidos nuevos
+evidencia: /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/verify/loteC.{test,lint,diff}.txt
+Evidencia: specs/pdf-documentos-venta-oferta/verify/loteC.* (léela tú mismo). Corrige lo necesario para que el lote C cierre: puedes corregir el código o los envelopes del lote en `specs/pdf-documentos-venta-oferta/tasks.md` (op: replace sobre el bloque exacto). Si el fallo es del envelope (BEFORE que no coincide, instrucción ambigua), corrige el envelope; si es del código, corrige el código. Al converger se vuelve a verificar el lote y a auditar que el código y sus envelopes cc_local coinciden.
+
+No toques `tests/e2e/test_sales_doc_pdf_oferta_e2e.py`: es el contrato del Lote 0 y está protegido.
+
+Para cada bug real (no de estilo) que encuentres, y para cada hallazgo de la lista de arriba si la hay:
+decide la corrección tú mismo, sin pedir confirmación — aquí tienes autoridad completa, incluso si la
+corrección implica cambiar un diseño existente (mover una función a otro módulo, cambiar un contrato).
+
+Si decides que hace falta corregir algo, termina tu respuesta con un bloque:
+
+```tasks-md
+Lotes: **A** T1-T<n>
+
+### T<n>: <título>
+**Apply:** script
+**Files:** `<ruta>`
+
+#### Instructions
+
+````pae-edit
+file: <ruta>
+op: <operación>
+...
+````
+
+#### Verification
+
+```bash
+<comando>
+```
+```
+
+(formato completo en /home/liandy/.local/share/harness-loop/pae-edit-format.md: léelo con 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' antes de escribir el bloque;
+no existe dentro del repo revisado). Usa Apply: cc_local solo si el cambio no se puede expresar como pae-edit literal.
+
+Si no encuentras nada que corregir, dilo explícitamente ('SIN HALLAZGOS') y NO incluyas ningún bloque
+tasks-md.
+
+Al final, lista los ficheros que SÍ revisaste.
+codex
+Voy a ejecutar el diff con las exclusiones indicadas y contrastarlo con los envelopes de los lotes C y D y la evidencia de verificación.
+exec
+/usr/bin/zsh -lc "sed -n '2844,2982p' specs/pdf-documentos-venta-oferta/tasks.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+### T24: Subir la versión a 0.5.2 (PATCH)
+
+**Depends on:** T23
+**Skill:** release-manager
+**Apply:** script
+**Files:** `VERSION`, `.bumpversion.cfg`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `VERSION` y `.bumpversion.cfg`. La versión pasa de `0.5.1` a `0.5.2`. Es un incremento PATCH, no MINOR.
+
+#### Instructions
+
+````pae-edit
+file: VERSION
+op: replace
+@@ before
+0.5.1
+@@ after
+0.5.2
+````
+
+````pae-edit
+file: .bumpversion.cfg
+op: replace
+@@ before
+current_version = 0.5.1
+@@ after
+current_version = 0.5.2
+````
+
+#### Verification
+
+`cat VERSION` imprime `0.5.2` y `grep -n "current_version = 0.5.2" .bumpversion.cfg` encuentra una línea.
+
+#### Expected Report
+
+- [ ] `VERSION` y `.bumpversion.cfg` en 0.5.2
+- [ ] Ningún otro fichero modificado
+
+### T25: Entrada de 0.5.2 en `CHANGELOG.md`
+
+**Depends on:** T24
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CHANGELOG.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CHANGELOG.md`. Añade la sección `0.5.2` encima de la sección `0.5.1`.
+
+#### Instructions
+
+````pae-edit
+file: CHANGELOG.md
+op: insert_before
+@@ anchor
+## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
+@@ content
+## 0.5.2 (2026-11-18 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA")
+
+- feat(sales-docs): el PDF de facturas y presupuestos sigue el diseño de la plantilla de referencia: banda de
+  cabecera azul clara con emisor (nombre, TCP, NIT) y contacto con iconos vectoriales de teléfono y email, barra
+  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
+  en presupuestos), fila `Subtotal:` y caja `TOTAL:`, tabla `CONCEPTO | UNIDADES | CANTIDAD | PRECIO | IMPORTE` con
+  separador de miles y cabecera repetida en cada página, y pie con `FORMA DE PAGO` (datos bancarios) y
+  `Recibido por / Cargo / Firma / Fecha`. Las columnas de importe llevan la moneda elegida al construir el
+  documento (`GEN` se muestra como `CUP`). Fechas `dd/mm/aaaa`.
+- feat(businesses): *Negocios → Crear/Editar* guarda banco, sucursal, número de cuenta y moneda de la cuenta
+  (`issuer_bank_*`, con `maxlength` 128/64/64/8 y recorte en el servidor) y el plazo de validez de presupuestos
+  (`sales_quote_validity_days`, 0-365, por defecto 15). Columnas añadidas de forma idempotente al arrancar.
+- feat(sales-docs): campo `valid_until` (fecha de vencimiento) en `sales_documents`, solo para presupuestos. El
+  formulario de emisión la rellena con hoy + plazo de validez y se puede cambiar; sobrevive a los cambios del
+  carrito; se muestra en la vista previa y se edita en el modal de edición. Una fecha inválida devuelve un 422 HTML
+  ("Fecha de vencimiento inválida") sin crear ni modificar nada. Los documentos anteriores siguen generando PDF.
+- test: unit del formato, del PDF (leído con pdfplumber), de los handlers y de los datos del negocio; e2e del flujo
+  completo (negocio → presupuesto en `GEN` → PDF; factura sin vencimiento); baselines de snapshots regeneradas.
+````
+
+#### Verification
+
+`grep -n "## 0.5.2" CHANGELOG.md` encuentra una línea y `grep -n "## 0.5.1" CHANGELOG.md` sigue encontrando la suya.
+
+#### Expected Report
+
+- [ ] `CHANGELOG.md` modificado con la sección 0.5.2 encima de la 0.5.1
+- [ ] Ningún otro fichero modificado
+
+### T26: Estado actual en `CLAUDE.md` (raíz)
+
+**Depends on:** T25
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CLAUDE.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CLAUDE.md` (raíz del repo). Añade la entrada de 0.5.2 al principio de la sección "Estado actual". No edites `.claude/CLAUDE.md`: lo aplica Claude Code en la revisión (envelope manual M1 del PAE).
+
+#### Instructions
+
+````pae-edit
+file: CLAUDE.md
+op: insert_after
+@@ anchor
+## Estado actual
+@@ content
+
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
+      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
+      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
+      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
+      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
+      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
+      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
+      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
+      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
+      el mismo lote que las plantillas (lección de 0.5.1).
+      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
+        generarse (como el TCP), no del documento emitido.
+      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
+        moneda nuevas en el selector del carrito.
+````
+
+#### Verification
+
+`grep -n "0.5.2 — PDF de facturas" CLAUDE.md` encuentra una línea y `grep -c "^## Estado actual" CLAUDE.md` imprime `1`.
+
+#### Expected Report
+
+- [ ] `CLAUDE.md` modificado con la entrada 0.5.2 bajo "Estado actual"
+- [ ] Ningún otro fichero modificado
+
+
+
+exec
+/usr/bin/zsh -lc "sed -n '1940,2841p' specs/pdf-documentos-venta-oferta/tasks.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+### T20: Tests de las funciones puras de formato y vencimiento
+
+**Depends on:** T19
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_documents_format.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_documents_format.py` con las tablas de casos de REQ-3 y REQ-6 y los formatos de REQ-5.
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_documents_format.py
+op: create
+@@ content
+"""Funciones puras de formato y de fecha de vencimiento (REQ-3, REQ-5, REQ-6)."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+
+import pytest
+
+from app.sales_documents_format import (
+    INVALID_VALID_UNTIL,
+    currency_column_label,
+    format_amount,
+    format_doc_date,
+    format_quantity,
+    resolve_valid_until,
+)
+
+ISSUE = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "code,label",
+    [
+        ("GEN", "IMPORTE CUP"),
+        (" gen ", "IMPORTE CUP"),
+        ("USD", "IMPORTE USD"),
+        ("eur", "IMPORTE EUR"),
+        ("", "IMPORTE"),
+        (None, "IMPORTE"),
+    ],
+)
+def test_currency_column_label_import(code, label) -> None:
+    assert currency_column_label("IMPORTE", code) == label
+
+
+def test_currency_column_label_price() -> None:
+    assert currency_column_label("PRECIO", "usd") == "PRECIO USD"
+    assert currency_column_label("PRECIO", "GEN") == "PRECIO CUP"
+    assert currency_column_label("PRECIO", None) == "PRECIO"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [(303875, "303,875.00"), (490875.0, "490,875.00"), (1234.5, "1,234.50"), (0, "0.00"), (None, "0.00")],
+)
+def test_format_amount(value, expected) -> None:
+    assert format_amount(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (1.0, "1"),
+        (2.5, "2.5"),
+        (0.0001, "0.0001"),
+        (1234567.0, "1,234,567"),
+        (10.0, "10"),
+        (3.1, "3.1"),
+        (0, "0"),
+        (None, "0"),
+    ],
+)
+def test_format_quantity(value, expected) -> None:
+    assert format_quantity(value) == expected
+
+
+def test_format_doc_date() -> None:
+    assert format_doc_date(date(2026, 12, 3)) == "03/12/2026"
+    assert format_doc_date(datetime(2026, 1, 2, 23, 59, tzinfo=timezone.utc)) == "02/01/2026"
+    assert format_doc_date(None) == ""
+
+
+def test_resolve_valid_until_default_is_issue_date_plus_validity_days() -> None:
+    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 3)
+    assert resolve_valid_until(None, doc_type="P", issue_date=ISSUE, validity_days=0) == date(2026, 11, 18)
+
+
+def test_resolve_valid_until_accepts_chosen_date() -> None:
+    assert resolve_valid_until("2026-12-31", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 31)
+    assert resolve_valid_until("2026-11-18", doc_type="p", issue_date=ISSUE, validity_days=15) == date(2026, 11, 18)
+
+
+@pytest.mark.parametrize("raw", ["2026-12-31", "garbage", "", None])
+def test_resolve_valid_until_invoice_is_always_none(raw) -> None:
+    assert resolve_valid_until(raw, doc_type="F", issue_date=ISSUE, validity_days=15) is None
+
+
+@pytest.mark.parametrize("raw", ["31/12/2026", "2026-11-17", "2026-13-40", "20261231", "abc"])
+def test_resolve_valid_until_rejects_invalid_values(raw) -> None:
+    with pytest.raises(ValueError, match=INVALID_VALID_UNTIL):
+        resolve_valid_until(raw, doc_type="P", issue_date=ISSUE, validity_days=15)
+
+
+def test_resolve_valid_until_keep_mode_returns_current() -> None:
+    assert resolve_valid_until(
+        "", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
+    ) == date(2026, 12, 3)
+    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=None) is None
+    assert resolve_valid_until(
+        "2026-12-20", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
+    ) == date(2026, 12, 20)
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_documents_format.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_documents_format.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T21: Tests del PDF (texto leído con pdfplumber)
+
+**Depends on:** T20
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_document_pdf.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_document_pdf.py`. Cada test genera un PDF con `build_sales_document_pdf` y lee su texto con pdfplumber (REQ-5, REQ-6, REQ-7, REQ-8).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_document_pdf.py
+op: create
+@@ content
+"""PDF de documentos de venta con el diseño OFERTA (REQ-5, REQ-6, REQ-7, REQ-8)."""
+
+from __future__ import annotations
+
+import io
+import re
+from datetime import date, datetime, timezone
+
+import pdfplumber
+
+from app.sales_document_pdf import build_sales_document_pdf
+
+ITEMS = [
+    {"description": "Pastillas de freno", "unit_of_measure": "JGO", "quantity": 1, "unit_price": 303875, "line_total": 303875},
+    {"description": "Filtro de aceite", "unit_of_measure": "U", "quantity": 1, "unit_price": 187000, "line_total": 187000},
+]
+
+
+def _kwargs(**overrides) -> dict:
+    base = dict(
+        doc_type="P",
+        doc_label="Presupuesto",
+        code="P202611180001",
+        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
+        valid_until=date(2026, 12, 3),
+        currency_code="GEN",
+        issuer_name="DyB Autopartes",
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_address="Calle 1 entre 2 y 3, Playa",
+        issuer_phone="54664732 / 50781349",
+        issuer_email="autosandero@gmail.com",
+        bank_name="Banco Metropolitano",
+        bank_branch="248",
+        bank_account="0598770024085419",
+        bank_account_currency="CUP",
+        client_name="Cliente Prueba",
+        client_id="B244742",
+        client_address=None,
+        items=ITEMS,
+        subtotal=490875.0,
+        total=490875.0,
+        notes=None,
+    )
+    base.update(overrides)
+    return base
+
+
+def _read(pdf_bytes: bytes) -> tuple[str, list]:
+    assert pdf_bytes.startswith(b"%PDF")
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        pages = list(pdf.pages)
+        text = "\n".join((p.extract_text() or "") for p in pages)
+        curves = [len(p.curves) + len(p.images) for p in pages]
+    return text, curves
+
+
+def test_complete_quote_pdf() -> None:
+    text, graphics = _read(build_sales_document_pdf(**_kwargs()))
+
+    for expected in (
+        "DyB Autopartes",
+        "TCP Randy Manuel Delgado",
+        "NIT 01030573448",
+        "54664732 / 50781349",
+        "autosandero@gmail.com",
+        "DESTINATARIO:",
+        "PRESUPUESTO",
+        "No. Presupuesto:",
+        "P202611180001",
+        "Fecha de presupuesto:",
+        "18/11/2026",
+        "Fecha de vencimiento:",
+        "03/12/2026",
+        "Subtotal:",
+        "TOTAL:",
+        "490,875.00",
+        "CONCEPTO",
+        "UNIDADES",
+        "CANTIDAD",
+        "PRECIO CUP",
+        "IMPORTE CUP",
+        "FORMA DE PAGO",
+        "Efectivo",
+        "Cheque",
+        "Transferencia Bancaria",
+        "Banco Metropolitano, Sucursal 248",
+        "No. Cuenta (CUP): 0598770024085419",
+        "Recibido por:",
+        "Cargo:",
+        "Firma:",
+        "Fecha:",
+    ):
+        assert expected in text, expected
+    assert re.search(r"Pastillas de freno\s+JGO\s+1\s+303,875\.00\s+303,875\.00", text), text
+    assert re.search(r"Filtro de aceite\s+U\s+1\s+187,000\.00\s+187,000\.00", text), text
+    assert graphics[0] > 0  # iconos de teléfono y email
+
+
+def test_old_design_is_gone() -> None:
+    text, _ = _read(build_sales_document_pdf(**_kwargs()))
+
+    for old in ("Código:", "ID fiscal", "Tel.:", "(Precios sin IVA)"):
+        assert old not in text, old
+
+
+def test_no_phone_and_no_email_means_no_icons() -> None:
+    text, graphics = _read(build_sales_document_pdf(**_kwargs(issuer_phone=None, issuer_email=None)))
+
+    assert graphics == [0]
+    assert "54664732" not in text
+    assert "autosandero" not in text
+
+
+def test_without_bank_data_the_payment_block_has_no_bank_lines() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(
+            **_kwargs(bank_name=None, bank_branch=None, bank_account=None, bank_account_currency=None)
+        )
+    )
+
+    assert "FORMA DE PAGO" in text
+    assert "Sucursal" not in text
+    assert "No. Cuenta" not in text
+
+
+def test_bank_line_without_branch_and_account_without_currency() -> None:
+    text, _ = _read(build_sales_document_pdf(**_kwargs(bank_branch=None, bank_account_currency=None)))
+
+    assert "Banco Metropolitano" in text
+    assert "Sucursal" not in text
+    assert "No. Cuenta: 0598770024085419" in text
+
+
+def test_currency_labels() -> None:
+    gen, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="GEN")))
+    usd, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="USD")))
+    eur, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="eur")))
+    none, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="")))
+
+    assert "PRECIO CUP" in gen and "IMPORTE CUP" in gen
+    assert "GEN" not in gen
+    assert "PRECIO USD" in usd and "IMPORTE USD" in usd
+    assert "PRECIO EUR" in eur and "IMPORTE EUR" in eur
+    assert "PRECIO IMPORTE" in none
+    assert "CUP" not in none.split("FORMA DE PAGO")[0]
+
+
+def test_invoice_uses_the_same_design_without_due_date() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(
+            **_kwargs(doc_type="F", doc_label="Factura", code="F202611180002", valid_until=None)
+        )
+    )
+
+    for expected in ("FACTURA", "No. Factura:", "Fecha de factura:", "FORMA DE PAGO", "Recibido por:", "DESTINATARIO:"):
+        assert expected in text, expected
+    assert "Fecha de vencimiento" not in text
+
+
+def test_old_quote_without_due_date_nor_units_still_renders() -> None:
+    items = [{"description": "Servicio", "unit_of_measure": None, "quantity": 1, "unit_price": 10, "line_total": 10}]
+    text, _ = _read(
+        build_sales_document_pdf(**_kwargs(valid_until=None, items=items, subtotal=10.0, total=10.0))
+    )
+
+    assert "Fecha de vencimiento:" in text
+    assert re.search(r"Fecha de vencimiento:\s*\d{2}/\d{2}/\d{4}", text) is None
+    assert re.search(r"Servicio\s+1\s+10\.00\s+10\.00", text), text
+
+
+def test_quantity_keeps_up_to_four_decimals_and_thousands_separator() -> None:
+    items = [
+        {"description": "Aceite", "unit_of_measure": "L", "quantity": 0.0001, "unit_price": 5, "line_total": 0.0005},
+        {"description": "Tornillos", "unit_of_measure": "ud", "quantity": 1234567, "unit_price": 1, "line_total": 1234567},
+        {"description": "Cable", "unit_of_measure": "m", "quantity": 2.5, "unit_price": 4, "line_total": 10},
+    ]
+    text, _ = _read(build_sales_document_pdf(**_kwargs(items=items)))
+
+    assert re.search(r"Aceite\s+L\s+0\.0001\s+5\.00", text), text
+    assert re.search(r"Tornillos\s+ud\s+1,234,567\s+1\.00\s+1,234,567\.00", text), text
+    assert re.search(r"Cable\s+m\s+2\.5\s+4\.00\s+10\.00", text), text
+
+
+def test_notes_and_non_latin1_text_do_not_break_the_pdf() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(**_kwargs(client_name="Ñandú 日本", notes="Entrega en 3 días hábiles."))
+    )
+
+    assert "Notas:" in text
+    assert "Entrega en 3 días hábiles." in text
+    assert "Ñandú" in text
+
+
+def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
+    long_label = "Presupuesto extraordinario de verano 2026"
+    long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
+    text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
+
+    assert long_label.upper() in text
+    assert "Avenida de los Libertadores" in text
+    assert "..." in text  # la etiqueta del bloque documento se corta con "..." al llegar a 6 pt
+
+
+def test_long_table_repeats_its_header_and_keeps_the_footer_whole() -> None:
+    items = [
+        {"description": f"Artículo {i} con una descripción larga para ocupar espacio en la tabla del documento",
+         "unit_of_measure": "ud", "quantity": 2, "unit_price": 10, "line_total": 20}
+        for i in range(1, 61)
+    ]
+    pdf_bytes = build_sales_document_pdf(**_kwargs(items=items, subtotal=1200.0, total=1200.0))
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page_texts = [(p.extract_text() or "") for p in pdf.pages]
+
+    assert len(page_texts) >= 2
+    assert all("CONCEPTO" in t and "PRECIO CUP" in t for t in page_texts)
+    assert sum(t.count("FORMA DE PAGO") for t in page_texts) == 1
+    assert "FORMA DE PAGO" in page_texts[-1]
+    assert sum(t.count("Artículo 60 ") for t in page_texts) == 1
+    assert all(t.count("Recibido por:") <= 1 for t in page_texts)
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_document_pdf.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_document_pdf.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T22: Tests de los handlers de documentos con `valid_until`
+
+**Depends on:** T21
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_doc_valid_until.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_doc_valid_until.py`. Los tests llaman a los handlers `sales_doc_issue`, `sales_doc_preview`, `sales_doc_update`, `sales_doc_cart_add`, `sales_doc_cart_update`, `sales_doc_cart_remove` y `sales_doc_cart_clear` con un `Request` simulado (REQ-3, REQ-4).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_doc_valid_until.py
+op: create
+@@ content
+"""Fecha de vencimiento en los handlers de documentos de venta (REQ-3, REQ-4)."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from sqlalchemy import func, select
+
+from app.models import Business, Location, SalesDocument, SalesDocumentItem
+from app.routers import ui_context as _uc
+from app.routers.ui_sales_documents import (
+    _get_draft,
+    sales_doc_cart_add,
+    sales_doc_cart_clear,
+    sales_doc_cart_remove,
+    sales_doc_cart_update,
+    sales_doc_issue,
+    sales_doc_preview,
+    sales_doc_update,
+)
+
+ERROR = "Fecha de vencimiento inválida"
+CART_LINE = {"sku": None, "description": "Pastillas", "unit_of_measure": "JGO", "quantity": 1.0, "unit_price": 10.0}
+
+
+def _today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+@pytest.fixture(autouse=True)
+def _active_business(db_session, business_id, monkeypatch) -> None:
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
+    db_session.add(Location(business_id=business_id, code="TEST_CENTRAL", name="Central", role="central", is_default=True))
+    db_session.commit()
+
+
+def _request(cart: list[dict] | None = None, draft: dict | None = None) -> MagicMock:
+    req = MagicMock()
+    req.session = {}
+    if cart is not None:
+        req.session["sales_doc_cart"] = cart
+    if draft is not None:
+        req.session["sales_doc_draft"] = draft
+    return req
+
+
+def _form(**over) -> dict:
+    data = dict(
+        doc_type="P",
+        location_code="TEST_CENTRAL",
+        client_name="Cliente A",
+        client_id="C-1",
+        client_address="",
+        notes="",
+        currency_code="USD",
+        valid_until="",
+    )
+    data.update(over)
+    return data
+
+
+def _issue(db, req, **over):
+    return sales_doc_issue(request=req, db=db, **_form(**over))
+
+
+def _documents(db) -> list[SalesDocument]:
+    return list(db.scalars(select(SalesDocument).order_by(SalesDocument.id)))
+
+
+def _body(response) -> str:
+    return response.body.decode("utf-8")
+
+
+def test_issue_quote_with_chosen_due_date(db_session) -> None:
+    chosen = _today() + timedelta(days=40)
+
+    response = _issue(db_session, _request([dict(CART_LINE)]), valid_until=chosen.isoformat())
+
+    assert response.status_code == 200
+    (doc,) = _documents(db_session)
+    assert doc.doc_type == "P"
+    assert doc.valid_until == chosen
+
+
+def test_issue_quote_with_empty_due_date_uses_issue_date_plus_validity(db_session, business_id) -> None:
+    db_session.get(Business, business_id).sales_quote_validity_days = 20
+    db_session.commit()
+
+    _issue(db_session, _request([dict(CART_LINE)]), valid_until="")
+
+    (doc,) = _documents(db_session)
+    assert doc.valid_until == doc.issue_date.date() + timedelta(days=20)
+
+
+def test_issue_invoice_never_stores_due_date(db_session) -> None:
+    _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until=(_today() + timedelta(days=40)).isoformat())
+
+    (doc,) = _documents(db_session)
+    assert doc.doc_type == "F"
+    assert doc.valid_until is None
+
+
+@pytest.mark.parametrize("bad", ["31/12/2026", "no-es-fecha", (_today() - timedelta(days=1)).isoformat()])
+def test_issue_quote_with_invalid_due_date_returns_422_html_and_keeps_everything(db_session, bad) -> None:
+    req = _request([dict(CART_LINE)])
+
+    response = _issue(db_session, req, valid_until=bad, notes="Nota importante", client_name="Cliente B", client_id="C-2")
+
+    assert response.status_code == 422
+    assert response.media_type == "text/html"
+    assert ERROR in _body(response)
+    assert _documents(db_session) == []
+    assert req.session["sales_doc_cart"] == [CART_LINE]
+    draft = _get_draft(req)
+    assert draft["valid_until"] == bad
+    assert draft["client_name"] == "Cliente B"
+    assert draft["notes"] == "Nota importante"
+    assert db_session.scalar(select(func.count()).select_from(SalesDocument)) == 0
+
+
+def test_issue_invoice_ignores_a_garbage_due_date(db_session) -> None:
+    response = _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until="31/12/2026")
+
+    assert response.status_code == 200
+    assert len(_documents(db_session)) == 1
+
+
+def test_issue_form_shows_the_default_due_date_and_keeps_the_typed_one(db_session, business_id) -> None:
+    db_session.get(Business, business_id).sales_quote_validity_days = 15
+    db_session.commit()
+    default = (_today() + timedelta(days=15)).isoformat()
+
+    shown_default = _issue(db_session, _request([dict(CART_LINE)]), doc_type="P", valid_until="31/12/2026")
+    assert f'name="valid_until" value="{default}"' not in _body(shown_default)
+    assert 'name="valid_until" value="31/12/2026"' in _body(shown_default)
+
+    empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
+    assert f'name="valid_until" value="{default}"' in _body(empty_draft)
+
+
+def test_cart_handlers_keep_the_due_date_in_the_draft(db_session) -> None:
+    chosen = "2099-12-31"
+
+    req = _request()
+    sales_doc_cart_add(
+        request=req, db=db_session, product="", description="Pastillas", quantity="1", unit_price="10",
+        **_form(valid_until=chosen),
+    )
+    assert _get_draft(req)["valid_until"] == chosen
+    assert len(req.session["sales_doc_cart"]) == 1
+
+    req.session["sales_doc_draft"] = {}
+    sales_doc_cart_update(
+        request=req, db=db_session, index=0, description="Pastillas", quantity="2", unit_price="10",
+        **_form(valid_until=chosen),
+    )
+    assert _get_draft(req)["valid_until"] == chosen
+
+    req.session["sales_doc_draft"] = {}
+    sales_doc_cart_remove(request=req, db=db_session, index=0, **_form(valid_until=chosen))
+    assert _get_draft(req)["valid_until"] == chosen
+    assert req.session["sales_doc_cart"] == []
+
+    req.session["sales_doc_draft"] = {}
+    response = sales_doc_cart_clear(request=req, db=db_session, **_form(valid_until=chosen))
+    assert _get_draft(req)["valid_until"] == chosen
+    assert f'name="valid_until" value="{chosen}"' in _body(response)
+
+
+def test_preview_quote_shows_due_date_and_carries_it_to_the_issue_form(db_session) -> None:
+    response = sales_doc_preview(request=_request([dict(CART_LINE)]), db=db_session, **_form(valid_until="2099-12-31"))
+
+    body = _body(response)
+    assert response.status_code == 200
+    assert "Vencimiento:" in body and "31/12/2099" in body
+    assert 'name="valid_until" value="2099-12-31"' in body
+
+
+def test_preview_invoice_has_no_due_date(db_session) -> None:
+    response = sales_doc_preview(
+        request=_request([dict(CART_LINE)]), db=db_session, **_form(doc_type="F", valid_until="2099-12-31")
+    )
+
+    assert response.status_code == 200
+    assert "Vencimiento" not in _body(response)
+
+
+def test_preview_with_invalid_due_date_returns_422_html(db_session) -> None:
+    req = _request([dict(CART_LINE)])
+
+    response = sales_doc_preview(request=req, db=db_session, **_form(valid_until="31/12/2026"))
+
+    assert response.status_code == 422
+    assert ERROR in _body(response)
+    assert _get_draft(req)["valid_until"] == "31/12/2026"
+
+
+def _seed_quote(db, business_id: int, *, valid_until: date | None, doc_type: str = "P") -> SalesDocument:
+    doc = SalesDocument(
+        business_id=business_id,
+        doc_type=doc_type,
+        year_month="202611",
+        seq=1,
+        code=f"{doc_type}2026111800001",
+        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
+        valid_until=valid_until,
+        issuer_name="Emisor",
+        client_name="A",
+        client_id="C-A",
+        currency_code="USD",
+        currency_symbol="USD",
+        subtotal=10.0,
+        total=10.0,
+    )
+    db.add(doc)
+    db.flush()
+    db.add(SalesDocumentItem(document_id=doc.id, line_no=1, description="Linea 1", quantity=1, unit_price=4, line_total=4))
+    db.add(SalesDocumentItem(document_id=doc.id, line_no=2, description="Linea 2", quantity=1, unit_price=6, line_total=6))
+    db.commit()
+    return doc
+
+
+def _update(db, doc_id: int, **fields):
+    req = _request()
+    req.form = AsyncMock(return_value=fields)
+    return asyncio.run(sales_doc_update(request=req, doc_id=doc_id, db=db))
+
+
+def test_update_quote_changes_only_the_due_date(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
+    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    fields = {"client_name": "A", "client_id": "C-A", "valid_until": "2026-12-20"}
+    for it in items:
+        fields[f"desc_{it.id}"] = it.description
+        fields[f"qty_{it.id}"] = str(it.quantity)
+        fields[f"price_{it.id}"] = str(it.unit_price)
+
+    response = _update(db_session, doc.id, **fields)
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until == date(2026, 12, 20)
+    assert float(doc.total) == 10.0
+    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
+
+
+def test_update_old_quote_with_empty_due_date_stays_null(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=None)
+    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    fields = {"client_name": "A", "client_id": "C-A", "notes": "Solo notas", "valid_until": ""}
+    for it in items:
+        fields[f"desc_{it.id}"] = it.description
+        fields[f"qty_{it.id}"] = str(it.quantity)
+        fields[f"price_{it.id}"] = str(it.unit_price)
+
+    response = _update(db_session, doc.id, **fields)
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until is None
+    assert doc.notes == "Solo notas"
+
+
+def test_update_with_invalid_due_date_changes_nothing(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
+    first = db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)).first()
+
+    response = _update(
+        db_session, doc.id,
+        client_name="B", client_id="C-B", valid_until="31/12/2026", **{f"del_{first.id}": "on"},
+    )
+
+    assert response.status_code == 422
+    assert response.media_type == "text/html"
+    assert ERROR in _body(response)
+    db_session.refresh(doc)
+    assert doc.client_name == "A"
+    assert doc.valid_until == date(2026, 12, 3)
+    assert float(doc.total) == 10.0
+    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
+
+
+def test_update_invoice_forces_null_due_date(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3), doc_type="F")
+
+    response = _update(db_session, doc.id, client_name="A", client_id="C-A", valid_until="2099-12-31")
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until is None
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_doc_valid_until.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_doc_valid_until.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T23: Tests de los datos bancarios y del plazo de validez del negocio
+
+**Depends on:** T22
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_business_bank_fields.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_business_bank_fields.py`. Los tests crean y editan negocios con los campos nuevos y comprueban el `BusinessConfig` resultante y el formulario de edición (REQ-1, REQ-2, REQ-9).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_business_bank_fields.py
+op: create
+@@ content
+"""Datos bancarios y plazo de validez del negocio (REQ-1, REQ-2, REQ-9)."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+import pytest
+from sqlalchemy import select
+
+from app.models import Business, User
+from app.repositories.business_repository import get_business_config
+from app.routers.ui_businesses import business_create, business_edit_form, business_update
+
+
+@pytest.fixture
+def admin_request() -> MagicMock:
+    req = MagicMock()
+    req.session = {"username": "admin", "active_business_id": 1}
+    req.url.path = "/ui/tabs/businesses"
+    return req
+
+
+@pytest.fixture
+def admin_user(db_session) -> User:
+    user = User(username="admin", password_hash="pbkdf2_sha256$...", role="admin", is_active=True, business_id=1)
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+def _business(db_session, **fields) -> Business:
+    biz = Business(code="dyb", name="DyB Autopartes", **fields)
+    db_session.add(biz)
+    db_session.commit()
+    return biz
+
+
+def test_create_business_saves_bank_data_and_validity(admin_request, db_session, admin_user) -> None:
+    response = business_create(
+        request=admin_request,
+        code="nuevo",
+        name="Nuevo",
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        sales_quote_validity_days="30",
+        locations_pos="",
+        locations_default_pos="",
+        db=db_session,
+    )
+
+    assert response.status_code == 200
+    biz = db_session.scalar(select(Business).where(Business.code == "nuevo"))
+    config = get_business_config(db_session, biz.id)
+    assert config.issuer.bank_name == "Banco Metropolitano"
+    assert config.issuer.bank_branch == "248"
+    assert config.issuer.bank_account == "0598770024085419"
+    assert config.issuer.bank_account_currency == "CUP"
+    assert config.sales_documents.quote_validity_days == 30
+
+
+def test_create_business_defaults_validity_to_15(admin_request, db_session, admin_user) -> None:
+    business_create(
+        request=admin_request, code="def", name="Def", sales_quote_validity_days="abc",
+        locations_pos="", locations_default_pos="", db=db_session,
+    )
+
+    biz = db_session.scalar(select(Business).where(Business.code == "def"))
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 15
+
+
+def test_update_saves_bank_data_and_keeps_the_rest_of_the_issuer(admin_request, db_session, admin_user) -> None:
+    biz = _business(
+        db_session,
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_phone="54664732 / 50781349",
+        dividends_partners="Liandy,Randy",
+    )
+
+    response = business_update(
+        request=admin_request,
+        business_id=biz.id,
+        code="dyb",
+        name="DyB Autopartes",
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_phone="54664732 / 50781349",
+        dividends_partners="Liandy,Randy",
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        db=db_session,
+    )
+
+    assert response.status_code == 200
+    config = get_business_config(db_session, biz.id)
+    assert config.issuer.bank_account == "0598770024085419"
+    assert config.issuer.holder == "Randy Manuel Delgado"
+    assert config.issuer.tax_id == "01030573448"
+    assert config.issuer.phone == "54664732 / 50781349"
+    assert config.dividends.partners == ["Liandy", "Randy"]
+
+
+@pytest.mark.parametrize(
+    "sent,expected",
+    [("30", 30), ("abc", 15), ("-3", 0), ("400", 365), ("0", 0), ("", 15)],
+)
+def test_update_validity_days_is_bounded_and_non_numeric_keeps_the_current_value(
+    admin_request, db_session, admin_user, sent, expected
+) -> None:
+    biz = _business(db_session, sales_quote_validity_days=15)
+
+    business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        sales_quote_validity_days=sent, db=db_session,
+    )
+
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == expected
+
+
+def test_update_with_non_numeric_validity_keeps_a_custom_value(admin_request, db_session, admin_user) -> None:
+    biz = _business(db_session, sales_quote_validity_days=45)
+
+    business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        sales_quote_validity_days="abc", db=db_session,
+    )
+
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 45
+
+
+def test_update_trims_bank_fields_to_their_column_size(admin_request, db_session, admin_user) -> None:
+    biz = _business(db_session)
+
+    response = business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        issuer_bank_name="B" * 200, issuer_bank_branch="S" * 65, issuer_bank_account="9" * 70,
+        issuer_bank_account_currency="CUPCUPCUP1", db=db_session,
+    )
+
+    assert response.status_code == 200
+    db_session.refresh(biz)
+    assert len(biz.issuer_bank_name) == 128
+    assert len(biz.issuer_bank_branch) == 64
+    assert len(biz.issuer_bank_account) == 64
+    assert biz.issuer_bank_account_currency == "CUPCUPCU"
+
+
+def test_edit_form_shows_the_saved_values_with_maxlength(admin_request, db_session, admin_user) -> None:
+    biz = _business(
+        db_session,
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        sales_quote_validity_days=30,
+    )
+
+    body = business_edit_form(request=admin_request, business_id=biz.id, db=db_session).body.decode("utf-8")
+
+    assert 'name="issuer_bank_name" maxlength="128"' in body
+    assert 'value="Banco Metropolitano"' in body
+    assert 'value="248"' in body
+    assert 'value="0598770024085419"' in body
+    assert 'name="issuer_bank_account_currency" maxlength="8"' in body
+    assert 'name="sales_quote_validity_days" min="0" max="365"' in body
+    assert 'value="30"' in body
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_business_bank_fields.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_business_bank_fields.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+---
+
+
+exec
+/usr/bin/zsh -lc 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' in /home/liandy/PyCharmMiscProject/gestion_inventario
+exec
+/usr/bin/zsh -lc 'cat specs/pdf-documentos-venta-oferta/verify/loteC.{test,lint,diff}.txt' in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+# Formato `pae-edit`
+
+Un envelope `**Apply:** script` expresa cambios literales en bloques cercados con **4 backticks** y etiqueta
+`pae-edit`. Cabeceras `clave: valor` hasta el primer marcador; secciones delimitadas por marcadores en columna 0:
+`@@ before`, `@@ after`, `@@ anchor`, `@@ content`.
+
+## Operaciones
+
+| op | cabeceras | secciones | semántica |
+|---|---|---|---|
+| `replace` | `file`, `count` (def. 1), `match` (`lines` def. / `text`) | `before`, `after` | sustituye cada coincidencia; el nº debe ser exactamente `count` |
+| `create` | `file`, `overwrite` (def. `false`) | `content` | crea el fichero (error si existe y `overwrite: false`) |
+| `append` | `file` | `content` | añade al final |
+| `insert_after` / `insert_before` | `file`, `count` | `anchor`, `content` | inserta tras/antes de cada coincidencia de `anchor` |
+| `delete_def` | `file`, `symbol` | — | borra la definición (decoradores incluidos) vía `ast` |
+| `delete_file` | `file` | — | borra el fichero |
+| `codemod` | `script`, `runner`, `files`, `expect-changed` | — | ejecuta un script sobre un glob |
+
+## Reglas
+
+- Elisiones prohibidas: una línea cuyo `strip()` es `...`, `…`, `# ...`, `// ...`, `/* ... */` o `<!-- ... -->`
+  es error, salvo `literal-ellipsis: true`.
+- `file`/`files`/`script` relativos y dentro de la raíz (rutas `..` o absolutas = error).
+- El campo `**Apply:**` es obligatorio: `script` (solo bloques pae-edit) o `cc_local` (sin bloques pae-edit).
+
+## Bloque de corrección del miniloop
+
+`cc_codex_fix` le pide a Codex que termine su respuesta con un bloque cercado etiquetado `tasks-md`,
+con el mismo formato de un `tasks.md` normal (`Lotes:` + envelopes `**Apply:** script` con bloques
+`pae-edit`, o `**Apply:** cc_local`). `extract_tasks_md` (en `pae_edits.py`) extrae el ÚLTIMO bloque
+`tasks-md` de la respuesta y `cc_codex_fix` lo escribe en `specs/<slug>/verify/tasks.md`. Si Codex
+responde "SIN HALLAZGOS" (sin bloque), no se escribe ningún `tasks.md`.
+
+ exited 1 in 0ms:
+OK: 91 snapshots equivalentes
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 35%]
+........................................................................ [ 46%]
+........................................................................ [ 58%]
+............F........................................................... [ 70%]
+........................................................................ [ 81%]
+........................................................................ [ 93%]
+........................................                                 [100%]
+=================================== FAILURES ===================================
+______ test_long_document_label_and_long_address_stay_inside_their_boxes _______
+
+    def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
+        long_label = "Presupuesto extraordinario de verano 2026"
+        long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
+        text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
+    
+>       assert long_label.upper() in text
+E       AssertionError: assert 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' in 'DyB Autopartes Avenida de los Libertadores esquina a la calle sesenta y\ncuatro, edificio azul, apartamento 12, Miram..._________\nBanco Metropolitano, Sucursal 248 Fecha: ______________________________\nNo. Cuenta (CUP): 0598770024085419'
+E        +  where 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' = <built-in method upper of str object at 0x7acac8c4b210>()
+E        +    where <built-in method upper of str object at 0x7acac8c4b210> = 'Presupuesto extraordinario de verano 2026'.upper
+
+tests/unit/test_sales_document_pdf.py:200: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func) or (
+
+.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
+tests/unit/test_agent_graph.py: 84 warnings
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    asyncio.iscoroutinefunction(func)
+
+.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
+tests/unit/test_agent_graph.py: 84 warnings
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_sales_document_pdf.py::test_long_document_label_and_long_address_stay_inside_their_boxes
+1 failed, 615 passed, 246 warnings in 12.89s
+
+--- stderr ---
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+cat: specs/pdf-documentos-venta-oferta/verify/loteC.lint.txt: No such file or directory
+tests/unit/test_business_bank_fields.py
+tests/unit/test_sales_doc_valid_until.py
+tests/unit/test_sales_document_pdf.py
+tests/unit/test_sales_documents_format.py
+
+exec
+/usr/bin/zsh -lc "git diff 4ddd0f3da8c4c91d8241443f8fb10f484b7ef801...889abfc50254f5a57fb0d36a34004f13cc9d70fe -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteC.diff.txt b/specs/pdf-documentos-venta-oferta/verify/loteC.diff.txt
+new file mode 100644
+index 0000000..005b01b
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteC.diff.txt
+@@ -0,0 +1,4 @@
++tests/unit/test_business_bank_fields.py
++tests/unit/test_sales_doc_valid_until.py
++tests/unit/test_sales_document_pdf.py
++tests/unit/test_sales_documents_format.py
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteC.test.txt b/specs/pdf-documentos-venta-oferta/verify/loteC.test.txt
+new file mode 100644
+index 0000000..c5da327
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteC.test.txt
+@@ -0,0 +1,326 @@
++OK: 91 snapshots equivalentes
++........................................................................ [ 11%]
++........................................................................ [ 23%]
++........................................................................ [ 35%]
++........................................................................ [ 46%]
++........................................................................ [ 58%]
++............F........................................................... [ 70%]
++........................................................................ [ 81%]
++........................................................................ [ 93%]
++........................................                                 [100%]
++=================================== FAILURES ===================================
++______ test_long_document_label_and_long_address_stay_inside_their_boxes _______
++
++    def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
++        long_label = "Presupuesto extraordinario de verano 2026"
++        long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
++        text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
++    
++>       assert long_label.upper() in text
++E       AssertionError: assert 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' in 'DyB Autopartes Avenida de los Libertadores esquina a la calle sesenta y\ncuatro, edificio azul, apartamento 12, Miram..._________\nBanco Metropolitano, Sucursal 248 Fecha: ______________________________\nNo. Cuenta (CUP): 0598770024085419'
++E        +  where 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' = <built-in method upper of str object at 0x7acac8c4b210>()
++E        +    where <built-in method upper of str object at 0x7acac8c4b210> = 'Presupuesto extraordinario de verano 2026'.upper
++
++tests/unit/test_sales_document_pdf.py:200: AssertionError
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    return asyncio.iscoroutinefunction(func) or (
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    asyncio.iscoroutinefunction(func)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++    from starlette.testclient import TestClient as TestClient  # noqa
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++=========================== short test summary info ============================
++FAILED tests/unit/test_sales_document_pdf.py::test_long_document_label_and_long_address_stay_inside_their_boxes
++1 failed, 615 passed, 246 warnings in 12.89s
++
++--- stderr ---
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++  from starlette.testclient import TestClient as TestClient  # noqa
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+diff --git a/tests/unit/test_business_bank_fields.py b/tests/unit/test_business_bank_fields.py
+new file mode 100644
+index 0000000..26f4131
+--- /dev/null
++++ b/tests/unit/test_business_bank_fields.py
+@@ -0,0 +1,170 @@
++"""Datos bancarios y plazo de validez del negocio (REQ-1, REQ-2, REQ-9)."""
++
++from __future__ import annotations
++
++from unittest.mock import MagicMock
++
++import pytest
++from sqlalchemy import select
++
++from app.models import Business, User
++from app.repositories.business_repository import get_business_config
++from app.routers.ui_businesses import business_create, business_edit_form, business_update
++
++
++@pytest.fixture
++def admin_request() -> MagicMock:
++    req = MagicMock()
++    req.session = {"username": "admin", "active_business_id": 1}
++    req.url.path = "/ui/tabs/businesses"
++    return req
++
++
++@pytest.fixture
++def admin_user(db_session) -> User:
++    user = User(username="admin", password_hash="pbkdf2_sha256$...", role="admin", is_active=True, business_id=1)
++    db_session.add(user)
++    db_session.commit()
++    return user
++
++
++def _business(db_session, **fields) -> Business:
++    biz = Business(code="dyb", name="DyB Autopartes", **fields)
++    db_session.add(biz)
++    db_session.commit()
++    return biz
++
++
++def test_create_business_saves_bank_data_and_validity(admin_request, db_session, admin_user) -> None:
++    response = business_create(
++        request=admin_request,
++        code="nuevo",
++        name="Nuevo",
++        issuer_bank_name="Banco Metropolitano",
++        issuer_bank_branch="248",
++        issuer_bank_account="0598770024085419",
++        issuer_bank_account_currency="CUP",
++        sales_quote_validity_days="30",
++        locations_pos="",
++        locations_default_pos="",
++        db=db_session,
++    )
++
++    assert response.status_code == 200
++    biz = db_session.scalar(select(Business).where(Business.code == "nuevo"))
++    config = get_business_config(db_session, biz.id)
++    assert config.issuer.bank_name == "Banco Metropolitano"
++    assert config.issuer.bank_branch == "248"
++    assert config.issuer.bank_account == "0598770024085419"
++    assert config.issuer.bank_account_currency == "CUP"
++    assert config.sales_documents.quote_validity_days == 30
++
++
++def test_create_business_defaults_validity_to_15(admin_request, db_session, admin_user) -> None:
++    business_create(
++        request=admin_request, code="def", name="Def", sales_quote_validity_days="abc",
++        locations_pos="", locations_default_pos="", db=db_session,
++    )
++
++    biz = db_session.scalar(select(Business).where(Business.code == "def"))
++    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 15
++
++
++def test_update_saves_bank_data_and_keeps_the_rest_of_the_issuer(admin_request, db_session, admin_user) -> None:
++    biz = _business(
++        db_session,
++        issuer_holder="Randy Manuel Delgado",
++        issuer_tax_id="01030573448",
++        issuer_phone="54664732 / 50781349",
++        dividends_partners="Liandy,Randy",
++    )
++
++    response = business_update(
++        request=admin_request,
++        business_id=biz.id,
++        code="dyb",
++        name="DyB Autopartes",
++        issuer_holder="Randy Manuel Delgado",
++        issuer_tax_id="01030573448",
++        issuer_phone="54664732 / 50781349",
++        dividends_partners="Liandy,Randy",
++        issuer_bank_name="Banco Metropolitano",
++        issuer_bank_branch="248",
++        issuer_bank_account="0598770024085419",
++        issuer_bank_account_currency="CUP",
++        db=db_session,
++    )
++
++    assert response.status_code == 200
++    config = get_business_config(db_session, biz.id)
++    assert config.issuer.bank_account == "0598770024085419"
++    assert config.issuer.holder == "Randy Manuel Delgado"
++    assert config.issuer.tax_id == "01030573448"
++    assert config.issuer.phone == "54664732 / 50781349"
++    assert config.dividends.partners == ["Liandy", "Randy"]
++
++
++@pytest.mark.parametrize(
++    "sent,expected",
++    [("30", 30), ("abc", 15), ("-3", 0), ("400", 365), ("0", 0), ("", 15)],
++)
++def test_update_validity_days_is_bounded_and_non_numeric_keeps_the_current_value(
++    admin_request, db_session, admin_user, sent, expected
++) -> None:
++    biz = _business(db_session, sales_quote_validity_days=15)
++
++    business_update(
++        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
++        sales_quote_validity_days=sent, db=db_session,
++    )
++
++    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == expected
++
++
++def test_update_with_non_numeric_validity_keeps_a_custom_value(admin_request, db_session, admin_user) -> None:
++    biz = _business(db_session, sales_quote_validity_days=45)
++
++    business_update(
++        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
++        sales_quote_validity_days="abc", db=db_session,
++    )
++
++    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 45
++
++
++def test_update_trims_bank_fields_to_their_column_size(admin_request, db_session, admin_user) -> None:
++    biz = _business(db_session)
++
++    response = business_update(
++        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
++        issuer_bank_name="B" * 200, issuer_bank_branch="S" * 65, issuer_bank_account="9" * 70,
++        issuer_bank_account_currency="CUPCUPCUP1", db=db_session,
++    )
++
++    assert response.status_code == 200
++    db_session.refresh(biz)
++    assert len(biz.issuer_bank_name) == 128
++    assert len(biz.issuer_bank_branch) == 64
++    assert len(biz.issuer_bank_account) == 64
++    assert biz.issuer_bank_account_currency == "CUPCUPCU"
++
++
++def test_edit_form_shows_the_saved_values_with_maxlength(admin_request, db_session, admin_user) -> None:
++    biz = _business(
++        db_session,
++        issuer_bank_name="Banco Metropolitano",
++        issuer_bank_branch="248",
++        issuer_bank_account="0598770024085419",
++        issuer_bank_account_currency="CUP",
++        sales_quote_validity_days=30,
++    )
++
++    body = business_edit_form(request=admin_request, business_id=biz.id, db=db_session).body.decode("utf-8")
++
++    assert 'name="issuer_bank_name" maxlength="128"' in body
++    assert 'value="Banco Metropolitano"' in body
++    assert 'value="248"' in body
++    assert 'value="0598770024085419"' in body
++    assert 'name="issuer_bank_account_currency" maxlength="8"' in body
++    assert 'name="sales_quote_validity_days" min="0" max="365"' in body
++    assert 'value="30"' in body
+diff --git a/tests/unit/test_sales_doc_valid_until.py b/tests/unit/test_sales_doc_valid_until.py
+new file mode 100644
+index 0000000..2724f7e
+--- /dev/null
++++ b/tests/unit/test_sales_doc_valid_until.py
+@@ -0,0 +1,293 @@
++"""Fecha de vencimiento en los handlers de documentos de venta (REQ-3, REQ-4)."""
++
++from __future__ import annotations
++
++import asyncio
++from datetime import date, datetime, timedelta, timezone
++from unittest.mock import AsyncMock, MagicMock
++
++import pytest
++from sqlalchemy import func, select
++
++from app.models import Business, Location, SalesDocument, SalesDocumentItem
++from app.routers import ui_context as _uc
++from app.routers.ui_sales_documents import (
++    _get_draft,
++    sales_doc_cart_add,
++    sales_doc_cart_clear,
++    sales_doc_cart_remove,
++    sales_doc_cart_update,
++    sales_doc_issue,
++    sales_doc_preview,
++    sales_doc_update,
++)
++
++ERROR = "Fecha de vencimiento inválida"
++CART_LINE = {"sku": None, "description": "Pastillas", "unit_of_measure": "JGO", "quantity": 1.0, "unit_price": 10.0}
++
++
++def _today() -> date:
++    return datetime.now(timezone.utc).date()
++
++
++@pytest.fixture(autouse=True)
++def _active_business(db_session, business_id, monkeypatch) -> None:
++    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
++    db_session.add(Location(business_id=business_id, code="TEST_CENTRAL", name="Central", role="central", is_default=True))
++    db_session.commit()
++
++
++def _request(cart: list[dict] | None = None, draft: dict | None = None) -> MagicMock:
++    req = MagicMock()
++    req.session = {}
++    if cart is not None:
++        req.session["sales_doc_cart"] = cart
++    if draft is not None:
++        req.session["sales_doc_draft"] = draft
++    return req
++
++
++def _form(**over) -> dict:
++    data = dict(
++        doc_type="P",
++        location_code="TEST_CENTRAL",
++        client_name="Cliente A",
++        client_id="C-1",
++        client_address="",
++        notes="",
++        currency_code="USD",
++        valid_until="",
++    )
++    data.update(over)
++    return data
++
++
++def _issue(db, req, **over):
++    return sales_doc_issue(request=req, db=db, **_form(**over))
++
++
++def _documents(db) -> list[SalesDocument]:
++    return list(db.scalars(select(SalesDocument).order_by(SalesDocument.id)))
++
++
++def _body(response) -> str:
++    return response.body.decode("utf-8")
++
++
++def test_issue_quote_with_chosen_due_date(db_session) -> None:
++    chosen = _today() + timedelta(days=40)
++
++    response = _issue(db_session, _request([dict(CART_LINE)]), valid_until=chosen.isoformat())
++
++    assert response.status_code == 200
++    (doc,) = _documents(db_session)
++    assert doc.doc_type == "P"
++    assert doc.valid_until == chosen
++
++
++def test_issue_quote_with_empty_due_date_uses_issue_date_plus_validity(db_session, business_id) -> None:
++    db_session.get(Business, business_id).sales_quote_validity_days = 20
++    db_session.commit()
++
++    _issue(db_session, _request([dict(CART_LINE)]), valid_until="")
++
++    (doc,) = _documents(db_session)
++    assert doc.valid_until == doc.issue_date.date() + timedelta(days=20)
++
++
++def test_issue_invoice_never_stores_due_date(db_session) -> None:
++    _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until=(_today() + timedelta(days=40)).isoformat())
++
++    (doc,) = _documents(db_session)
++    assert doc.doc_type == "F"
++    assert doc.valid_until is None
++
++
++@pytest.mark.parametrize("bad", ["31/12/2026", "no-es-fecha", (_today() - timedelta(days=1)).isoformat()])
++def test_issue_quote_with_invalid_due_date_returns_422_html_and_keeps_everything(db_session, bad) -> None:
++    req = _request([dict(CART_LINE)])
++
++    response = _issue(db_session, req, valid_until=bad, notes="Nota importante", client_name="Cliente B", client_id="C-2")
++
++    assert response.status_code == 422
++    assert response.media_type == "text/html"
++    assert ERROR in _body(response)
++    assert _documents(db_session) == []
++    assert req.session["sales_doc_cart"] == [CART_LINE]
++    draft = _get_draft(req)
++    assert draft["valid_until"] == bad
++    assert draft["client_name"] == "Cliente B"
++    assert draft["notes"] == "Nota importante"
++    assert db_session.scalar(select(func.count()).select_from(SalesDocument)) == 0
++
++
++def test_issue_invoice_ignores_a_garbage_due_date(db_session) -> None:
++    response = _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until="31/12/2026")
++
++    assert response.status_code == 200
++    assert len(_documents(db_session)) == 1
++
++
++def test_issue_form_shows_the_default_due_date_and_keeps_the_typed_one(db_session, business_id) -> None:
++    db_session.get(Business, business_id).sales_quote_validity_days = 15
++    db_session.commit()
++    default = (_today() + timedelta(days=15)).isoformat()
++
++    shown_default = _issue(db_session, _request([dict(CART_LINE)]), doc_type="P", valid_until="31/12/2026")
++    assert f'name="valid_until" value="{default}"' not in _body(shown_default)
++    assert 'name="valid_until" value="31/12/2026"' in _body(shown_default)
++
++    empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
++    assert f'name="valid_until" value="{default}"' in _body(empty_draft)
++
++
++def test_cart_handlers_keep_the_due_date_in_the_draft(db_session) -> None:
++    chosen = "2099-12-31"
++
++    req = _request()
++    sales_doc_cart_add(
++        request=req, db=db_session, product="", description="Pastillas", quantity="1", unit_price="10",
++        **_form(valid_until=chosen),
++    )
++    assert _get_draft(req)["valid_until"] == chosen
++    assert len(req.session["sales_doc_cart"]) == 1
++
++    req.session["sales_doc_draft"] = {}
++    sales_doc_cart_update(
++        request=req, db=db_session, index=0, description="Pastillas", quantity="2", unit_price="10",
++        **_form(valid_until=chosen),
++    )
++    assert _get_draft(req)["valid_until"] == chosen
++
++    req.session["sales_doc_draft"] = {}
++    sales_doc_cart_remove(request=req, db=db_session, index=0, **_form(valid_until=chosen))
++    assert _get_draft(req)["valid_until"] == chosen
++    assert req.session["sales_doc_cart"] == []
++
++    req.session["sales_doc_draft"] = {}
++    response = sales_doc_cart_clear(request=req, db=db_session, **_form(valid_until=chosen))
++    assert _get_draft(req)["valid_until"] == chosen
++    assert f'name="valid_until" value="{chosen}"' in _body(response)
++
++
++def test_preview_quote_shows_due_date_and_carries_it_to_the_issue_form(db_session) -> None:
++    response = sales_doc_preview(request=_request([dict(CART_LINE)]), db=db_session, **_form(valid_until="2099-12-31"))
++
++    body = _body(response)
++    assert response.status_code == 200
++    assert "Vencimiento:" in body and "31/12/2099" in body
++    assert 'name="valid_until" value="2099-12-31"' in body
++
++
++def test_preview_invoice_has_no_due_date(db_session) -> None:
++    response = sales_doc_preview(
++        request=_request([dict(CART_LINE)]), db=db_session, **_form(doc_type="F", valid_until="2099-12-31")
++    )
++
++    assert response.status_code == 200
++    assert "Vencimiento" not in _body(response)
++
++
++def test_preview_with_invalid_due_date_returns_422_html(db_session) -> None:
++    req = _request([dict(CART_LINE)])
++
++    response = sales_doc_preview(request=req, db=db_session, **_form(valid_until="31/12/2026"))
++
++    assert response.status_code == 422
++    assert ERROR in _body(response)
++    assert _get_draft(req)["valid_until"] == "31/12/2026"
++
++
++def _seed_quote(db, business_id: int, *, valid_until: date | None, doc_type: str = "P") -> SalesDocument:
++    doc = SalesDocument(
++        business_id=business_id,
++        doc_type=doc_type,
++        year_month="202611",
++        seq=1,
++        code=f"{doc_type}2026111800001",
++        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
++        valid_until=valid_until,
++        issuer_name="Emisor",
++        client_name="A",
++        client_id="C-A",
++        currency_code="USD",
++        currency_symbol="USD",
++        subtotal=10.0,
++        total=10.0,
++    )
++    db.add(doc)
++    db.flush()
++    db.add(SalesDocumentItem(document_id=doc.id, line_no=1, description="Linea 1", quantity=1, unit_price=4, line_total=4))
++    db.add(SalesDocumentItem(document_id=doc.id, line_no=2, description="Linea 2", quantity=1, unit_price=6, line_total=6))
++    db.commit()
++    return doc
++
++
++def _update(db, doc_id: int, **fields):
++    req = _request()
++    req.form = AsyncMock(return_value=fields)
++    return asyncio.run(sales_doc_update(request=req, doc_id=doc_id, db=db))
++
++
++def test_update_quote_changes_only_the_due_date(db_session, business_id) -> None:
++    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
++    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
++    fields = {"client_name": "A", "client_id": "C-A", "valid_until": "2026-12-20"}
++    for it in items:
++        fields[f"desc_{it.id}"] = it.description
++        fields[f"qty_{it.id}"] = str(it.quantity)
++        fields[f"price_{it.id}"] = str(it.unit_price)
++
++    response = _update(db_session, doc.id, **fields)
++
++    assert response.status_code == 200
++    db_session.refresh(doc)
++    assert doc.valid_until == date(2026, 12, 20)
++    assert float(doc.total) == 10.0
++    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
++
++
++def test_update_old_quote_with_empty_due_date_stays_null(db_session, business_id) -> None:
++    doc = _seed_quote(db_session, business_id, valid_until=None)
++    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
++    fields = {"client_name": "A", "client_id": "C-A", "notes": "Solo notas", "valid_until": ""}
++    for it in items:
++        fields[f"desc_{it.id}"] = it.description
++        fields[f"qty_{it.id}"] = str(it.quantity)
++        fields[f"price_{it.id}"] = str(it.unit_price)
++
++    response = _update(db_session, doc.id, **fields)
++
++    assert response.status_code == 200
++    db_session.refresh(doc)
++    assert doc.valid_until is None
++    assert doc.notes == "Solo notas"
++
++
++def test_update_with_invalid_due_date_changes_nothing(db_session, business_id) -> None:
++    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
++    first = db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)).first()
++
++    response = _update(
++        db_session, doc.id,
++        client_name="B", client_id="C-B", valid_until="31/12/2026", **{f"del_{first.id}": "on"},
++    )
++
++    assert response.status_code == 422
++    assert response.media_type == "text/html"
++    assert ERROR in _body(response)
++    db_session.refresh(doc)
++    assert doc.client_name == "A"
++    assert doc.valid_until == date(2026, 12, 3)
++    assert float(doc.total) == 10.0
++    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
++
++
++def test_update_invoice_forces_null_due_date(db_session, business_id) -> None:
++    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3), doc_type="F")
++
++    response = _update(db_session, doc.id, client_name="A", client_id="C-A", valid_until="2099-12-31")
++
++    assert response.status_code == 200
++    db_session.refresh(doc)
++    assert doc.valid_until is None
+diff --git a/tests/unit/test_sales_document_pdf.py b/tests/unit/test_sales_document_pdf.py
+new file mode 100644
+index 0000000..4ccc3ce
+--- /dev/null
++++ b/tests/unit/test_sales_document_pdf.py
+@@ -0,0 +1,220 @@
++"""PDF de documentos de venta con el diseño OFERTA (REQ-5, REQ-6, REQ-7, REQ-8)."""
++
++from __future__ import annotations
++
++import io
++import re
++from datetime import date, datetime, timezone
++
++import pdfplumber
++
++from app.sales_document_pdf import build_sales_document_pdf
++
++ITEMS = [
++    {"description": "Pastillas de freno", "unit_of_measure": "JGO", "quantity": 1, "unit_price": 303875, "line_total": 303875},
++    {"description": "Filtro de aceite", "unit_of_measure": "U", "quantity": 1, "unit_price": 187000, "line_total": 187000},
++]
++
++
++def _kwargs(**overrides) -> dict:
++    base = dict(
++        doc_type="P",
++        doc_label="Presupuesto",
++        code="P202611180001",
++        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
++        valid_until=date(2026, 12, 3),
++        currency_code="GEN",
++        issuer_name="DyB Autopartes",
++        issuer_holder="Randy Manuel Delgado",
++        issuer_tax_id="01030573448",
++        issuer_address="Calle 1 entre 2 y 3, Playa",
++        issuer_phone="54664732 / 50781349",
++        issuer_email="autosandero@gmail.com",
++        bank_name="Banco Metropolitano",
++        bank_branch="248",
++        bank_account="0598770024085419",
++        bank_account_currency="CUP",
++        client_name="Cliente Prueba",
++        client_id="B244742",
++        client_address=None,
++        items=ITEMS,
++        subtotal=490875.0,
++        total=490875.0,
++        notes=None,
++    )
++    base.update(overrides)
++    return base
++
++
++def _read(pdf_bytes: bytes) -> tuple[str, list]:
++    assert pdf_bytes.startswith(b"%PDF")
++    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
++        pages = list(pdf.pages)
++        text = "\n".join((p.extract_text() or "") for p in pages)
++        curves = [len(p.curves) + len(p.images) for p in pages]
++    return text, curves
++
++
++def test_complete_quote_pdf() -> None:
++    text, graphics = _read(build_sales_document_pdf(**_kwargs()))
++
++    for expected in (
++        "DyB Autopartes",
++        "TCP Randy Manuel Delgado",
++        "NIT 01030573448",
++        "54664732 / 50781349",
++        "autosandero@gmail.com",
++        "DESTINATARIO:",
++        "PRESUPUESTO",
++        "No. Presupuesto:",
++        "P202611180001",
++        "Fecha de presupuesto:",
++        "18/11/2026",
++        "Fecha de vencimiento:",
++        "03/12/2026",
++        "Subtotal:",
++        "TOTAL:",
++        "490,875.00",
++        "CONCEPTO",
++        "UNIDADES",
++        "CANTIDAD",
++        "PRECIO CUP",
++        "IMPORTE CUP",
++        "FORMA DE PAGO",
++        "Efectivo",
++        "Cheque",
++        "Transferencia Bancaria",
++        "Banco Metropolitano, Sucursal 248",
++        "No. Cuenta (CUP): 0598770024085419",
++        "Recibido por:",
++        "Cargo:",
++        "Firma:",
++        "Fecha:",
++    ):
++        assert expected in text, expected
++    assert re.search(r"Pastillas de freno\s+JGO\s+1\s+303,875\.00\s+303,875\.00", text), text
++    assert re.search(r"Filtro de aceite\s+U\s+1\s+187,000\.00\s+187,000\.00", text), text
++    assert graphics[0] > 0  # iconos de teléfono y email
++
++
++def test_old_design_is_gone() -> None:
++    text, _ = _read(build_sales_document_pdf(**_kwargs()))
++
++    for old in ("Código:", "ID fiscal", "Tel.:", "(Precios sin IVA)"):
++        assert old not in text, old
++
++
++def test_no_phone_and_no_email_means_no_icons() -> None:
++    text, graphics = _read(build_sales_document_pdf(**_kwargs(issuer_phone=None, issuer_email=None)))
++
++    assert graphics == [0]
++    assert "54664732" not in text
++    assert "autosandero" not in text
++
++
++def test_without_bank_data_the_payment_block_has_no_bank_lines() -> None:
++    text, _ = _read(
++        build_sales_document_pdf(
++            **_kwargs(bank_name=None, bank_branch=None, bank_account=None, bank_account_currency=None)
++        )
++    )
++
++    assert "FORMA DE PAGO" in text
++    assert "Sucursal" not in text
++    assert "No. Cuenta" not in text
++
++
++def test_bank_line_without_branch_and_account_without_currency() -> None:
++    text, _ = _read(build_sales_document_pdf(**_kwargs(bank_branch=None, bank_account_currency=None)))
++
++    assert "Banco Metropolitano" in text
++    assert "Sucursal" not in text
++    assert "No. Cuenta: 0598770024085419" in text
++
++
++def test_currency_labels() -> None:
++    gen, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="GEN")))
++    usd, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="USD")))
++    eur, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="eur")))
++    none, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="")))
++
++    assert "PRECIO CUP" in gen and "IMPORTE CUP" in gen
++    assert "GEN" not in gen
++    assert "PRECIO USD" in usd and "IMPORTE USD" in usd
++    assert "PRECIO EUR" in eur and "IMPORTE EUR" in eur
++    assert "PRECIO IMPORTE" in none
++    assert "CUP" not in none.split("FORMA DE PAGO")[0]
++
++
++def test_invoice_uses_the_same_design_without_due_date() -> None:
++    text, _ = _read(
++        build_sales_document_pdf(
++            **_kwargs(doc_type="F", doc_label="Factura", code="F202611180002", valid_until=None)
++        )
++    )
++
++    for expected in ("FACTURA", "No. Factura:", "Fecha de factura:", "FORMA DE PAGO", "Recibido por:", "DESTINATARIO:"):
++        assert expected in text, expected
++    assert "Fecha de vencimiento" not in text
++
++
++def test_old_quote_without_due_date_nor_units_still_renders() -> None:
++    items = [{"description": "Servicio", "unit_of_measure": None, "quantity": 1, "unit_price": 10, "line_total": 10}]
++    text, _ = _read(
++        build_sales_document_pdf(**_kwargs(valid_until=None, items=items, subtotal=10.0, total=10.0))
++    )
++
++    assert "Fecha de vencimiento:" in text
++    assert re.search(r"Fecha de vencimiento:\s*\d{2}/\d{2}/\d{4}", text) is None
++    assert re.search(r"Servicio\s+1\s+10\.00\s+10\.00", text), text
++
++
++def test_quantity_keeps_up_to_four_decimals_and_thousands_separator() -> None:
++    items = [
++        {"description": "Aceite", "unit_of_measure": "L", "quantity": 0.0001, "unit_price": 5, "line_total": 0.0005},
++        {"description": "Tornillos", "unit_of_measure": "ud", "quantity": 1234567, "unit_price": 1, "line_total": 1234567},
++        {"description": "Cable", "unit_of_measure": "m", "quantity": 2.5, "unit_price": 4, "line_total": 10},
++    ]
++    text, _ = _read(build_sales_document_pdf(**_kwargs(items=items)))
++
++    assert re.search(r"Aceite\s+L\s+0\.0001\s+5\.00", text), text
++    assert re.search(r"Tornillos\s+ud\s+1,234,567\s+1\.00\s+1,234,567\.00", text), text
++    assert re.search(r"Cable\s+m\s+2\.5\s+4\.00\s+10\.00", text), text
++
++
++def test_notes_and_non_latin1_text_do_not_break_the_pdf() -> None:
++    text, _ = _read(
++        build_sales_document_pdf(**_kwargs(client_name="Ñandú 日本", notes="Entrega en 3 días hábiles."))
++    )
++
++    assert "Notas:" in text
++    assert "Entrega en 3 días hábiles." in text
++    assert "Ñandú" in text
++
++
++def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
++    long_label = "Presupuesto extraordinario de verano 2026"
++    long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
++    text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
++
++    assert long_label.upper() in text
++    assert "Avenida de los Libertadores" in text
++    assert "..." in text  # la etiqueta del bloque documento se corta con "..." al llegar a 6 pt
++
++
++def test_long_table_repeats_its_header_and_keeps_the_footer_whole() -> None:
++    items = [
++        {"description": f"Artículo {i} con una descripción larga para ocupar espacio en la tabla del documento",
++         "unit_of_measure": "ud", "quantity": 2, "unit_price": 10, "line_total": 20}
++        for i in range(1, 61)
++    ]
++    pdf_bytes = build_sales_document_pdf(**_kwargs(items=items, subtotal=1200.0, total=1200.0))
++    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
++        page_texts = [(p.extract_text() or "") for p in pdf.pages]
++
++    assert len(page_texts) >= 2
++    assert all("CONCEPTO" in t and "PRECIO CUP" in t for t in page_texts)
++    assert sum(t.count("FORMA DE PAGO") for t in page_texts) == 1
++    assert "FORMA DE PAGO" in page_texts[-1]
++    assert sum(t.count("Artículo 60 ") for t in page_texts) == 1
++    assert all(t.count("Recibido por:") <= 1 for t in page_texts)
+diff --git a/tests/unit/test_sales_documents_format.py b/tests/unit/test_sales_documents_format.py
+new file mode 100644
+index 0000000..d5b393b
+--- /dev/null
++++ b/tests/unit/test_sales_documents_format.py
+@@ -0,0 +1,101 @@
++"""Funciones puras de formato y de fecha de vencimiento (REQ-3, REQ-5, REQ-6)."""
++
++from __future__ import annotations
++
++from datetime import date, datetime, timezone
++
++import pytest
++
++from app.sales_documents_format import (
++    INVALID_VALID_UNTIL,
++    currency_column_label,
++    format_amount,
++    format_doc_date,
++    format_quantity,
++    resolve_valid_until,
++)
++
++ISSUE = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
++
++
++@pytest.mark.parametrize(
++    "code,label",
++    [
++        ("GEN", "IMPORTE CUP"),
++        (" gen ", "IMPORTE CUP"),
++        ("USD", "IMPORTE USD"),
++        ("eur", "IMPORTE EUR"),
++        ("", "IMPORTE"),
++        (None, "IMPORTE"),
++    ],
++)
++def test_currency_column_label_import(code, label) -> None:
++    assert currency_column_label("IMPORTE", code) == label
++
++
++def test_currency_column_label_price() -> None:
++    assert currency_column_label("PRECIO", "usd") == "PRECIO USD"
++    assert currency_column_label("PRECIO", "GEN") == "PRECIO CUP"
++    assert currency_column_label("PRECIO", None) == "PRECIO"
++
++
++@pytest.mark.parametrize(
++    "value,expected",
++    [(303875, "303,875.00"), (490875.0, "490,875.00"), (1234.5, "1,234.50"), (0, "0.00"), (None, "0.00")],
++)
++def test_format_amount(value, expected) -> None:
++    assert format_amount(value) == expected
++
++
++@pytest.mark.parametrize(
++    "value,expected",
++    [
++        (1.0, "1"),
++        (2.5, "2.5"),
++        (0.0001, "0.0001"),
++        (1234567.0, "1,234,567"),
++        (10.0, "10"),
++        (3.1, "3.1"),
++        (0, "0"),
++        (None, "0"),
++    ],
++)
++def test_format_quantity(value, expected) -> None:
++    assert format_quantity(value) == expected
++
++
++def test_format_doc_date() -> None:
++    assert format_doc_date(date(2026, 12, 3)) == "03/12/2026"
++    assert format_doc_date(datetime(2026, 1, 2, 23, 59, tzinfo=timezone.utc)) == "02/01/2026"
++    assert format_doc_date(None) == ""
++
++
++def test_resolve_valid_until_default_is_issue_date_plus_validity_days() -> None:
++    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 3)
++    assert resolve_valid_until(None, doc_type="P", issue_date=ISSUE, validity_days=0) == date(2026, 11, 18)
++
++
++def test_resolve_valid_until_accepts_chosen_date() -> None:
++    assert resolve_valid_until("2026-12-31", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 31)
++    assert resolve_valid_until("2026-11-18", doc_type="p", issue_date=ISSUE, validity_days=15) == date(2026, 11, 18)
++
++
++@pytest.mark.parametrize("raw", ["2026-12-31", "garbage", "", None])
++def test_resolve_valid_until_invoice_is_always_none(raw) -> None:
++    assert resolve_valid_until(raw, doc_type="F", issue_date=ISSUE, validity_days=15) is None
++
++
++@pytest.mark.parametrize("raw", ["31/12/2026", "2026-11-17", "2026-13-40", "20261231", "abc"])
++def test_resolve_valid_until_rejects_invalid_values(raw) -> None:
++    with pytest.raises(ValueError, match=INVALID_VALID_UNTIL):
++        resolve_valid_until(raw, doc_type="P", issue_date=ISSUE, validity_days=15)
++
++
++def test_resolve_valid_until_keep_mode_returns_current() -> None:
++    assert resolve_valid_until(
++        "", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
++    ) == date(2026, 12, 3)
++    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=None) is None
++    assert resolve_valid_until(
++        "2026-12-20", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
++    ) == date(2026, 12, 20)
+
+exec
+/usr/bin/zsh -lc "rg -n 'doc_label|def _.*fit|issuer_address' app/sales_document_pdf.py" in /home/liandy/PyCharmMiscProject/gestion_inventario
+exec
+/usr/bin/zsh -lc "rg -n 'label|etiqueta' specs/pdf-documentos-venta-oferta/spec.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ exited 2 in 0ms:
+rg: specs/pdf-documentos-venta-oferta/spec.md: IO error for operation on specs/pdf-documentos-venta-oferta/spec.md: No such file or directory (os error 2)
+
+ succeeded in 0ms:
+44:def _fit_text(pdf: Any, text: str, width: float, style: str = "B", start: float = 9.0, minimum: float = 6.0) -> str:
+79:    issuer_address: Optional[str],
+96:    if issuer_address:
+97:        right_rows.append((None, issuer_address))
+136:def _draw_title_bar(pdf: Any, y: float, doc_label: str) -> float:
+142:        CONTENT_W / 2, 6.0, _safe_pdf_text(doc_label.upper()),
+317:    doc_label: str,
+325:    issuer_address: Optional[str],
+359:        issuer_address=_fold_field_lines(issuer_address),
+363:    y = _draw_title_bar(pdf, band_bottom + 2.0, doc_label)
+368:    doc_end = _draw_label_row(pdf, y, f"No. {doc_label}:", code)
+369:    doc_end = _draw_label_row(pdf, doc_end, f"Fecha de {doc_label.lower()}:", format_doc_date(issue_date))
+
+exec
+/usr/bin/zsh -lc 'ls -ld .venv/bin/python; git status --short; git rev-parse HEAD' in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+lrwxrwxrwx 1 liandy liandy 7 Aug  4 23:14 .venv/bin/python -> python3
+?? specs/miniloop-pdf-documentos-venta-oferta-loteC-round1/
+889abfc50254f5a57fb0d36a34004f13cc9d70fe
+
+exec
+/usr/bin/zsh -lc "sed -n '30,170p' app/sales_document_pdf.py" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+_ICON_MAIL_SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#115A9C" stroke-width="1.6"/><path d="M3 7l9 6 9-6" fill="none" stroke="#115A9C" stroke-width="1.6"/></svg>'
+
+
+def _safe_pdf_text(value: str) -> str:
+    try:
+        return (value or "").encode("latin-1", "replace").decode("latin-1")
+    except Exception:
+        return ""
+
+
+def _fold_field_lines(value: Optional[str]) -> str:
+    """Convierte los saltos de línea de un campo en espacios para ajustarlo al ancho de su bloque."""
+    return " ".join((value or "").splitlines())
+
+def _fit_text(pdf: Any, text: str, width: float, style: str = "B", start: float = 9.0, minimum: float = 6.0) -> str:
+    """Fija la fuente en el mayor tamaño (de `start` a `minimum`, pasos de 0,5 pt) en que `text` cabe en
+    `width` mm (c_margin de 1 mm por lado). Si ni a `minimum` cabe, corta el texto y añade "..."."""
+    available = width - 2.0
+    size = start
+    while size >= minimum:
+        pdf.set_font("Helvetica", style, size)
+        if pdf.get_string_width(text) <= available:
+            return text
+        size -= 0.5
+    pdf.set_font("Helvetica", style, minimum)
+    cut = text
+    while len(cut) > 1 and pdf.get_string_width(cut + "...") > available:
+        cut = cut[:-1]
+    return cut + "..."
+
+
+def _count_lines(pdf: Any, text: str, width: float, line_h: float) -> int:
+    """Número de líneas que ocupa `text` en una celda de `width` mm con la fuente actual (sin dibujar)."""
+    lines = pdf.multi_cell(width, line_h, text, align="L", dry_run=True, output="LINES")
+    return max(1, len(lines))
+
+
+def _double_rule(pdf: Any, y: float) -> None:
+    pdf.set_fill_color(0, 0, 0)
+    pdf.rect(MARGIN, y, CONTENT_W, 0.35, style="F")
+    pdf.rect(MARGIN, y + 0.7, CONTENT_W, 0.35, style="F")
+
+
+def _draw_header(
+    pdf: Any,
+    *,
+    issuer_name: str,
+    issuer_holder: Optional[str],
+    issuer_tax_id: Optional[str],
+    issuer_address: Optional[str],
+    issuer_phone: Optional[str],
+    issuer_email: Optional[str],
+) -> float:
+    """Banda azul clara: emisor a la izquierda, dirección/teléfono/email a la derecha. Devuelve su borde inferior."""
+    top = 12.0
+    left_x, left_w = MARGIN + 2.0, 88.0
+    right_x, right_w = 107.0, 86.0
+    icon_w = 5.0
+
+    left_rows: list[tuple[str, float, float, str]] = [(issuer_name, 12.0, 6.0, "B")]
+    if issuer_holder:
+        left_rows.append((f"TCP {issuer_holder}", 9.0, 4.5, ""))
+    if issuer_tax_id:
+        left_rows.append((f"NIT {issuer_tax_id}", 9.0, 4.5, ""))
+
+    right_rows: list[tuple[Optional[bytes], str]] = []
+    if issuer_address:
+        right_rows.append((None, issuer_address))
+    if issuer_phone:
+        right_rows.append((_ICON_PHONE_SVG, issuer_phone))
+    if issuer_email:
+        right_rows.append((_ICON_MAIL_SVG, issuer_email))
+
+    left_h = 0.0
+    for text, size, line_h, style in left_rows:
+        pdf.set_font("Helvetica", style, size)
+        left_h += _count_lines(pdf, _safe_pdf_text(text), left_w, line_h) * line_h
+    pdf.set_font("Helvetica", "", 9)
+    right_h = 0.0
+    for icon, text in right_rows:
+        width = right_w - (icon_w if icon else 0.0)
+        right_h += _count_lines(pdf, _safe_pdf_text(text), width, 4.5) * 4.5 + 0.5
+
+    band_h = max(26.0, max(left_h, right_h) + 6.0)
+    pdf.set_fill_color(*BLUE_LIGHT)
+    pdf.rect(MARGIN, top, CONTENT_W, band_h, style="F")
+
+    y = top + 3.0
+    for text, size, line_h, style in left_rows:
+        pdf.set_font("Helvetica", style, size)
+        pdf.set_xy(left_x, y)
+        pdf.multi_cell(left_w, line_h, _safe_pdf_text(text), align="L", new_x="LEFT", new_y="NEXT")
+        y = pdf.get_y()
+
+    pdf.set_font("Helvetica", "", 9)
+    y = top + 3.0
+    for icon, text in right_rows:
+        width = right_w - (icon_w if icon else 0.0)
+        if icon is not None:
+            pdf.image(io.BytesIO(icon), x=right_x, y=y + 0.2, w=4.0, h=4.0)
+        pdf.set_xy(right_x + (icon_w if icon else 0.0), y)
+        pdf.multi_cell(width, 4.5, _safe_pdf_text(text), align="L", new_x="LEFT", new_y="NEXT")
+        y = pdf.get_y() + 0.5
+    return top + band_h
+
+
+def _draw_title_bar(pdf: Any, y: float, doc_label: str) -> float:
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_xy(MARGIN, y)
+    pdf.cell(CONTENT_W / 2, 6.0, "DESTINATARIO:")
+    pdf.set_xy(MARGIN + CONTENT_W / 2, y)
+    pdf.multi_cell(
+        CONTENT_W / 2, 6.0, _safe_pdf_text(doc_label.upper()),
+        align="R", new_x="LEFT", new_y="NEXT",
+    )
+    title_bottom = pdf.get_y()
+    _double_rule(pdf, title_bottom)
+    return title_bottom + 2.0
+
+
+def _draw_client(pdf: Any, y: float, client_name: str, client_id: str, client_address: Optional[str]) -> float:
+    width = 88.0
+    pdf.set_xy(MARGIN, y)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.multi_cell(width, ROW_H, _safe_pdf_text(f"CLIENTE: {client_name}"), align="L", new_x="LEFT", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.multi_cell(width, ROW_H, _safe_pdf_text(f"ID: {client_id}"), align="L", new_x="LEFT", new_y="NEXT")
+    if client_address:
+        pdf.multi_cell(width, ROW_H, _safe_pdf_text(client_address), align="L", new_x="LEFT", new_y="NEXT")
+    return pdf.get_y()
+
+
+def _draw_label_row(pdf: Any, y: float, label: str, value: str) -> float:
+    """Fila azul clara etiqueta/valor del bloque documento. La etiqueta reduce su letra hasta caber."""
+    pdf.set_fill_color(*BLUE_LIGHT)
+    pdf.rect(RIGHT_X, y, RIGHT_W, ROW_H, style="F")
+    text = _fit_text(pdf, _safe_pdf_text(label), LABEL_W)
+    pdf.set_xy(RIGHT_X, y)
+    pdf.cell(LABEL_W, ROW_H, text)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_xy(RIGHT_X + LABEL_W, y)
+
+exec
+/usr/bin/zsh -lc "rg -n 'etiqueta|recorta|trunca' specs/pdf-documentos-venta-oferta/tasks.md | head -35" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+532:Edita solo `app/routers/ui_businesses.py`. `business_create` y `business_update` aceptan cinco `Form` nuevos. El servidor recorta banco a 128 caracteres, sucursal y cuenta a 64 y moneda a 8 (REQ-9). El plazo se acota a 0-365; un texto no numérico conserva el valor actual al editar y vale 15 al crear (REQ-2).
+1059:    """Fila azul clara etiqueta/valor del bloque documento. La etiqueta reduce su letra hasta caber."""
+2289:    assert "..." in text  # la etiqueta del bloque documento se corta con "..." al llegar a 6 pt
+2909:  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
+
+exec
+/usr/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c 'import runpy; m=runpy.run_path(\"tests/unit/test_sales_document_pdf.py\"); s,_=m[\"_read\"](m[\"build_sales_document_pdf\"](**m[\"_kwargs\"](doc_label=\"Presupuesto extraordinario de verano 2026\",issuer_address=\"Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar\"))); print(s)'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 90ms:
+DyB Autopartes Avenida de los Libertadores esquina a la calle sesenta y
+cuatro, edificio azul, apartamento 12, Miramar
+TCP Randy Manuel Delgado
+NIT 01030573448 54664732 / 50781349
+autosandero@gmail.com
+DESTINATARIO: PRESUPUESTO EXTRAORDINARIO DE
+VERANO 2026
+CLIENTE: Cliente Prueba No. Presupuesto extraordinario de ... P202611180001
+ID: B244742 Fecha de presupuesto extraordinari... 18/11/2026
+Fecha de vencimiento: 03/12/2026
+Subtotal: 490,875.00
+TOTAL: 490,875.00
+CONCEPTO UNIDADES CANTIDAD PRECIO CUP IMPORTE CUP
+Pastillas de freno JGO 1 303,875.00 303,875.00
+Filtro de aceite U 1 187,000.00 187,000.00
+FORMA DE PAGO Recibido por:
+Efectivo___
+Cheque___ Cargo: ______________________________
+Transferencia Bancaria___ Firma: ______________________________
+Banco Metropolitano, Sucursal 248 Fecha: ______________________________
+No. Cuenta (CUP): 0598770024085419
+
+exec
+/usr/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c 'from pathlib import Path; p=Path(\"tests/unit/test_sales_document_pdf.py\"); s=p.read_text(); old=\"assert long_label.upper() in text\"; new=\"assert long_label.upper() in \\\" \\\".join(text.split())\"; assert s.count(old)==1; t=Path(\"specs/pdf-documentos-venta-oferta/tasks.md\").read_text(); assert t.count(old)==1; module={}; exec(compile(s.replace(old,new),str(p),\"exec\"),module); tests=[test for name,test in module.items() if name.startswith(\"test_\")]; [test() for test in tests]; print(f\"{len(tests)} pruebas PDF correctas con el cambio en memoria\")'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 418ms:
+12 pruebas PDF correctas con el cambio en memoria
+
+codex
+**Un hallazgo en T21.** El PDF contiene la etiqueta completa, pero la reparte en dos líneas. El test busca una cadena con espacios literales y falla cuando `pdfplumber` devuelve `DE\nVERANO`. La evidencia registra **1 fallo, 615 pruebas superadas y 91 snapshots equivalentes**. La referencia a `JsonPlusSerializer` aparece en un aviso de deprecación.
+
+La corrección normaliza los espacios del texto extraído únicamente en esa aserción. El mismo reemplazo en el test y en su envelope mantiene ambos sincronizados. Las 12 pruebas del PDF pasaron al ejecutar el cambio en memoria. La verificación completa del lote queda pendiente de aplicar el bloque. No modifiqué ningún fichero ni encontré otros bugs en el diff solicitado.
+
+**Ficheros revisados en el diff**
+
+- `tests/unit/test_business_bank_fields.py`
+- `tests/unit/test_sales_doc_valid_until.py`
+- `tests/unit/test_sales_document_pdf.py`
+- `tests/unit/test_sales_documents_format.py`
+- `specs/pdf-documentos-venta-oferta/verify/loteC.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteC.test.txt`
+
+**Referencias consultadas**
+
+- `specs/pdf-documentos-venta-oferta/tasks.md` (T20–T26)
+- `specs/pdf-documentos-venta-oferta/verify/loteC.lint.txt`
+- `app/sales_document_pdf.py` (ajuste de la etiqueta al ancho)
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Admitir saltos de línea en la etiqueta extraída del PDF
+**Apply:** script
+**Files:** `tests/unit/test_sales_document_pdf.py`, `specs/pdf-documentos-venta-oferta/tasks.md`
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_document_pdf.py
+op: replace
+@@ before
+    assert long_label.upper() in text
+@@ after
+    assert long_label.upper() in " ".join(text.split())
+````
+
+````pae-edit
+file: specs/pdf-documentos-venta-oferta/tasks.md
+op: replace
+@@ before
+    assert long_label.upper() in text
+@@ after
+    assert long_label.upper() in " ".join(text.split())
+````
+
+#### Verification
+
+```bash
+.venv/bin/python -m pytest -q --override-ini="addopts=" tests/unit/test_business_bank_fields.py tests/unit/test_sales_doc_valid_until.py tests/unit/test_sales_document_pdf.py tests/unit/test_sales_documents_format.py
+```
+`````
+tokens used
+27.919
+**Un hallazgo en T21.** El PDF contiene la etiqueta completa, pero la reparte en dos líneas. El test busca una cadena con espacios literales y falla cuando `pdfplumber` devuelve `DE\nVERANO`. La evidencia registra **1 fallo, 615 pruebas superadas y 91 snapshots equivalentes**. La referencia a `JsonPlusSerializer` aparece en un aviso de deprecación.
+
+La corrección normaliza los espacios del texto extraído únicamente en esa aserción. El mismo reemplazo en el test y en su envelope mantiene ambos sincronizados. Las 12 pruebas del PDF pasaron al ejecutar el cambio en memoria. La verificación completa del lote queda pendiente de aplicar el bloque. No modifiqué ningún fichero ni encontré otros bugs en el diff solicitado.
+
+**Ficheros revisados en el diff**
+
+- `tests/unit/test_business_bank_fields.py`
+- `tests/unit/test_sales_doc_valid_until.py`
+- `tests/unit/test_sales_document_pdf.py`
+- `tests/unit/test_sales_documents_format.py`
+- `specs/pdf-documentos-venta-oferta/verify/loteC.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteC.test.txt`
+
+**Referencias consultadas**
+
+- `specs/pdf-documentos-venta-oferta/tasks.md` (T20–T26)
+- `specs/pdf-documentos-venta-oferta/verify/loteC.lint.txt`
+- `app/sales_document_pdf.py` (ajuste de la etiqueta al ancho)
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Admitir saltos de línea en la etiqueta extraída del PDF
+**Apply:** script
+**Files:** `tests/unit/test_sales_document_pdf.py`, `specs/pdf-documentos-venta-oferta/tasks.md`
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_document_pdf.py
+op: replace
+@@ before
+    assert long_label.upper() in text
+@@ after
+    assert long_label.upper() in " ".join(text.split())
+````
+
+````pae-edit
+file: specs/pdf-documentos-venta-oferta/tasks.md
+op: replace
+@@ before
+    assert long_label.upper() in text
+@@ after
+    assert long_label.upper() in " ".join(text.split())
+````
+
+#### Verification
+
+```bash
+.venv/bin/python -m pytest -q --override-ini="addopts=" tests/unit/test_business_bank_fields.py tests/unit/test_sales_doc_valid_until.py tests/unit/test_sales_document_pdf.py tests/unit/test_sales_documents_format.py
+```
+`````

@@ -1,0 +1,776 @@
+Reading additional input from stdin...
+OpenAI Codex v0.166.0
+--------
+workdir: /home/liandy/PyCharmMiscProject/gestion_inventario
+model: gpt-6.2-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1f0d5-16a8-7ea0-af43-910df1d225d2
+--------
+user
+Revisa SOLO los cambios de 'git diff 0c7c54486097af7a3711fdb1274da99c96ec8e3a...84a27c616ae00332e90298d254fc4106efb0dea4 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'' en este repo (ejecuta el diff tú mismo con el
+shell disponible, no asumas su contenido). No modifiques ningún fichero — sigues en solo lectura.
+
+Hallazgos ya detectados que debes corregir, además de revisar el resto del diff por tu cuenta:
+Contexto del lote: este diff es el lote D (T24–T26, líneas 2877–3015) del PAE `specs/pdf-documentos-venta-oferta/tasks.md`. Lee esos envelopes con `sed -n '<inicio>,<fin>p' specs/pdf-documentos-venta-oferta/tasks.md` antes de juzgar el diff.
+
+No toques `tests/e2e/test_sales_doc_pdf_oferta_e2e.py`: es el contrato del Lote 0 y está protegido.
+
+Para cada bug real (no de estilo) que encuentres, y para cada hallazgo de la lista de arriba si la hay:
+decide la corrección tú mismo, sin pedir confirmación — aquí tienes autoridad completa, incluso si la
+corrección implica cambiar un diseño existente (mover una función a otro módulo, cambiar un contrato).
+
+Si decides que hace falta corregir algo, termina tu respuesta con un bloque:
+
+```tasks-md
+Lotes: **A** T1-T<n>
+
+### T<n>: <título>
+**Apply:** script
+**Files:** `<ruta>`
+
+#### Instructions
+
+````pae-edit
+file: <ruta>
+op: <operación>
+...
+````
+
+#### Verification
+
+```bash
+<comando>
+```
+```
+
+(formato completo en /home/liandy/.local/share/harness-loop/pae-edit-format.md: léelo con 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' antes de escribir el bloque;
+no existe dentro del repo revisado). Usa Apply: cc_local solo si el cambio no se puede expresar como pae-edit literal.
+
+Si no encuentras nada que corregir, dilo explícitamente ('SIN HALLAZGOS') y NO incluyas ningún bloque
+tasks-md.
+
+Al final, lista los ficheros que SÍ revisaste.
+codex
+Leeré los envelopes de T24–T26 y ejecutaré el diff indicado en modo de solo lectura.
+exec
+/usr/bin/zsh -lc "sed -n '2877,3015p' specs/pdf-documentos-venta-oferta/tasks.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+### T24: Subir la versión a 0.5.2 (PATCH)
+
+**Depends on:** T23
+**Skill:** release-manager
+**Apply:** script
+**Files:** `VERSION`, `.bumpversion.cfg`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `VERSION` y `.bumpversion.cfg`. La versión pasa de `0.5.1` a `0.5.2`. Es un incremento PATCH, no MINOR.
+
+#### Instructions
+
+````pae-edit
+file: VERSION
+op: replace
+@@ before
+0.5.1
+@@ after
+0.5.2
+````
+
+````pae-edit
+file: .bumpversion.cfg
+op: replace
+@@ before
+current_version = 0.5.1
+@@ after
+current_version = 0.5.2
+````
+
+#### Verification
+
+`cat VERSION` imprime `0.5.2` y `grep -n "current_version = 0.5.2" .bumpversion.cfg` encuentra una línea.
+
+#### Expected Report
+
+- [ ] `VERSION` y `.bumpversion.cfg` en 0.5.2
+- [ ] Ningún otro fichero modificado
+
+### T25: Entrada de 0.5.2 en `CHANGELOG.md`
+
+**Depends on:** T24
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CHANGELOG.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CHANGELOG.md`. Añade la sección `0.5.2` encima de la sección `0.5.1`.
+
+#### Instructions
+
+````pae-edit
+file: CHANGELOG.md
+op: insert_before
+@@ anchor
+## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
+@@ content
+## 0.5.2 (2026-11-18 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA")
+
+- feat(sales-docs): el PDF de facturas y presupuestos sigue el diseño de la plantilla de referencia: banda de
+  cabecera azul clara con emisor (nombre, TCP, NIT) y contacto con iconos vectoriales de teléfono y email, barra
+  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
+  en presupuestos), fila `Subtotal:` y caja `TOTAL:`, tabla `CONCEPTO | UNIDADES | CANTIDAD | PRECIO | IMPORTE` con
+  separador de miles y cabecera repetida en cada página, y pie con `FORMA DE PAGO` (datos bancarios) y
+  `Recibido por / Cargo / Firma / Fecha`. Las columnas de importe llevan la moneda elegida al construir el
+  documento (`GEN` se muestra como `CUP`). Fechas `dd/mm/aaaa`.
+- feat(businesses): *Negocios → Crear/Editar* guarda banco, sucursal, número de cuenta y moneda de la cuenta
+  (`issuer_bank_*`, con `maxlength` 128/64/64/8 y recorte en el servidor) y el plazo de validez de presupuestos
+  (`sales_quote_validity_days`, 0-365, por defecto 15). Columnas añadidas de forma idempotente al arrancar.
+- feat(sales-docs): campo `valid_until` (fecha de vencimiento) en `sales_documents`, solo para presupuestos. El
+  formulario de emisión la rellena con hoy + plazo de validez y se puede cambiar; sobrevive a los cambios del
+  carrito; se muestra en la vista previa y se edita en el modal de edición. Una fecha inválida devuelve un 422 HTML
+  ("Fecha de vencimiento inválida") sin crear ni modificar nada. Los documentos anteriores siguen generando PDF.
+- test: unit del formato, del PDF (leído con pdfplumber), de los handlers y de los datos del negocio; e2e del flujo
+  completo (negocio → presupuesto en `GEN` → PDF; factura sin vencimiento); baselines de snapshots regeneradas.
+````
+
+#### Verification
+
+`grep -n "## 0.5.2" CHANGELOG.md` encuentra una línea y `grep -n "## 0.5.1" CHANGELOG.md` sigue encontrando la suya.
+
+#### Expected Report
+
+- [ ] `CHANGELOG.md` modificado con la sección 0.5.2 encima de la 0.5.1
+- [ ] Ningún otro fichero modificado
+
+### T26: Estado actual en `CLAUDE.md` (raíz)
+
+**Depends on:** T25
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CLAUDE.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CLAUDE.md` (raíz del repo). Añade la entrada de 0.5.2 al principio de la sección "Estado actual". No edites `.claude/CLAUDE.md`: lo aplica Claude Code en la revisión (envelope manual M1 del PAE).
+
+#### Instructions
+
+````pae-edit
+file: CLAUDE.md
+op: insert_after
+@@ anchor
+## Estado actual
+@@ content
+
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
+      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
+      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
+      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
+      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
+      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
+      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
+      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
+      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
+      el mismo lote que las plantillas (lección de 0.5.1).
+      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
+        generarse (como el TCP), no del documento emitido.
+      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
+        moneda nuevas en el selector del carrito.
+````
+
+#### Verification
+
+`grep -n "0.5.2 — PDF de facturas" CLAUDE.md` encuentra una línea y `grep -c "^## Estado actual" CLAUDE.md` imprime `1`.
+
+#### Expected Report
+
+- [ ] `CLAUDE.md` modificado con la entrada 0.5.2 bajo "Estado actual"
+- [ ] Ningún otro fichero modificado
+
+
+
+exec
+/usr/bin/zsh -lc 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+# Formato `pae-edit`
+
+Un envelope `**Apply:** script` expresa cambios literales en bloques cercados con **4 backticks** y etiqueta
+`pae-edit`. Cabeceras `clave: valor` hasta el primer marcador; secciones delimitadas por marcadores en columna 0:
+`@@ before`, `@@ after`, `@@ anchor`, `@@ content`.
+
+## Operaciones
+
+| op | cabeceras | secciones | semántica |
+|---|---|---|---|
+| `replace` | `file`, `count` (def. 1), `match` (`lines` def. / `text`) | `before`, `after` | sustituye cada coincidencia; el nº debe ser exactamente `count` |
+| `create` | `file`, `overwrite` (def. `false`) | `content` | crea el fichero (error si existe y `overwrite: false`) |
+| `append` | `file` | `content` | añade al final |
+| `insert_after` / `insert_before` | `file`, `count` | `anchor`, `content` | inserta tras/antes de cada coincidencia de `anchor` |
+| `delete_def` | `file`, `symbol` | — | borra la definición (decoradores incluidos) vía `ast` |
+| `delete_file` | `file` | — | borra el fichero |
+| `codemod` | `script`, `runner`, `files`, `expect-changed` | — | ejecuta un script sobre un glob |
+
+## Reglas
+
+- Elisiones prohibidas: una línea cuyo `strip()` es `...`, `…`, `# ...`, `// ...`, `/* ... */` o `<!-- ... -->`
+  es error, salvo `literal-ellipsis: true`.
+- `file`/`files`/`script` relativos y dentro de la raíz (rutas `..` o absolutas = error).
+- El campo `**Apply:**` es obligatorio: `script` (solo bloques pae-edit) o `cc_local` (sin bloques pae-edit).
+
+## Bloque de corrección del miniloop
+
+`cc_codex_fix` le pide a Codex que termine su respuesta con un bloque cercado etiquetado `tasks-md`,
+con el mismo formato de un `tasks.md` normal (`Lotes:` + envelopes `**Apply:** script` con bloques
+`pae-edit`, o `**Apply:** cc_local`). `extract_tasks_md` (en `pae_edits.py`) extrae el ÚLTIMO bloque
+`tasks-md` de la respuesta y `cc_codex_fix` lo escribe en `specs/<slug>/verify/tasks.md`. Si Codex
+responde "SIN HALLAZGOS" (sin bloque), no se escribe ningún `tasks.md`.
+
+exec
+/usr/bin/zsh -lc "git diff 0c7c54486097af7a3711fdb1274da99c96ec8e3a...84a27c616ae00332e90298d254fc4106efb0dea4 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+diff --git a/.bumpversion.cfg b/.bumpversion.cfg
+index 03bb3b6..9e8192d 100644
+--- a/.bumpversion.cfg
++++ b/.bumpversion.cfg
+@@ -1,5 +1,5 @@
+ [bumpversion]
+-current_version = 0.5.1
++current_version = 0.5.2
+ commit = True
+ tag = True
+ tag_name = v{new_version}
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c42b2d8..16956eb 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,24 @@
+ 
+ Este archivo se genera a partir del historial de Git (`git log`).
+ 
++## 0.5.2 (2026-11-18 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA")
++
++- feat(sales-docs): el PDF de facturas y presupuestos sigue el diseño de la plantilla de referencia: banda de
++  cabecera azul clara con emisor (nombre, TCP, NIT) y contacto con iconos vectoriales de teléfono y email, barra
++  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
++  en presupuestos), fila `Subtotal:` y caja `TOTAL:`, tabla `CONCEPTO | UNIDADES | CANTIDAD | PRECIO | IMPORTE` con
++  separador de miles y cabecera repetida en cada página, y pie con `FORMA DE PAGO` (datos bancarios) y
++  `Recibido por / Cargo / Firma / Fecha`. Las columnas de importe llevan la moneda elegida al construir el
++  documento (`GEN` se muestra como `CUP`). Fechas `dd/mm/aaaa`.
++- feat(businesses): *Negocios → Crear/Editar* guarda banco, sucursal, número de cuenta y moneda de la cuenta
++  (`issuer_bank_*`, con `maxlength` 128/64/64/8 y recorte en el servidor) y el plazo de validez de presupuestos
++  (`sales_quote_validity_days`, 0-365, por defecto 15). Columnas añadidas de forma idempotente al arrancar.
++- feat(sales-docs): campo `valid_until` (fecha de vencimiento) en `sales_documents`, solo para presupuestos. El
++  formulario de emisión la rellena con hoy + plazo de validez y se puede cambiar; sobrevive a los cambios del
++  carrito; se muestra en la vista previa y se edita en el modal de edición. Una fecha inválida devuelve un 422 HTML
++  ("Fecha de vencimiento inválida") sin crear ni modificar nada. Los documentos anteriores siguen generando PDF.
++- test: unit del formato, del PDF (leído con pdfplumber), de los handlers y de los datos del negocio; e2e del flujo
++  completo (negocio → presupuesto en `GEN` → PDF; factura sin vencimiento); baselines de snapshots regeneradas.
+ ## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
+ 
+ - feat(sales-docs): cabecera de facturas/presupuestos con titular **TCP** (campo nuevo `issuer_holder` en
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 7700c90..ccde97e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -160,6 +160,23 @@ caducidad FEFO) → P1 → P2 → P3.
+ 
+ ## Estado actual
+ 
++- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
++      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
++      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
++      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
++      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
++      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
++      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
++      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
++      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
++      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
++      el mismo lote que las plantillas (lección de 0.5.1).
++      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
++        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
++        generarse (como el TCP), no del documento emitido.
++      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
++        moneda nuevas en el selector del carrito.
++
+ - [x] **0.5.1 — cabecera TCP/NIT en facturas y presupuestos (2026-11-18, sesión 25, directo en `develop`)** — campo
+       nuevo `businesses.issuer_holder` (`IssuerConfig.holder`, "Titular (TCP)" en *Negocios → Crear/Editar*; columna
+       añadida de forma idempotente por `_BUSINESS_CONFIG_COLS`). El PDF imprime `TCP: …` y `NIT: …` (antes "ID
+diff --git a/VERSION b/VERSION
+index 4b9fcbe..cb0c939 100644
+--- a/VERSION
++++ b/VERSION
+@@ -1 +1 @@
+-0.5.1
++0.5.2
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteD.diff.txt b/specs/pdf-documentos-venta-oferta/verify/loteD.diff.txt
+new file mode 100644
+index 0000000..1cf9425
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteD.diff.txt
+@@ -0,0 +1,4 @@
++.bumpversion.cfg
++CHANGELOG.md
++CLAUDE.md
++VERSION
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteD.test.txt b/specs/pdf-documentos-venta-oferta/verify/loteD.test.txt
+new file mode 100644
+index 0000000..780d364
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteD.test.txt
+@@ -0,0 +1,310 @@
++OK: 91 snapshots equivalentes
++........................................................................ [ 11%]
++........................................................................ [ 23%]
++........................................................................ [ 35%]
++........................................................................ [ 46%]
++........................................................................ [ 58%]
++........................................................................ [ 70%]
++........................................................................ [ 81%]
++........................................................................ [ 93%]
++........................................                                 [100%]
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    return asyncio.iscoroutinefunction(func) or (
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    asyncio.iscoroutinefunction(func)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++    from starlette.testclient import TestClient as TestClient  # noqa
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++616 passed, 246 warnings in 12.63s
++
++--- stderr ---
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++  from starlette.testclient import TestClient as TestClient  # noqa
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+exec
+/usr/bin/zsh -lc "git diff 0c7c54486097af7a3711fdb1274da99c96ec8e3a...84a27c616ae00332e90298d254fc4106efb0dea4 --stat -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+ .bumpversion.cfg                                   |   2 +-
+ CHANGELOG.md                                       |  18 ++
+ CLAUDE.md                                          |  17 ++
+ VERSION                                            |   2 +-
+ .../verify/loteD.diff.txt                          |   4 +
+ .../verify/loteD.test.txt                          | 310 +++++++++++++++++++++
+ 6 files changed, 351 insertions(+), 2 deletions(-)
+
+exec
+/usr/bin/zsh -lc "git diff 0c7c54486097af7a3711fdb1274da99c96ec8e3a...84a27c616ae00332e90298d254fc4106efb0dea4 --check -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ exited 2 in 0ms:
+specs/pdf-documentos-venta-oferta/verify/loteD.test.txt:14: trailing whitespace.
++  
+
+exec
+/usr/bin/zsh -lc "git show 84a27c616ae00332e90298d254fc4106efb0dea4:specs/pdf-documentos-venta-oferta/verify/loteD.test.txt | awk '/Warning:/{sub(/"'^.*site-packages'"\\//, \"\"); sub(/ for function .*"'$/, ""); print} /passed|failed|ERROR|''^OK:/{print}'"'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+OK: 91 snapshots equivalentes
+_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get
+fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get
+616 passed, 246 warnings in 12.63s
+fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+
+exec
+/usr/bin/zsh -lc "rg -n 'loteD|"'^Lotes:|M1'"' specs/pdf-documentos-venta-oferta/tasks.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+14:Lotes: **A** T1–T14 · **B** T15–T19 · **C** T20–T23 · **D** T24–T26
+2977:Edita solo `CLAUDE.md` (raíz del repo). Añade la entrada de 0.5.2 al principio de la sección "Estado actual". No edites `.claude/CLAUDE.md`: lo aplica Claude Code en la revisión (envelope manual M1 del PAE).
+
+codex
+**SIN HALLAZGOS.** Ejecuté el diff con las exclusiones indicadas y contrasté los cambios con T24–T26. Ambos archivos de versión pasan a `0.5.2`, el changelog sitúa la nueva entrada encima de `0.5.1` y `CLAUDE.md` la incorpora al inicio de «Estado actual».
+
+El registro del lote informa de 91 snapshots equivalentes y 616 pruebas aprobadas. No repetí las pruebas ni modifiqué archivos.
+
+**Ficheros revisados**
+
+- `.bumpversion.cfg`
+- `CHANGELOG.md`
+- `CLAUDE.md`
+- `VERSION`
+- `specs/pdf-documentos-venta-oferta/verify/loteD.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteD.test.txt`
+- `specs/pdf-documentos-venta-oferta/tasks.md`, líneas 2877–3015
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`
+tokens used
+17.155
+**SIN HALLAZGOS.** Ejecuté el diff con las exclusiones indicadas y contrasté los cambios con T24–T26. Ambos archivos de versión pasan a `0.5.2`, el changelog sitúa la nueva entrada encima de `0.5.1` y `CLAUDE.md` la incorpora al inicio de «Estado actual».
+
+El registro del lote informa de 91 snapshots equivalentes y 616 pruebas aprobadas. No repetí las pruebas ni modifiqué archivos.
+
+**Ficheros revisados**
+
+- `.bumpversion.cfg`
+- `CHANGELOG.md`
+- `CLAUDE.md`
+- `VERSION`
+- `specs/pdf-documentos-venta-oferta/verify/loteD.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteD.test.txt`
+- `specs/pdf-documentos-venta-oferta/tasks.md`, líneas 2877–3015
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`

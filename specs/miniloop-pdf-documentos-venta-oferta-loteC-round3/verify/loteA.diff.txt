@@ -1,0 +1,3 @@
+specs/pdf-documentos-venta-oferta/tasks.md
+tests/unit/test_sales_doc_valid_until.py
+tests/unit/test_sales_document_pdf.py

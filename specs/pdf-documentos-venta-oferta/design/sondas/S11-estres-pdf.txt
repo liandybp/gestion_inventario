@@ -1,0 +1,11 @@
+Sonda S11 (Opus-1, 2026-11-18, rama feature/pdf-documentos-venta-oferta tras la ronda 2 del lote A)
+build_sales_document_pdf con entradas extremas; texto con pdfplumber; chars_fuera = caracteres a <5 pt del borde.
+normal               págs=1 chars_fuera=0 faltan=[]
+cuenta64             págs=1 chars_fuera=0 faltan=[]
+notas100             págs=2 chars_fuera=0 faltan=[]
+etiqueta64           págs=1 chars_fuera=0 faltan=[]
+desc_alta            págs=4 chars_fuera=0 faltan=[]
+lineas60             págs=2 chars_fuera=0 faltan=[]
+unidad_larga         págs=1 chars_fuera=0 faltan=[]
+direccion_saltos     págs=1 chars_fuera=0 faltan=[]
+factura_sin_banco    págs=1 chars_fuera=0 faltan=[]

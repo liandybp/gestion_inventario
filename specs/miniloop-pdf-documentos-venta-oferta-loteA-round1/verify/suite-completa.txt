@@ -1,0 +1,328 @@
+exit 0
+..                                                                       [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 1 warning in 7.12s
+OK: 91 snapshots equivalentes
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 53%]
+........................................................................ [ 66%]
+........................................................................ [ 79%]
+........................................................................ [ 92%]
+.......................................                                  [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func) or (
+
+.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
+tests/unit/test_agent_graph.py: 84 warnings
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    asyncio.iscoroutinefunction(func)
+
+.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
+tests/unit/test_agent_graph.py: 84 warnings
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    and asyncio.iscoroutinefunction(func.__call__)
+
+.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+543 passed, 246 warnings in 11.37s
+........................................................................ [ 74%]
+.........................                                                [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+97 passed, 1 warning in 216.26s (0:03:36)
+
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer

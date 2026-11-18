@@ -1,0 +1,5 @@
+ronda 1: aplicada
+ronda 2: aplicada; misma zona que la ronda anterior — app/sales_document_pdf.py::_draw_rows, app/sales_document_pdf.py::build_sales_document_pdf
+no convergió: subir a Opus
+
+Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta (base 695ec4beaac988dcab42492321fcc2ad7de71c58). El miniloop paró en la ronda 2: las rondas 1 y 2 parchearon la misma zona (app/sales_document_pdf.py::_draw_rows, app/sales_document_pdf.py::build_sales_document_pdf). Regla ADR-026: es una cuestión de diseño, no de parche. Historial en specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt y specs/miniloop-pdf-documentos-venta-oferta-loteA-round1..2/. Decide el diseño de esa zona antes de la revisión 5b.

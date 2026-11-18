@@ -1,0 +1,7 @@
+app/sales_document_pdf.py
+app/templates/components/sales_doc/issue_form.html
+tests/snapshots/baseline/empty_tab_documents.txt
+tests/snapshots/baseline/operator_tab_documents.txt
+tests/snapshots/baseline/owner_tab_documents.txt
+tests/snapshots/baseline/tab_documents.txt
+tests/unit/test_sales_document_pdf.py

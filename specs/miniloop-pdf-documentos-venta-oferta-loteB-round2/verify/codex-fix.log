@@ -1,0 +1,1953 @@
+Reading additional input from stdin...
+OpenAI Codex v0.166.0
+--------
+workdir: /home/liandy/PyCharmMiscProject/gestion_inventario
+model: gpt-6.2-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1f0a9-8842-71c3-800e-a1bfb473eda0
+--------
+user
+Revisa SOLO los cambios de 'git diff 723d70fd469a3b64a0c9f238e019217252e95736...211246a930fdfd39c822cba089800eb6ba7e35f6 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'' en este repo (ejecuta el diff tú mismo con el
+shell disponible, no asumas su contenido). No modifiques ningún fichero — sigues en solo lectura.
+
+Para cada bug real (no de estilo) que encuentres, y para cada hallazgo de la lista de arriba si la hay:
+decide la corrección tú mismo, sin pedir confirmación — aquí tienes autoridad completa, incluso si la
+corrección implica cambiar un diseño existente (mover una función a otro módulo, cambiar un contrato).
+
+Si decides que hace falta corregir algo, termina tu respuesta con un bloque:
+
+```tasks-md
+Lotes: **A** T1-T<n>
+
+### T<n>: <título>
+**Apply:** script
+**Files:** `<ruta>`
+
+#### Instructions
+
+````pae-edit
+file: <ruta>
+op: <operación>
+...
+````
+
+#### Verification
+
+```bash
+<comando>
+```
+```
+
+(formato completo en /home/liandy/.local/share/harness-loop/pae-edit-format.md: léelo con 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' antes de escribir el bloque;
+no existe dentro del repo revisado). Usa Apply: cc_local solo si el cambio no se puede expresar como pae-edit literal.
+
+Si no encuentras nada que corregir, dilo explícitamente ('SIN HALLAZGOS') y NO incluyas ningún bloque
+tasks-md.
+
+Al final, lista los ficheros que SÍ revisaste.
+codex
+Ejecutaré el diff con las exclusiones indicadas y revisaré los cambios en solo lectura.
+exec
+/usr/bin/zsh -lc 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+# Formato `pae-edit`
+
+Un envelope `**Apply:** script` expresa cambios literales en bloques cercados con **4 backticks** y etiqueta
+`pae-edit`. Cabeceras `clave: valor` hasta el primer marcador; secciones delimitadas por marcadores en columna 0:
+`@@ before`, `@@ after`, `@@ anchor`, `@@ content`.
+
+## Operaciones
+
+| op | cabeceras | secciones | semántica |
+|---|---|---|---|
+| `replace` | `file`, `count` (def. 1), `match` (`lines` def. / `text`) | `before`, `after` | sustituye cada coincidencia; el nº debe ser exactamente `count` |
+| `create` | `file`, `overwrite` (def. `false`) | `content` | crea el fichero (error si existe y `overwrite: false`) |
+| `append` | `file` | `content` | añade al final |
+| `insert_after` / `insert_before` | `file`, `count` | `anchor`, `content` | inserta tras/antes de cada coincidencia de `anchor` |
+| `delete_def` | `file`, `symbol` | — | borra la definición (decoradores incluidos) vía `ast` |
+| `delete_file` | `file` | — | borra el fichero |
+| `codemod` | `script`, `runner`, `files`, `expect-changed` | — | ejecuta un script sobre un glob |
+
+## Reglas
+
+- Elisiones prohibidas: una línea cuyo `strip()` es `...`, `…`, `# ...`, `// ...`, `/* ... */` o `<!-- ... -->`
+  es error, salvo `literal-ellipsis: true`.
+- `file`/`files`/`script` relativos y dentro de la raíz (rutas `..` o absolutas = error).
+- El campo `**Apply:**` es obligatorio: `script` (solo bloques pae-edit) o `cc_local` (sin bloques pae-edit).
+
+## Bloque de corrección del miniloop
+
+`cc_codex_fix` le pide a Codex que termine su respuesta con un bloque cercado etiquetado `tasks-md`,
+con el mismo formato de un `tasks.md` normal (`Lotes:` + envelopes `**Apply:** script` con bloques
+`pae-edit`, o `**Apply:** cc_local`). `extract_tasks_md` (en `pae_edits.py`) extrae el ÚLTIMO bloque
+`tasks-md` de la respuesta y `cc_codex_fix` lo escribe en `specs/<slug>/verify/tasks.md`. Si Codex
+responde "SIN HALLAZGOS" (sin bloque), no se escribe ningún `tasks.md`.
+
+exec
+/usr/bin/zsh -lc "git diff 723d70fd469a3b64a0c9f238e019217252e95736...211246a930fdfd39c822cba089800eb6ba7e35f6 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+diff --git a/app/routers/ui_sales_documents.py b/app/routers/ui_sales_documents.py
+index b0e57af..767065c 100644
+--- a/app/routers/ui_sales_documents.py
++++ b/app/routers/ui_sales_documents.py
+@@ -252,6 +252,22 @@ def sales_doc_preview(
+         valid_until=valid_until,
+     )
+ 
++    try:
++        valid_until_date = resolve_valid_until(
++            valid_until,
++            doc_type=doc_type_norm,
++            issue_date=datetime.now(timezone.utc),
++            validity_days=int(config.sales_documents.quote_validity_days),
++        )
++    except ValueError:
++        _log.info("valid_until rechazado: %r", valid_until)
++        return templates.TemplateResponse(
++            request=request,
++            name="features/sales_documents/_valid_until_error.html",
++            context={},
++            status_code=422,
++        )
++
+     cart = _get_cart(request)
+     if not cart:
+         raise HTTPException(status_code=422, detail="El carrito está vacío")
+@@ -275,6 +291,8 @@ def sales_doc_preview(
+             "subtotal": subtotal,
+             "total": total,
+             "currency_code": selected_currency_code,
++            "valid_until_label": format_doc_date(valid_until_date),
++            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
+             "currency_symbol": selected_currency_symbol,
+         },
+     )
+@@ -377,6 +395,32 @@ async def sales_doc_update(
+     if not client_id:
+         raise HTTPException(status_code=422, detail="client_id is required")
+ 
++    new_valid_until = None
++    if (doc.doc_type or "").strip().upper() == "P":
++        raw_valid_until = form.get("valid_until")
++        try:
++            new_valid_until = resolve_valid_until(
++                raw_valid_until if isinstance(raw_valid_until, str) else "",
++                doc_type="P",
++                issue_date=doc.issue_date,
++                validity_days=int(config.sales_documents.quote_validity_days),
++                on_empty="keep",
++                current=doc.valid_until,
++            )
++        except ValueError:
++            _log.info("valid_until rechazado: %r", raw_valid_until)
++            return templates.TemplateResponse(
++                request=request,
++                name="features/sales_documents/_valid_until_error.html",
++                context={},
++                status_code=422,
++                headers={
++                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
++                    "HX-Reswap": "innerHTML",
++                    "X-Modal-Keep": "1",
++                },
++            )
++
+     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+     doc.customer_id = customer.id
+ 
+@@ -443,6 +487,7 @@ async def sales_doc_update(
+     doc.client_id = client_id
+     doc.client_address = client_address
+     doc.notes = notes
++    doc.valid_until = new_valid_until
+     doc.currency_code = (doc.currency_code or config.currency.code)
+     doc.currency_symbol = (doc.currency_symbol or config.currency.symbol)
+     doc.subtotal = subtotal
+diff --git a/app/templates/features/sales_documents/_valid_until_error.html b/app/templates/features/sales_documents/_valid_until_error.html
+new file mode 100644
+index 0000000..e47146f
+--- /dev/null
++++ b/app/templates/features/sales_documents/_valid_until_error.html
+@@ -0,0 +1,2 @@
++{% from 'components/ui.html' import flash %}
++{{ flash('Fecha de vencimiento inválida', 'error') }}
+diff --git a/app/templates/features/sales_documents/sales_document_edit_form.html b/app/templates/features/sales_documents/sales_document_edit_form.html
+index d65d263..823416a 100644
+--- a/app/templates/features/sales_documents/sales_document_edit_form.html
++++ b/app/templates/features/sales_documents/sales_document_edit_form.html
+@@ -10,6 +10,10 @@
+     </div>
+     {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+     {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
++    {% if (doc.doc_type or '')|upper == 'P' %}
++    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
++    <div id="sales-doc-edit-valid-until-error" role="alert"></div>
++    {% endif %}
+ 
+     <h4 class="mt-14">Items</h4>
+     <div class="table-wrapper">
+diff --git a/app/templates/features/sales_documents/sales_document_preview.html b/app/templates/features/sales_documents/sales_document_preview.html
+index e46ff50..baa8071 100644
+--- a/app/templates/features/sales_documents/sales_document_preview.html
++++ b/app/templates/features/sales_documents/sales_document_preview.html
+@@ -8,6 +8,7 @@
+   <div class="grid grid-2 mt-10">
+     <div>
+       <div><strong>Tipo:</strong> {{ doc_label }}</div>
++      {% if doc_type == 'P' %}<div><strong>Vencimiento:</strong> {{ valid_until_label }}</div>{% endif %}
+       <div><strong>Cliente:</strong> {{ client_name }} ({{ client_id }})</div>
+       {% if client_address %}<div><strong>Dirección:</strong> {{ client_address }}</div>{% endif %}
+       {% if notes %}<div><strong>Notas:</strong> {{ notes }}</div>{% endif %}
+@@ -49,6 +50,7 @@
+     <input type="hidden" name="client_id" value="{{ client_id }}" />
+     <input type="hidden" name="client_address" value="{{ client_address or '' }}" />
+     <input type="hidden" name="notes" value="{{ notes or '' }}" />
++    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
+     <button type="submit">Emitir ahora</button>
+   </form>
+ </div>
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt b/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+new file mode 100644
+index 0000000..a70a72b
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+@@ -0,0 +1,4 @@
++app/routers/ui_sales_documents.py
++app/templates/features/sales_documents/_valid_until_error.html
++app/templates/features/sales_documents/sales_document_edit_form.html
++app/templates/features/sales_documents/sales_document_preview.html
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt b/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+new file mode 100644
+index 0000000..e9e32d7
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+@@ -0,0 +1,319 @@
++OK: 91 snapshots equivalentes
++........................................................................ [ 13%]
++........................................................................ [ 26%]
++........................................................................ [ 39%]
++........................................................................ [ 53%]
++........................................................................ [ 66%]
++........................................................................ [ 79%]
++........................................................................ [ 92%]
++.......................................                                  [100%]
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    return asyncio.iscoroutinefunction(func) or (
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    asyncio.iscoroutinefunction(func)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++    from starlette.testclient import TestClient as TestClient  # noqa
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++543 passed, 246 warnings in 12.04s
++........................................................................ [ 74%]
++.........................                                                [100%]
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++97 passed, 1 warning in 217.25s (0:03:37)
++
++--- stderr ---
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++  from starlette.testclient import TestClient as TestClient  # noqa
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+exec
+/usr/bin/zsh -lc "h=211246a930fdfd39c822cba089800eb6ba7e35f6
+git grep -n -E 'sales-doc/preview|X-Modal-Keep|htmx:beforeSwap|def resolve_valid_until|def format_doc_date' \""'$h" -- app '"':"'!*.min.js'"'
+git show \""'$h:app/routers/ui_sales_documents.py" | sed -n '"'220,305p;710,860p'
+git ls-tree -r --name-only \""'$h" specs/pdf-documentos-venta-oferta tests | rg '"'pdf-documentos|sales_doc'
+" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_auth.py:150:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_auth.py:164:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_businesses.py:425:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_businesses.py:488:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_sales_documents.py:208:@router.post("/sales-doc/preview", response_class=HTMLResponse)
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_sales_documents.py:420:                    "X-Modal-Keep": "1",
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_transfers.py:472:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_transfers.py:875:            response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_users.py:248:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/routers/ui_users.py:273:        response.headers["X-Modal-Keep"] = "1"
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/sales_documents_format.py:37:def format_doc_date(value: Optional[date | datetime]) -> str:
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/sales_documents_format.py:44:def resolve_valid_until(
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/static/js/core/modals.js:54:  const keepOpen = String(xhr.getResponseHeader('X-Modal-Keep') || '') === '1';
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/static/js/core/swap.js:22:  document.addEventListener('htmx:beforeSwap', (evt) => {
+211246a930fdfd39c822cba089800eb6ba7e35f6:app/templates/components/sales_doc/issue_form.html:33:              hx-post="/ui/sales-doc/preview"
+fatal: ambiguous argument '/home/liandy/PyCharmMiscProject/gestion_inventario/211246a930fdfd39c822cba089800eb6ba7e35f6pp/routers/ui_sales_documents.py': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+specs/pdf-documentos-venta-oferta/PAE-pdf-documentos-venta-oferta.md
+specs/pdf-documentos-venta-oferta/codemods/regen_baselines.py
+specs/pdf-documentos-venta-oferta/design.md
+specs/pdf-documentos-venta-oferta/design/codex-review.log
+specs/pdf-documentos-venta-oferta/design/codex-review.md
+specs/pdf-documentos-venta-oferta/design/sondas/S1-fpdf-pdfplumber.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S10-autorrelleno-documentos.py
+specs/pdf-documentos-venta-oferta/design/sondas/S11-estres-pdf.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S11-render-pdf.py
+specs/pdf-documentos-venta-oferta/design/sondas/S2-sqlite-date-column.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S3-dev-db-pg.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S4-reference-colors.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S5-snapshots-afectados.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S6-json-date-y-formatos.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S7-fpdf-dry-run.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S8-ajuste-etiquetas-y-cantidad.txt
+specs/pdf-documentos-venta-oferta/design/sondas/S9-iconos-svg.py
+specs/pdf-documentos-venta-oferta/design/sondas/S9-iconos-svg.txt
+specs/pdf-documentos-venta-oferta/design/sondas/render/factura-larga-1.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/factura-larga-2.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/factura-larga-3.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/factura-larga.pdf
+specs/pdf-documentos-venta-oferta/design/sondas/render/minimo-1.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/minimo.pdf
+specs/pdf-documentos-venta-oferta/design/sondas/render/oferta-1.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/oferta.pdf
+specs/pdf-documentos-venta-oferta/design/sondas/render/stress-lineas60-1.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/stress-lineas60-2.png
+specs/pdf-documentos-venta-oferta/design/sondas/render/stress-normal-1.png
+specs/pdf-documentos-venta-oferta/encargo-2b.md
+specs/pdf-documentos-venta-oferta/encargo-4a.md
+specs/pdf-documentos-venta-oferta/loop/estado.json
+specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt
+specs/pdf-documentos-venta-oferta/miniloop/loteA/suite_ok.json
+specs/pdf-documentos-venta-oferta/miniloop/loteB/suite_ok.json
+specs/pdf-documentos-venta-oferta/requirements.md
+specs/pdf-documentos-venta-oferta/tasks.md
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteA-contrato-rojo.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteA.diff.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteA.test.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteB.diff.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteB.test.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteC.diff.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteC.test.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteD.diff.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/loteD.test.txt
+specs/pdf-documentos-venta-oferta/verify/ensayo/resumen.txt
+specs/pdf-documentos-venta-oferta/verify/loteA-contrato-rojo.txt
+specs/pdf-documentos-venta-oferta/verify/loteA.diff.txt
+specs/pdf-documentos-venta-oferta/verify/loteA.test.txt
+specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+tests/e2e/test_sales_doc_pdf_oferta_e2e.py
+tests/snapshots/baseline/modal_sales_document.txt
+tests/unit/test_sales_doc_product_defaults.py
+tests/unit/test_sales_document_service.py
+
+exec
+/usr/bin/zsh -lc 'h=211246a930fdfd39c822cba089800eb6ba7e35f6
+for f in app/static/js/core/swap.js app/static/js/core/modals.js app/templates/components/sales_doc/issue_form.html app/sales_documents_format.py; do git show "${h}:${f}"; done
+git show "${h}:app/routers/ui_sales_documents.py" | sed -n '"'208,305p;760,910p'
+git show \""'${h}:specs/pdf-documentos-venta-oferta/requirements.md" | rg -in '"'vencimiento|422|preview'
+git show \""'${h}:tests/e2e/test_sales_doc_pdf_oferta_e2e.py" | rg '"'"'^def '"'
+" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+// Comportamiento de los swaps de htmx: mostrar los errores 4xx en HTML y conservar el
+// scroll al recargar los paneles de compra y venta.
+let pendingScrollRestore = null;
+
+function shouldPreserveScrollForElt(elt) {
+  if (!elt || typeof elt.closest !== 'function') return false;
+  return Boolean(elt.closest('#purchase-panel') || elt.closest('#sale-panel'));
+}
+
+export function init() {
+  document.addEventListener('htmx:beforeRequest', (evt) => {
+    const elt = evt.detail && evt.detail.elt;
+    if (!shouldPreserveScrollForElt(elt)) return;
+    pendingScrollRestore = window.scrollY;
+  });
+
+  // Los routers UI devuelven su panel con el mensaje de error y el status de la
+  // HTTPException (400/404/409/422...). htmx no swapea respuestas >= 400 por
+  // defecto, así que sin esto el error no se veía. Solo HTML: las 422 de
+  // validación de FastAPI son JSON y el 403 de CSRF es texto plano. El chat del
+  // copiloto ya inserta sus errores a mano.
+  document.addEventListener('htmx:beforeSwap', (evt) => {
+    const xhr = evt.detail && evt.detail.xhr;
+    if (!xhr || xhr.status < 400 || xhr.status >= 500) return;
+    const path = String((evt.detail.requestConfig && evt.detail.requestConfig.path) || '');
+    if (path.startsWith('/ui/agent/chat')) return;
+    const ct = String(xhr.getResponseHeader('Content-Type') || '');
+    if (!ct.includes('text/html')) return;
+    evt.detail.shouldSwap = true;
+    evt.detail.isError = false;
+  });
+
+  document.addEventListener('htmx:afterSwap', (evt) => {
+    const target = evt.target;
+    if (pendingScrollRestore !== null && target && (target.id === 'purchase-panel' || target.id === 'sale-panel')) {
+      const y = pendingScrollRestore;
+      pendingScrollRestore = null;
+      requestAnimationFrame(() => {
+        try { window.scrollTo({ top: y, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, y); }
+      });
+    }
+  });
+}
+// Modales: cierre por botón [data-modal-close], por clic en el overlay o Escape (salvo
+// data-modal-static="1") y automático tras una petición correcta desde dentro del modal.
+// También [data-clear-target]: vacía el elemento indicado.
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function onModalClose(evt) {
+  const closeBtn = evt.target.closest('[data-modal-close]');
+  if (!closeBtn) return;
+  evt.preventDefault();
+  closeModal(closeBtn.getAttribute('data-modal-close'));
+}
+
+function onModalOverlayClick(evt) {
+  if (evt.target.classList.contains('modal-overlay')) {
+    if (evt.target.getAttribute('data-modal-static') === '1') return;
+    const modalId = evt.target.closest('[id]')?.id;
+    if (modalId) closeModal(modalId);
+  }
+}
+
+// Escape cierra el modal de más arriba (el último del DOM), con la misma excepción que el overlay.
+function onEscape(evt) {
+  if (evt.key !== 'Escape') return;
+  const overlays = document.querySelectorAll('.modal-overlay');
+  const top = overlays[overlays.length - 1];
+  if (!top || top.getAttribute('data-modal-static') === '1') return;
+  evt.preventDefault();
+  top.remove();
+}
+
+function onClearClick(evt) {
+  const btn = evt.target.closest('[data-clear-target]');
+  if (!btn) return;
+  evt.preventDefault();
+  const selector = btn.getAttribute('data-clear-target');
+  if (!selector) return;
+  const el = document.querySelector(selector);
+  if (el) el.innerHTML = '';
+}
+
+function onAfterRequest(evt) {
+  const elt = evt.detail && evt.detail.elt;
+  const xhr = evt.detail && evt.detail.xhr;
+  if (!elt || !xhr) return;
+
+  const modal = elt.closest('.modal-overlay');
+  if (!modal) return;
+
+  const keepOpen = String(xhr.getResponseHeader('X-Modal-Keep') || '') === '1';
+  if (keepOpen) return;
+
+  // Error 4xx en HTML ya swapeado (ver core/swap.js) en un panel FUERA del modal
+  // (p. ej. product_edit_form → #product-panel): cerrar el modal para que se vea.
+  const target = evt.detail && evt.detail.target;
+  const isHtml = String(xhr.getResponseHeader('Content-Type') || '').includes('text/html');
+  const errorShownBehind = xhr.status >= 400 && xhr.status < 500 && isHtml && target && !modal.contains(target);
+
+  if ((xhr.status >= 200 && xhr.status < 300) || errorShownBehind) {
+    try {
+      modal.remove();
+    } catch (e) {}
+  }
+}
+
+export function init() {
+  document.addEventListener('click', onClearClick);
+  document.addEventListener('click', onModalClose);
+  document.addEventListener('click', onModalOverlayClick);
+  document.addEventListener('keydown', onEscape);
+  document.addEventListener('htmx:afterRequest', onAfterRequest);
+}
+{% from 'components/ui.html' import subcard %}
+{% from 'components/forms.html' import text_input %}
+
+{% call subcard('Emitir documento', extra_class='h-full') %}
+  {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
+  {% set selected_location_code = (draft.location_code or default_doc_location_code) %}
+  {% set selected_currency_code = (draft.currency_code or currency.code or 'EUR') %}
+  <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <input id="sales-doc-currency-hidden" type="hidden" name="currency_code" value="{{ selected_currency_code }}" />
+    <div class="row">
+      <label>Tipo</label>
+      <select name="doc_type">
+        <option value="F" {% if selected_doc_type == 'F' %}selected{% endif %}>F - {{ sales_doc_config.invoice_label }}</option>
+        <option value="P" {% if selected_doc_type == 'P' %}selected{% endif %}>P - {{ sales_doc_config.quote_label }}</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Ubicación</label>
+      <select name="location_code">
+        {% for loc in pos_locations %}
+          <option value="{{ loc['code'] }}" {% if selected_location_code == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"
+                                                      hx-get="/ui/sales-doc/customer-defaults" hx-trigger="change" hx-target="#sales-doc-customer-defaults" hx-swap="innerHTML" /></div>
+    <div class="row"><label>Cliente (ID)</label>{{ text_input('sales-doc-client-id', 'client_id', draft.client_id or '') }}</div>
+    <div class="row"><label>Dirección (opcional)</label>{{ text_input('sales-doc-client-address', 'client_address', draft.client_address or '') }}</div>
+    <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ draft.notes or '' }}" /></div>
+    <div class="row"><label>Vencimiento (solo presupuesto)</label><input type="date" name="valid_until" value="{{ draft.valid_until or default_valid_until(sales_doc_config.quote_validity_days) }}" /></div>
+    <div class="flex gap-10 flex-wrap items-center">
+      <button type="button"
+              hx-post="/ui/sales-doc/preview"
+              hx-target="#sales-doc-preview"
+              hx-swap="innerHTML"
+              hx-include="closest form">Vista previa</button>
+      <button type="submit">Emitir</button>
+    </div>
+  </form>
+
+  <div id="sales-doc-preview" class="mt-12"></div>
+{% endcall %}
+"""Funciones puras de formato y de fecha de vencimiento de los documentos de venta.
+
+Las usan el PDF (`app/sales_document_pdf.py`) y el router de documentos (`app/routers/ui_sales_documents.py`).
+No importan fpdf, FastAPI ni SQLAlchemy, para poder probarlas sin PDF ni base de datos.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timedelta
+from typing import Literal, Optional
+
+INVALID_VALID_UNTIL = "Fecha de vencimiento inválida"
+
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def currency_column_label(prefix: str, currency_code: Optional[str]) -> str:
+    """Etiqueta de una columna de importe: `GEN` se muestra como `CUP`; sin moneda, solo el prefijo."""
+    code = (currency_code or "").strip().upper()
+    if code == "GEN":
+        code = "CUP"
+    return f"{prefix} {code}" if code else prefix
+
+
+def format_amount(value: Optional[float]) -> str:
+    """Importe con separador de miles y dos decimales: 303875 -> `303,875.00`."""
+    return f"{float(value or 0):,.2f}"
+
+
+def format_quantity(value: Optional[float]) -> str:
+    """Cantidad con hasta 4 decimales sin ceros finales y con separador de miles."""
+    text = f"{float(value or 0):,.4f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def format_doc_date(value: Optional[date | datetime]) -> str:
+    """Fecha `dd/mm/aaaa`; vacío si no hay fecha."""
+    if value is None:
+        return ""
+    return value.strftime("%d/%m/%Y")
+
+
+def resolve_valid_until(
+    raw: Optional[str],
+    *,
+    doc_type: str,
+    issue_date: datetime,
+    validity_days: int,
+    on_empty: Literal["default", "keep"] = "default",
+    current: Optional[date] = None,
+) -> Optional[date]:
+    """Fecha de vencimiento de un documento.
+
+    - `doc_type` distinto de `P`: devuelve `None` y no valida `raw`.
+    - `raw` vacío con `on_empty="default"`: fecha de emisión + `validity_days`.
+    - `raw` vacío con `on_empty="keep"`: devuelve `current` (puede ser `None`).
+    - Otro valor: debe ser `aaaa-mm-dd` y no anterior a la fecha de emisión; si no, lanza `ValueError`.
+    """
+    if (doc_type or "").strip().upper() != "P":
+        return None
+    text = (raw or "").strip()
+    issued_on = issue_date.date()
+    if not text:
+        if on_empty == "keep":
+            return current
+        return issued_on + timedelta(days=int(validity_days))
+    if not _ISO_DATE.match(text):
+        raise ValueError(INVALID_VALID_UNTIL)
+    try:
+        chosen = date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(INVALID_VALID_UNTIL) from exc
+    if chosen < issued_on:
+        raise ValueError(INVALID_VALID_UNTIL)
+    return chosen
+@router.post("/sales-doc/preview", response_class=HTMLResponse)
+def sales_doc_preview(
+    request: Request,
+    doc_type: str = Form(""),
+    location_code: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    currency_code: str = Form(""),
+    valid_until: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    _ = ctx.business_id
+    config = ctx.config
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+    default_doc_location_code = config.locations.default_sale_code()
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+
+    client_name = (client_name or "").strip()
+    client_id = (client_id or "").strip()
+    client_address = (client_address or "").strip() or None
+    notes = (notes or "").strip() or None
+
+    if not client_name or not client_id:
+        raise HTTPException(status_code=422, detail="Cliente (Nombre e ID) es obligatorio")
+
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+        valid_until=valid_until,
+    )
+
+    try:
+        valid_until_date = resolve_valid_until(
+            valid_until,
+            doc_type=doc_type_norm,
+            issue_date=datetime.now(timezone.utc),
+            validity_days=int(config.sales_documents.quote_validity_days),
+        )
+    except ValueError:
+        _log.info("valid_until rechazado: %r", valid_until)
+        return templates.TemplateResponse(
+            request=request,
+            name="features/sales_documents/_valid_until_error.html",
+            context={},
+            status_code=422,
+        )
+
+    cart = _get_cart(request)
+    if not cart:
+        raise HTTPException(status_code=422, detail="El carrito está vacío")
+
+    items, subtotal = _calc_cart_items(cart)
+    total = subtotal
+    doc_label = config.sales_documents.invoice_label if doc_type_norm == "F" else config.sales_documents.quote_label
+
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/sales_document_preview.html",
+        context={
+            "doc_type": doc_type_norm,
+            "location_code": selected_location_code,
+            "doc_label": doc_label,
+            "client_name": client_name,
+            "client_id": client_id,
+            "client_address": client_address,
+            "notes": notes,
+            "items": items,
+            "subtotal": subtotal,
+            "total": total,
+            "currency_code": selected_currency_code,
+            "valid_until_label": format_doc_date(valid_until_date),
+            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
+            "currency_symbol": selected_currency_symbol,
+        },
+    )
+
+
+@router.post("/sales-doc/{doc_id}/delete", response_class=HTMLResponse)
+def sales_doc_delete(request: Request, doc_id: int, db: Session = Depends(session_dep)) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    bid = ctx.business_id
+    config = ctx.config
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+    default_doc_location_code = config.locations.default_sale_code()
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+        valid_until=valid_until,
+    )
+
+    cart = _get_cart(request)
+    if 0 <= index < len(cart):
+        item = dict(cart[index])
+        desc = (description or "").strip() or "(sin descripción)"
+        try:
+            qty = float(quantity) if str(quantity).strip() else 0.0
+        except Exception:
+            _log.debug("sales doc edit qty parse fallback: %r", quantity)
+            qty = 0.0
+        try:
+            price = float(unit_price) if str(unit_price).strip() else 0.0
+        except Exception:
+            _log.debug("sales doc edit price parse fallback: %r", unit_price)
+            price = 0.0
+        if qty > 0:
+            item["description"] = desc
+            item["quantity"] = float(qty)
+            item["unit_price"] = float(price)
+            cart[index] = item
+            _set_cart(request, cart)
+
+    customers = _customers_list(db, business_id=bid, limit=200)
+    draft = _get_draft(request)
+    pos_locations = config.locations.all_locations()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/sales_document_panel.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
+            "cart": cart,
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+            "customers": customers,
+            "draft": draft,
+        },
+    )
+
+
+@router.post("/sales-doc/cart/remove", response_class=HTMLResponse)
+def sales_doc_cart_remove(
+    request: Request,
+    index: int = Form(...),
+    doc_type: str = Form(""),
+    location_code: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    currency_code: str = Form(""),
+    valid_until: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+    default_doc_location_code = config.locations.default_sale_code()
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+    _set_draft(
+        request,
+        doc_type=doc_type_norm,
+        location_code=selected_location_code,
+        currency_code=selected_currency_code,
+        currency_symbol=selected_currency_symbol,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        notes=notes,
+        valid_until=valid_until,
+    )
+
+    cart = _get_cart(request)
+    if 0 <= index < len(cart):
+        cart.pop(index)
+    _set_cart(request, cart)
+
+    customers = _customers_list(db, business_id=bid, limit=200)
+    draft = _get_draft(request)
+
+    pos_locations = config.locations.all_locations()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/sales_document_panel.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
+            "cart": cart,
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+            "customers": customers,
+            "draft": draft,
+        },
+    )
+
+
+@router.post("/sales-doc/cart/clear", response_class=HTMLResponse)
+def sales_doc_cart_clear(
+    request: Request,
+    doc_type: str = Form(""),
+    location_code: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    currency_code: str = Form(""),
+    valid_until: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    bid = ctx.business_id
+    config = ctx.config
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+13:- fecha de oferta, fecha de vencimiento y número de oferta;
+22:| Fecha de vencimiento | Plazo por defecto en días por negocio; el formulario rellena la fecha y se puede cambiar por documento |
+23:| Factura | El mismo diseño que la oferta, **sin** fecha de vencimiento. Cada bloque sale "en caso de que aplique" |
+37:- **plazo de validez**: número de días por defecto entre la fecha de emisión y la fecha de vencimiento de un `P`.
+38:- **fecha de vencimiento**: columna nueva `sales_documents.valid_until` (fecha, sin hora).
+82:### REQ-3: Fecha de vencimiento al emitir
+85:WHEN el usuario abre el formulario de emisión, THE SYSTEM SHALL mostrar un campo de fecha "Vencimiento (solo
+91:Scenario: Presupuesto con vencimiento elegido
+93:  WHEN el usuario emite un P con vencimiento "2026-12-31"
+97:  WHEN el usuario emite un P con el campo de vencimiento vacío
+100:Scenario: La factura no guarda vencimiento (negativo)
+101:  WHEN el usuario emite una F con vencimiento "2026-12-31"
+105:  WHEN el usuario emite un P con vencimiento "31/12/2026" o anterior a la fecha de emisión
+106:  THEN la respuesta es 422 HTML y el panel muestra el mensaje "Fecha de vencimiento inválida"
+112:  GIVEN el usuario escribió vencimiento "2026-12-31" en el formulario de emisión
+114:  THEN el campo de vencimiento sigue mostrando "2026-12-31"
+117:### REQ-4: Vencimiento en la vista previa y en la edición
+120:WHEN el usuario pide la vista previa de un `P`, THE SYSTEM SHALL mostrar "Vencimiento: dd/mm/aaaa" y SHALL llevar la
+125:Scenario: La vista previa conserva el vencimiento
+126:  GIVEN un P en vista previa con vencimiento "2026-12-31"
+130:Scenario: La vista previa de una factura no muestra vencimiento (negativo)
+132:  THEN el texto "Vencimiento" NO aparece en la vista previa
+134:Scenario: Editar el vencimiento de un presupuesto
+142:  WHEN el usuario cambia solo las notas y deja vacío el vencimiento
+147:  WHEN el usuario envía vencimiento "31/12/2026", cambia el cliente a "B" y marca una línea para borrar
+148:  THEN la respuesta es 422 HTML con "Fecha de vencimiento inválida"
+166:   `Fecha de vencimiento:` `dd/mm/aaaa` (vacío si el documento no tiene `valid_until`).
+192:  AND contiene "DESTINATARIO:", "No. Presupuesto:", "Fecha de vencimiento:" y "03/12/2026"
+243:### REQ-7: La factura usa el mismo diseño, sin vencimiento
+247:omitir la fila "Fecha de vencimiento".
+254:  AND NO contiene "Fecha de vencimiento"
+264:Scenario: Presupuesto antiguo sin vencimiento
+268:  AND contiene "Fecha de vencimiento:" sin fecha detrás
+293:vencimiento, emita, descargue el PDF por `/ui/sales-doc/{id}/pdf` y compruebe su texto con `pdfplumber`
+294:(`PRECIO CUP`, `IMPORTE CUP`, `ud`, `303,875.00`, `Subtotal:`, `490,875.00`, banco, vencimiento `31/12/2099`; sin
+296:una `F` y compruebe que su PDF no tiene "Fecha de vencimiento".
+314:| Observability | ¿Logs nuevos? | Fecha de vencimiento rechazada → `_log.info` con el valor recibido. Fallo de PDF ya se registra en `sales_doc_pdf` |
+329:- Convertir en HTML los 422 en JSON que ya existen (cliente o carrito vacíos): solo el error nuevo de vencimiento
+def _login(page: Page, base_url: str) -> None:
+def _open_business_edit(page: Page) -> None:
+def _add_item(page: Page, sku: str, price: str, rows_after: int) -> None:
+def _fill_client(page: Page) -> None:
+def _issue_and_read_pdf(page: Page, base_url: str) -> tuple[str, "pdfplumber.page.Page", bytes]:
+def test_quote_pdf_follows_oferta_design(live_server: str, page: Page) -> None:
+def test_invoice_pdf_has_no_due_date(live_server: str, page: Page) -> None:
+
+exec
+/usr/bin/zsh -lc 'h=211246a930fdfd39c822cba089800eb6ba7e35f6
+git show "${h}:app/templates/features/sales_documents/sales_document_edit_form.html"
+git show "${h}:app/routers/ui_sales_documents.py" | sed -n '"'940,1080p'
+git show \""'${h}:specs/pdf-documentos-venta-oferta/requirements.md" | sed -n '"'117,152p'
+git grep -n -E 'macro field\\(|quote_validity_days|sales-doc-edit' \""'$h" -- app | cut -c42- | head -60
+git diff --name-status 723d70fd469a3b64a0c9f238e019217252e95736...211246a930fdfd39c822cba089800eb6ba7e35f6 -- . '"':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'
+" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% set doc_title %}Editar documento <code>{{ doc.code }}</code>{% endset %}
+{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+
+      <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <div class="grid grid-2">
+      {{ field('Cliente (Nombre)', 'client_name', value=doc.client_name, required=True) }}
+      {{ field('Cliente (ID)', 'client_id', value=doc.client_id, required=True) }}
+    </div>
+    {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+    {% if (doc.doc_type or '')|upper == 'P' %}
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+    <div id="sales-doc-edit-valid-until-error" role="alert"></div>
+    {% endif %}
+
+    <h4 class="mt-14">Items</h4>
+    <div class="table-wrapper">
+      <table class="sales-doc-items-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th class="text-right">Cant.</th>
+            <th class="text-right">Precio</th>
+            <th class="text-right">Eliminar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in items %}
+            <tr>
+              <td>{{ it.line_no }}</td>
+              <td><input name="desc_{{ it.id }}" class="item-desc-input" value="{{ it.description }}" /></td>
+              <td class="text-right"><input name="qty_{{ it.id }}" class="item-num-input" type="number" step="0.0001" min="0" value="{{ it.quantity }}" /></td>
+              <td class="text-right"><input name="price_{{ it.id }}" class="item-num-input" type="number" step="0.0001" min="0" value="{{ it.unit_price }}" /></td>
+              <td class="text-right"><input name="del_{{ it.id }}" type="checkbox" /></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="mt-14">Añadir item</h4>
+    <div class="sales-doc-add-item-grid">
+      <div class="add-item-field">
+        <label>Descripción</label>
+        <input name="new_desc" />
+      </div>
+      <div class="add-item-field">
+        <label>Cantidad</label>
+        <input name="new_qty" type="number" step="0.0001" min="0" value="1" />
+      </div>
+      <div class="add-item-field">
+        <label>Precio</label>
+        <input name="new_price" type="number" step="0.0001" min="0" value="0" />
+      </div>
+    </div>
+
+    <button type="submit" class="mt-12">Guardar cambios</button>
+    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
+  </form>
+{% endcall %}
+            "pos_locations": pos_locations,
+            "default_doc_location_code": default_doc_location_code,
+            "cart": cart,
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+            "customers": customers,
+            "draft": draft,
+        },
+    )
+
+
+@router.post("/sales-doc/issue", response_class=HTMLResponse)
+def sales_doc_issue(
+    request: Request,
+    doc_type: str = Form(""),
+    location_code: str = Form(""),
+    client_name: str = Form(""),
+    client_id: str = Form(""),
+    client_address: str = Form(""),
+    notes: str = Form(""),
+    currency_code: str = Form(""),
+    valid_until: str = Form(""),
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    config = ctx.config
+
+    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+    if doc_type_norm not in ("F", "P"):
+        doc_type_norm = "F"
+
+    default_doc_location_code = config.locations.default_sale_code()
+    selected_location_code = (location_code or "").strip() or default_doc_location_code
+    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+
+    client_name = (client_name or "").strip()
+    client_id = (client_id or "").strip()
+    client_address = (client_address or "").strip() or None
+    notes = (notes or "").strip() or None
+
+    if not client_name:
+        raise HTTPException(status_code=422, detail="client_name is required")
+    if not client_id:
+        raise HTTPException(status_code=422, detail="client_id is required")
+
+    now = datetime.now(timezone.utc)
+    try:
+        valid_until_date = resolve_valid_until(
+            valid_until,
+            doc_type=doc_type_norm,
+            issue_date=now,
+            validity_days=int(config.sales_documents.quote_validity_days),
+        )
+    except ValueError:
+        _log.info("valid_until rechazado: %r", valid_until)
+        _set_draft(
+            request,
+            doc_type=doc_type_norm,
+            location_code=selected_location_code,
+            currency_code=selected_currency_code,
+            currency_symbol=selected_currency_symbol,
+            client_name=client_name,
+            client_id=client_id,
+            client_address=client_address,
+            notes=notes,
+            valid_until=valid_until,
+        )
+        return _valid_until_error_response(request, db=db, bid=bid, config=config)
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+
+    cart = _get_cart(request)
+    if not cart:
+        raise HTTPException(status_code=422, detail="El carrito está vacío")
+
+    year_month = now.strftime("%Y%m")
+    yyyymmdd = now.strftime("%Y%m%d")
+
+    max_seq = SalesDocumentService(db, bid).max_seq(year_month)
+    seq = int(max_seq or 0) + 1
+    code = f"{doc_type_norm}{yyyymmdd}{seq:04d}"
+
+    loc_id = _location_id_for_code(db, location_code=selected_location_code, business_id=bid)
+    if loc_id is None:
+        raise HTTPException(status_code=409, detail=f"Unknown location_code: {selected_location_code}")
+
+    issuer_address_parts = [
+        config.issuer.address,
+        " ".join([p for p in [config.issuer.postal_code, config.issuer.city] if p]),
+        config.issuer.country,
+    ]
+    issuer_address = ", ".join([p for p in issuer_address_parts if (p or "").strip()]) or None
+
+    items: list[SalesDocumentItem] = []
+    subtotal = 0.0
+    for i, it in enumerate(cart, start=1):
+        desc = str(it.get("description") or "").strip() or "(sin descripción)"
+        qty = float(it.get("quantity") or 0)
+        unit_price = float(it.get("unit_price") or 0)
+        line_total = float(qty * unit_price)
+        subtotal += line_total
+        items.append(
+            SalesDocumentItem(
+                line_no=i,
+                sku=(str(it.get("sku") or "").strip() or None),
+                description=desc,
+                unit_of_measure=(str(it.get("unit_of_measure") or "").strip() or None),
+                quantity=qty,
+                unit_price=unit_price,
+                line_total=line_total,
+            )
+        )
+
+    doc = SalesDocument(
+        business_id=int(bid),
+        location_id=int(loc_id),
+        customer_id=customer.id,
+        doc_type=doc_type_norm,
+        year_month=year_month,
+        seq=seq,
+        code=code,
+        issue_date=now,
+        valid_until=valid_until_date,
+        issuer_name=config.issuer.name,
+        issuer_tax_id=config.issuer.tax_id or None,
+        issuer_address=issuer_address,
+        client_name=client_name,
+        client_id=client_id,
+        client_address=client_address,
+        currency_symbol=selected_currency_symbol,
+        currency_code=selected_currency_code,
+        notes=notes,
+        subtotal=subtotal,
+        total=subtotal,
+    )
+
+    SalesDocumentService(db, bid).add_document(doc, items)
+    db.commit()
+
+    _clear_cart(request)
+### REQ-4: Vencimiento en la vista previa y en la edición
+**Priority:** Should Have
+
+WHEN el usuario pide la vista previa de un `P`, THE SYSTEM SHALL mostrar "Vencimiento: dd/mm/aaaa" y SHALL llevar la
+fecha al formulario "Emitir ahora". WHEN el usuario edita un `P` ya emitido, THE SYSTEM SHALL permitir cambiar
+`valid_until` con la misma validación de REQ-3.
+
+```gherkin
+Scenario: La vista previa conserva el vencimiento
+  GIVEN un P en vista previa con vencimiento "2026-12-31"
+  WHEN el usuario pulsa "Emitir ahora"
+  THEN el documento emitido tiene valid_until == 2026-12-31
+
+Scenario: La vista previa de una factura no muestra vencimiento (negativo)
+  WHEN el usuario pide la vista previa de una F
+  THEN el texto "Vencimiento" NO aparece en la vista previa
+
+Scenario: Editar el vencimiento de un presupuesto
+  GIVEN un P emitido con valid_until 2026-12-03
+  WHEN el usuario lo edita y pone "2026-12-20"
+  THEN valid_until == 2026-12-20
+  AND las líneas y el total NO cambian
+
+Scenario: Editar un presupuesto antiguo sin fecha no le inventa una (negativo)
+  GIVEN un P con valid_until NULL
+  WHEN el usuario cambia solo las notas y deja vacío el vencimiento
+  THEN valid_until sigue NULL
+
+Scenario: Fecha no válida al editar no toca nada (negativo)
+  GIVEN un P con cliente "A", 2 líneas y total 10
+  WHEN el usuario envía vencimiento "31/12/2026", cambia el cliente a "B" y marca una línea para borrar
+  THEN la respuesta es 422 HTML con "Fecha de vencimiento inválida"
+  AND el documento guardado sigue con cliente "A", 2 líneas, total 10 y el valid_until anterior
+```
+
+### REQ-5: Diseño del PDF según la plantilla de referencia
+app/business_config.py:46:    quote_validity_days: int = 15
+app/business_config.py:335:        quote_validity_days = int(get("sales_documents", "quote_validity_days", "15"))
+app/business_config.py:337:        quote_validity_days = 15
+app/business_config.py:338:    quote_validity_days = max(0, min(365, quote_validity_days))
+app/business_config.py:364:            quote_validity_days=quote_validity_days,
+app/migrations.py:72:    ("sales_quote_validity_days", "INTEGER DEFAULT 15"),
+app/models.py:64:    sales_quote_validity_days: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
+app/repositories/business_repository.py:126:            quote_validity_days=max(
+app/repositories/business_repository.py:130:                    int(business.sales_quote_validity_days if business.sales_quote_validity_days is not None else 15),
+app/routers/ui_businesses.py:159:    sales_quote_validity_days: str = Form(""),
+app/routers/ui_businesses.py:267:    new_business.sales_quote_validity_days = _parse_validity_days(_s(sales_quote_validity_days), 15)
+app/routers/ui_businesses.py:377:    sales_quote_validity_days: str = Form(""),
+app/routers/ui_businesses.py:454:    current_validity_days = business.sales_quote_validity_days if business.sales_quote_validity_days is not None else 15
+app/routers/ui_businesses.py:455:    business.sales_quote_validity_days = _parse_validity_days(_s(sales_quote_validity_days), int(current_validity_days))
+app/routers/ui_sales_documents.py:260:            validity_days=int(config.sales_documents.quote_validity_days),
+app/routers/ui_sales_documents.py:406:                validity_days=int(config.sales_documents.quote_validity_days),
+app/routers/ui_sales_documents.py:418:                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
+app/routers/ui_sales_documents.py:992:            validity_days=int(config.sales_documents.quote_validity_days),
+app/templates/components/forms.html:6:{% macro field(label, name=None, type=None, value=None, id=None, required=False, readonly=False, disabled=False, checked=False, attrs={}) -%}
+app/templates/components/sales_doc/issue_form.html:30:    <div class="row"><label>Vencimiento (solo presupuesto)</label><input type="date" name="valid_until" value="{{ draft.valid_until or default_valid_until(sales_doc_config.quote_validity_days) }}" /></div>
+app/templates/components/sales_doc/recent_documents.html:4:  <div id="sales-doc-edit" class="mt-12"></div>
+app/templates/features/businesses/business_edit_form.html:219:            <input type="number" id="edit-sales-quote-validity-days" name="sales_quote_validity_days" min="0" max="365"
+app/templates/features/businesses/business_edit_form.html:220:                   step="1" value="{{ config.sales_documents.quote_validity_days }}" />
+app/templates/features/businesses/tab_businesses.html:223:          <input type="number" id="new-sales-quote-validity-days" name="sales_quote_validity_days" min="0" max="365"
+app/templates/features/sales_documents/sales_document_edit_form.html:4:{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+app/templates/features/sales_documents/sales_document_edit_form.html:15:    <div id="sales-doc-edit-valid-until-error" role="alert"></div>
+app/templates/features/sales_documents/sales_document_edit_form.html:61:    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
+M	app/routers/ui_sales_documents.py
+A	app/templates/features/sales_documents/_valid_until_error.html
+M	app/templates/features/sales_documents/sales_document_edit_form.html
+M	app/templates/features/sales_documents/sales_document_preview.html
+A	specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+A	specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+
+exec
+/usr/bin/zsh -lc 'h=211246a930fdfd39c822cba089800eb6ba7e35f6
+git show "${h}:app/templates/components/forms.html" | head -48
+git show "${h}:app/templates/features/sales_documents/sales_document_preview.html"
+git show "${h}:app/routers/ui_sales_documents.py" | sed -n '"'359,500p'
+git grep -n -E 'INSERT INTO sales_documents|SalesDocument\\(' \""'$h" -- app | cut -c42-
+git show "${h}:specs/pdf-documentos-venta-oferta/verify/loteB.test.txt" | sed -n '"'145,200p'
+" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+{# Fila de formulario <div class="row"><label/><input/></div>.
+   `value=None` omite el atributo; para value="" pasar ''. `attrs` = atributos extra
+   (hx-*, data-*, list, step, min, autocomplete...) como dict; todo se autoescapa.
+   `attrs` va por el filtro `xmlattr` (no por un bucle manual): rechaza claves con
+   espacios u otros caracteres inválidos en vez de volcarlas literales al HTML. #}
+{% macro field(label, name=None, type=None, value=None, id=None, required=False, readonly=False, disabled=False, checked=False, attrs={}) -%}
+<div class="row"><label{% if id %} for="{{ id }}"{% endif %}>{{ label }}</label><input{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if type %} type="{{ type }}"{% endif %}{{ attrs|xmlattr }}{% if value is not none %} value="{{ value }}"{% endif %}{% if checked %} checked{% endif %}{% if required %} required{% endif %}{% if readonly %} readonly{% endif %}{% if disabled %} disabled{% endif %} /></div>
+{%- endmacro %}
+
+{# Fase 4 (plantillas OOB): label/input compartidos entre un panel y su fragmento de autorrelleno,
+   para que el OOB no pueda pisar el panel con atributos distintos. `oob=True` añade hx-swap-oob.
+   Única excepción, heredada y aprobada (REQ-12): el OOB de sales-doc-client-id pasa required=True
+   y el panel de issue_form.html no. #}
+{% macro qty_label(id, uom='', oob=False) -%}
+<label id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if uom %}Cantidad ({{ uom }}){% else %}Cantidad{% endif %}</label>
+{%- endmacro %}
+
+{% macro number_input(id, name, value=none, oob=False) -%}
+<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}" type="number" step="0.0001" min="0"{% if value is not none %} value="{{ value }}"{% endif %} />
+{%- endmacro %}
+
+{% macro text_input(id, name, value=none, oob=False, required=False) -%}
+<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}"{% if value is not none %} value="{{ value }}"{% endif %}{% if required %} required{% endif %} />
+{%- endmacro %}
+<div class="card mt-12">
+  {% set total_prefix = (currency_symbol ~ ' ') if currency_symbol == 'USD' else currency_symbol %}
+  <div class="flex justify-between gap-12 items-center flex-wrap">
+    <h4 class="m-0">Vista previa</h4>
+    <button type="button" class="btn-secondary" data-clear-target="#sales-doc-preview">Cerrar</button>
+  </div>
+
+  <div class="grid grid-2 mt-10">
+    <div>
+      <div><strong>Tipo:</strong> {{ doc_label }}</div>
+      {% if doc_type == 'P' %}<div><strong>Vencimiento:</strong> {{ valid_until_label }}</div>{% endif %}
+      <div><strong>Cliente:</strong> {{ client_name }} ({{ client_id }})</div>
+      {% if client_address %}<div><strong>Dirección:</strong> {{ client_address }}</div>{% endif %}
+      {% if notes %}<div><strong>Notas:</strong> {{ notes }}</div>{% endif %}
+    </div>
+    <div class="text-right">
+      <div><strong>Subtotal:</strong> {{ '%.2f'|format(subtotal) }}</div>
+      <div><strong>Total:</strong> {{ total_prefix }}{{ '%.2f'|format(total) }}</div>
+    </div>
+  </div>
+
+  <table class="mt-10">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Descripción</th>
+        <th class="text-right">Cant.</th>
+        <th class="text-right">Precio</th>
+        <th class="text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ it.description }}</td>
+          <td class="text-right">{{ '%.2f'|format(it.quantity) }}</td>
+          <td class="text-right">{{ '%.2f'|format(it.unit_price) }}</td>
+          <td class="text-right">{{ '%.2f'|format(it.line_total) }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML" class="mt-12">
+    <input type="hidden" name="doc_type" value="{{ doc_type }}" />
+    <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
+    <input type="hidden" name="currency_code" value="{{ currency_code or '' }}" />
+    <input type="hidden" name="client_name" value="{{ client_name }}" />
+    <input type="hidden" name="client_id" value="{{ client_id }}" />
+    <input type="hidden" name="client_address" value="{{ client_address or '' }}" />
+    <input type="hidden" name="notes" value="{{ notes or '' }}" />
+    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
+    <button type="submit">Emitir ahora</button>
+  </form>
+</div>
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/sales_document_edit_form.html",
+        context={
+            "doc": doc,
+            "items": items,
+        },
+    )
+
+
+@router.post("/sales-doc/{doc_id}/update", response_class=HTMLResponse)
+async def sales_doc_update(
+    request: Request,
+    doc_id: int,
+    db: Session = Depends(session_dep),
+) -> HTMLResponse:
+    ctx = ui_context(request, db)
+    _ = ctx.user
+    bid = ctx.business_id
+    config = ctx.config
+
+    svc = SalesDocumentService(db, bid)
+    doc = svc.get(doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    if int(getattr(doc, "business_id", 0) or 0) != int(bid):
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    form = await request.form()
+    client_name = (form.get("client_name") or "").strip()
+    client_id = (form.get("client_id") or "").strip()
+    client_address = (form.get("client_address") or "").strip() or None
+    notes = (form.get("notes") or "").strip() or None
+
+    if not client_name:
+        raise HTTPException(status_code=422, detail="client_name is required")
+    if not client_id:
+        raise HTTPException(status_code=422, detail="client_id is required")
+
+    new_valid_until = None
+    if (doc.doc_type or "").strip().upper() == "P":
+        raw_valid_until = form.get("valid_until")
+        try:
+            new_valid_until = resolve_valid_until(
+                raw_valid_until if isinstance(raw_valid_until, str) else "",
+                doc_type="P",
+                issue_date=doc.issue_date,
+                validity_days=int(config.sales_documents.quote_validity_days),
+                on_empty="keep",
+                current=doc.valid_until,
+            )
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return templates.TemplateResponse(
+                request=request,
+                name="features/sales_documents/_valid_until_error.html",
+                context={},
+                status_code=422,
+                headers={
+                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
+                    "HX-Reswap": "innerHTML",
+                    "X-Modal-Keep": "1",
+                },
+            )
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+    doc.customer_id = customer.id
+
+    items = svc.get_items_ordered(doc.id)
+
+    subtotal = 0.0
+    next_line = 1
+    for it in items:
+        del_flag = form.get(f"del_{it.id}")
+        if del_flag:
+            SalesDocumentService(db, bid).delete_item(it)
+            continue
+
+        desc = (form.get(f"desc_{it.id}") or it.description or "").strip() or "(sin descripción)"
+        try:
+            qty = float(form.get(f"qty_{it.id}") or 0)
+        except Exception:
+            _log.debug("sales doc line qty parse fallback: %r", form.get(f"qty_{it.id}"))
+            qty = 0.0
+        try:
+            price = float(form.get(f"price_{it.id}") or 0)
+        except Exception:
+            _log.debug("sales doc line price parse fallback: %r", form.get(f"price_{it.id}"))
+            price = 0.0
+
+        it.line_no = next_line
+        next_line += 1
+        it.description = desc
+        it.quantity = float(qty)
+        it.unit_price = float(price)
+        it.line_total = float(qty * price)
+        subtotal += float(it.line_total or 0)
+
+    new_desc = (form.get("new_desc") or "").strip()
+    try:
+        new_qty = float(form.get("new_qty") or 0)
+    except Exception:
+        _log.debug("sales doc new_qty parse fallback: %r", form.get("new_qty"))
+        new_qty = 0.0
+    try:
+        new_price = float(form.get("new_price") or 0)
+    except Exception:
+        _log.debug("sales doc new_price parse fallback: %r", form.get("new_price"))
+        new_price = 0.0
+
+    if new_desc and new_qty > 0:
+        new_line_total = float(new_qty * new_price)
+        svc = SalesDocumentService(db, bid)
+        svc.add_item(
+            SalesDocumentItem(
+                document_id=doc.id,
+                line_no=next_line,
+                sku=None,
+                description=new_desc,
+                unit_of_measure=None,
+                quantity=float(new_qty),
+                unit_price=float(new_price),
+                line_total=new_line_total,
+            )
+        )
+        subtotal += new_line_total
+
+    doc.client_name = client_name
+    doc.client_id = client_id
+    doc.client_address = client_address
+    doc.notes = notes
+    doc.valid_until = new_valid_until
+    doc.currency_code = (doc.currency_code or config.currency.code)
+    doc.currency_symbol = (doc.currency_symbol or config.currency.symbol)
+    doc.subtotal = subtotal
+    doc.total = subtotal
+
+    db.commit()
+
+    cart = _get_cart(request)
+    doc_label = config.sales_documents.invoice_label if (doc.doc_type or "").upper() == "F" else config.sales_documents.quote_label
+
+app/models.py:146:class SalesDocument(Base):
+app/routers/ui_sales_documents.py:1054:    doc = SalesDocument(
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
+  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
+    warnings.warn(message, stacklevel=1)
+
+exec
+/usr/bin/zsh -lc "git grep -n -E 'htmx.org@|default_valid_until|macro flash' 211246a930fdfd39c822cba089800eb6ba7e35f6 -- app ':"'!*.min.js'"' | cut -c42-
+git show 211246a930fdfd39c822cba089800eb6ba7e35f6:specs/pdf-documentos-venta-oferta/tasks.md | rg -in 'retarget|preview|lote b|update' | head -30
+git status --short" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+app/routers/ui_common.py:71:def default_valid_until(days: object) -> str:
+app/routers/ui_common.py:80:templates.env.globals["default_valid_until"] = default_valid_until
+app/templates/components/sales_doc/issue_form.html:30:    <div class="row"><label>Vencimiento (solo presupuesto)</label><input type="date" name="valid_until" value="{{ draft.valid_until or default_valid_until(sales_doc_config.quote_validity_days) }}" /></div>
+app/templates/components/ui.html:1:{% macro flash(message=None, message_class='', message_detail=None) -%}
+532:Edita solo `app/routers/ui_businesses.py`. `business_create` y `business_update` aceptan cinco `Form` nuevos. El servidor recorta banco a 128 caracteres, sucursal y cuenta a 64 y moneda a 8 (REQ-9). El plazo se acota a 0-365; un texto no numérico conserva el valor actual al editar y vale 15 al crear (REQ-2).
+1336:Edita solo `app/routers/ui_sales_documents.py`. El borrador de sesión (`_get_draft`, `_set_draft`) guarda `valid_until` como texto. Los seis handlers que reciben el formulario de emisión (`preview`, `cart/add`, `cart/update`, `cart/remove`, `cart/clear`, `issue`) aceptan `valid_until: str = Form("")`. Los cinco que llaman a `_set_draft` lo pasan (hallazgo 1 de Codex).
+1457:@router.post("/sales-doc/preview", response_class=HTMLResponse)
+1681:# LOTE B — Vista previa y edición del vencimiento (REQ-4)
+1693:Edita solo `app/routers/ui_sales_documents.py`. `sales_doc_preview` valida `valid_until` con `resolve_valid_until` después de guardar el borrador. Una fecha inválida devuelve el fragmento `_valid_until_error.html` con estado 422. El contexto de la plantilla gana `valid_until_label` (`dd/mm/aaaa`) y `valid_until_iso`.
+1757:**Files:** `app/templates/features/sales_documents/_valid_until_error.html`, `app/templates/features/sales_documents/sales_document_preview.html`
+1762:Crea `_valid_until_error.html` (fragmento de error de la vista previa). Edita `sales_document_preview.html`: muestra "Vencimiento: dd/mm/aaaa" solo en un presupuesto y lleva la fecha ISO en un campo oculto del formulario "Emitir ahora".
+1775:file: app/templates/features/sales_documents/sales_document_preview.html
+1785:file: app/templates/features/sales_documents/sales_document_preview.html
+1796:`.venv/bin/python -c "from app.routers.ui_common import templates; templates.env.get_template('features/sales_documents/_valid_until_error.html'); templates.env.get_template('features/sales_documents/sales_document_preview.html')"` carga las dos plantillas sin error.
+1801:- [ ] `sales_document_preview.html` modificado con los 2 bloques
+1814:Edita solo `app/routers/ui_sales_documents.py`. `sales_doc_update` valida `valid_until` de un presupuesto (`on_empty="keep"`) antes de tocar el cliente y las líneas. Una fecha inválida devuelve el panel con 422 y no cambia nada. Un campo vacío conserva el valor guardado, incluido `NULL`. Una factura fuerza `valid_until = NULL`.
+2132:    base.update(overrides)
+2329:Crea `tests/unit/test_sales_doc_valid_until.py`. Los tests llaman a los handlers `sales_doc_issue`, `sales_doc_preview`, `sales_doc_update`, `sales_doc_cart_add`, `sales_doc_cart_update`, `sales_doc_cart_remove` y `sales_doc_cart_clear` con un `Request` simulado (REQ-3, REQ-4).
+2355:    sales_doc_cart_update,
+2357:    sales_doc_preview,
+2358:    sales_doc_update,
+2397:    data.update(over)
+2492:    sales_doc_cart_update(
+2509:def test_preview_quote_shows_due_date_and_carries_it_to_the_issue_form(db_session) -> None:
+2510:    response = sales_doc_preview(request=_request([dict(CART_LINE)]), db=db_session, **_form(valid_until="2099-12-31"))
+2518:def test_preview_invoice_has_no_due_date(db_session) -> None:
+2519:    response = sales_doc_preview(
+2527:def test_preview_with_invalid_due_date_returns_422_html(db_session) -> None:
+2530:    response = sales_doc_preview(request=req, db=db_session, **_form(valid_until="31/12/2026"))
+2562:def _update(db, doc_id: int, **fields):
+2565:    return asyncio.run(sales_doc_update(request=req, doc_id=doc_id, db=db))
+2568:def test_update_quote_changes_only_the_due_date(db_session, business_id) -> None:
+2577:    response = _update(db_session, doc.id, **fields)
+2586:def test_update_old_quote_with_empty_due_date_stays_null(db_session, business_id) -> None:
+?? specs/miniloop-pdf-documentos-venta-oferta-loteB-round2/
+
+codex
+**T1 · La edición acepta un archivo como fecha de vencimiento y guarda el resto de los cambios.** Si el campo `valid_until` de un presupuesto llega como archivo en un formulario multipart, el controlador lo convierte en una cadena vacía. El validador interpreta ese vacío como «conservar la fecha actual» y la petición puede modificar el cliente y las líneas. La corrección devuelve el mismo 422 HTML que para una fecha inválida, antes de modificar el documento. Un campo ausente o vacío sigue conservando la fecha guardada. [ui_sales_documents.py](/home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py:400)
+
+La revisión fue estática. No ejecuté la suite ni modifiqué ficheros.
+
+**Ficheros revisados del diff**
+
+- `app/routers/ui_sales_documents.py`
+- `app/templates/features/sales_documents/_valid_until_error.html`
+- `app/templates/features/sales_documents/sales_document_edit_form.html`
+- `app/templates/features/sales_documents/sales_document_preview.html`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.test.txt`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Rechazar un archivo en el campo de vencimiento al editar un presupuesto
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+        raw_valid_until = form.get("valid_until")
+        try:
+            new_valid_until = resolve_valid_until(
+                raw_valid_until if isinstance(raw_valid_until, str) else "",
+@@ after
+        raw_valid_until = form.get("valid_until")
+        try:
+            if raw_valid_until is not None and not isinstance(raw_valid_until, str):
+                raise ValueError("El vencimiento debe ser texto")
+            new_valid_until = resolve_valid_until(
+                raw_valid_until,
+````
+
+#### Verification
+
+```bash
+.venv/bin/python -B - <<'PY'
+import asyncio
+import io
+from datetime import date, datetime
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
+
+from starlette.datastructures import FormData, UploadFile
+from app.routers import ui_sales_documents as router
+
+doc = SimpleNamespace(
+    doc_type="P", business_id=1, issue_date=datetime(2026, 1, 1),
+    valid_until=date(2026, 1, 16),
+)
+config = SimpleNamespace(sales_documents=SimpleNamespace(quote_validity_days=15))
+ctx = SimpleNamespace(user=None, business_id=1, config=config)
+service = Mock()
+service.get.return_value = doc
+upload = UploadFile(io.BytesIO(b"2026-01-20"), filename="fecha.txt")
+request = Mock()
+request.form = AsyncMock(return_value=FormData([
+    ("client_name", "Cliente nuevo"), ("client_id", "B"),
+    ("valid_until", upload), ("del_1", "on"),
+]))
+db = Mock()
+with (
+    patch.object(router, "ui_context", return_value=ctx),
+    patch.object(router, "SalesDocumentService", return_value=service),
+    patch.object(router, "_upsert_customer") as upsert,
+):
+    response = asyncio.run(router.sales_doc_update(request, 1, db))
+    assert response.status_code == 422
+    assert response.headers["HX-Retarget"] == "#sales-doc-edit-valid-until-error"
+    assert "Fecha de vencimiento inválida" in response.body.decode()
+    upsert.assert_not_called()
+    service.get_items_ordered.assert_not_called()
+    db.commit.assert_not_called()
+    assert doc.valid_until == date(2026, 1, 16)
+PY
+```
+`````
+tokens used
+34.019
+**T1 · La edición acepta un archivo como fecha de vencimiento y guarda el resto de los cambios.** Si el campo `valid_until` de un presupuesto llega como archivo en un formulario multipart, el controlador lo convierte en una cadena vacía. El validador interpreta ese vacío como «conservar la fecha actual» y la petición puede modificar el cliente y las líneas. La corrección devuelve el mismo 422 HTML que para una fecha inválida, antes de modificar el documento. Un campo ausente o vacío sigue conservando la fecha guardada. [ui_sales_documents.py](/home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py:400)
+
+La revisión fue estática. No ejecuté la suite ni modifiqué ficheros.
+
+**Ficheros revisados del diff**
+
+- `app/routers/ui_sales_documents.py`
+- `app/templates/features/sales_documents/_valid_until_error.html`
+- `app/templates/features/sales_documents/sales_document_edit_form.html`
+- `app/templates/features/sales_documents/sales_document_preview.html`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.test.txt`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Rechazar un archivo en el campo de vencimiento al editar un presupuesto
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+        raw_valid_until = form.get("valid_until")
+        try:
+            new_valid_until = resolve_valid_until(
+                raw_valid_until if isinstance(raw_valid_until, str) else "",
+@@ after
+        raw_valid_until = form.get("valid_until")
+        try:
+            if raw_valid_until is not None and not isinstance(raw_valid_until, str):
+                raise ValueError("El vencimiento debe ser texto")
+            new_valid_until = resolve_valid_until(
+                raw_valid_until,
+````
+
+#### Verification
+
+```bash
+.venv/bin/python -B - <<'PY'
+import asyncio
+import io
+from datetime import date, datetime
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
+
+from starlette.datastructures import FormData, UploadFile
+from app.routers import ui_sales_documents as router
+
+doc = SimpleNamespace(
+    doc_type="P", business_id=1, issue_date=datetime(2026, 1, 1),
+    valid_until=date(2026, 1, 16),
+)
+config = SimpleNamespace(sales_documents=SimpleNamespace(quote_validity_days=15))
+ctx = SimpleNamespace(user=None, business_id=1, config=config)
+service = Mock()
+service.get.return_value = doc
+upload = UploadFile(io.BytesIO(b"2026-01-20"), filename="fecha.txt")
+request = Mock()
+request.form = AsyncMock(return_value=FormData([
+    ("client_name", "Cliente nuevo"), ("client_id", "B"),
+    ("valid_until", upload), ("del_1", "on"),
+]))
+db = Mock()
+with (
+    patch.object(router, "ui_context", return_value=ctx),
+    patch.object(router, "SalesDocumentService", return_value=service),
+    patch.object(router, "_upsert_customer") as upsert,
+):
+    response = asyncio.run(router.sales_doc_update(request, 1, db))
+    assert response.status_code == 422
+    assert response.headers["HX-Retarget"] == "#sales-doc-edit-valid-until-error"
+    assert "Fecha de vencimiento inválida" in response.body.decode()
+    upsert.assert_not_called()
+    service.get_items_ordered.assert_not_called()
+    db.commit.assert_not_called()
+    assert doc.valid_until == date(2026, 1, 16)
+PY
+```
+`````

@@ -1,0 +1,8 @@
+ronda 1: aplicada
+ronda 2: aplicada
+ronda 3: aplicada
+ronda 4: toca un fichero protegido — tests/e2e/test_sales_doc_pdf_oferta_e2e.py
+ronda 5: aplicada; misma zona que la ronda anterior — app/routers/ui_sales_documents.py::sales_doc_preview
+no convergió: subir a Opus
+
+Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta (base 723d70fd469a3b64a0c9f238e019217252e95736). El miniloop paró en la ronda 5: las rondas 4 y 5 parchearon la misma zona (app/routers/ui_sales_documents.py::sales_doc_preview). Regla ADR-026: es una cuestión de diseño, no de parche. Historial en specs/pdf-documentos-venta-oferta/miniloop/loteB/resumen.txt y specs/miniloop-pdf-documentos-venta-oferta-loteB-round1..5/. Decide el diseño de esa zona antes de la revisión 5b.

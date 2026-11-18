@@ -1,0 +1,2 @@
+ensayo: el test del contrato termina con exit 127, no rojo
+I1: 26 envelopes script, 0 cc_local, 60 ediciones

@@ -1,0 +1,2807 @@
+Reading additional input from stdin...
+OpenAI Codex v0.166.0
+--------
+workdir: /home/liandy/PyCharmMiscProject/gestion_inventario
+model: gpt-6.2-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1f0a4-94cb-7291-a93e-a9a49af4fba2
+--------
+user
+Revisa SOLO los cambios de 'git diff 723d70fd469a3b64a0c9f238e019217252e95736...3afea1fafdec533f543811e1f6c5826987858d49 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'' en este repo (ejecuta el diff tú mismo con el
+shell disponible, no asumas su contenido). No modifiques ningún fichero — sigues en solo lectura.
+
+Hallazgos ya detectados que debes corregir, además de revisar el resto del diff por tu cuenta:
+Contexto del lote: este diff es el lote B (T15–T19, líneas 1683–1937) del PAE `specs/pdf-documentos-venta-oferta/tasks.md`. Lee esos envelopes con `sed -n '<inicio>,<fin>p' specs/pdf-documentos-venta-oferta/tasks.md` antes de juzgar el diff.
+
+Estos lotes todavía NO se han aplicado: lote C (T20–T23, líneas 1940–2841); lote D (T24–T26, líneas 2844–2982). Lee también sus envelopes y no reportes como bug algo que uno de ellos ya cubre.
+
+No toques `tests/e2e/test_sales_doc_pdf_oferta_e2e.py`: es el contrato del Lote 0 y está protegido.
+
+Para cada bug real (no de estilo) que encuentres, y para cada hallazgo de la lista de arriba si la hay:
+decide la corrección tú mismo, sin pedir confirmación — aquí tienes autoridad completa, incluso si la
+corrección implica cambiar un diseño existente (mover una función a otro módulo, cambiar un contrato).
+
+Si decides que hace falta corregir algo, termina tu respuesta con un bloque:
+
+```tasks-md
+Lotes: **A** T1-T<n>
+
+### T<n>: <título>
+**Apply:** script
+**Files:** `<ruta>`
+
+#### Instructions
+
+````pae-edit
+file: <ruta>
+op: <operación>
+...
+````
+
+#### Verification
+
+```bash
+<comando>
+```
+```
+
+(formato completo en /home/liandy/.local/share/harness-loop/pae-edit-format.md: léelo con 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' antes de escribir el bloque;
+no existe dentro del repo revisado). Usa Apply: cc_local solo si el cambio no se puede expresar como pae-edit literal.
+
+Si no encuentras nada que corregir, dilo explícitamente ('SIN HALLAZGOS') y NO incluyas ningún bloque
+tasks-md.
+
+Al final, lista los ficheros que SÍ revisaste.
+codex
+Voy a ejecutar el diff con las exclusiones indicadas y leer los envelopes de los lotes B, C y D. La revisión será en solo lectura.
+exec
+/usr/bin/zsh -lc "sed -n '1683,2982p' specs/pdf-documentos-venta-oferta/tasks.md" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+### T15: Vista previa valida y muestra el vencimiento
+
+**Depends on:** T14
+**Skill:** backend-developer
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `app/routers/ui_sales_documents.py`. `sales_doc_preview` valida `valid_until` con `resolve_valid_until` después de guardar el borrador. Una fecha inválida devuelve el fragmento `_valid_until_error.html` con estado 422. El contexto de la plantilla gana `valid_until_label` (`dd/mm/aaaa`) y `valid_until_iso`.
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+    cart = _get_cart(request)
+    if not cart:
+        raise HTTPException(status_code=422, detail="El carrito está vacío")
+
+    items, subtotal = _calc_cart_items(cart)
+    total = subtotal
+@@ after
+    try:
+        valid_until_date = resolve_valid_until(
+            valid_until,
+            doc_type=doc_type_norm,
+            issue_date=datetime.now(timezone.utc),
+            validity_days=int(config.sales_documents.quote_validity_days),
+        )
+    except ValueError:
+        _log.info("valid_until rechazado: %r", valid_until)
+        return templates.TemplateResponse(
+            request=request,
+            name="features/sales_documents/_valid_until_error.html",
+            context={},
+            status_code=422,
+        )
+
+    cart = _get_cart(request)
+    if not cart:
+        raise HTTPException(status_code=422, detail="El carrito está vacío")
+
+    items, subtotal = _calc_cart_items(cart)
+    total = subtotal
+````
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+            "currency_code": selected_currency_code,
+@@ after
+            "currency_code": selected_currency_code,
+            "valid_until_label": format_doc_date(valid_until_date),
+            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
+````
+
+#### Verification
+
+`.venv/bin/python -c "import app.routers.ui_sales_documents"` termina sin error.
+
+#### Expected Report
+
+- [ ] `app/routers/ui_sales_documents.py` modificado con los 2 bloques
+- [ ] Ningún otro fichero modificado
+
+### T16: Plantillas de la vista previa
+
+**Depends on:** T15
+**Skill:** frontend-developer
+**Apply:** script
+**Files:** `app/templates/features/sales_documents/_valid_until_error.html`, `app/templates/features/sales_documents/sales_document_preview.html`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Crea `_valid_until_error.html` (fragmento de error de la vista previa). Edita `sales_document_preview.html`: muestra "Vencimiento: dd/mm/aaaa" solo en un presupuesto y lleva la fecha ISO en un campo oculto del formulario "Emitir ahora".
+
+#### Instructions
+
+````pae-edit
+file: app/templates/features/sales_documents/_valid_until_error.html
+op: create
+@@ content
+{% from 'components/ui.html' import flash %}
+{{ flash('Fecha de vencimiento inválida', 'error') }}
+````
+
+````pae-edit
+file: app/templates/features/sales_documents/sales_document_preview.html
+op: replace
+@@ before
+      <div><strong>Tipo:</strong> {{ doc_label }}</div>
+@@ after
+      <div><strong>Tipo:</strong> {{ doc_label }}</div>
+      {% if doc_type == 'P' %}<div><strong>Vencimiento:</strong> {{ valid_until_label }}</div>{% endif %}
+````
+
+````pae-edit
+file: app/templates/features/sales_documents/sales_document_preview.html
+op: replace
+@@ before
+    <input type="hidden" name="notes" value="{{ notes or '' }}" />
+@@ after
+    <input type="hidden" name="notes" value="{{ notes or '' }}" />
+    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
+````
+
+#### Verification
+
+`.venv/bin/python -c "from app.routers.ui_common import templates; templates.env.get_template('features/sales_documents/_valid_until_error.html'); templates.env.get_template('features/sales_documents/sales_document_preview.html')"` carga las dos plantillas sin error.
+
+#### Expected Report
+
+- [ ] `_valid_until_error.html` creado con el contenido exacto
+- [ ] `sales_document_preview.html` modificado con los 2 bloques
+- [ ] Ningún otro fichero modificado
+
+### T17: Edición de un documento cambia o conserva el vencimiento
+
+**Depends on:** T16
+**Skill:** backend-developer
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `app/routers/ui_sales_documents.py`. `sales_doc_update` valida `valid_until` de un presupuesto (`on_empty="keep"`) antes de tocar el cliente y las líneas. Una fecha inválida devuelve el panel con 422 y no cambia nada. Un campo vacío conserva el valor guardado, incluido `NULL`. Una factura fuerza `valid_until = NULL`.
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+    if not client_id:
+        raise HTTPException(status_code=422, detail="client_id is required")
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+    doc.customer_id = customer.id
+@@ after
+    if not client_id:
+        raise HTTPException(status_code=422, detail="client_id is required")
+
+    new_valid_until = None
+    if (doc.doc_type or "").strip().upper() == "P":
+        raw_valid_until = form.get("valid_until")
+        try:
+            new_valid_until = resolve_valid_until(
+                raw_valid_until if isinstance(raw_valid_until, str) else "",
+                doc_type="P",
+                issue_date=doc.issue_date,
+                validity_days=int(config.sales_documents.quote_validity_days),
+                on_empty="keep",
+                current=doc.valid_until,
+            )
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+
+    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+    doc.customer_id = customer.id
+````
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+    doc.notes = notes
+    doc.currency_code = (doc.currency_code or config.currency.code)
+@@ after
+    doc.notes = notes
+    doc.valid_until = new_valid_until
+    doc.currency_code = (doc.currency_code or config.currency.code)
+````
+
+#### Verification
+
+`.venv/bin/python -c "import app.routers.ui_sales_documents"` termina sin error.
+
+#### Expected Report
+
+- [ ] `app/routers/ui_sales_documents.py` modificado con los 2 bloques
+- [ ] Ningún otro fichero modificado
+
+### T18: Formulario de edición con el campo de vencimiento (solo presupuesto)
+
+**Depends on:** T17
+**Skill:** frontend-developer
+**Apply:** script
+**Files:** `app/templates/features/sales_documents/sales_document_edit_form.html`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `sales_document_edit_form.html`. El campo `valid_until` (`type="date"`) aparece solo si el documento es un presupuesto (`P`) y muestra el valor guardado o vacío.
+
+#### Instructions
+
+````pae-edit
+file: app/templates/features/sales_documents/sales_document_edit_form.html
+op: replace
+@@ before
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+@@ after
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+    {% if (doc.doc_type or '')|upper == 'P' %}
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+    {% endif %}
+````
+
+#### Verification
+
+`.venv/bin/python -c "from app.routers.ui_common import templates; templates.env.get_template('features/sales_documents/sales_document_edit_form.html')"` carga la plantilla sin error.
+
+#### Expected Report
+
+- [ ] `sales_document_edit_form.html` modificado con 1 bloque
+- [ ] Ningún otro fichero modificado
+
+### T19: Regenerar las baselines del arnés de snapshots (vista previa y edición)
+
+**Depends on:** T18
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/snapshots/baseline/*.txt`
+**Pillars:** P1, P4, P5, P6, P9
+
+#### Objective
+
+Regenera las baselines con el codemod `regen_baselines.py`. Solo cambian ficheros de `tests/snapshots/baseline/`. Si ninguna baseline cambia, el codemod termina igual con exit 0.
+
+#### Instructions
+
+````pae-edit
+op: codemod
+script: regen_baselines.py
+runner: python
+files: tests/snapshots/baseline/*.txt
+````
+
+#### Verification
+
+`.venv/bin/python tests/snapshots/ui_snapshot.py check tests/snapshots/baseline` termina con `OK` y exit 0.
+
+#### Expected Report
+
+- [ ] Solo ficheros de `tests/snapshots/baseline/` modificados (puede no haber ninguno)
+
+---
+
+# LOTE C — Tests unitarios (REQ-1..REQ-9)
+
+### T20: Tests de las funciones puras de formato y vencimiento
+
+**Depends on:** T19
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_documents_format.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_documents_format.py` con las tablas de casos de REQ-3 y REQ-6 y los formatos de REQ-5.
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_documents_format.py
+op: create
+@@ content
+"""Funciones puras de formato y de fecha de vencimiento (REQ-3, REQ-5, REQ-6)."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+
+import pytest
+
+from app.sales_documents_format import (
+    INVALID_VALID_UNTIL,
+    currency_column_label,
+    format_amount,
+    format_doc_date,
+    format_quantity,
+    resolve_valid_until,
+)
+
+ISSUE = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "code,label",
+    [
+        ("GEN", "IMPORTE CUP"),
+        (" gen ", "IMPORTE CUP"),
+        ("USD", "IMPORTE USD"),
+        ("eur", "IMPORTE EUR"),
+        ("", "IMPORTE"),
+        (None, "IMPORTE"),
+    ],
+)
+def test_currency_column_label_import(code, label) -> None:
+    assert currency_column_label("IMPORTE", code) == label
+
+
+def test_currency_column_label_price() -> None:
+    assert currency_column_label("PRECIO", "usd") == "PRECIO USD"
+    assert currency_column_label("PRECIO", "GEN") == "PRECIO CUP"
+    assert currency_column_label("PRECIO", None) == "PRECIO"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [(303875, "303,875.00"), (490875.0, "490,875.00"), (1234.5, "1,234.50"), (0, "0.00"), (None, "0.00")],
+)
+def test_format_amount(value, expected) -> None:
+    assert format_amount(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (1.0, "1"),
+        (2.5, "2.5"),
+        (0.0001, "0.0001"),
+        (1234567.0, "1,234,567"),
+        (10.0, "10"),
+        (3.1, "3.1"),
+        (0, "0"),
+        (None, "0"),
+    ],
+)
+def test_format_quantity(value, expected) -> None:
+    assert format_quantity(value) == expected
+
+
+def test_format_doc_date() -> None:
+    assert format_doc_date(date(2026, 12, 3)) == "03/12/2026"
+    assert format_doc_date(datetime(2026, 1, 2, 23, 59, tzinfo=timezone.utc)) == "02/01/2026"
+    assert format_doc_date(None) == ""
+
+
+def test_resolve_valid_until_default_is_issue_date_plus_validity_days() -> None:
+    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 3)
+    assert resolve_valid_until(None, doc_type="P", issue_date=ISSUE, validity_days=0) == date(2026, 11, 18)
+
+
+def test_resolve_valid_until_accepts_chosen_date() -> None:
+    assert resolve_valid_until("2026-12-31", doc_type="P", issue_date=ISSUE, validity_days=15) == date(2026, 12, 31)
+    assert resolve_valid_until("2026-11-18", doc_type="p", issue_date=ISSUE, validity_days=15) == date(2026, 11, 18)
+
+
+@pytest.mark.parametrize("raw", ["2026-12-31", "garbage", "", None])
+def test_resolve_valid_until_invoice_is_always_none(raw) -> None:
+    assert resolve_valid_until(raw, doc_type="F", issue_date=ISSUE, validity_days=15) is None
+
+
+@pytest.mark.parametrize("raw", ["31/12/2026", "2026-11-17", "2026-13-40", "20261231", "abc"])
+def test_resolve_valid_until_rejects_invalid_values(raw) -> None:
+    with pytest.raises(ValueError, match=INVALID_VALID_UNTIL):
+        resolve_valid_until(raw, doc_type="P", issue_date=ISSUE, validity_days=15)
+
+
+def test_resolve_valid_until_keep_mode_returns_current() -> None:
+    assert resolve_valid_until(
+        "", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
+    ) == date(2026, 12, 3)
+    assert resolve_valid_until("", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=None) is None
+    assert resolve_valid_until(
+        "2026-12-20", doc_type="P", issue_date=ISSUE, validity_days=15, on_empty="keep", current=date(2026, 12, 3)
+    ) == date(2026, 12, 20)
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_documents_format.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_documents_format.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T21: Tests del PDF (texto leído con pdfplumber)
+
+**Depends on:** T20
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_document_pdf.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_document_pdf.py`. Cada test genera un PDF con `build_sales_document_pdf` y lee su texto con pdfplumber (REQ-5, REQ-6, REQ-7, REQ-8).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_document_pdf.py
+op: create
+@@ content
+"""PDF de documentos de venta con el diseño OFERTA (REQ-5, REQ-6, REQ-7, REQ-8)."""
+
+from __future__ import annotations
+
+import io
+import re
+from datetime import date, datetime, timezone
+
+import pdfplumber
+
+from app.sales_document_pdf import build_sales_document_pdf
+
+ITEMS = [
+    {"description": "Pastillas de freno", "unit_of_measure": "JGO", "quantity": 1, "unit_price": 303875, "line_total": 303875},
+    {"description": "Filtro de aceite", "unit_of_measure": "U", "quantity": 1, "unit_price": 187000, "line_total": 187000},
+]
+
+
+def _kwargs(**overrides) -> dict:
+    base = dict(
+        doc_type="P",
+        doc_label="Presupuesto",
+        code="P202611180001",
+        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
+        valid_until=date(2026, 12, 3),
+        currency_code="GEN",
+        issuer_name="DyB Autopartes",
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_address="Calle 1 entre 2 y 3, Playa",
+        issuer_phone="54664732 / 50781349",
+        issuer_email="autosandero@gmail.com",
+        bank_name="Banco Metropolitano",
+        bank_branch="248",
+        bank_account="0598770024085419",
+        bank_account_currency="CUP",
+        client_name="Cliente Prueba",
+        client_id="B244742",
+        client_address=None,
+        items=ITEMS,
+        subtotal=490875.0,
+        total=490875.0,
+        notes=None,
+    )
+    base.update(overrides)
+    return base
+
+
+def _read(pdf_bytes: bytes) -> tuple[str, list]:
+    assert pdf_bytes.startswith(b"%PDF")
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        pages = list(pdf.pages)
+        text = "\n".join((p.extract_text() or "") for p in pages)
+        curves = [len(p.curves) + len(p.images) for p in pages]
+    return text, curves
+
+
+def test_complete_quote_pdf() -> None:
+    text, graphics = _read(build_sales_document_pdf(**_kwargs()))
+
+    for expected in (
+        "DyB Autopartes",
+        "TCP Randy Manuel Delgado",
+        "NIT 01030573448",
+        "54664732 / 50781349",
+        "autosandero@gmail.com",
+        "DESTINATARIO:",
+        "PRESUPUESTO",
+        "No. Presupuesto:",
+        "P202611180001",
+        "Fecha de presupuesto:",
+        "18/11/2026",
+        "Fecha de vencimiento:",
+        "03/12/2026",
+        "Subtotal:",
+        "TOTAL:",
+        "490,875.00",
+        "CONCEPTO",
+        "UNIDADES",
+        "CANTIDAD",
+        "PRECIO CUP",
+        "IMPORTE CUP",
+        "FORMA DE PAGO",
+        "Efectivo",
+        "Cheque",
+        "Transferencia Bancaria",
+        "Banco Metropolitano, Sucursal 248",
+        "No. Cuenta (CUP): 0598770024085419",
+        "Recibido por:",
+        "Cargo:",
+        "Firma:",
+        "Fecha:",
+    ):
+        assert expected in text, expected
+    assert re.search(r"Pastillas de freno\s+JGO\s+1\s+303,875\.00\s+303,875\.00", text), text
+    assert re.search(r"Filtro de aceite\s+U\s+1\s+187,000\.00\s+187,000\.00", text), text
+    assert graphics[0] > 0  # iconos de teléfono y email
+
+
+def test_old_design_is_gone() -> None:
+    text, _ = _read(build_sales_document_pdf(**_kwargs()))
+
+    for old in ("Código:", "ID fiscal", "Tel.:", "(Precios sin IVA)"):
+        assert old not in text, old
+
+
+def test_no_phone_and_no_email_means_no_icons() -> None:
+    text, graphics = _read(build_sales_document_pdf(**_kwargs(issuer_phone=None, issuer_email=None)))
+
+    assert graphics == [0]
+    assert "54664732" not in text
+    assert "autosandero" not in text
+
+
+def test_without_bank_data_the_payment_block_has_no_bank_lines() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(
+            **_kwargs(bank_name=None, bank_branch=None, bank_account=None, bank_account_currency=None)
+        )
+    )
+
+    assert "FORMA DE PAGO" in text
+    assert "Sucursal" not in text
+    assert "No. Cuenta" not in text
+
+
+def test_bank_line_without_branch_and_account_without_currency() -> None:
+    text, _ = _read(build_sales_document_pdf(**_kwargs(bank_branch=None, bank_account_currency=None)))
+
+    assert "Banco Metropolitano" in text
+    assert "Sucursal" not in text
+    assert "No. Cuenta: 0598770024085419" in text
+
+
+def test_currency_labels() -> None:
+    gen, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="GEN")))
+    usd, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="USD")))
+    eur, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="eur")))
+    none, _ = _read(build_sales_document_pdf(**_kwargs(currency_code="")))
+
+    assert "PRECIO CUP" in gen and "IMPORTE CUP" in gen
+    assert "GEN" not in gen
+    assert "PRECIO USD" in usd and "IMPORTE USD" in usd
+    assert "PRECIO EUR" in eur and "IMPORTE EUR" in eur
+    assert "PRECIO IMPORTE" in none
+    assert "CUP" not in none.split("FORMA DE PAGO")[0]
+
+
+def test_invoice_uses_the_same_design_without_due_date() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(
+            **_kwargs(doc_type="F", doc_label="Factura", code="F202611180002", valid_until=None)
+        )
+    )
+
+    for expected in ("FACTURA", "No. Factura:", "Fecha de factura:", "FORMA DE PAGO", "Recibido por:", "DESTINATARIO:"):
+        assert expected in text, expected
+    assert "Fecha de vencimiento" not in text
+
+
+def test_old_quote_without_due_date_nor_units_still_renders() -> None:
+    items = [{"description": "Servicio", "unit_of_measure": None, "quantity": 1, "unit_price": 10, "line_total": 10}]
+    text, _ = _read(
+        build_sales_document_pdf(**_kwargs(valid_until=None, items=items, subtotal=10.0, total=10.0))
+    )
+
+    assert "Fecha de vencimiento:" in text
+    assert re.search(r"Fecha de vencimiento:\s*\d{2}/\d{2}/\d{4}", text) is None
+    assert re.search(r"Servicio\s+1\s+10\.00\s+10\.00", text), text
+
+
+def test_quantity_keeps_up_to_four_decimals_and_thousands_separator() -> None:
+    items = [
+        {"description": "Aceite", "unit_of_measure": "L", "quantity": 0.0001, "unit_price": 5, "line_total": 0.0005},
+        {"description": "Tornillos", "unit_of_measure": "ud", "quantity": 1234567, "unit_price": 1, "line_total": 1234567},
+        {"description": "Cable", "unit_of_measure": "m", "quantity": 2.5, "unit_price": 4, "line_total": 10},
+    ]
+    text, _ = _read(build_sales_document_pdf(**_kwargs(items=items)))
+
+    assert re.search(r"Aceite\s+L\s+0\.0001\s+5\.00", text), text
+    assert re.search(r"Tornillos\s+ud\s+1,234,567\s+1\.00\s+1,234,567\.00", text), text
+    assert re.search(r"Cable\s+m\s+2\.5\s+4\.00\s+10\.00", text), text
+
+
+def test_notes_and_non_latin1_text_do_not_break_the_pdf() -> None:
+    text, _ = _read(
+        build_sales_document_pdf(**_kwargs(client_name="Ñandú 日本", notes="Entrega en 3 días hábiles."))
+    )
+
+    assert "Notas:" in text
+    assert "Entrega en 3 días hábiles." in text
+    assert "Ñandú" in text
+
+
+def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
+    long_label = "Presupuesto extraordinario de verano 2026"
+    long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
+    text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
+
+    assert long_label.upper() in text
+    assert "Avenida de los Libertadores" in text
+    assert "..." in text  # la etiqueta del bloque documento se corta con "..." al llegar a 6 pt
+
+
+def test_long_table_repeats_its_header_and_keeps_the_footer_whole() -> None:
+    items = [
+        {"description": f"Artículo {i} con una descripción larga para ocupar espacio en la tabla del documento",
+         "unit_of_measure": "ud", "quantity": 2, "unit_price": 10, "line_total": 20}
+        for i in range(1, 61)
+    ]
+    pdf_bytes = build_sales_document_pdf(**_kwargs(items=items, subtotal=1200.0, total=1200.0))
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page_texts = [(p.extract_text() or "") for p in pdf.pages]
+
+    assert len(page_texts) >= 2
+    assert all("CONCEPTO" in t and "PRECIO CUP" in t for t in page_texts)
+    assert sum(t.count("FORMA DE PAGO") for t in page_texts) == 1
+    assert "FORMA DE PAGO" in page_texts[-1]
+    assert sum(t.count("Artículo 60 ") for t in page_texts) == 1
+    assert all(t.count("Recibido por:") <= 1 for t in page_texts)
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_document_pdf.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_document_pdf.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T22: Tests de los handlers de documentos con `valid_until`
+
+**Depends on:** T21
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_sales_doc_valid_until.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_sales_doc_valid_until.py`. Los tests llaman a los handlers `sales_doc_issue`, `sales_doc_preview`, `sales_doc_update`, `sales_doc_cart_add`, `sales_doc_cart_update`, `sales_doc_cart_remove` y `sales_doc_cart_clear` con un `Request` simulado (REQ-3, REQ-4).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_sales_doc_valid_until.py
+op: create
+@@ content
+"""Fecha de vencimiento en los handlers de documentos de venta (REQ-3, REQ-4)."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from sqlalchemy import func, select
+
+from app.models import Business, Location, SalesDocument, SalesDocumentItem
+from app.routers import ui_context as _uc
+from app.routers.ui_sales_documents import (
+    _get_draft,
+    sales_doc_cart_add,
+    sales_doc_cart_clear,
+    sales_doc_cart_remove,
+    sales_doc_cart_update,
+    sales_doc_issue,
+    sales_doc_preview,
+    sales_doc_update,
+)
+
+ERROR = "Fecha de vencimiento inválida"
+CART_LINE = {"sku": None, "description": "Pastillas", "unit_of_measure": "JGO", "quantity": 1.0, "unit_price": 10.0}
+
+
+def _today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+@pytest.fixture(autouse=True)
+def _active_business(db_session, business_id, monkeypatch) -> None:
+    monkeypatch.setattr(_uc, "get_active_business_id", lambda _db, _req, **_kw: business_id)
+    db_session.add(Location(business_id=business_id, code="TEST_CENTRAL", name="Central", role="central", is_default=True))
+    db_session.commit()
+
+
+def _request(cart: list[dict] | None = None, draft: dict | None = None) -> MagicMock:
+    req = MagicMock()
+    req.session = {}
+    if cart is not None:
+        req.session["sales_doc_cart"] = cart
+    if draft is not None:
+        req.session["sales_doc_draft"] = draft
+    return req
+
+
+def _form(**over) -> dict:
+    data = dict(
+        doc_type="P",
+        location_code="TEST_CENTRAL",
+        client_name="Cliente A",
+        client_id="C-1",
+        client_address="",
+        notes="",
+        currency_code="USD",
+        valid_until="",
+    )
+    data.update(over)
+    return data
+
+
+def _issue(db, req, **over):
+    return sales_doc_issue(request=req, db=db, **_form(**over))
+
+
+def _documents(db) -> list[SalesDocument]:
+    return list(db.scalars(select(SalesDocument).order_by(SalesDocument.id)))
+
+
+def _body(response) -> str:
+    return response.body.decode("utf-8")
+
+
+def test_issue_quote_with_chosen_due_date(db_session) -> None:
+    chosen = _today() + timedelta(days=40)
+
+    response = _issue(db_session, _request([dict(CART_LINE)]), valid_until=chosen.isoformat())
+
+    assert response.status_code == 200
+    (doc,) = _documents(db_session)
+    assert doc.doc_type == "P"
+    assert doc.valid_until == chosen
+
+
+def test_issue_quote_with_empty_due_date_uses_issue_date_plus_validity(db_session, business_id) -> None:
+    db_session.get(Business, business_id).sales_quote_validity_days = 20
+    db_session.commit()
+
+    _issue(db_session, _request([dict(CART_LINE)]), valid_until="")
+
+    (doc,) = _documents(db_session)
+    assert doc.valid_until == doc.issue_date.date() + timedelta(days=20)
+
+
+def test_issue_invoice_never_stores_due_date(db_session) -> None:
+    _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until=(_today() + timedelta(days=40)).isoformat())
+
+    (doc,) = _documents(db_session)
+    assert doc.doc_type == "F"
+    assert doc.valid_until is None
+
+
+@pytest.mark.parametrize("bad", ["31/12/2026", "no-es-fecha", (_today() - timedelta(days=1)).isoformat()])
+def test_issue_quote_with_invalid_due_date_returns_422_html_and_keeps_everything(db_session, bad) -> None:
+    req = _request([dict(CART_LINE)])
+
+    response = _issue(db_session, req, valid_until=bad, notes="Nota importante", client_name="Cliente B", client_id="C-2")
+
+    assert response.status_code == 422
+    assert response.media_type == "text/html"
+    assert ERROR in _body(response)
+    assert _documents(db_session) == []
+    assert req.session["sales_doc_cart"] == [CART_LINE]
+    draft = _get_draft(req)
+    assert draft["valid_until"] == bad
+    assert draft["client_name"] == "Cliente B"
+    assert draft["notes"] == "Nota importante"
+    assert db_session.scalar(select(func.count()).select_from(SalesDocument)) == 0
+
+
+def test_issue_invoice_ignores_a_garbage_due_date(db_session) -> None:
+    response = _issue(db_session, _request([dict(CART_LINE)]), doc_type="F", valid_until="31/12/2026")
+
+    assert response.status_code == 200
+    assert len(_documents(db_session)) == 1
+
+
+def test_issue_form_shows_the_default_due_date_and_keeps_the_typed_one(db_session, business_id) -> None:
+    db_session.get(Business, business_id).sales_quote_validity_days = 15
+    db_session.commit()
+    default = (_today() + timedelta(days=15)).isoformat()
+
+    shown_default = _issue(db_session, _request([dict(CART_LINE)]), doc_type="P", valid_until="31/12/2026")
+    assert f'name="valid_until" value="{default}"' not in _body(shown_default)
+    assert 'name="valid_until" value="31/12/2026"' in _body(shown_default)
+
+    empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
+    assert f'name="valid_until" value="{default}"' in _body(empty_draft)
+
+
+def test_cart_handlers_keep_the_due_date_in_the_draft(db_session) -> None:
+    chosen = "2099-12-31"
+
+    req = _request()
+    sales_doc_cart_add(
+        request=req, db=db_session, product="", description="Pastillas", quantity="1", unit_price="10",
+        **_form(valid_until=chosen),
+    )
+    assert _get_draft(req)["valid_until"] == chosen
+    assert len(req.session["sales_doc_cart"]) == 1
+
+    req.session["sales_doc_draft"] = {}
+    sales_doc_cart_update(
+        request=req, db=db_session, index=0, description="Pastillas", quantity="2", unit_price="10",
+        **_form(valid_until=chosen),
+    )
+    assert _get_draft(req)["valid_until"] == chosen
+
+    req.session["sales_doc_draft"] = {}
+    sales_doc_cart_remove(request=req, db=db_session, index=0, **_form(valid_until=chosen))
+    assert _get_draft(req)["valid_until"] == chosen
+    assert req.session["sales_doc_cart"] == []
+
+    req.session["sales_doc_draft"] = {}
+    response = sales_doc_cart_clear(request=req, db=db_session, **_form(valid_until=chosen))
+    assert _get_draft(req)["valid_until"] == chosen
+    assert f'name="valid_until" value="{chosen}"' in _body(response)
+
+
+def test_preview_quote_shows_due_date_and_carries_it_to_the_issue_form(db_session) -> None:
+    response = sales_doc_preview(request=_request([dict(CART_LINE)]), db=db_session, **_form(valid_until="2099-12-31"))
+
+    body = _body(response)
+    assert response.status_code == 200
+    assert "Vencimiento:" in body and "31/12/2099" in body
+    assert 'name="valid_until" value="2099-12-31"' in body
+
+
+def test_preview_invoice_has_no_due_date(db_session) -> None:
+    response = sales_doc_preview(
+        request=_request([dict(CART_LINE)]), db=db_session, **_form(doc_type="F", valid_until="2099-12-31")
+    )
+
+    assert response.status_code == 200
+    assert "Vencimiento" not in _body(response)
+
+
+def test_preview_with_invalid_due_date_returns_422_html(db_session) -> None:
+    req = _request([dict(CART_LINE)])
+
+    response = sales_doc_preview(request=req, db=db_session, **_form(valid_until="31/12/2026"))
+
+    assert response.status_code == 422
+    assert ERROR in _body(response)
+    assert _get_draft(req)["valid_until"] == "31/12/2026"
+
+
+def _seed_quote(db, business_id: int, *, valid_until: date | None, doc_type: str = "P") -> SalesDocument:
+    doc = SalesDocument(
+        business_id=business_id,
+        doc_type=doc_type,
+        year_month="202611",
+        seq=1,
+        code=f"{doc_type}2026111800001",
+        issue_date=datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc),
+        valid_until=valid_until,
+        issuer_name="Emisor",
+        client_name="A",
+        client_id="C-A",
+        currency_code="USD",
+        currency_symbol="USD",
+        subtotal=10.0,
+        total=10.0,
+    )
+    db.add(doc)
+    db.flush()
+    db.add(SalesDocumentItem(document_id=doc.id, line_no=1, description="Linea 1", quantity=1, unit_price=4, line_total=4))
+    db.add(SalesDocumentItem(document_id=doc.id, line_no=2, description="Linea 2", quantity=1, unit_price=6, line_total=6))
+    db.commit()
+    return doc
+
+
+def _update(db, doc_id: int, **fields):
+    req = _request()
+    req.form = AsyncMock(return_value=fields)
+    return asyncio.run(sales_doc_update(request=req, doc_id=doc_id, db=db))
+
+
+def test_update_quote_changes_only_the_due_date(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
+    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    fields = {"client_name": "A", "client_id": "C-A", "valid_until": "2026-12-20"}
+    for it in items:
+        fields[f"desc_{it.id}"] = it.description
+        fields[f"qty_{it.id}"] = str(it.quantity)
+        fields[f"price_{it.id}"] = str(it.unit_price)
+
+    response = _update(db_session, doc.id, **fields)
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until == date(2026, 12, 20)
+    assert float(doc.total) == 10.0
+    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
+
+
+def test_update_old_quote_with_empty_due_date_stays_null(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=None)
+    items = list(db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)))
+    fields = {"client_name": "A", "client_id": "C-A", "notes": "Solo notas", "valid_until": ""}
+    for it in items:
+        fields[f"desc_{it.id}"] = it.description
+        fields[f"qty_{it.id}"] = str(it.quantity)
+        fields[f"price_{it.id}"] = str(it.unit_price)
+
+    response = _update(db_session, doc.id, **fields)
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until is None
+    assert doc.notes == "Solo notas"
+
+
+def test_update_with_invalid_due_date_changes_nothing(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3))
+    first = db_session.scalars(select(SalesDocumentItem).where(SalesDocumentItem.document_id == doc.id)).first()
+
+    response = _update(
+        db_session, doc.id,
+        client_name="B", client_id="C-B", valid_until="31/12/2026", **{f"del_{first.id}": "on"},
+    )
+
+    assert response.status_code == 422
+    assert response.media_type == "text/html"
+    assert ERROR in _body(response)
+    db_session.refresh(doc)
+    assert doc.client_name == "A"
+    assert doc.valid_until == date(2026, 12, 3)
+    assert float(doc.total) == 10.0
+    assert db_session.scalar(select(func.count()).select_from(SalesDocumentItem)) == 2
+
+
+def test_update_invoice_forces_null_due_date(db_session, business_id) -> None:
+    doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3), doc_type="F")
+
+    response = _update(db_session, doc.id, client_name="A", client_id="C-A", valid_until="2099-12-31")
+
+    assert response.status_code == 200
+    db_session.refresh(doc)
+    assert doc.valid_until is None
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_sales_doc_valid_until.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_sales_doc_valid_until.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+### T23: Tests de los datos bancarios y del plazo de validez del negocio
+
+**Depends on:** T22
+**Skill:** test-automation-engineer
+**Apply:** script
+**Files:** `tests/unit/test_business_bank_fields.py`
+**Pillars:** P1, P4, P5, P6, P8
+
+#### Objective
+
+Crea `tests/unit/test_business_bank_fields.py`. Los tests crean y editan negocios con los campos nuevos y comprueban el `BusinessConfig` resultante y el formulario de edición (REQ-1, REQ-2, REQ-9).
+
+#### Instructions
+
+````pae-edit
+file: tests/unit/test_business_bank_fields.py
+op: create
+@@ content
+"""Datos bancarios y plazo de validez del negocio (REQ-1, REQ-2, REQ-9)."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+import pytest
+from sqlalchemy import select
+
+from app.models import Business, User
+from app.repositories.business_repository import get_business_config
+from app.routers.ui_businesses import business_create, business_edit_form, business_update
+
+
+@pytest.fixture
+def admin_request() -> MagicMock:
+    req = MagicMock()
+    req.session = {"username": "admin", "active_business_id": 1}
+    req.url.path = "/ui/tabs/businesses"
+    return req
+
+
+@pytest.fixture
+def admin_user(db_session) -> User:
+    user = User(username="admin", password_hash="pbkdf2_sha256$...", role="admin", is_active=True, business_id=1)
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+def _business(db_session, **fields) -> Business:
+    biz = Business(code="dyb", name="DyB Autopartes", **fields)
+    db_session.add(biz)
+    db_session.commit()
+    return biz
+
+
+def test_create_business_saves_bank_data_and_validity(admin_request, db_session, admin_user) -> None:
+    response = business_create(
+        request=admin_request,
+        code="nuevo",
+        name="Nuevo",
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        sales_quote_validity_days="30",
+        locations_pos="",
+        locations_default_pos="",
+        db=db_session,
+    )
+
+    assert response.status_code == 200
+    biz = db_session.scalar(select(Business).where(Business.code == "nuevo"))
+    config = get_business_config(db_session, biz.id)
+    assert config.issuer.bank_name == "Banco Metropolitano"
+    assert config.issuer.bank_branch == "248"
+    assert config.issuer.bank_account == "0598770024085419"
+    assert config.issuer.bank_account_currency == "CUP"
+    assert config.sales_documents.quote_validity_days == 30
+
+
+def test_create_business_defaults_validity_to_15(admin_request, db_session, admin_user) -> None:
+    business_create(
+        request=admin_request, code="def", name="Def", sales_quote_validity_days="abc",
+        locations_pos="", locations_default_pos="", db=db_session,
+    )
+
+    biz = db_session.scalar(select(Business).where(Business.code == "def"))
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 15
+
+
+def test_update_saves_bank_data_and_keeps_the_rest_of_the_issuer(admin_request, db_session, admin_user) -> None:
+    biz = _business(
+        db_session,
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_phone="54664732 / 50781349",
+        dividends_partners="Liandy,Randy",
+    )
+
+    response = business_update(
+        request=admin_request,
+        business_id=biz.id,
+        code="dyb",
+        name="DyB Autopartes",
+        issuer_holder="Randy Manuel Delgado",
+        issuer_tax_id="01030573448",
+        issuer_phone="54664732 / 50781349",
+        dividends_partners="Liandy,Randy",
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        db=db_session,
+    )
+
+    assert response.status_code == 200
+    config = get_business_config(db_session, biz.id)
+    assert config.issuer.bank_account == "0598770024085419"
+    assert config.issuer.holder == "Randy Manuel Delgado"
+    assert config.issuer.tax_id == "01030573448"
+    assert config.issuer.phone == "54664732 / 50781349"
+    assert config.dividends.partners == ["Liandy", "Randy"]
+
+
+@pytest.mark.parametrize(
+    "sent,expected",
+    [("30", 30), ("abc", 15), ("-3", 0), ("400", 365), ("0", 0), ("", 15)],
+)
+def test_update_validity_days_is_bounded_and_non_numeric_keeps_the_current_value(
+    admin_request, db_session, admin_user, sent, expected
+) -> None:
+    biz = _business(db_session, sales_quote_validity_days=15)
+
+    business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        sales_quote_validity_days=sent, db=db_session,
+    )
+
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == expected
+
+
+def test_update_with_non_numeric_validity_keeps_a_custom_value(admin_request, db_session, admin_user) -> None:
+    biz = _business(db_session, sales_quote_validity_days=45)
+
+    business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        sales_quote_validity_days="abc", db=db_session,
+    )
+
+    assert get_business_config(db_session, biz.id).sales_documents.quote_validity_days == 45
+
+
+def test_update_trims_bank_fields_to_their_column_size(admin_request, db_session, admin_user) -> None:
+    biz = _business(db_session)
+
+    response = business_update(
+        request=admin_request, business_id=biz.id, code="dyb", name="DyB Autopartes",
+        issuer_bank_name="B" * 200, issuer_bank_branch="S" * 65, issuer_bank_account="9" * 70,
+        issuer_bank_account_currency="CUPCUPCUP1", db=db_session,
+    )
+
+    assert response.status_code == 200
+    db_session.refresh(biz)
+    assert len(biz.issuer_bank_name) == 128
+    assert len(biz.issuer_bank_branch) == 64
+    assert len(biz.issuer_bank_account) == 64
+    assert biz.issuer_bank_account_currency == "CUPCUPCU"
+
+
+def test_edit_form_shows_the_saved_values_with_maxlength(admin_request, db_session, admin_user) -> None:
+    biz = _business(
+        db_session,
+        issuer_bank_name="Banco Metropolitano",
+        issuer_bank_branch="248",
+        issuer_bank_account="0598770024085419",
+        issuer_bank_account_currency="CUP",
+        sales_quote_validity_days=30,
+    )
+
+    body = business_edit_form(request=admin_request, business_id=biz.id, db=db_session).body.decode("utf-8")
+
+    assert 'name="issuer_bank_name" maxlength="128"' in body
+    assert 'value="Banco Metropolitano"' in body
+    assert 'value="248"' in body
+    assert 'value="0598770024085419"' in body
+    assert 'name="issuer_bank_account_currency" maxlength="8"' in body
+    assert 'name="sales_quote_validity_days" min="0" max="365"' in body
+    assert 'value="30"' in body
+````
+
+#### Verification
+
+`.venv/bin/python -m pytest tests/unit/test_business_bank_fields.py -q --override-ini="addopts="` termina en PASS.
+
+#### Expected Report
+
+- [ ] `tests/unit/test_business_bank_fields.py` creado con el contenido exacto
+- [ ] Ningún otro fichero modificado
+
+---
+
+# LOTE D — Versión 0.5.2 y documentación
+
+### T24: Subir la versión a 0.5.2 (PATCH)
+
+**Depends on:** T23
+**Skill:** release-manager
+**Apply:** script
+**Files:** `VERSION`, `.bumpversion.cfg`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `VERSION` y `.bumpversion.cfg`. La versión pasa de `0.5.1` a `0.5.2`. Es un incremento PATCH, no MINOR.
+
+#### Instructions
+
+````pae-edit
+file: VERSION
+op: replace
+@@ before
+0.5.1
+@@ after
+0.5.2
+````
+
+````pae-edit
+file: .bumpversion.cfg
+op: replace
+@@ before
+current_version = 0.5.1
+@@ after
+current_version = 0.5.2
+````
+
+#### Verification
+
+`cat VERSION` imprime `0.5.2` y `grep -n "current_version = 0.5.2" .bumpversion.cfg` encuentra una línea.
+
+#### Expected Report
+
+- [ ] `VERSION` y `.bumpversion.cfg` en 0.5.2
+- [ ] Ningún otro fichero modificado
+
+### T25: Entrada de 0.5.2 en `CHANGELOG.md`
+
+**Depends on:** T24
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CHANGELOG.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CHANGELOG.md`. Añade la sección `0.5.2` encima de la sección `0.5.1`.
+
+#### Instructions
+
+````pae-edit
+file: CHANGELOG.md
+op: insert_before
+@@ anchor
+## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
+@@ content
+## 0.5.2 (2026-11-18 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA")
+
+- feat(sales-docs): el PDF de facturas y presupuestos sigue el diseño de la plantilla de referencia: banda de
+  cabecera azul clara con emisor (nombre, TCP, NIT) y contacto con iconos vectoriales de teléfono y email, barra
+  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
+  en presupuestos), fila `Subtotal:` y caja `TOTAL:`, tabla `CONCEPTO | UNIDADES | CANTIDAD | PRECIO | IMPORTE` con
+  separador de miles y cabecera repetida en cada página, y pie con `FORMA DE PAGO` (datos bancarios) y
+  `Recibido por / Cargo / Firma / Fecha`. Las columnas de importe llevan la moneda elegida al construir el
+  documento (`GEN` se muestra como `CUP`). Fechas `dd/mm/aaaa`.
+- feat(businesses): *Negocios → Crear/Editar* guarda banco, sucursal, número de cuenta y moneda de la cuenta
+  (`issuer_bank_*`, con `maxlength` 128/64/64/8 y recorte en el servidor) y el plazo de validez de presupuestos
+  (`sales_quote_validity_days`, 0-365, por defecto 15). Columnas añadidas de forma idempotente al arrancar.
+- feat(sales-docs): campo `valid_until` (fecha de vencimiento) en `sales_documents`, solo para presupuestos. El
+  formulario de emisión la rellena con hoy + plazo de validez y se puede cambiar; sobrevive a los cambios del
+  carrito; se muestra en la vista previa y se edita en el modal de edición. Una fecha inválida devuelve un 422 HTML
+  ("Fecha de vencimiento inválida") sin crear ni modificar nada. Los documentos anteriores siguen generando PDF.
+- test: unit del formato, del PDF (leído con pdfplumber), de los handlers y de los datos del negocio; e2e del flujo
+  completo (negocio → presupuesto en `GEN` → PDF; factura sin vencimiento); baselines de snapshots regeneradas.
+````
+
+#### Verification
+
+`grep -n "## 0.5.2" CHANGELOG.md` encuentra una línea y `grep -n "## 0.5.1" CHANGELOG.md` sigue encontrando la suya.
+
+#### Expected Report
+
+- [ ] `CHANGELOG.md` modificado con la sección 0.5.2 encima de la 0.5.1
+- [ ] Ningún otro fichero modificado
+
+### T26: Estado actual en `CLAUDE.md` (raíz)
+
+**Depends on:** T25
+**Skill:** technical-writer
+**Apply:** script
+**Files:** `CLAUDE.md`
+**Pillars:** P1, P4, P5, P6
+
+#### Objective
+
+Edita solo `CLAUDE.md` (raíz del repo). Añade la entrada de 0.5.2 al principio de la sección "Estado actual". No edites `.claude/CLAUDE.md`: lo aplica Claude Code en la revisión (envelope manual M1 del PAE).
+
+#### Instructions
+
+````pae-edit
+file: CLAUDE.md
+op: insert_after
+@@ anchor
+## Estado actual
+@@ content
+
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
+      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
+      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
+      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
+      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
+      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
+      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
+      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
+      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
+      el mismo lote que las plantillas (lección de 0.5.1).
+      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
+        generarse (como el TCP), no del documento emitido.
+      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
+        moneda nuevas en el selector del carrito.
+````
+
+#### Verification
+
+`grep -n "0.5.2 — PDF de facturas" CLAUDE.md` encuentra una línea y `grep -c "^## Estado actual" CLAUDE.md` imprime `1`.
+
+#### Expected Report
+
+- [ ] `CLAUDE.md` modificado con la entrada 0.5.2 bajo "Estado actual"
+- [ ] Ningún otro fichero modificado
+
+
+
+exec
+/usr/bin/zsh -lc 'cat /home/liandy/.local/share/harness-loop/pae-edit-format.md' in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+# Formato `pae-edit`
+
+Un envelope `**Apply:** script` expresa cambios literales en bloques cercados con **4 backticks** y etiqueta
+`pae-edit`. Cabeceras `clave: valor` hasta el primer marcador; secciones delimitadas por marcadores en columna 0:
+`@@ before`, `@@ after`, `@@ anchor`, `@@ content`.
+
+## Operaciones
+
+| op | cabeceras | secciones | semántica |
+|---|---|---|---|
+| `replace` | `file`, `count` (def. 1), `match` (`lines` def. / `text`) | `before`, `after` | sustituye cada coincidencia; el nº debe ser exactamente `count` |
+| `create` | `file`, `overwrite` (def. `false`) | `content` | crea el fichero (error si existe y `overwrite: false`) |
+| `append` | `file` | `content` | añade al final |
+| `insert_after` / `insert_before` | `file`, `count` | `anchor`, `content` | inserta tras/antes de cada coincidencia de `anchor` |
+| `delete_def` | `file`, `symbol` | — | borra la definición (decoradores incluidos) vía `ast` |
+| `delete_file` | `file` | — | borra el fichero |
+| `codemod` | `script`, `runner`, `files`, `expect-changed` | — | ejecuta un script sobre un glob |
+
+## Reglas
+
+- Elisiones prohibidas: una línea cuyo `strip()` es `...`, `…`, `# ...`, `// ...`, `/* ... */` o `<!-- ... -->`
+  es error, salvo `literal-ellipsis: true`.
+- `file`/`files`/`script` relativos y dentro de la raíz (rutas `..` o absolutas = error).
+- El campo `**Apply:**` es obligatorio: `script` (solo bloques pae-edit) o `cc_local` (sin bloques pae-edit).
+
+## Bloque de corrección del miniloop
+
+`cc_codex_fix` le pide a Codex que termine su respuesta con un bloque cercado etiquetado `tasks-md`,
+con el mismo formato de un `tasks.md` normal (`Lotes:` + envelopes `**Apply:** script` con bloques
+`pae-edit`, o `**Apply:** cc_local`). `extract_tasks_md` (en `pae_edits.py`) extrae el ÚLTIMO bloque
+`tasks-md` de la respuesta y `cc_codex_fix` lo escribe en `specs/<slug>/verify/tasks.md`. Si Codex
+responde "SIN HALLAZGOS" (sin bloque), no se escribe ningún `tasks.md`.
+
+exec
+/usr/bin/zsh -lc "git diff 723d70fd469a3b64a0c9f238e019217252e95736...3afea1fafdec533f543811e1f6c5826987858d49 -- . ':(exclude)specs/miniloop-round*/**' ':(exclude)specs/miniloop-*-round*/**' ':(exclude)specs/*/miniloop/**' ':(exclude)specs/*/loop/**'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+diff --git a/app/routers/ui_sales_documents.py b/app/routers/ui_sales_documents.py
+index b0e57af..2793e4a 100644
+--- a/app/routers/ui_sales_documents.py
++++ b/app/routers/ui_sales_documents.py
+@@ -252,6 +252,22 @@ def sales_doc_preview(
+         valid_until=valid_until,
+     )
+ 
++    try:
++        valid_until_date = resolve_valid_until(
++            valid_until,
++            doc_type=doc_type_norm,
++            issue_date=datetime.now(timezone.utc),
++            validity_days=int(config.sales_documents.quote_validity_days),
++        )
++    except ValueError:
++        _log.info("valid_until rechazado: %r", valid_until)
++        return templates.TemplateResponse(
++            request=request,
++            name="features/sales_documents/_valid_until_error.html",
++            context={},
++            status_code=422,
++        )
++
+     cart = _get_cart(request)
+     if not cart:
+         raise HTTPException(status_code=422, detail="El carrito está vacío")
+@@ -275,6 +291,8 @@ def sales_doc_preview(
+             "subtotal": subtotal,
+             "total": total,
+             "currency_code": selected_currency_code,
++            "valid_until_label": format_doc_date(valid_until_date),
++            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
+             "currency_symbol": selected_currency_symbol,
+         },
+     )
+@@ -377,6 +395,22 @@ async def sales_doc_update(
+     if not client_id:
+         raise HTTPException(status_code=422, detail="client_id is required")
+ 
++    new_valid_until = None
++    if (doc.doc_type or "").strip().upper() == "P":
++        raw_valid_until = form.get("valid_until")
++        try:
++            new_valid_until = resolve_valid_until(
++                raw_valid_until if isinstance(raw_valid_until, str) else "",
++                doc_type="P",
++                issue_date=doc.issue_date,
++                validity_days=int(config.sales_documents.quote_validity_days),
++                on_empty="keep",
++                current=doc.valid_until,
++            )
++        except ValueError:
++            _log.info("valid_until rechazado: %r", raw_valid_until)
++            return _valid_until_error_response(request, db=db, bid=bid, config=config)
++
+     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+     doc.customer_id = customer.id
+ 
+@@ -443,6 +477,7 @@ async def sales_doc_update(
+     doc.client_id = client_id
+     doc.client_address = client_address
+     doc.notes = notes
++    doc.valid_until = new_valid_until
+     doc.currency_code = (doc.currency_code or config.currency.code)
+     doc.currency_symbol = (doc.currency_symbol or config.currency.symbol)
+     doc.subtotal = subtotal
+diff --git a/app/templates/features/sales_documents/_valid_until_error.html b/app/templates/features/sales_documents/_valid_until_error.html
+new file mode 100644
+index 0000000..e47146f
+--- /dev/null
++++ b/app/templates/features/sales_documents/_valid_until_error.html
+@@ -0,0 +1,2 @@
++{% from 'components/ui.html' import flash %}
++{{ flash('Fecha de vencimiento inválida', 'error') }}
+diff --git a/app/templates/features/sales_documents/sales_document_edit_form.html b/app/templates/features/sales_documents/sales_document_edit_form.html
+index d65d263..05b00de 100644
+--- a/app/templates/features/sales_documents/sales_document_edit_form.html
++++ b/app/templates/features/sales_documents/sales_document_edit_form.html
+@@ -10,6 +10,9 @@
+     </div>
+     {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+     {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
++    {% if (doc.doc_type or '')|upper == 'P' %}
++    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
++    {% endif %}
+ 
+     <h4 class="mt-14">Items</h4>
+     <div class="table-wrapper">
+diff --git a/app/templates/features/sales_documents/sales_document_preview.html b/app/templates/features/sales_documents/sales_document_preview.html
+index e46ff50..baa8071 100644
+--- a/app/templates/features/sales_documents/sales_document_preview.html
++++ b/app/templates/features/sales_documents/sales_document_preview.html
+@@ -8,6 +8,7 @@
+   <div class="grid grid-2 mt-10">
+     <div>
+       <div><strong>Tipo:</strong> {{ doc_label }}</div>
++      {% if doc_type == 'P' %}<div><strong>Vencimiento:</strong> {{ valid_until_label }}</div>{% endif %}
+       <div><strong>Cliente:</strong> {{ client_name }} ({{ client_id }})</div>
+       {% if client_address %}<div><strong>Dirección:</strong> {{ client_address }}</div>{% endif %}
+       {% if notes %}<div><strong>Notas:</strong> {{ notes }}</div>{% endif %}
+@@ -49,6 +50,7 @@
+     <input type="hidden" name="client_id" value="{{ client_id }}" />
+     <input type="hidden" name="client_address" value="{{ client_address or '' }}" />
+     <input type="hidden" name="notes" value="{{ notes or '' }}" />
++    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
+     <button type="submit">Emitir ahora</button>
+   </form>
+ </div>
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt b/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+new file mode 100644
+index 0000000..a70a72b
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt
+@@ -0,0 +1,4 @@
++app/routers/ui_sales_documents.py
++app/templates/features/sales_documents/_valid_until_error.html
++app/templates/features/sales_documents/sales_document_edit_form.html
++app/templates/features/sales_documents/sales_document_preview.html
+diff --git a/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt b/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+new file mode 100644
+index 0000000..e9e32d7
+--- /dev/null
++++ b/specs/pdf-documentos-venta-oferta/verify/loteB.test.txt
+@@ -0,0 +1,319 @@
++OK: 91 snapshots equivalentes
++........................................................................ [ 13%]
++........................................................................ [ 26%]
++........................................................................ [ 39%]
++........................................................................ [ 53%]
++........................................................................ [ 66%]
++........................................................................ [ 79%]
++........................................................................ [ 92%]
++.......................................                                  [100%]
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:755: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    return asyncio.iscoroutinefunction(func) or (
++
++.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langchain_core/runnables/utils.py:757: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:300: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    asyncio.iscoroutinefunction(func)
++
++.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: 4 warnings
++tests/unit/test_agent_graph.py: 84 warnings
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/utils/runnable.py:302: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
++    and asyncio.iscoroutinefunction(func.__call__)
++
++.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++    from starlette.testclient import TestClient as TestClient  # noqa
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_form_ui_login_get for function login_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID login_submit_ui_login_post for function login_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_form_ui_must_change_password_form_get for function must_change_password_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID must_change_password_submit_ui_must_change_password_post for function must_change_password_submit at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID set_active_business_ui_active_business_post for function set_active_business at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID logout_ui_logout_get for function logout at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_auth.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_delete_ui_product__sku__delete_post for function product_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_ui_product__sku__edit_get for function product_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_ui_product__sku__update_post for function product_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_edit_form_inventory_ui_product__sku__edit_inventory_get for function product_edit_form_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_update_inventory_ui_product__sku__update_inventory_post for function product_update_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_from_invoice_ui_product_from_invoice_post for function product_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_purchase_ui_product_defaults_purchase_get for function product_defaults_purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_defaults_sale_ui_product_defaults_sale_get for function product_defaults_sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID product_suggest_ui_product_suggest_get for function product_suggest at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_inventory_ui_tabs_inventory_get for function tab_inventory at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_products.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_from_invoice_ui_purchase_from_invoice_post for function purchase_from_invoice at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_ui_purchase_post for function purchase at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_label_print_ui_purchase__movement_id__label_get for function purchase_label_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_edit_form_ui_movement_purchase__movement_id__edit_get for function purchase_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_update_ui_movement_purchase__movement_id__update_post for function purchase_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_ui_movement_purchase__movement_id__delete_post for function purchase_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID purchase_delete_selected_ui_movement_purchase_delete_selected_post for function purchase_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_purchases_ui_tabs_purchases_get for function tab_purchases at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_purchases.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_product_options_ui_sale_product_options_get for function sale_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_ui_sale_post for function sale at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_barcode_ui_sale_barcode_post for function sale_barcode at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_edit_form_ui_movement_sale__movement_id__edit_get for function sale_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_update_ui_movement_sale__movement_id__update_post for function sale_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_ui_movement_sale__movement_id__delete_post for function sale_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sale_delete_selected_ui_movement_sale_delete_selected_post for function sale_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_sales_ui_tabs_sales_get for function tab_sales at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_edit_form_ui_movement_transfer__movement_id__edit_get for function transfer_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_update_ui_movement_transfer__movement_id__update_post for function transfer_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_selected_ui_movement_transfer_delete_selected_post for function transfer_delete_selected at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_delete_ui_movement_transfer__movement_id__delete_post for function transfer_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID create_transfer_ui_transfers_post for function create_transfer at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_product_options_ui_transfers_product_options_get for function transfer_product_options at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID get_transfer_stock_ui_transfers_stock__sku__get for function get_transfer_stock at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_print_ui_transfers_print_get for function transfer_print at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_modal_ui_transfers_bulk_get for function transfer_bulk_modal at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID transfer_bulk_execute_ui_transfers_bulk_post for function transfer_bulk_execute at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_transfers_ui_tabs_transfers_get for function tab_transfers at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_transfers.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_create_ui_expenses_create_post for function expense_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_edit_form_ui_expense__expense_id__edit_get for function expense_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_delete_ui_expense__expense_id__delete_post for function expense_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID expense_update_ui_expense__expense_id__update_post for function expense_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_expenses_ui_tabs_expenses_get for function tab_expenses at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_expenses.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_create_ui_extractions_create_post for function extraction_create at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_delete_ui_extraction__extraction_id__delete_post for function extraction_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_edit_form_ui_extraction__extraction_id__edit_get for function extraction_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID extraction_update_ui_extraction__extraction_id__update_post for function extraction_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_extractions.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_preview_ui_sales_doc_preview_post for function sales_doc_preview at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_delete_ui_sales_doc__doc_id__delete_post for function sales_doc_delete at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_edit_form_ui_sales_doc__doc_id__edit_get for function sales_doc_edit_form at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_update_ui_sales_doc__doc_id__update_post for function sales_doc_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_product_defaults_ui_sales_doc_product_defaults_get for function sales_doc_product_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_customer_defaults_ui_sales_doc_customer_defaults_get for function sales_doc_customer_defaults at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_add_ui_sales_doc_cart_add_post for function sales_doc_cart_add at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_update_ui_sales_doc_cart_update_post for function sales_doc_cart_update at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_remove_ui_sales_doc_cart_remove_post for function sales_doc_cart_remove at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_cart_clear_ui_sales_doc_cart_clear_post for function sales_doc_cart_clear at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_issue_ui_sales_doc_issue_post for function sales_doc_issue at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID sales_doc_pdf_ui_sales_doc__doc_id__pdf_get for function sales_doc_pdf at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID tab_documents_ui_tabs_documents_get for function tab_documents at /home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py
++    warnings.warn(message, stacklevel=1)
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++543 passed, 246 warnings in 12.04s
++........................................................................ [ 74%]
++.........................                                                [100%]
++=============================== warnings summary ===============================
++.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
++  /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
++  
++    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
++
++-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
++97 passed, 1 warning in 217.25s (0:03:37)
++
++--- stderr ---
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
++  from starlette.testclient import TestClient as TestClient  # noqa
++/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
++  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+exec
+/usr/bin/zsh -lc "git grep -n -E 'beforeSwap|responseHandling|sales-doc-preview|sales-doc-edit|_valid_until_error_response' 3afea1f -- app ':"'!app/static/vendor'"'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+3afea1f:app/routers/ui_sales_documents.py:187:def _valid_until_error_response(request: Request, *, db: Session, bid: int, config) -> HTMLResponse:
+3afea1f:app/routers/ui_sales_documents.py:412:            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+3afea1f:app/routers/ui_sales_documents.py:998:        return _valid_until_error_response(request, db=db, bid=bid, config=config)
+3afea1f:app/static/js/core/swap.js:22:  document.addEventListener('htmx:beforeSwap', (evt) => {
+3afea1f:app/static/js/htmx.min.js:1:(function(e,t){if(typeof define==="function"&&define.amd){define([],t)}else if(typeof module==="object"&&module.exports){module.exports=t()}else{e.htmx=e.htmx||t()}})(typeof self!=="undefined"?self:this,function(){return function(){"use strict";var Q={onLoad:F,process:zt,on:de,off:ge,trigger:ce,ajax:Nr,find:C,findAll:f,closest:v,values:function(e,t){var r=dr(e,t||"post");return r.values},remove:_,addClass:z,removeClass:n,toggleClass:$,takeClass:W,defineExtension:Ur,removeExtension:Br,logAll:V,logNone:j,logger:null,config:{historyEnabled:true,historyCacheSize:10,refreshOnHistoryMiss:false,defaultSwapStyle:"innerHTML",defaultSwapDelay:0,defaultSettleDelay:20,includeIndicatorStyles:true,indicatorClass:"htmx-indicator",requestClass:"htmx-request",addedClass:"htmx-added",settlingClass:"htmx-settling",swappingClass:"htmx-swapping",allowEval:true,allowScriptTags:true,inlineScriptNonce:"",attributesToSettle:["class","style","width","height"],withCredentials:false,timeout:0,wsReconnectDelay:"full-jitter",wsBinaryType:"blob",disableSelector:"[hx-disable], [data-hx-disable]",useTemplateFragments:false,scrollBehavior:"smooth",defaultFocusScroll:false,getCacheBusterParam:false,globalViewTransitions:false,methodsThatUseUrlParams:["get"],selfRequestsOnly:false,ignoreTitle:false,scrollIntoViewOnBoost:true,triggerSpecsCache:null},parseInterval:d,_:t,createEventSource:function(e){return new EventSource(e,{withCredentials:true})},createWebSocket:function(e){var t=new WebSocket(e,[]);t.binaryType=Q.config.wsBinaryType;return t},version:"1.9.12"};var r={addTriggerHandler:Lt,bodyContains:se,canAccessLocalStorage:U,findThisElement:xe,filterValues:yr,hasAttribute:o,getAttributeValue:te,getClosestAttributeValue:ne,getClosestMatch:c,getExpressionVars:Hr,getHeaders:xr,getInputValues:dr,getInternalData:ae,getSwapSpecification:wr,getTriggerSpecs:it,getTarget:ye,makeFragment:l,mergeObjects:le,makeSettleInfo:T,oobSwap:Ee,querySelectorExt:ue,selectAndSwap:je,settleImmediately:nr,shouldCancel:ut,triggerEvent:ce,triggerErrorEvent:fe,withExtensions:R};var w=["get","post","put","delete","patch"];var i=w.map(function(e){return"[hx-"+e+"], [data-hx-"+e+"]"}).join(", ");var S=e("head"),q=e("title"),H=e("svg",true);function e(e,t){return new RegExp("<"+e+"(\\s[^>]*>|>)([\\s\\S]*?)<\\/"+e+">",!!t?"gim":"im")}function d(e){if(e==undefined){return undefined}let t=NaN;if(e.slice(-2)=="ms"){t=parseFloat(e.slice(0,-2))}else if(e.slice(-1)=="s"){t=parseFloat(e.slice(0,-1))*1e3}else if(e.slice(-1)=="m"){t=parseFloat(e.slice(0,-1))*1e3*60}else{t=parseFloat(e)}return isNaN(t)?undefined:t}function ee(e,t){return e.getAttribute&&e.getAttribute(t)}function o(e,t){return e.hasAttribute&&(e.hasAttribute(t)||e.hasAttribute("data-"+t))}function te(e,t){return ee(e,t)||ee(e,"data-"+t)}function u(e){return e.parentElement}function re(){return document}function c(e,t){while(e&&!t(e)){e=u(e)}return e?e:null}function L(e,t,r){var n=te(t,r);var i=te(t,"hx-disinherit");if(e!==t&&i&&(i==="*"||i.split(" ").indexOf(r)>=0)){return"unset"}else{return n}}function ne(t,r){var n=null;c(t,function(e){return n=L(t,e,r)});if(n!=="unset"){return n}}function h(e,t){var r=e.matches||e.matchesSelector||e.msMatchesSelector||e.mozMatchesSelector||e.webkitMatchesSelector||e.oMatchesSelector;return r&&r.call(e,t)}function A(e){var t=/<([a-z][^\/\0>\x20\t\r\n\f]*)/i;var r=t.exec(e);if(r){return r[1].toLowerCase()}else{return""}}function s(e,t){var r=new DOMParser;var n=r.parseFromString(e,"text/html");var i=n.body;while(t>0){t--;i=i.firstChild}if(i==null){i=re().createDocumentFragment()}return i}function N(e){return/<body/.test(e)}function l(e){var t=!N(e);var r=A(e);var n=e;if(r==="head"){n=n.replace(S,"")}if(Q.config.useTemplateFragments&&t){var i=s("<body><template>"+n+"</template></body>",0);var a=i.querySelector("template").content;if(Q.config.allowScriptTags){oe(a.querySelectorAll("script"),function(e){if(Q.config.inlineScriptNonce){e.nonce=Q.config.inlineScriptNonce}e.htmxExecuted=navigator.userAgent.indexOf("Firefox")===-1})}else{oe(a.querySelectorAll("script"),function(e){_(e)})}return a}switch(r){case"thead":case"tbody":case"tfoot":case"colgroup":case"caption":return s("<table>"+n+"</table>",1);case"col":return s("<table><colgroup>"+n+"</colgroup></table>",2);case"tr":return s("<table><tbody>"+n+"</tbody></table>",2);case"td":case"th":return s("<table><tbody><tr>"+n+"</tr></tbody></table>",3);case"script":case"style":return s("<div>"+n+"</div>",1);default:return s(n,0)}}function ie(e){if(e){e()}}function I(e,t){return Object.prototype.toString.call(e)==="[object "+t+"]"}function k(e){return I(e,"Function")}function P(e){return I(e,"Object")}function ae(e){var t="htmx-internal-data";var r=e[t];if(!r){r=e[t]={}}return r}function M(e){var t=[];if(e){for(var r=0;r<e.length;r++){t.push(e[r])}}return t}function oe(e,t){if(e){for(var r=0;r<e.length;r++){t(e[r])}}}function X(e){var t=e.getBoundingClientRect();var r=t.top;var n=t.bottom;return r<window.innerHeight&&n>=0}function se(e){if(e.getRootNode&&e.getRootNode()instanceof window.ShadowRoot){return re().body.contains(e.getRootNode().host)}else{return re().body.contains(e)}}function D(e){return e.trim().split(/\s+/)}function le(e,t){for(var r in t){if(t.hasOwnProperty(r)){e[r]=t[r]}}return e}function E(e){try{return JSON.parse(e)}catch(e){b(e);return null}}function U(){var e="htmx:localStorageTest";try{localStorage.setItem(e,e);localStorage.removeItem(e);return true}catch(e){return false}}function B(t){try{var e=new URL(t);if(e){t=e.pathname+e.search}if(!/^\/$/.test(t)){t=t.replace(/\/+$/,"")}return t}catch(e){return t}}function t(e){return Tr(re().body,function(){return eval(e)})}function F(t){var e=Q.on("htmx:load",function(e){t(e.detail.elt)});return e}function V(){Q.logger=function(e,t,r){if(console){console.log(t,e,r)}}}function j(){Q.logger=null}function C(e,t){if(t){return e.querySelector(t)}else{return C(re(),e)}}function f(e,t){if(t){return e.querySelectorAll(t)}else{return f(re(),e)}}function _(e,t){e=p(e);if(t){setTimeout(function(){_(e);e=null},t)}else{e.parentElement.removeChild(e)}}function z(e,t,r){e=p(e);if(r){setTimeout(function(){z(e,t);e=null},r)}else{e.classList&&e.classList.add(t)}}function n(e,t,r){e=p(e);if(r){setTimeout(function(){n(e,t);e=null},r)}else{if(e.classList){e.classList.remove(t);if(e.classList.length===0){e.removeAttribute("class")}}}}function $(e,t){e=p(e);e.classList.toggle(t)}function W(e,t){e=p(e);oe(e.parentElement.children,function(e){n(e,t)});z(e,t)}function v(e,t){e=p(e);if(e.closest){return e.closest(t)}else{do{if(e==null||h(e,t)){return e}}while(e=e&&u(e));return null}}function g(e,t){return e.substring(0,t.length)===t}function G(e,t){return e.substring(e.length-t.length)===t}function J(e){var t=e.trim();if(g(t,"<")&&G(t,"/>")){return t.substring(1,t.length-2)}else{return t}}function Z(e,t){if(t.indexOf("closest ")===0){return[v(e,J(t.substr(8)))]}else if(t.indexOf("find ")===0){return[C(e,J(t.substr(5)))]}else if(t==="next"){return[e.nextElementSibling]}else if(t.indexOf("next ")===0){return[K(e,J(t.substr(5)))]}else if(t==="previous"){return[e.previousElementSibling]}else if(t.indexOf("previous ")===0){return[Y(e,J(t.substr(9)))]}else if(t==="document"){return[document]}else if(t==="window"){return[window]}else if(t==="body"){return[document.body]}else{return re().querySelectorAll(J(t))}}var K=function(e,t){var r=re().querySelectorAll(t);for(var n=0;n<r.length;n++){var i=r[n];if(i.compareDocumentPosition(e)===Node.DOCUMENT_POSITION_PRECEDING){return i}}};var Y=function(e,t){var r=re().querySelectorAll(t);for(var n=r.length-1;n>=0;n--){var i=r[n];if(i.compareDocumentPosition(e)===Node.DOCUMENT_POSITION_FOLLOWING){return i}}};function ue(e,t){if(t){return Z(e,t)[0]}else{return Z(re().body,e)[0]}}function p(e){if(I(e,"String")){return C(e)}else{return e}}function ve(e,t,r){if(k(t)){return{target:re().body,event:e,listener:t}}else{return{target:p(e),event:t,listener:r}}}function de(t,r,n){jr(function(){var e=ve(t,r,n);e.target.addEventListener(e.event,e.listener)});var e=k(r);return e?r:n}function ge(t,r,n){jr(function(){var e=ve(t,r,n);e.target.removeEventListener(e.event,e.listener)});return k(r)?r:n}var pe=re().createElement("output");function me(e,t){var r=ne(e,t);if(r){if(r==="this"){return[xe(e,t)]}else{var n=Z(e,r);if(n.length===0){b('The selector "'+r+'" on '+t+" returned no matches!");return[pe]}else{return n}}}}function xe(e,t){return c(e,function(e){return te(e,t)!=null})}function ye(e){var t=ne(e,"hx-target");if(t){if(t==="this"){return xe(e,"hx-target")}else{return ue(e,t)}}else{var r=ae(e);if(r.boosted){return re().body}else{return e}}}function be(e){var t=Q.config.attributesToSettle;for(var r=0;r<t.length;r++){if(e===t[r]){return true}}return false}function we(t,r){oe(t.attributes,function(e){if(!r.hasAttribute(e.name)&&be(e.name)){t.removeAttribute(e.name)}});oe(r.attributes,function(e){if(be(e.name)){t.setAttribute(e.name,e.value)}})}function Se(e,t){var r=Fr(t);for(var n=0;n<r.length;n++){var i=r[n];try{if(i.isInlineSwap(e)){return true}}catch(e){b(e)}}return e==="outerHTML"}function Ee(e,i,a){var t="#"+ee(i,"id");var o="outerHTML";if(e==="true"){}else if(e.indexOf(":")>0){o=e.substr(0,e.indexOf(":"));t=e.substr(e.indexOf(":")+1,e.length)}else{o=e}var r=re().querySelectorAll(t);if(r){oe(r,function(e){var t;var r=i.cloneNode(true);t=re().createDocumentFragment();t.appendChild(r);if(!Se(o,e)){t=r}var n={shouldSwap:true,target:e,fragment:t};if(!ce(e,"htmx:oobBeforeSwap",n))return;e=n.target;if(n["shouldSwap"]){Fe(o,e,e,t,a)}oe(a.elts,function(e){ce(e,"htmx:oobAfterSwap",n)})});i.parentNode.removeChild(i)}else{i.parentNode.removeChild(i);fe(re().body,"htmx:oobErrorNoTarget",{content:i})}return e}function Ce(e,t,r){var n=ne(e,"hx-select-oob");if(n){var i=n.split(",");for(var a=0;a<i.length;a++){var o=i[a].split(":",2);var s=o[0].trim();if(s.indexOf("#")===0){s=s.substring(1)}var l=o[1]||"true";var u=t.querySelector("#"+s);if(u){Ee(l,u,r)}}}oe(f(t,"[hx-swap-oob], [data-hx-swap-oob]"),function(e){var t=te(e,"hx-swap-oob");if(t!=null){Ee(t,e,r)}})}function Re(e){oe(f(e,"[hx-preserve], [data-hx-preserve]"),function(e){var t=te(e,"id");var r=re().getElementById(t);if(r!=null){e.parentNode.replaceChild(r,e)}})}function Te(o,e,s){oe(e.querySelectorAll("[id]"),function(e){var t=ee(e,"id");if(t&&t.length>0){var r=t.replace("'","\\'");var n=e.tagName.replace(":","\\:");var i=o.querySelector(n+"[id='"+r+"']");if(i&&i!==o){var a=e.cloneNode();we(e,i);s.tasks.push(function(){we(e,a)})}}})}function Oe(e){return function(){n(e,Q.config.addedClass);zt(e);Nt(e);qe(e);ce(e,"htmx:load")}}function qe(e){var t="[autofocus]";var r=h(e,t)?e:e.querySelector(t);if(r!=null){r.focus()}}function a(e,t,r,n){Te(e,r,n);while(r.childNodes.length>0){var i=r.firstChild;z(i,Q.config.addedClass);e.insertBefore(i,t);if(i.nodeType!==Node.TEXT_NODE&&i.nodeType!==Node.COMMENT_NODE){n.tasks.push(Oe(i))}}}function He(e,t){var r=0;while(r<e.length){t=(t<<5)-t+e.charCodeAt(r++)|0}return t}function Le(e){var t=0;if(e.attributes){for(var r=0;r<e.attributes.length;r++){var n=e.attributes[r];if(n.value){t=He(n.name,t);t=He(n.value,t)}}}return t}function Ae(e){var t=ae(e);if(t.onHandlers){for(var r=0;r<t.onHandlers.length;r++){const n=t.onHandlers[r];e.removeEventListener(n.event,n.listener)}delete t.onHandlers}}function Ne(e){var t=ae(e);if(t.timeout){clearTimeout(t.timeout)}if(t.webSocket){t.webSocket.close()}if(t.sseEventSource){t.sseEventSource.close()}if(t.listenerInfos){oe(t.listenerInfos,function(e){if(e.on){e.on.removeEventListener(e.trigger,e.listener)}})}Ae(e);oe(Object.keys(t),function(e){delete t[e]})}function m(e){ce(e,"htmx:beforeCleanupElement");Ne(e);if(e.children){oe(e.children,function(e){m(e)})}}function Ie(t,e,r){if(t.tagName==="BODY"){return Ue(t,e,r)}else{var n;var i=t.previousSibling;a(u(t),t,e,r);if(i==null){n=u(t).firstChild}else{n=i.nextSibling}r.elts=r.elts.filter(function(e){return e!=t});while(n&&n!==t){if(n.nodeType===Node.ELEMENT_NODE){r.elts.push(n)}n=n.nextElementSibling}m(t);u(t).removeChild(t)}}function ke(e,t,r){return a(e,e.firstChild,t,r)}function Pe(e,t,r){return a(u(e),e,t,r)}function Me(e,t,r){return a(e,null,t,r)}function Xe(e,t,r){return a(u(e),e.nextSibling,t,r)}function De(e,t,r){m(e);return u(e).removeChild(e)}function Ue(e,t,r){var n=e.firstChild;a(e,n,t,r);if(n){while(n.nextSibling){m(n.nextSibling);e.removeChild(n.nextSibling)}m(n);e.removeChild(n)}}function Be(e,t,r){var n=r||ne(e,"hx-select");if(n){var i=re().createDocumentFragment();oe(t.querySelectorAll(n),function(e){i.appendChild(e)});t=i}return t}function Fe(e,t,r,n,i){switch(e){case"none":return;case"outerHTML":Ie(r,n,i);return;case"afterbegin":ke(r,n,i);return;case"beforebegin":Pe(r,n,i);return;case"beforeend":Me(r,n,i);return;case"afterend":Xe(r,n,i);return;case"delete":De(r,n,i);return;default:var a=Fr(t);for(var o=0;o<a.length;o++){var s=a[o];try{var l=s.handleSwap(e,r,n,i);if(l){if(typeof l.length!=="undefined"){for(var u=0;u<l.length;u++){var f=l[u];if(f.nodeType!==Node.TEXT_NODE&&f.nodeType!==Node.COMMENT_NODE){i.tasks.push(Oe(f))}}}return}}catch(e){b(e)}}if(e==="innerHTML"){Ue(r,n,i)}else{Fe(Q.config.defaultSwapStyle,t,r,n,i)}}}function Ve(e){if(e.indexOf("<title")>-1){var t=e.replace(H,"");var r=t.match(q);if(r){return r[2]}}}function je(e,t,r,n,i,a){i.title=Ve(n);var o=l(n);if(o){Ce(r,o,i);o=Be(r,o,a);Re(o);return Fe(e,r,t,o,i)}}function _e(e,t,r){var n=e.getResponseHeader(t);if(n.indexOf("{")===0){var i=E(n);for(var a in i){if(i.hasOwnProperty(a)){var o=i[a];if(!P(o)){o={value:o}}ce(r,a,o)}}}else{var s=n.split(",");for(var l=0;l<s.length;l++){ce(r,s[l].trim(),[])}}}var ze=/\s/;var x=/[\s,]/;var $e=/[_$a-zA-Z]/;var We=/[_$a-zA-Z0-9]/;var Ge=['"',"'","/"];var Je=/[^\s]/;var Ze=/[{(]/;var Ke=/[})]/;function Ye(e){var t=[];var r=0;while(r<e.length){if($e.exec(e.charAt(r))){var n=r;while(We.exec(e.charAt(r+1))){r++}t.push(e.substr(n,r-n+1))}else if(Ge.indexOf(e.charAt(r))!==-1){var i=e.charAt(r);var n=r;r++;while(r<e.length&&e.charAt(r)!==i){if(e.charAt(r)==="\\"){r++}r++}t.push(e.substr(n,r-n+1))}else{var a=e.charAt(r);t.push(a)}r++}return t}function Qe(e,t,r){return $e.exec(e.charAt(0))&&e!=="true"&&e!=="false"&&e!=="this"&&e!==r&&t!=="."}function et(e,t,r){if(t[0]==="["){t.shift();var n=1;var i=" return (function("+r+"){ return (";var a=null;while(t.length>0){var o=t[0];if(o==="]"){n--;if(n===0){if(a===null){i=i+"true"}t.shift();i+=")})";try{var s=Tr(e,function(){return Function(i)()},function(){return true});s.source=i;return s}catch(e){fe(re().body,"htmx:syntax:error",{error:e,source:i});return null}}}else if(o==="["){n++}if(Qe(o,a,r)){i+="(("+r+"."+o+") ? ("+r+"."+o+") : (window."+o+"))"}else{i=i+o}a=t.shift()}}}function y(e,t){var r="";while(e.length>0&&!t.test(e[0])){r+=e.shift()}return r}function tt(e){var t;if(e.length>0&&Ze.test(e[0])){e.shift();t=y(e,Ke).trim();e.shift()}else{t=y(e,x)}return t}var rt="input, textarea, select";function nt(e,t,r){var n=[];var i=Ye(t);do{y(i,Je);var a=i.length;var o=y(i,/[,\[\s]/);if(o!==""){if(o==="every"){var s={trigger:"every"};y(i,Je);s.pollInterval=d(y(i,/[,\[\s]/));y(i,Je);var l=et(e,i,"event");if(l){s.eventFilter=l}n.push(s)}else if(o.indexOf("sse:")===0){n.push({trigger:"sse",sseEvent:o.substr(4)})}else{var u={trigger:o};var l=et(e,i,"event");if(l){u.eventFilter=l}while(i.length>0&&i[0]!==","){y(i,Je);var f=i.shift();if(f==="changed"){u.changed=true}else if(f==="once"){u.once=true}else if(f==="consume"){u.consume=true}else if(f==="delay"&&i[0]===":"){i.shift();u.delay=d(y(i,x))}else if(f==="from"&&i[0]===":"){i.shift();if(Ze.test(i[0])){var c=tt(i)}else{var c=y(i,x);if(c==="closest"||c==="find"||c==="next"||c==="previous"){i.shift();var h=tt(i);if(h.length>0){c+=" "+h}}}u.from=c}else if(f==="target"&&i[0]===":"){i.shift();u.target=tt(i)}else if(f==="throttle"&&i[0]===":"){i.shift();u.throttle=d(y(i,x))}else if(f==="queue"&&i[0]===":"){i.shift();u.queue=y(i,x)}else if(f==="root"&&i[0]===":"){i.shift();u[f]=tt(i)}else if(f==="threshold"&&i[0]===":"){i.shift();u[f]=y(i,x)}else{fe(e,"htmx:syntax:error",{token:i.shift()})}}n.push(u)}}if(i.length===a){fe(e,"htmx:syntax:error",{token:i.shift()})}y(i,Je)}while(i[0]===","&&i.shift());if(r){r[t]=n}return n}function it(e){var t=te(e,"hx-trigger");var r=[];if(t){var n=Q.config.triggerSpecsCache;r=n&&n[t]||nt(e,t,n)}if(r.length>0){return r}else if(h(e,"form")){return[{trigger:"submit"}]}else if(h(e,'input[type="button"], input[type="submit"]')){return[{trigger:"click"}]}else if(h(e,rt)){return[{trigger:"change"}]}else{return[{trigger:"click"}]}}function at(e){ae(e).cancelled=true}function ot(e,t,r){var n=ae(e);n.timeout=setTimeout(function(){if(se(e)&&n.cancelled!==true){if(!ct(r,e,Wt("hx:poll:trigger",{triggerSpec:r,target:e}))){t(e)}ot(e,t,r)}},r.pollInterval)}function st(e){return location.hostname===e.hostname&&ee(e,"href")&&ee(e,"href").indexOf("#")!==0}function lt(t,r,e){if(t.tagName==="A"&&st(t)&&(t.target===""||t.target==="_self")||t.tagName==="FORM"){r.boosted=true;var n,i;if(t.tagName==="A"){n="get";i=ee(t,"href")}else{var a=ee(t,"method");n=a?a.toLowerCase():"get";if(n==="get"){}i=ee(t,"action")}e.forEach(function(e){ht(t,function(e,t){if(v(e,Q.config.disableSelector)){m(e);return}he(n,i,e,t)},r,e,true)})}}function ut(e,t){if(e.type==="submit"||e.type==="click"){if(t.tagName==="FORM"){return true}if(h(t,'input[type="submit"], button')&&v(t,"form")!==null){return true}if(t.tagName==="A"&&t.href&&(t.getAttribute("href")==="#"||t.getAttribute("href").indexOf("#")!==0)){return true}}return false}function ft(e,t){return ae(e).boosted&&e.tagName==="A"&&t.type==="click"&&(t.ctrlKey||t.metaKey)}function ct(e,t,r){var n=e.eventFilter;if(n){try{return n.call(t,r)!==true}catch(e){fe(re().body,"htmx:eventFilter:error",{error:e,source:n.source});return true}}return false}function ht(a,o,e,s,l){var u=ae(a);var t;if(s.from){t=Z(a,s.from)}else{t=[a]}if(s.changed){t.forEach(function(e){var t=ae(e);t.lastValue=e.value})}oe(t,function(n){var i=function(e){if(!se(a)){n.removeEventListener(s.trigger,i);return}if(ft(a,e)){return}if(l||ut(e,a)){e.preventDefault()}if(ct(s,a,e)){return}var t=ae(e);t.triggerSpec=s;if(t.handledFor==null){t.handledFor=[]}if(t.handledFor.indexOf(a)<0){t.handledFor.push(a);if(s.consume){e.stopPropagation()}if(s.target&&e.target){if(!h(e.target,s.target)){return}}if(s.once){if(u.triggeredOnce){return}else{u.triggeredOnce=true}}if(s.changed){var r=ae(n);if(r.lastValue===n.value){return}r.lastValue=n.value}if(u.delayed){clearTimeout(u.delayed)}if(u.throttle){return}if(s.throttle>0){if(!u.throttle){o(a,e);u.throttle=setTimeout(function(){u.throttle=null},s.throttle)}}else if(s.delay>0){u.delayed=setTimeout(function(){o(a,e)},s.delay)}else{ce(a,"htmx:trigger");o(a,e)}}};if(e.listenerInfos==null){e.listenerInfos=[]}e.listenerInfos.push({trigger:s.trigger,listener:i,on:n});n.addEventListener(s.trigger,i)})}var vt=false;var dt=null;function gt(){if(!dt){dt=function(){vt=true};window.addEventListener("scroll",dt);setInterval(function(){if(vt){vt=false;oe(re().querySelectorAll("[hx-trigger='revealed'],[data-hx-trigger='revealed']"),function(e){pt(e)})}},200)}}function pt(t){if(!o(t,"data-hx-revealed")&&X(t)){t.setAttribute("data-hx-revealed","true");var e=ae(t);if(e.initHash){ce(t,"revealed")}else{t.addEventListener("htmx:afterProcessNode",function(e){ce(t,"revealed")},{once:true})}}}function mt(e,t,r){var n=D(r);for(var i=0;i<n.length;i++){var a=n[i].split(/:(.+)/);if(a[0]==="connect"){xt(e,a[1],0)}if(a[0]==="send"){bt(e)}}}function xt(s,r,n){if(!se(s)){return}if(r.indexOf("/")==0){var e=location.hostname+(location.port?":"+location.port:"");if(location.protocol=="https:"){r="wss://"+e+r}else if(location.protocol=="http:"){r="ws://"+e+r}}var t=Q.createWebSocket(r);t.onerror=function(e){fe(s,"htmx:wsError",{error:e,socket:t});yt(s)};t.onclose=function(e){if([1006,1012,1013].indexOf(e.code)>=0){var t=wt(n);setTimeout(function(){xt(s,r,n+1)},t)}};t.onopen=function(e){n=0};ae(s).webSocket=t;t.addEventListener("message",function(e){if(yt(s)){return}var t=e.data;R(s,function(e){t=e.transformResponse(t,null,s)});var r=T(s);var n=l(t);var i=M(n.children);for(var a=0;a<i.length;a++){var o=i[a];Ee(te(o,"hx-swap-oob")||"true",o,r)}nr(r.tasks)})}function yt(e){if(!se(e)){ae(e).webSocket.close();return true}}function bt(u){var f=c(u,function(e){return ae(e).webSocket!=null});if(f){u.addEventListener(it(u)[0].trigger,function(e){var t=ae(f).webSocket;var r=xr(u,f);var n=dr(u,"post");var i=n.errors;var a=n.values;var o=Hr(u);var s=le(a,o);var l=yr(s,u);l["HEADERS"]=r;if(i&&i.length>0){ce(u,"htmx:validation:halted",i);return}t.send(JSON.stringify(l));if(ut(e,u)){e.preventDefault()}})}else{fe(u,"htmx:noWebSocketSourceError")}}function wt(e){var t=Q.config.wsReconnectDelay;if(typeof t==="function"){return t(e)}if(t==="full-jitter"){var r=Math.min(e,6);var n=1e3*Math.pow(2,r);return n*Math.random()}b('htmx.config.wsReconnectDelay must either be a function or the string "full-jitter"')}function St(e,t,r){var n=D(r);for(var i=0;i<n.length;i++){var a=n[i].split(/:(.+)/);if(a[0]==="connect"){Et(e,a[1])}if(a[0]==="swap"){Ct(e,a[1])}}}function Et(t,e){var r=Q.createEventSource(e);r.onerror=function(e){fe(t,"htmx:sseError",{error:e,source:r});Tt(t)};ae(t).sseEventSource=r}function Ct(a,o){var s=c(a,Ot);if(s){var l=ae(s).sseEventSource;var u=function(e){if(Tt(s)){return}if(!se(a)){l.removeEventListener(o,u);return}var t=e.data;R(a,function(e){t=e.transformResponse(t,null,a)});var r=wr(a);var n=ye(a);var i=T(a);je(r.swapStyle,n,a,t,i);nr(i.tasks);ce(a,"htmx:sseMessage",e)};ae(a).sseListener=u;l.addEventListener(o,u)}else{fe(a,"htmx:noSSESourceError")}}function Rt(e,t,r){var n=c(e,Ot);if(n){var i=ae(n).sseEventSource;var a=function(){if(!Tt(n)){if(se(e)){t(e)}else{i.removeEventListener(r,a)}}};ae(e).sseListener=a;i.addEventListener(r,a)}else{fe(e,"htmx:noSSESourceError")}}function Tt(e){if(!se(e)){ae(e).sseEventSource.close();return true}}function Ot(e){return ae(e).sseEventSource!=null}function qt(e,t,r,n){var i=function(){if(!r.loaded){r.loaded=true;t(e)}};if(n>0){setTimeout(i,n)}else{i()}}function Ht(t,i,e){var a=false;oe(w,function(r){if(o(t,"hx-"+r)){var n=te(t,"hx-"+r);a=true;i.path=n;i.verb=r;e.forEach(function(e){Lt(t,e,i,function(e,t){if(v(e,Q.config.disableSelector)){m(e);return}he(r,n,e,t)})})}});return a}function Lt(n,e,t,r){if(e.sseEvent){Rt(n,r,e.sseEvent)}else if(e.trigger==="revealed"){gt();ht(n,r,t,e);pt(n)}else if(e.trigger==="intersect"){var i={};if(e.root){i.root=ue(n,e.root)}if(e.threshold){i.threshold=parseFloat(e.threshold)}var a=new IntersectionObserver(function(e){for(var t=0;t<e.length;t++){var r=e[t];if(r.isIntersecting){ce(n,"intersect");break}}},i);a.observe(n);ht(n,r,t,e)}else if(e.trigger==="load"){if(!ct(e,n,Wt("load",{elt:n}))){qt(n,r,t,e.delay)}}else if(e.pollInterval>0){t.polling=true;ot(n,r,e)}else{ht(n,r,t,e)}}function At(e){if(!e.htmxExecuted&&Q.config.allowScriptTags&&(e.type==="text/javascript"||e.type==="module"||e.type==="")){var t=re().createElement("script");oe(e.attributes,function(e){t.setAttribute(e.name,e.value)});t.textContent=e.textContent;t.async=false;if(Q.config.inlineScriptNonce){t.nonce=Q.config.inlineScriptNonce}var r=e.parentElement;try{r.insertBefore(t,e)}catch(e){b(e)}finally{if(e.parentElement){e.parentElement.removeChild(e)}}}}function Nt(e){if(h(e,"script")){At(e)}oe(f(e,"script"),function(e){At(e)})}function It(e){var t=e.attributes;if(!t){return false}for(var r=0;r<t.length;r++){var n=t[r].name;if(g(n,"hx-on:")||g(n,"data-hx-on:")||g(n,"hx-on-")||g(n,"data-hx-on-")){return true}}return false}function kt(e){var t=null;var r=[];if(It(e)){r.push(e)}if(document.evaluate){var n=document.evaluate('.//*[@*[ starts-with(name(), "hx-on:") or starts-with(name(), "data-hx-on:") or'+' starts-with(name(), "hx-on-") or starts-with(name(), "data-hx-on-") ]]',e);while(t=n.iterateNext())r.push(t)}else if(typeof e.getElementsByTagName==="function"){var i=e.getElementsByTagName("*");for(var a=0;a<i.length;a++){if(It(i[a])){r.push(i[a])}}}return r}function Pt(e){if(e.querySelectorAll){var t=", [hx-boost] a, [data-hx-boost] a, a[hx-boost], a[data-hx-boost]";var r=e.querySelectorAll(i+t+", form, [type='submit'], [hx-sse], [data-hx-sse], [hx-ws],"+" [data-hx-ws], [hx-ext], [data-hx-ext], [hx-trigger], [data-hx-trigger], [hx-on], [data-hx-on]");return r}else{return[]}}function Mt(e){var t=v(e.target,"button, input[type='submit']");var r=Dt(e);if(r){r.lastButtonClicked=t}}function Xt(e){var t=Dt(e);if(t){t.lastButtonClicked=null}}function Dt(e){var t=v(e.target,"button, input[type='submit']");if(!t){return}var r=p("#"+ee(t,"form"))||v(t,"form");if(!r){return}return ae(r)}function Ut(e){e.addEventListener("click",Mt);e.addEventListener("focusin",Mt);e.addEventListener("focusout",Xt)}function Bt(e){var t=Ye(e);var r=0;for(var n=0;n<t.length;n++){const i=t[n];if(i==="{"){r++}else if(i==="}"){r--}}return r}function Ft(t,e,r){var n=ae(t);if(!Array.isArray(n.onHandlers)){n.onHandlers=[]}var i;var a=function(e){return Tr(t,function(){if(!i){i=new Function("event",r)}i.call(t,e)})};t.addEventListener(e,a);n.onHandlers.push({event:e,listener:a})}function Vt(e){var t=te(e,"hx-on");if(t){var r={};var n=t.split("\n");var i=null;var a=0;while(n.length>0){var o=n.shift();var s=o.match(/^\s*([a-zA-Z:\-\.]+:)(.*)/);if(a===0&&s){o.split(":");i=s[1].slice(0,-1);r[i]=s[2]}else{r[i]+=o}a+=Bt(o)}for(var l in r){Ft(e,l,r[l])}}}function jt(e){Ae(e);for(var t=0;t<e.attributes.length;t++){var r=e.attributes[t].name;var n=e.attributes[t].value;if(g(r,"hx-on")||g(r,"data-hx-on")){var i=r.indexOf("-on")+3;var a=r.slice(i,i+1);if(a==="-"||a===":"){var o=r.slice(i+1);if(g(o,":")){o="htmx"+o}else if(g(o,"-")){o="htmx:"+o.slice(1)}else if(g(o,"htmx-")){o="htmx:"+o.slice(5)}Ft(e,o,n)}}}}function _t(t){if(v(t,Q.config.disableSelector)){m(t);return}var r=ae(t);if(r.initHash!==Le(t)){Ne(t);r.initHash=Le(t);Vt(t);ce(t,"htmx:beforeProcessNode");if(t.value){r.lastValue=t.value}var e=it(t);var n=Ht(t,r,e);if(!n){if(ne(t,"hx-boost")==="true"){lt(t,r,e)}else if(o(t,"hx-trigger")){e.forEach(function(e){Lt(t,e,r,function(){})})}}if(t.tagName==="FORM"||ee(t,"type")==="submit"&&o(t,"form")){Ut(t)}var i=te(t,"hx-sse");if(i){St(t,r,i)}var a=te(t,"hx-ws");if(a){mt(t,r,a)}ce(t,"htmx:afterProcessNode")}}function zt(e){e=p(e);if(v(e,Q.config.disableSelector)){m(e);return}_t(e);oe(Pt(e),function(e){_t(e)});oe(kt(e),jt)}function $t(e){return e.replace(/([a-z0-9])([A-Z])/g,"$1-$2").toLowerCase()}function Wt(e,t){var r;if(window.CustomEvent&&typeof window.CustomEvent==="function"){r=new CustomEvent(e,{bubbles:true,cancelable:true,detail:t})}else{r=re().createEvent("CustomEvent");r.initCustomEvent(e,true,true,t)}return r}function fe(e,t,r){ce(e,t,le({error:t},r))}function Gt(e){return e==="htmx:afterProcessNode"}function R(e,t){oe(Fr(e),function(e){try{t(e)}catch(e){b(e)}})}function b(e){if(console.error){console.error(e)}else if(console.log){console.log("ERROR: ",e)}}function ce(e,t,r){e=p(e);if(r==null){r={}}r["elt"]=e;var n=Wt(t,r);if(Q.logger&&!Gt(t)){Q.logger(e,t,r)}if(r.error){b(r.error);ce(e,"htmx:error",{errorInfo:r})}var i=e.dispatchEvent(n);var a=$t(t);if(i&&a!==t){var o=Wt(a,n.detail);i=i&&e.dispatchEvent(o)}R(e,function(e){i=i&&(e.onEvent(t,n)!==false&&!n.defaultPrevented)});return i}var Jt=location.pathname+location.search;function Zt(){var e=re().querySelector("[hx-history-elt],[data-hx-history-elt]");return e||re().body}function Kt(e,t,r,n){if(!U()){return}if(Q.config.historyCacheSize<=0){localStorage.removeItem("htmx-history-cache");return}e=B(e);var i=E(localStorage.getItem("htmx-history-cache"))||[];for(var a=0;a<i.length;a++){if(i[a].url===e){i.splice(a,1);break}}var o={url:e,content:t,title:r,scroll:n};ce(re().body,"htmx:historyItemCreated",{item:o,cache:i});i.push(o);while(i.length>Q.config.historyCacheSize){i.shift()}while(i.length>0){try{localStorage.setItem("htmx-history-cache",JSON.stringify(i));break}catch(e){fe(re().body,"htmx:historyCacheError",{cause:e,cache:i});i.shift()}}}function Yt(e){if(!U()){return null}e=B(e);var t=E(localStorage.getItem("htmx-history-cache"))||[];for(var r=0;r<t.length;r++){if(t[r].url===e){return t[r]}}return null}function Qt(e){var t=Q.config.requestClass;var r=e.cloneNode(true);oe(f(r,"."+t),function(e){n(e,t)});return r.innerHTML}function er(){var e=Zt();var t=Jt||location.pathname+location.search;var r;try{r=re().querySelector('[hx-history="false" i],[data-hx-history="false" i]')}catch(e){r=re().querySelector('[hx-history="false"],[data-hx-history="false"]')}if(!r){ce(re().body,"htmx:beforeHistorySave",{path:t,historyElt:e});Kt(t,Qt(e),re().title,window.scrollY)}if(Q.config.historyEnabled)history.replaceState({htmx:true},re().title,window.location.href)}function tr(e){if(Q.config.getCacheBusterParam){e=e.replace(/org\.htmx\.cache-buster=[^&]*&?/,"");if(G(e,"&")||G(e,"?")){e=e.slice(0,-1)}}if(Q.config.historyEnabled){history.pushState({htmx:true},"",e)}Jt=e}function rr(e){if(Q.config.historyEnabled)history.replaceState({htmx:true},"",e);Jt=e}function nr(e){oe(e,function(e){e.call()})}function ir(a){var e=new XMLHttpRequest;var o={path:a,xhr:e};ce(re().body,"htmx:historyCacheMiss",o);e.open("GET",a,true);e.setRequestHeader("HX-Request","true");e.setRequestHeader("HX-History-Restore-Request","true");e.setRequestHeader("HX-Current-URL",re().location.href);e.onload=function(){if(this.status>=200&&this.status<400){ce(re().body,"htmx:historyCacheMissLoad",o);var e=l(this.response);e=e.querySelector("[hx-history-elt],[data-hx-history-elt]")||e;var t=Zt();var r=T(t);var n=Ve(this.response);if(n){var i=C("title");if(i){i.innerHTML=n}else{window.document.title=n}}Ue(t,e,r);nr(r.tasks);Jt=a;ce(re().body,"htmx:historyRestore",{path:a,cacheMiss:true,serverResponse:this.response})}else{fe(re().body,"htmx:historyCacheMissLoadError",o)}};e.send()}function ar(e){er();e=e||location.pathname+location.search;var t=Yt(e);if(t){var r=l(t.content);var n=Zt();var i=T(n);Ue(n,r,i);nr(i.tasks);document.title=t.title;setTimeout(function(){window.scrollTo(0,t.scroll)},0);Jt=e;ce(re().body,"htmx:historyRestore",{path:e,item:t})}else{if(Q.config.refreshOnHistoryMiss){window.location.reload(true)}else{ir(e)}}}function or(e){var t=me(e,"hx-indicator");if(t==null){t=[e]}oe(t,function(e){var t=ae(e);t.requestCount=(t.requestCount||0)+1;e.classList["add"].call(e.classList,Q.config.requestClass)});return t}function sr(e){var t=me(e,"hx-disabled-elt");if(t==null){t=[]}oe(t,function(e){var t=ae(e);t.requestCount=(t.requestCount||0)+1;e.setAttribute("disabled","")});return t}function lr(e,t){oe(e,function(e){var t=ae(e);t.requestCount=(t.requestCount||0)-1;if(t.requestCount===0){e.classList["remove"].call(e.classList,Q.config.requestClass)}});oe(t,function(e){var t=ae(e);t.requestCount=(t.requestCount||0)-1;if(t.requestCount===0){e.removeAttribute("disabled")}})}function ur(e,t){for(var r=0;r<e.length;r++){var n=e[r];if(n.isSameNode(t)){return true}}return false}function fr(e){if(e.name===""||e.name==null||e.disabled||v(e,"fieldset[disabled]")){return false}if(e.type==="button"||e.type==="submit"||e.tagName==="image"||e.tagName==="reset"||e.tagName==="file"){return false}if(e.type==="checkbox"||e.type==="radio"){return e.checked}return true}function cr(e,t,r){if(e!=null&&t!=null){var n=r[e];if(n===undefined){r[e]=t}else if(Array.isArray(n)){if(Array.isArray(t)){r[e]=n.concat(t)}else{n.push(t)}}else{if(Array.isArray(t)){r[e]=[n].concat(t)}else{r[e]=[n,t]}}}}function hr(t,r,n,e,i){if(e==null||ur(t,e)){return}else{t.push(e)}if(fr(e)){var a=ee(e,"name");var o=e.value;if(e.multiple&&e.tagName==="SELECT"){o=M(e.querySelectorAll("option:checked")).map(function(e){return e.value})}if(e.files){o=M(e.files)}cr(a,o,r);if(i){vr(e,n)}}if(h(e,"form")){var s=e.elements;oe(s,function(e){hr(t,r,n,e,i)})}}function vr(e,t){if(e.willValidate){ce(e,"htmx:validation:validate");if(!e.checkValidity()){t.push({elt:e,message:e.validationMessage,validity:e.validity});ce(e,"htmx:validation:failed",{message:e.validationMessage,validity:e.validity})}}}function dr(e,t){var r=[];var n={};var i={};var a=[];var o=ae(e);if(o.lastButtonClicked&&!se(o.lastButtonClicked)){o.lastButtonClicked=null}var s=h(e,"form")&&e.noValidate!==true||te(e,"hx-validate")==="true";if(o.lastButtonClicked){s=s&&o.lastButtonClicked.formNoValidate!==true}if(t!=="get"){hr(r,i,a,v(e,"form"),s)}hr(r,n,a,e,s);if(o.lastButtonClicked||e.tagName==="BUTTON"||e.tagName==="INPUT"&&ee(e,"type")==="submit"){var l=o.lastButtonClicked||e;var u=ee(l,"name");cr(u,l.value,i)}var f=me(e,"hx-include");oe(f,function(e){hr(r,n,a,e,s);if(!h(e,"form")){oe(e.querySelectorAll(rt),function(e){hr(r,n,a,e,s)})}});n=le(n,i);return{errors:a,values:n}}function gr(e,t,r){if(e!==""){e+="&"}if(String(r)==="[object Object]"){r=JSON.stringify(r)}var n=encodeURIComponent(r);e+=encodeURIComponent(t)+"="+n;return e}function pr(e){var t="";for(var r in e){if(e.hasOwnProperty(r)){var n=e[r];if(Array.isArray(n)){oe(n,function(e){t=gr(t,r,e)})}else{t=gr(t,r,n)}}}return t}function mr(e){var t=new FormData;for(var r in e){if(e.hasOwnProperty(r)){var n=e[r];if(Array.isArray(n)){oe(n,function(e){t.append(r,e)})}else{t.append(r,n)}}}return t}function xr(e,t,r){var n={"HX-Request":"true","HX-Trigger":ee(e,"id"),"HX-Trigger-Name":ee(e,"name"),"HX-Target":te(t,"id"),"HX-Current-URL":re().location.href};Rr(e,"hx-headers",false,n);if(r!==undefined){n["HX-Prompt"]=r}if(ae(e).boosted){n["HX-Boosted"]="true"}return n}function yr(t,e){var r=ne(e,"hx-params");if(r){if(r==="none"){return{}}else if(r==="*"){return t}else if(r.indexOf("not ")===0){oe(r.substr(4).split(","),function(e){e=e.trim();delete t[e]});return t}else{var n={};oe(r.split(","),function(e){e=e.trim();n[e]=t[e]});return n}}else{return t}}function br(e){return ee(e,"href")&&ee(e,"href").indexOf("#")>=0}function wr(e,t){var r=t?t:ne(e,"hx-swap");var n={swapStyle:ae(e).boosted?"innerHTML":Q.config.defaultSwapStyle,swapDelay:Q.config.defaultSwapDelay,settleDelay:Q.config.defaultSettleDelay};if(Q.config.scrollIntoViewOnBoost&&ae(e).boosted&&!br(e)){n["show"]="top"}if(r){var i=D(r);if(i.length>0){for(var a=0;a<i.length;a++){var o=i[a];if(o.indexOf("swap:")===0){n["swapDelay"]=d(o.substr(5))}else if(o.indexOf("settle:")===0){n["settleDelay"]=d(o.substr(7))}else if(o.indexOf("transition:")===0){n["transition"]=o.substr(11)==="true"}else if(o.indexOf("ignoreTitle:")===0){n["ignoreTitle"]=o.substr(12)==="true"}else if(o.indexOf("scroll:")===0){var s=o.substr(7);var l=s.split(":");var u=l.pop();var f=l.length>0?l.join(":"):null;n["scroll"]=u;n["scrollTarget"]=f}else if(o.indexOf("show:")===0){var c=o.substr(5);var l=c.split(":");var h=l.pop();var f=l.length>0?l.join(":"):null;n["show"]=h;n["showTarget"]=f}else if(o.indexOf("focus-scroll:")===0){var v=o.substr("focus-scroll:".length);n["focusScroll"]=v=="true"}else if(a==0){n["swapStyle"]=o}else{b("Unknown modifier in hx-swap: "+o)}}}}return n}function Sr(e){return ne(e,"hx-encoding")==="multipart/form-data"||h(e,"form")&&ee(e,"enctype")==="multipart/form-data"}function Er(t,r,n){var i=null;R(r,function(e){if(i==null){i=e.encodeParameters(t,n,r)}});if(i!=null){return i}else{if(Sr(r)){return mr(n)}else{return pr(n)}}}function T(e){return{tasks:[],elts:[e]}}function Cr(e,t){var r=e[0];var n=e[e.length-1];if(t.scroll){var i=null;if(t.scrollTarget){i=ue(r,t.scrollTarget)}if(t.scroll==="top"&&(r||i)){i=i||r;i.scrollTop=0}if(t.scroll==="bottom"&&(n||i)){i=i||n;i.scrollTop=i.scrollHeight}}if(t.show){var i=null;if(t.showTarget){var a=t.showTarget;if(t.showTarget==="window"){a="body"}i=ue(r,a)}if(t.show==="top"&&(r||i)){i=i||r;i.scrollIntoView({block:"start",behavior:Q.config.scrollBehavior})}if(t.show==="bottom"&&(n||i)){i=i||n;i.scrollIntoView({block:"end",behavior:Q.config.scrollBehavior})}}}function Rr(e,t,r,n){if(n==null){n={}}if(e==null){return n}var i=te(e,t);if(i){var a=i.trim();var o=r;if(a==="unset"){return null}if(a.indexOf("javascript:")===0){a=a.substr(11);o=true}else if(a.indexOf("js:")===0){a=a.substr(3);o=true}if(a.indexOf("{")!==0){a="{"+a+"}"}var s;if(o){s=Tr(e,function(){return Function("return ("+a+")")()},{})}else{s=E(a)}for(var l in s){if(s.hasOwnProperty(l)){if(n[l]==null){n[l]=s[l]}}}}return Rr(u(e),t,r,n)}function Tr(e,t,r){if(Q.config.allowEval){return t()}else{fe(e,"htmx:evalDisallowedError");return r}}function Or(e,t){return Rr(e,"hx-vars",true,t)}function qr(e,t){return Rr(e,"hx-vals",false,t)}function Hr(e){return le(Or(e),qr(e))}function Lr(t,r,n){if(n!==null){try{t.setRequestHeader(r,n)}catch(e){t.setRequestHeader(r,encodeURIComponent(n));t.setRequestHeader(r+"-URI-AutoEncoded","true")}}}function Ar(t){if(t.responseURL&&typeof URL!=="undefined"){try{var e=new URL(t.responseURL);return e.pathname+e.search}catch(e){fe(re().body,"htmx:badResponseUrl",{url:t.responseURL})}}}function O(e,t){return t.test(e.getAllResponseHeaders())}function Nr(e,t,r){e=e.toLowerCase();if(r){if(r instanceof Element||I(r,"String")){return he(e,t,null,null,{targetOverride:p(r),returnPromise:true})}else{return he(e,t,p(r.source),r.event,{handler:r.handler,headers:r.headers,values:r.values,targetOverride:p(r.target),swapOverride:r.swap,select:r.select,returnPromise:true})}}else{return he(e,t,null,null,{returnPromise:true})}}function Ir(e){var t=[];while(e){t.push(e);e=e.parentElement}return t}function kr(e,t,r){var n;var i;if(typeof URL==="function"){i=new URL(t,document.location.href);var a=document.location.origin;n=a===i.origin}else{i=t;n=g(t,document.location.origin)}if(Q.config.selfRequestsOnly){if(!n){return false}}return ce(e,"htmx:validateUrl",le({url:i,sameHost:n},r))}function he(t,r,n,i,a,e){var o=null;var s=null;a=a!=null?a:{};if(a.returnPromise&&typeof Promise!=="undefined"){var l=new Promise(function(e,t){o=e;s=t})}if(n==null){n=re().body}var M=a.handler||Mr;var X=a.select||null;if(!se(n)){ie(o);return l}var u=a.targetOverride||ye(n);if(u==null||u==pe){fe(n,"htmx:targetError",{target:te(n,"hx-target")});ie(s);return l}var f=ae(n);var c=f.lastButtonClicked;if(c){var h=ee(c,"formaction");if(h!=null){r=h}var v=ee(c,"formmethod");if(v!=null){if(v.toLowerCase()!=="dialog"){t=v}}}var d=ne(n,"hx-confirm");if(e===undefined){var D=function(e){return he(t,r,n,i,a,!!e)};var U={target:u,elt:n,path:r,verb:t,triggeringEvent:i,etc:a,issueRequest:D,question:d};if(ce(n,"htmx:confirm",U)===false){ie(o);return l}}var g=n;var p=ne(n,"hx-sync");var m=null;var x=false;if(p){var B=p.split(":");var F=B[0].trim();if(F==="this"){g=xe(n,"hx-sync")}else{g=ue(n,F)}p=(B[1]||"drop").trim();f=ae(g);if(p==="drop"&&f.xhr&&f.abortable!==true){ie(o);return l}else if(p==="abort"){if(f.xhr){ie(o);return l}else{x=true}}else if(p==="replace"){ce(g,"htmx:abort")}else if(p.indexOf("queue")===0){var V=p.split(" ");m=(V[1]||"last").trim()}}if(f.xhr){if(f.abortable){ce(g,"htmx:abort")}else{if(m==null){if(i){var y=ae(i);if(y&&y.triggerSpec&&y.triggerSpec.queue){m=y.triggerSpec.queue}}if(m==null){m="last"}}if(f.queuedRequests==null){f.queuedRequests=[]}if(m==="first"&&f.queuedRequests.length===0){f.queuedRequests.push(function(){he(t,r,n,i,a)})}else if(m==="all"){f.queuedRequests.push(function(){he(t,r,n,i,a)})}else if(m==="last"){f.queuedRequests=[];f.queuedRequests.push(function(){he(t,r,n,i,a)})}ie(o);return l}}var b=new XMLHttpRequest;f.xhr=b;f.abortable=x;var w=function(){f.xhr=null;f.abortable=false;if(f.queuedRequests!=null&&f.queuedRequests.length>0){var e=f.queuedRequests.shift();e()}};var j=ne(n,"hx-prompt");if(j){var S=prompt(j);if(S===null||!ce(n,"htmx:prompt",{prompt:S,target:u})){ie(o);w();return l}}if(d&&!e){if(!confirm(d)){ie(o);w();return l}}var E=xr(n,u,S);if(t!=="get"&&!Sr(n)){E["Content-Type"]="application/x-www-form-urlencoded"}if(a.headers){E=le(E,a.headers)}var _=dr(n,t);var C=_.errors;var R=_.values;if(a.values){R=le(R,a.values)}var z=Hr(n);var $=le(R,z);var T=yr($,n);if(Q.config.getCacheBusterParam&&t==="get"){T["org.htmx.cache-buster"]=ee(u,"id")||"true"}if(r==null||r===""){r=re().location.href}var O=Rr(n,"hx-request");var W=ae(n).boosted;var q=Q.config.methodsThatUseUrlParams.indexOf(t)>=0;var H={boosted:W,useUrlParams:q,parameters:T,unfilteredParameters:$,headers:E,target:u,verb:t,errors:C,withCredentials:a.credentials||O.credentials||Q.config.withCredentials,timeout:a.timeout||O.timeout||Q.config.timeout,path:r,triggeringEvent:i};if(!ce(n,"htmx:configRequest",H)){ie(o);w();return l}r=H.path;t=H.verb;E=H.headers;T=H.parameters;C=H.errors;q=H.useUrlParams;if(C&&C.length>0){ce(n,"htmx:validation:halted",H);ie(o);w();return l}var G=r.split("#");var J=G[0];var L=G[1];var A=r;if(q){A=J;var Z=Object.keys(T).length!==0;if(Z){if(A.indexOf("?")<0){A+="?"}else{A+="&"}A+=pr(T);if(L){A+="#"+L}}}if(!kr(n,A,H)){fe(n,"htmx:invalidPath",H);ie(s);return l}b.open(t.toUpperCase(),A,true);b.overrideMimeType("text/html");b.withCredentials=H.withCredentials;b.timeout=H.timeout;if(O.noHeaders){}else{for(var N in E){if(E.hasOwnProperty(N)){var K=E[N];Lr(b,N,K)}}}var I={xhr:b,target:u,requestConfig:H,etc:a,boosted:W,select:X,pathInfo:{requestPath:r,finalRequestPath:A,anchor:L}};b.onload=function(){try{var e=Ir(n);I.pathInfo.responsePath=Ar(b);M(n,I);lr(k,P);ce(n,"htmx:afterRequest",I);ce(n,"htmx:afterOnLoad",I);if(!se(n)){var t=null;while(e.length>0&&t==null){var r=e.shift();if(se(r)){t=r}}if(t){ce(t,"htmx:afterRequest",I);ce(t,"htmx:afterOnLoad",I)}}ie(o);w()}catch(e){fe(n,"htmx:onLoadError",le({error:e},I));throw e}};b.onerror=function(){lr(k,P);fe(n,"htmx:afterRequest",I);fe(n,"htmx:sendError",I);ie(s);w()};b.onabort=function(){lr(k,P);fe(n,"htmx:afterRequest",I);fe(n,"htmx:sendAbort",I);ie(s);w()};b.ontimeout=function(){lr(k,P);fe(n,"htmx:afterRequest",I);fe(n,"htmx:timeout",I);ie(s);w()};if(!ce(n,"htmx:beforeRequest",I)){ie(o);w();return l}var k=or(n);var P=sr(n);oe(["loadstart","loadend","progress","abort"],function(t){oe([b,b.upload],function(e){e.addEventListener(t,function(e){ce(n,"htmx:xhr:"+t,{lengthComputable:e.lengthComputable,loaded:e.loaded,total:e.total})})})});ce(n,"htmx:beforeSend",I);var Y=q?null:Er(b,n,T);b.send(Y);return l}function Pr(e,t){var r=t.xhr;var n=null;var i=null;if(O(r,/HX-Push:/i)){n=r.getResponseHeader("HX-Push");i="push"}else if(O(r,/HX-Push-Url:/i)){n=r.getResponseHeader("HX-Push-Url");i="push"}else if(O(r,/HX-Replace-Url:/i)){n=r.getResponseHeader("HX-Replace-Url");i="replace"}if(n){if(n==="false"){return{}}else{return{type:i,path:n}}}var a=t.pathInfo.finalRequestPath;var o=t.pathInfo.responsePath;var s=ne(e,"hx-push-url");var l=ne(e,"hx-replace-url");var u=ae(e).boosted;var f=null;var c=null;if(s){f="push";c=s}else if(l){f="replace";c=l}else if(u){f="push";c=o||a}if(c){if(c==="false"){return{}}if(c==="true"){c=o||a}if(t.pathInfo.anchor&&c.indexOf("#")===-1){c=c+"#"+t.pathInfo.anchor}return{type:f,path:c}}else{return{}}}function Mr(l,u){var f=u.xhr;var c=u.target;var e=u.etc;var t=u.requestConfig;var h=u.select;if(!ce(l,"htmx:beforeOnLoad",u))return;if(O(f,/HX-Trigger:/i)){_e(f,"HX-Trigger",l)}if(O(f,/HX-Location:/i)){er();var r=f.getResponseHeader("HX-Location");var v;if(r.indexOf("{")===0){v=E(r);r=v["path"];delete v["path"]}Nr("GET",r,v).then(function(){tr(r)});return}var n=O(f,/HX-Refresh:/i)&&"true"===f.getResponseHeader("HX-Refresh");if(O(f,/HX-Redirect:/i)){location.href=f.getResponseHeader("HX-Redirect");n&&location.reload();return}if(n){location.reload();return}if(O(f,/HX-Retarget:/i)){if(f.getResponseHeader("HX-Retarget")==="this"){u.target=l}else{u.target=ue(l,f.getResponseHeader("HX-Retarget"))}}var d=Pr(l,u);var i=f.status>=200&&f.status<400&&f.status!==204;var g=f.response;var a=f.status>=400;var p=Q.config.ignoreTitle;var o=le({shouldSwap:i,serverResponse:g,isError:a,ignoreTitle:p},u);if(!ce(c,"htmx:beforeSwap",o))return;c=o.target;g=o.serverResponse;a=o.isError;p=o.ignoreTitle;u.target=c;u.failed=a;u.successful=!a;if(o.shouldSwap){if(f.status===286){at(l)}R(l,function(e){g=e.transformResponse(g,f,l)});if(d.type){er()}var s=e.swapOverride;if(O(f,/HX-Reswap:/i)){s=f.getResponseHeader("HX-Reswap")}var v=wr(l,s);if(v.hasOwnProperty("ignoreTitle")){p=v.ignoreTitle}c.classList.add(Q.config.swappingClass);var m=null;var x=null;var y=function(){try{var e=document.activeElement;var t={};try{t={elt:e,start:e?e.selectionStart:null,end:e?e.selectionEnd:null}}catch(e){}var r;if(h){r=h}if(O(f,/HX-Reselect:/i)){r=f.getResponseHeader("HX-Reselect")}if(d.type){ce(re().body,"htmx:beforeHistoryUpdate",le({history:d},u));if(d.type==="push"){tr(d.path);ce(re().body,"htmx:pushedIntoHistory",{path:d.path})}else{rr(d.path);ce(re().body,"htmx:replacedInHistory",{path:d.path})}}var n=T(c);je(v.swapStyle,c,l,g,n,r);if(t.elt&&!se(t.elt)&&ee(t.elt,"id")){var i=document.getElementById(ee(t.elt,"id"));var a={preventScroll:v.focusScroll!==undefined?!v.focusScroll:!Q.config.defaultFocusScroll};if(i){if(t.start&&i.setSelectionRange){try{i.setSelectionRange(t.start,t.end)}catch(e){}}i.focus(a)}}c.classList.remove(Q.config.swappingClass);oe(n.elts,function(e){if(e.classList){e.classList.add(Q.config.settlingClass)}ce(e,"htmx:afterSwap",u)});if(O(f,/HX-Trigger-After-Swap:/i)){var o=l;if(!se(l)){o=re().body}_e(f,"HX-Trigger-After-Swap",o)}var s=function(){oe(n.tasks,function(e){e.call()});oe(n.elts,function(e){if(e.classList){e.classList.remove(Q.config.settlingClass)}ce(e,"htmx:afterSettle",u)});if(u.pathInfo.anchor){var e=re().getElementById(u.pathInfo.anchor);if(e){e.scrollIntoView({block:"start",behavior:"auto"})}}if(n.title&&!p){var t=C("title");if(t){t.innerHTML=n.title}else{window.document.title=n.title}}Cr(n.elts,v);if(O(f,/HX-Trigger-After-Settle:/i)){var r=l;if(!se(l)){r=re().body}_e(f,"HX-Trigger-After-Settle",r)}ie(m)};if(v.settleDelay>0){setTimeout(s,v.settleDelay)}else{s()}}catch(e){fe(l,"htmx:swapError",u);ie(x);throw e}};var b=Q.config.globalViewTransitions;if(v.hasOwnProperty("transition")){b=v.transition}if(b&&ce(l,"htmx:beforeTransition",u)&&typeof Promise!=="undefined"&&document.startViewTransition){var w=new Promise(function(e,t){m=e;x=t});var S=y;y=function(){document.startViewTransition(function(){S();return w})}}if(v.swapDelay>0){setTimeout(y,v.swapDelay)}else{y()}}if(a){fe(l,"htmx:responseError",le({error:"Response Status Error Code "+f.status+" from "+u.pathInfo.requestPath},u))}}var Xr={};function Dr(){return{init:function(e){return null},onEvent:function(e,t){return true},transformResponse:function(e,t,r){return e},isInlineSwap:function(e){return false},handleSwap:function(e,t,r,n){return false},encodeParameters:function(e,t,r){return null}}}function Ur(e,t){if(t.init){t.init(r)}Xr[e]=le(Dr(),t)}function Br(e){delete Xr[e]}function Fr(e,r,n){if(e==undefined){return r}if(r==undefined){r=[]}if(n==undefined){n=[]}var t=te(e,"hx-ext");if(t){oe(t.split(","),function(e){e=e.replace(/ /g,"");if(e.slice(0,7)=="ignore:"){n.push(e.slice(7));return}if(n.indexOf(e)<0){var t=Xr[e];if(t&&r.indexOf(t)<0){r.push(t)}}})}return Fr(u(e),r,n)}var Vr=false;re().addEventListener("DOMContentLoaded",function(){Vr=true});function jr(e){if(Vr||re().readyState==="complete"){e()}else{re().addEventListener("DOMContentLoaded",e)}}function _r(){if(Q.config.includeIndicatorStyles!==false){re().head.insertAdjacentHTML("beforeend","<style>                      ."+Q.config.indicatorClass+"{opacity:0}                      ."+Q.config.requestClass+" ."+Q.config.indicatorClass+"{opacity:1; transition: opacity 200ms ease-in;}                      ."+Q.config.requestClass+"."+Q.config.indicatorClass+"{opacity:1; transition: opacity 200ms ease-in;}                    </style>")}}function zr(){var e=re().querySelector('meta[name="htmx-config"]');if(e){return E(e.content)}else{return null}}function $r(){var e=zr();if(e){Q.config=le(Q.config,e)}}jr(function(){$r();_r();var e=re().body;zt(e);var t=re().querySelectorAll("[hx-trigger='restored'],[data-hx-trigger='restored']");e.addEventListener("htmx:abort",function(e){var t=e.target;var r=ae(t);if(r&&r.xhr){r.xhr.abort()}});const r=window.onpopstate?window.onpopstate.bind(window):null;window.onpopstate=function(e){if(e.state&&e.state.htmx){ar();oe(t,function(e){ce(e,"htmx:restored",{document:re(),triggerEvent:ce})})}else{if(r){r(e)}}};setTimeout(function(){ce(e,"htmx:load",{});e=null},0)});return Q}()});
+3afea1f:app/templates/components/sales_doc/issue_form.html:34:              hx-target="#sales-doc-preview"
+3afea1f:app/templates/components/sales_doc/issue_form.html:41:  <div id="sales-doc-preview" class="mt-12"></div>
+3afea1f:app/templates/components/sales_doc/recent_documents.html:4:  <div id="sales-doc-edit" class="mt-12"></div>
+3afea1f:app/templates/features/sales_documents/sales_document_edit_form.html:4:{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+3afea1f:app/templates/features/sales_documents/sales_document_edit_form.html:60:    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
+3afea1f:app/templates/features/sales_documents/sales_document_preview.html:5:    <button type="button" class="btn-secondary" data-clear-target="#sales-doc-preview">Cerrar</button>
+
+exec
+/usr/bin/zsh -lc "git show 3afea1f:app/static/js/core/swap.js
+git show 3afea1f:app/templates/features/sales_documents/sales_document_edit_form.html | head -20
+git show 3afea1f:app/routers/ui_sales_documents.py | nl -ba | sed -n '175,265p;365,425p;960,1010p'
+git grep -n 'swap.js\\|htmx:responseError' 3afea1f -- app/templates app/static/js/core" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+// Comportamiento de los swaps de htmx: mostrar los errores 4xx en HTML y conservar el
+// scroll al recargar los paneles de compra y venta.
+let pendingScrollRestore = null;
+
+function shouldPreserveScrollForElt(elt) {
+  if (!elt || typeof elt.closest !== 'function') return false;
+  return Boolean(elt.closest('#purchase-panel') || elt.closest('#sale-panel'));
+}
+
+export function init() {
+  document.addEventListener('htmx:beforeRequest', (evt) => {
+    const elt = evt.detail && evt.detail.elt;
+    if (!shouldPreserveScrollForElt(elt)) return;
+    pendingScrollRestore = window.scrollY;
+  });
+
+  // Los routers UI devuelven su panel con el mensaje de error y el status de la
+  // HTTPException (400/404/409/422...). htmx no swapea respuestas >= 400 por
+  // defecto, así que sin esto el error no se veía. Solo HTML: las 422 de
+  // validación de FastAPI son JSON y el 403 de CSRF es texto plano. El chat del
+  // copiloto ya inserta sus errores a mano.
+  document.addEventListener('htmx:beforeSwap', (evt) => {
+    const xhr = evt.detail && evt.detail.xhr;
+    if (!xhr || xhr.status < 400 || xhr.status >= 500) return;
+    const path = String((evt.detail.requestConfig && evt.detail.requestConfig.path) || '');
+    if (path.startsWith('/ui/agent/chat')) return;
+    const ct = String(xhr.getResponseHeader('Content-Type') || '');
+    if (!ct.includes('text/html')) return;
+    evt.detail.shouldSwap = true;
+    evt.detail.isError = false;
+  });
+
+  document.addEventListener('htmx:afterSwap', (evt) => {
+    const target = evt.target;
+    if (pendingScrollRestore !== null && target && (target.id === 'purchase-panel' || target.id === 'sale-panel')) {
+      const y = pendingScrollRestore;
+      pendingScrollRestore = null;
+      requestAnimationFrame(() => {
+        try { window.scrollTo({ top: y, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, y); }
+      });
+    }
+  });
+}
+{% from 'components/modal.html' import modal %}
+{% from 'components/forms.html' import field %}
+{% set doc_title %}Editar documento <code>{{ doc.code }}</code>{% endset %}
+{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+
+      <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <div class="grid grid-2">
+      {{ field('Cliente (Nombre)', 'client_name', value=doc.client_name, required=True) }}
+      {{ field('Cliente (ID)', 'client_id', value=doc.client_id, required=True) }}
+    </div>
+    {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+    {% if (doc.doc_type or '')|upper == 'P' %}
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+    {% endif %}
+
+    <h4 class="mt-14">Items</h4>
+    <div class="table-wrapper">
+      <table class="sales-doc-items-table">
+        <thead>
+   175	    return SalesDocumentService(db, business_id).customers_list(limit=limit)
+   176	
+   177	
+   178	def _location_id_for_code(db: Session, *, location_code: str, business_id: int) -> Optional[int]:
+   179	    code = (location_code or "").strip()
+   180	    if not code:
+   181	        return None
+   182	    repo = LocationRepository(db, business_id)
+   183	    try:
+   184	        return repo.location_id_for_code(code, auto_create=True)
+   185	    except HTTPException:
+   186	        return None
+   187	def _valid_until_error_response(request: Request, *, db: Session, bid: int, config) -> HTMLResponse:
+   188	    """Panel de documentos con el error de vencimiento (422 HTML: htmx solo hace swap de 4xx `text/html`)."""
+   189	    return templates.TemplateResponse(
+   190	        request=request,
+   191	        name="features/sales_documents/sales_document_panel.html",
+   192	        context={
+   193	            "sales_doc_config": config.sales_documents.model_dump(),
+   194	            "currency": config.currency.model_dump(),
+   195	            "issuer": config.issuer.model_dump(),
+   196	            "pos_locations": config.locations.all_locations(),
+   197	            "default_doc_location_code": config.locations.default_sale_code(),
+   198	            "cart": _get_cart(request),
+   199	            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+   200	            "customers": _customers_list(db, business_id=bid, limit=200),
+   201	            "draft": _get_draft(request),
+   202	            "message": INVALID_VALID_UNTIL,
+   203	            "message_class": "error",
+   204	        },
+   205	        status_code=422,
+   206	    )
+   207	
+   208	@router.post("/sales-doc/preview", response_class=HTMLResponse)
+   209	def sales_doc_preview(
+   210	    request: Request,
+   211	    doc_type: str = Form(""),
+   212	    location_code: str = Form(""),
+   213	    client_name: str = Form(""),
+   214	    client_id: str = Form(""),
+   215	    client_address: str = Form(""),
+   216	    notes: str = Form(""),
+   217	    currency_code: str = Form(""),
+   218	    valid_until: str = Form(""),
+   219	    db: Session = Depends(session_dep),
+   220	) -> HTMLResponse:
+   221	    ctx = ui_context(request, db)
+   222	    _ = ctx.user
+   223	    _ = ctx.business_id
+   224	    config = ctx.config
+   225	
+   226	    doc_type_norm = (doc_type or config.sales_documents.default_type or "F").strip().upper()
+   227	    if doc_type_norm not in ("F", "P"):
+   228	        doc_type_norm = "F"
+   229	
+   230	    default_doc_location_code = config.locations.default_sale_code()
+   231	    selected_location_code = (location_code or "").strip() or default_doc_location_code
+   232	    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+   233	
+   234	    client_name = (client_name or "").strip()
+   235	    client_id = (client_id or "").strip()
+   236	    client_address = (client_address or "").strip() or None
+   237	    notes = (notes or "").strip() or None
+   238	
+   239	    if not client_name or not client_id:
+   240	        raise HTTPException(status_code=422, detail="Cliente (Nombre e ID) es obligatorio")
+   241	
+   242	    _set_draft(
+   243	        request,
+   244	        doc_type=doc_type_norm,
+   245	        location_code=selected_location_code,
+   246	        currency_code=selected_currency_code,
+   247	        currency_symbol=selected_currency_symbol,
+   248	        client_name=client_name,
+   249	        client_id=client_id,
+   250	        client_address=client_address,
+   251	        notes=notes,
+   252	        valid_until=valid_until,
+   253	    )
+   254	
+   255	    try:
+   256	        valid_until_date = resolve_valid_until(
+   257	            valid_until,
+   258	            doc_type=doc_type_norm,
+   259	            issue_date=datetime.now(timezone.utc),
+   260	            validity_days=int(config.sales_documents.quote_validity_days),
+   261	        )
+   262	    except ValueError:
+   263	        _log.info("valid_until rechazado: %r", valid_until)
+   264	        return templates.TemplateResponse(
+   265	            request=request,
+   365	        },
+   366	    )
+   367	
+   368	
+   369	@router.post("/sales-doc/{doc_id}/update", response_class=HTMLResponse)
+   370	async def sales_doc_update(
+   371	    request: Request,
+   372	    doc_id: int,
+   373	    db: Session = Depends(session_dep),
+   374	) -> HTMLResponse:
+   375	    ctx = ui_context(request, db)
+   376	    _ = ctx.user
+   377	    bid = ctx.business_id
+   378	    config = ctx.config
+   379	
+   380	    svc = SalesDocumentService(db, bid)
+   381	    doc = svc.get(doc_id)
+   382	    if doc is None:
+   383	        raise HTTPException(status_code=404, detail="Documento no encontrado")
+   384	    if int(getattr(doc, "business_id", 0) or 0) != int(bid):
+   385	        raise HTTPException(status_code=404, detail="Documento no encontrado")
+   386	
+   387	    form = await request.form()
+   388	    client_name = (form.get("client_name") or "").strip()
+   389	    client_id = (form.get("client_id") or "").strip()
+   390	    client_address = (form.get("client_address") or "").strip() or None
+   391	    notes = (form.get("notes") or "").strip() or None
+   392	
+   393	    if not client_name:
+   394	        raise HTTPException(status_code=422, detail="client_name is required")
+   395	    if not client_id:
+   396	        raise HTTPException(status_code=422, detail="client_id is required")
+   397	
+   398	    new_valid_until = None
+   399	    if (doc.doc_type or "").strip().upper() == "P":
+   400	        raw_valid_until = form.get("valid_until")
+   401	        try:
+   402	            new_valid_until = resolve_valid_until(
+   403	                raw_valid_until if isinstance(raw_valid_until, str) else "",
+   404	                doc_type="P",
+   405	                issue_date=doc.issue_date,
+   406	                validity_days=int(config.sales_documents.quote_validity_days),
+   407	                on_empty="keep",
+   408	                current=doc.valid_until,
+   409	            )
+   410	        except ValueError:
+   411	            _log.info("valid_until rechazado: %r", raw_valid_until)
+   412	            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+   413	
+   414	    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+   415	    doc.customer_id = customer.id
+   416	
+   417	    items = svc.get_items_ordered(doc.id)
+   418	
+   419	    subtotal = 0.0
+   420	    next_line = 1
+   421	    for it in items:
+   422	        del_flag = form.get(f"del_{it.id}")
+   423	        if del_flag:
+   424	            SalesDocumentService(db, bid).delete_item(it)
+   425	            continue
+   960	        doc_type_norm = "F"
+   961	
+   962	    default_doc_location_code = config.locations.default_sale_code()
+   963	    selected_location_code = (location_code or "").strip() or default_doc_location_code
+   964	    selected_currency_code, selected_currency_symbol = _resolve_currency(config, currency_code)
+   965	
+   966	    client_name = (client_name or "").strip()
+   967	    client_id = (client_id or "").strip()
+   968	    client_address = (client_address or "").strip() or None
+   969	    notes = (notes or "").strip() or None
+   970	
+   971	    if not client_name:
+   972	        raise HTTPException(status_code=422, detail="client_name is required")
+   973	    if not client_id:
+   974	        raise HTTPException(status_code=422, detail="client_id is required")
+   975	
+   976	    now = datetime.now(timezone.utc)
+   977	    try:
+   978	        valid_until_date = resolve_valid_until(
+   979	            valid_until,
+   980	            doc_type=doc_type_norm,
+   981	            issue_date=now,
+   982	            validity_days=int(config.sales_documents.quote_validity_days),
+   983	        )
+   984	    except ValueError:
+   985	        _log.info("valid_until rechazado: %r", valid_until)
+   986	        _set_draft(
+   987	            request,
+   988	            doc_type=doc_type_norm,
+   989	            location_code=selected_location_code,
+   990	            currency_code=selected_currency_code,
+   991	            currency_symbol=selected_currency_symbol,
+   992	            client_name=client_name,
+   993	            client_id=client_id,
+   994	            client_address=client_address,
+   995	            notes=notes,
+   996	            valid_until=valid_until,
+   997	        )
+   998	        return _valid_until_error_response(request, db=db, bid=bid, config=config)
+   999	
+  1000	    customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
+  1001	
+  1002	    cart = _get_cart(request)
+  1003	    if not cart:
+  1004	        raise HTTPException(status_code=422, detail="El carrito está vacío")
+  1005	
+  1006	    year_month = now.strftime("%Y%m")
+  1007	    yyyymmdd = now.strftime("%Y%m%d")
+  1008	
+  1009	    max_seq = SalesDocumentService(db, bid).max_seq(year_month)
+  1010	    seq = int(max_seq or 0) + 1
+3afea1f:app/static/js/core/modals.js:57:  // Error 4xx en HTML ya swapeado (ver core/swap.js) en un panel FUERA del modal
+
+exec
+/usr/bin/zsh -lc "git show 3afea1f:app/static/js/core/modals.js
+git show 3afea1f:app/templates/components/sales_doc/issue_form.html
+git show 3afea1f:app/sales_documents_format.py
+git show 3afea1f:app/templates/components/ui.html | rg -A8 'macro flash'
+git show 3afea1f:app/templates/features/sales_documents/sales_document_edit_form.html | nl -ba | head -20
+git status --short" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+// Modales: cierre por botón [data-modal-close], por clic en el overlay o Escape (salvo
+// data-modal-static="1") y automático tras una petición correcta desde dentro del modal.
+// También [data-clear-target]: vacía el elemento indicado.
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function onModalClose(evt) {
+  const closeBtn = evt.target.closest('[data-modal-close]');
+  if (!closeBtn) return;
+  evt.preventDefault();
+  closeModal(closeBtn.getAttribute('data-modal-close'));
+}
+
+function onModalOverlayClick(evt) {
+  if (evt.target.classList.contains('modal-overlay')) {
+    if (evt.target.getAttribute('data-modal-static') === '1') return;
+    const modalId = evt.target.closest('[id]')?.id;
+    if (modalId) closeModal(modalId);
+  }
+}
+
+// Escape cierra el modal de más arriba (el último del DOM), con la misma excepción que el overlay.
+function onEscape(evt) {
+  if (evt.key !== 'Escape') return;
+  const overlays = document.querySelectorAll('.modal-overlay');
+  const top = overlays[overlays.length - 1];
+  if (!top || top.getAttribute('data-modal-static') === '1') return;
+  evt.preventDefault();
+  top.remove();
+}
+
+function onClearClick(evt) {
+  const btn = evt.target.closest('[data-clear-target]');
+  if (!btn) return;
+  evt.preventDefault();
+  const selector = btn.getAttribute('data-clear-target');
+  if (!selector) return;
+  const el = document.querySelector(selector);
+  if (el) el.innerHTML = '';
+}
+
+function onAfterRequest(evt) {
+  const elt = evt.detail && evt.detail.elt;
+  const xhr = evt.detail && evt.detail.xhr;
+  if (!elt || !xhr) return;
+
+  const modal = elt.closest('.modal-overlay');
+  if (!modal) return;
+
+  const keepOpen = String(xhr.getResponseHeader('X-Modal-Keep') || '') === '1';
+  if (keepOpen) return;
+
+  // Error 4xx en HTML ya swapeado (ver core/swap.js) en un panel FUERA del modal
+  // (p. ej. product_edit_form → #product-panel): cerrar el modal para que se vea.
+  const target = evt.detail && evt.detail.target;
+  const isHtml = String(xhr.getResponseHeader('Content-Type') || '').includes('text/html');
+  const errorShownBehind = xhr.status >= 400 && xhr.status < 500 && isHtml && target && !modal.contains(target);
+
+  if ((xhr.status >= 200 && xhr.status < 300) || errorShownBehind) {
+    try {
+      modal.remove();
+    } catch (e) {}
+  }
+}
+
+export function init() {
+  document.addEventListener('click', onClearClick);
+  document.addEventListener('click', onModalClose);
+  document.addEventListener('click', onModalOverlayClick);
+  document.addEventListener('keydown', onEscape);
+  document.addEventListener('htmx:afterRequest', onAfterRequest);
+}
+{% from 'components/ui.html' import subcard %}
+{% from 'components/forms.html' import text_input %}
+
+{% call subcard('Emitir documento', extra_class='h-full') %}
+  {% set selected_doc_type = (draft.doc_type or sales_doc_config.default_type or 'F') %}
+  {% set selected_location_code = (draft.location_code or default_doc_location_code) %}
+  {% set selected_currency_code = (draft.currency_code or currency.code or 'EUR') %}
+  <form id="sales-doc-issue-form" hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+    <input id="sales-doc-currency-hidden" type="hidden" name="currency_code" value="{{ selected_currency_code }}" />
+    <div class="row">
+      <label>Tipo</label>
+      <select name="doc_type">
+        <option value="F" {% if selected_doc_type == 'F' %}selected{% endif %}>F - {{ sales_doc_config.invoice_label }}</option>
+        <option value="P" {% if selected_doc_type == 'P' %}selected{% endif %}>P - {{ sales_doc_config.quote_label }}</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Ubicación</label>
+      <select name="location_code">
+        {% for loc in pos_locations %}
+          <option value="{{ loc['code'] }}" {% if selected_location_code == loc['code'] %}selected{% endif %}>{{ loc['name'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row"><label>Cliente (Nombre)</label><input name="client_name" list="customer-options" value="{{ draft.client_name or '' }}"
+                                                      hx-get="/ui/sales-doc/customer-defaults" hx-trigger="change" hx-target="#sales-doc-customer-defaults" hx-swap="innerHTML" /></div>
+    <div class="row"><label>Cliente (ID)</label>{{ text_input('sales-doc-client-id', 'client_id', draft.client_id or '') }}</div>
+    <div class="row"><label>Dirección (opcional)</label>{{ text_input('sales-doc-client-address', 'client_address', draft.client_address or '') }}</div>
+    <div class="row"><label>Notas (opcional)</label><input name="notes" value="{{ draft.notes or '' }}" /></div>
+    <div class="row"><label>Vencimiento (solo presupuesto)</label><input type="date" name="valid_until" value="{{ draft.valid_until or default_valid_until(sales_doc_config.quote_validity_days) }}" /></div>
+    <div class="flex gap-10 flex-wrap items-center">
+      <button type="button"
+              hx-post="/ui/sales-doc/preview"
+              hx-target="#sales-doc-preview"
+              hx-swap="innerHTML"
+              hx-include="closest form">Vista previa</button>
+      <button type="submit">Emitir</button>
+    </div>
+  </form>
+
+  <div id="sales-doc-preview" class="mt-12"></div>
+{% endcall %}
+"""Funciones puras de formato y de fecha de vencimiento de los documentos de venta.
+
+Las usan el PDF (`app/sales_document_pdf.py`) y el router de documentos (`app/routers/ui_sales_documents.py`).
+No importan fpdf, FastAPI ni SQLAlchemy, para poder probarlas sin PDF ni base de datos.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timedelta
+from typing import Literal, Optional
+
+INVALID_VALID_UNTIL = "Fecha de vencimiento inválida"
+
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def currency_column_label(prefix: str, currency_code: Optional[str]) -> str:
+    """Etiqueta de una columna de importe: `GEN` se muestra como `CUP`; sin moneda, solo el prefijo."""
+    code = (currency_code or "").strip().upper()
+    if code == "GEN":
+        code = "CUP"
+    return f"{prefix} {code}" if code else prefix
+
+
+def format_amount(value: Optional[float]) -> str:
+    """Importe con separador de miles y dos decimales: 303875 -> `303,875.00`."""
+    return f"{float(value or 0):,.2f}"
+
+
+def format_quantity(value: Optional[float]) -> str:
+    """Cantidad con hasta 4 decimales sin ceros finales y con separador de miles."""
+    text = f"{float(value or 0):,.4f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def format_doc_date(value: Optional[date | datetime]) -> str:
+    """Fecha `dd/mm/aaaa`; vacío si no hay fecha."""
+    if value is None:
+        return ""
+    return value.strftime("%d/%m/%Y")
+
+
+def resolve_valid_until(
+    raw: Optional[str],
+    *,
+    doc_type: str,
+    issue_date: datetime,
+    validity_days: int,
+    on_empty: Literal["default", "keep"] = "default",
+    current: Optional[date] = None,
+) -> Optional[date]:
+    """Fecha de vencimiento de un documento.
+
+    - `doc_type` distinto de `P`: devuelve `None` y no valida `raw`.
+    - `raw` vacío con `on_empty="default"`: fecha de emisión + `validity_days`.
+    - `raw` vacío con `on_empty="keep"`: devuelve `current` (puede ser `None`).
+    - Otro valor: debe ser `aaaa-mm-dd` y no anterior a la fecha de emisión; si no, lanza `ValueError`.
+    """
+    if (doc_type or "").strip().upper() != "P":
+        return None
+    text = (raw or "").strip()
+    issued_on = issue_date.date()
+    if not text:
+        if on_empty == "keep":
+            return current
+        return issued_on + timedelta(days=int(validity_days))
+    if not _ISO_DATE.match(text):
+        raise ValueError(INVALID_VALID_UNTIL)
+    try:
+        chosen = date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(INVALID_VALID_UNTIL) from exc
+    if chosen < issued_on:
+        raise ValueError(INVALID_VALID_UNTIL)
+    return chosen
+{% macro flash(message=None, message_class='', message_detail=None) -%}
+  {%- if message -%}
+    <div class="flash {{ message_class or '' }}">
+      <strong>{{ message }}</strong>
+      {%- if message_detail -%}<div>{{ message_detail }}</div>{%- endif -%}
+    </div>
+  {%- endif -%}
+{%- endmacro %}
+
+     1	{% from 'components/modal.html' import modal %}
+     2	{% from 'components/forms.html' import field %}
+     3	{% set doc_title %}Editar documento <code>{{ doc.code }}</code>{% endset %}
+     4	{% call modal('sales-doc-edit-modal', doc_title, wide=True) %}
+     5	
+     6	      <form hx-post="/ui/sales-doc/{{ doc.id }}/update" hx-target="#sales-doc-panel" hx-swap="outerHTML">
+     7	    <div class="grid grid-2">
+     8	      {{ field('Cliente (Nombre)', 'client_name', value=doc.client_name, required=True) }}
+     9	      {{ field('Cliente (ID)', 'client_id', value=doc.client_id, required=True) }}
+    10	    </div>
+    11	    {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
+    12	    {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
+    13	    {% if (doc.doc_type or '')|upper == 'P' %}
+    14	    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+    15	    {% endif %}
+    16	
+    17	    <h4 class="mt-14">Items</h4>
+    18	    <div class="table-wrapper">
+    19	      <table class="sales-doc-items-table">
+    20	        <thead>
+?? specs/miniloop-pdf-documentos-venta-oferta-loteB-round1/
+
+exec
+/usr/bin/zsh -lc "git grep -n -E 'X-Modal-Keep|HX-Reswap|hx-swap-oob' 3afea1f -- app/routers app/templates | head -35
+git show 3afea1f:app/templates/features/sales_documents/sales_document_preview.html | nl -ba | tail -18
+git grep -n 'update.*422\\|Fecha de vencimiento inválida' 3afea1f -- tests ':"'!tests/e2e/test_sales_doc_pdf_oferta_e2e.py'"'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ exited 1 in 0ms:
+3afea1f:app/routers/ui_auth.py:150:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_auth.py:164:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_businesses.py:425:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_businesses.py:488:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_products.py:208:            headers={"HX-Retarget": "#product-edit-modal", "HX-Reswap": "outerHTML"},
+3afea1f:app/routers/ui_transfers.py:472:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_transfers.py:875:            response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_users.py:248:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/routers/ui_users.py:273:        response.headers["X-Modal-Keep"] = "1"
+3afea1f:app/templates/components/forms.html:11:   para que el OOB no pueda pisar el panel con atributos distintos. `oob=True` añade hx-swap-oob.
+3afea1f:app/templates/components/forms.html:15:<label id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if uom %}Cantidad ({{ uom }}){% else %}Cantidad{% endif %}</label>
+3afea1f:app/templates/components/forms.html:19:<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}" type="number" step="0.0001" min="0"{% if value is not none %} value="{{ value }}"{% endif %} />
+3afea1f:app/templates/components/forms.html:23:<input id="{{ id }}"{% if oob %} hx-swap-oob="true"{% endif %} name="{{ name }}"{% if value is not none %} value="{{ value }}"{% endif %}{% if required %} required{% endif %} />
+3afea1f:app/templates/features/agent/agent_chat_turn.html:2:<div id="agent-grid" hx-swap-oob="outerHTML">
+3afea1f:app/templates/features/products/product_panel.html:1:{# Sin contenido visible: solo el datalist inicial de "Artículo" en Compras, refrescado vía hx-swap-oob. #}
+3afea1f:app/templates/features/products/product_panel.html:2:<div id="product-panel"{% if oob %} hx-swap-oob="true"{% endif %}>
+3afea1f:app/templates/features/purchases/purchase_panel.html:91:  {# Producto creado por la compra: refresca datalist #product-options e historial (hx-swap-oob). #}
+    39	          <td class="text-right">{{ '%.2f'|format(it.line_total) }}</td>
+    40	        </tr>
+    41	      {% endfor %}
+    42	    </tbody>
+    43	  </table>
+    44	
+    45	  <form hx-post="/ui/sales-doc/issue" hx-target="#sales-doc-panel" hx-swap="outerHTML" class="mt-12">
+    46	    <input type="hidden" name="doc_type" value="{{ doc_type }}" />
+    47	    <input type="hidden" name="location_code" value="{{ location_code or '' }}" />
+    48	    <input type="hidden" name="currency_code" value="{{ currency_code or '' }}" />
+    49	    <input type="hidden" name="client_name" value="{{ client_name }}" />
+    50	    <input type="hidden" name="client_id" value="{{ client_id }}" />
+    51	    <input type="hidden" name="client_address" value="{{ client_address or '' }}" />
+    52	    <input type="hidden" name="notes" value="{{ notes or '' }}" />
+    53	    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
+    54	    <button type="submit">Emitir ahora</button>
+    55	  </form>
+    56	</div>
+
+codex
+El 422 de edición reemplaza el panel que contiene el modal. Eso descarta las líneas y notas que el usuario aún no ha guardado. Estoy comprobando cómo mostrar el error dentro del formulario y conservar esos cambios.
+exec
+/usr/bin/zsh -lc "git show 3afea1f:app/templates/components/sales_doc/recent_documents.html | nl -ba | head -52
+git show 3afea1f:app/templates/features/sales_documents/sales_document_panel.html | rg -n 'sales-doc-panel|recent_documents'
+git show 3afea1f:app/static/js/htmx.min.js | rg -o 'if\\(O\\(f,/HX-Retarget:["'^;]*;[''^;]*|c=o.target;[''^;]*|if'"\\(O\\(f,/HX-Reswap:["'^;]*'"' | cut -c1-280
+git show 3afea1f:app/static/js/core/modals.js | nl -ba | sed -n '47,72p'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+     1	{% from 'components/ui.html' import subcard %}
+     2	
+     3	{% call subcard('Documentos recientes', extra_class='mt-12') %}
+     4	  <div id="sales-doc-edit" class="mt-12"></div>
+     5	  <div class="table-wrapper">
+     6	  <table>
+     7	    <thead>
+     8	      <tr>
+     9	        <th>Código</th>
+    10	        <th>Tipo</th>
+    11	        <th>Fecha</th>
+    12	        <th>Cliente</th>
+    13	        <th class="text-right">Total</th>
+    14	        <th></th>
+    15	      </tr>
+    16	    </thead>
+    17	    <tbody>
+    18	      {% for d in recent_documents %}
+    19	        {% set total_prefix = (d.currency_symbol ~ ' ') if d.currency_symbol == 'USD' else d.currency_symbol %}
+    20	        <tr>
+    21	          <td><code>{{ d.code }}</code></td>
+    22	          <td>{{ d.doc_type }}</td>
+    23	          <td>{{ d.issue_date.strftime('%Y-%m-%d') if d.issue_date else '' }}</td>
+    24	          <td>{{ d.client_name }}</td>
+    25	          <td class="text-right">{{ total_prefix }}{{ '%.2f'|format(d.total or 0) }}</td>
+    26	          <td class="text-right">
+    27	            <a href="/ui/sales-doc/{{ d.id }}/pdf?download=1" target="_blank" rel="noopener">PDF</a>
+    28	            <button type="button" class="ml-8"
+    29	                    hx-get="/ui/sales-doc/{{ d.id }}/edit"
+    30	                    hx-target="body"
+    31	                    hx-swap="beforeend">Editar</button>
+    32	            <form hx-post="/ui/sales-doc/{{ d.id }}/delete" hx-target="#sales-doc-panel" hx-swap="outerHTML" hx-include="#sales-doc-issue-form" hx-validate="false" class="d-inline ml-8">
+    33	              <button type="submit" formnovalidate class="btn-danger"
+    34	                      hx-confirm="¿Eliminar este documento?">Eliminar</button>
+    35	            </form>
+    36	          </td>
+    37	        </tr>
+    38	      {% endfor %}
+    39	      {% if not recent_documents %}
+    40	        <tr><td colspan="6" class="muted">Sin documentos emitidos.</td></tr>
+    41	      {% endif %}
+    42	    </tbody>
+    43	  </table>
+    44	  </div>
+    45	{% endcall %}
+3:{% call card('Documento (Factura / Presupuesto)', id='sales-doc-panel', extra_class='mt-16') %}
+24:  {% include 'components/sales_doc/recent_documents.html' %}
+if(O(f,/HX-Retarget:/i)){if(f.getResponseHeader("HX-Retarget")==="this"){u.target=l}else{u.target=ue(l,f.getResponseHeader("HX-Retarget"))}}var d=Pr(l,u);var i=f.status>=200&&f.status<400&&f.status!==204
+c=o.target;g=o.serverResponse
+if(O(f,/HX-Reswap:/i)){s=f.getResponseHeader("HX-Reswap")}var v=wr(l,s)
+    47	  const elt = evt.detail && evt.detail.elt;
+    48	  const xhr = evt.detail && evt.detail.xhr;
+    49	  if (!elt || !xhr) return;
+    50	
+    51	  const modal = elt.closest('.modal-overlay');
+    52	  if (!modal) return;
+    53	
+    54	  const keepOpen = String(xhr.getResponseHeader('X-Modal-Keep') || '') === '1';
+    55	  if (keepOpen) return;
+    56	
+    57	  // Error 4xx en HTML ya swapeado (ver core/swap.js) en un panel FUERA del modal
+    58	  // (p. ej. product_edit_form → #product-panel): cerrar el modal para que se vea.
+    59	  const target = evt.detail && evt.detail.target;
+    60	  const isHtml = String(xhr.getResponseHeader('Content-Type') || '').includes('text/html');
+    61	  const errorShownBehind = xhr.status >= 400 && xhr.status < 500 && isHtml && target && !modal.contains(target);
+    62	
+    63	  if ((xhr.status >= 200 && xhr.status < 300) || errorShownBehind) {
+    64	    try {
+    65	      modal.remove();
+    66	    } catch (e) {}
+    67	  }
+    68	}
+    69	
+    70	export function init() {
+    71	  document.addEventListener('click', onClearClick);
+    72	  document.addEventListener('click', onModalClose);
+
+exec
+/usr/bin/zsh -lc "git ls-tree -r --name-only 3afea1f tests | rg 'sales.*doc|doc.*sales'
+git show 3afea1f:app/templates/features/sales_documents/sales_document_edit_form.html | tail -12
+git show 3afea1f:app/routers/ui_common.py | rg -n 'templates|context_processor'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+tests/e2e/test_sales_doc_pdf_oferta_e2e.py
+tests/snapshots/baseline/frag_salesdoc_customer.txt
+tests/snapshots/baseline/frag_salesdoc_product.txt
+tests/snapshots/baseline/modal_sales_document.txt
+tests/unit/test_sales_doc_product_defaults.py
+tests/unit/test_sales_document_service.py
+        <input name="new_qty" type="number" step="0.0001" min="0" value="1" />
+      </div>
+      <div class="add-item-field">
+        <label>Precio</label>
+        <input name="new_price" type="number" step="0.0001" min="0" value="0" />
+      </div>
+    </div>
+
+    <button type="submit" class="mt-12">Guardar cambios</button>
+    <button type="button" class="btn-secondary ml-8" data-modal-close="sales-doc-edit-modal">Cancelar</button>
+  </form>
+{% endcall %}
+19:templates = Jinja2Templates(directory="app/templates")
+68:templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
+80:templates.env.globals["default_valid_until"] = default_valid_until
+93:templates.env.globals["template_error"] = _template_error
+
+exec
+/usr/bin/zsh -lc "git show 3afea1f:tests/snapshots/baseline/modal_sales_document.txt | head -28
+git show 3afea1f:tests/snapshots/ui_snapshot.py | rg -n -C 3 'modal_sales_document'" in /home/liandy/PyCharmMiscProject/gestion_inventario
+ succeeded in 0ms:
+<div class="modal-overlay" id="sales-doc-edit-modal">
+<div class="modal-container modal-container-wide">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">
+Editar documento
+<code>
+F202601-0001
+</code>
+</h3>
+<button class="modal-close" data-modal-close="sales-doc-edit-modal" type="button">
+×
+</button>
+</div>
+<form hx-post="/ui/sales-doc/1/update" hx-swap="outerHTML" hx-target="#sales-doc-panel">
+<div class="grid grid-2">
+<div class="row">
+<label>
+Cliente (Nombre)
+</label>
+<input name="client_name" required value="Cliente Snapshot <b>"H"</b> & 'co'">
+</div>
+<div class="row">
+<label>
+Cliente (ID)
+</label>
+<input name="client_id" required value="C-SNAP">
+</div>
+345-        "modal_profit_items_transfer_in": f"/ui/tabs/profit-items/transfer-in/{ids['transfer_in']}/edit",
+346-        "modal_purchase": f"/ui/movement/purchase/{ids['purchase']}/edit",
+347-        "modal_sale": f"/ui/movement/sale/{ids['sale']}/edit",
+348:        "modal_sales_document": f"/ui/sales-doc/{ids['doc']}/edit",
+349-        "modal_transfer_bulk": "/ui/transfers/bulk",
+350-        "modal_transfer": f"/ui/movement/transfer/{ids['transfer_out']}/edit",
+351-        "modal_user": f"/ui/user/{ids['user']}/edit",
+
+codex
+**[P2] Una fecha de vencimiento inválida descarta los cambios del formulario de edición.** El handler devuelve el panel completo con un 422. HTMX lo renderiza y el código de modales cierra el formulario porque el destino está fuera de él. El presupuesto guardado queda intacto, pero se pierden las notas y los cambios de líneas introducidos antes de pulsar «Guardar cambios». T22 comprueba la respuesta y la persistencia en base de datos. La pérdida del formulario se produce en el navegador. [Handler](/home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py:410) · [Formulario](/home/liandy/PyCharmMiscProject/gestion_inventario/app/templates/features/sales_documents/sales_document_edit_form.html:6) · [Cierre del modal](/home/liandy/PyCharmMiscProject/gestion_inventario/app/static/js/core/modals.js:57)
+
+La corrección reutiliza el fragmento de error de la vista previa y dirige el 422 a un aviso dentro del modal. El formulario conserva sus valores y permite corregir la fecha y volver a guardar. La revisión fue estática y en solo lectura. La verificación del bloque queda pendiente de aplicar la corrección.
+
+**Ficheros revisados en el diff**
+
+- `app/routers/ui_sales_documents.py`
+- `app/templates/features/sales_documents/_valid_until_error.html`
+- `app/templates/features/sales_documents/sales_document_edit_form.html`
+- `app/templates/features/sales_documents/sales_document_preview.html`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.test.txt`
+
+**Ficheros consultados como contexto**
+
+- `specs/pdf-documentos-venta-oferta/tasks.md` (T15–T26)
+- `app/routers/ui_common.py`
+- `app/sales_documents_format.py`
+- `app/static/js/core/modals.js`
+- `app/static/js/core/swap.js`
+- `app/static/js/htmx.min.js`
+- `app/templates/components/sales_doc/issue_form.html`
+- `app/templates/components/sales_doc/recent_documents.html`
+- `app/templates/components/ui.html`
+- `app/templates/features/sales_documents/sales_document_panel.html`
+- `tests/snapshots/baseline/modal_sales_document.txt`
+- `tests/snapshots/ui_snapshot.py`
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Mantener abierto el formulario al rechazar el vencimiento
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`, `app/templates/features/sales_documents/sales_document_edit_form.html`
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+@@ after
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return templates.TemplateResponse(
+                request=request,
+                name="features/sales_documents/_valid_until_error.html",
+                context={},
+                status_code=422,
+                headers={
+                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
+                    "HX-Reswap": "innerHTML",
+                    "X-Modal-Keep": "1",
+                },
+            )
+````
+
+````pae-edit
+file: app/templates/features/sales_documents/sales_document_edit_form.html
+op: insert_after
+@@ anchor
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+@@ content
+    <div id="sales-doc-edit-valid-until-error" role="alert"></div>
+````
+
+#### Verification
+
+```bash
+.venv/bin/python - <<'PY'
+import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from app.routers import ui_sales_documents as routes
+
+request = MagicMock()
+request.form = AsyncMock(return_value={
+    "client_name": "Cliente",
+    "client_id": "C1",
+    "valid_until": "2026-11-17",
+})
+doc = SimpleNamespace(
+    business_id=1,
+    doc_type="P",
+    issue_date=datetime(2026, 11, 18, tzinfo=timezone.utc),
+    valid_until=None,
+)
+ctx = SimpleNamespace(
+    user=object(),
+    business_id=1,
+    config=SimpleNamespace(sales_documents=SimpleNamespace(quote_validity_days=15)),
+)
+
+with patch.object(routes, "ui_context", return_value=ctx), \
+     patch.object(routes, "SalesDocumentService") as service, \
+     patch.object(routes, "_upsert_customer") as upsert:
+    service.return_value.get.return_value = doc
+    response = asyncio.run(routes.sales_doc_update(request, 1, db=MagicMock()))
+    upsert.assert_not_called()
+
+assert response.status_code == 422
+assert response.headers["HX-Retarget"] == "#sales-doc-edit-valid-until-error"
+assert response.headers["HX-Reswap"] == "innerHTML"
+assert response.headers["X-Modal-Keep"] == "1"
+assert "Fecha de vencimiento inválida" in response.body.decode()
+template = "features/sales_documents/sales_document_edit_form.html"
+source, _, _ = routes.templates.env.loader.get_source(routes.templates.env, template)
+assert 'id="sales-doc-edit-valid-until-error" role="alert"' in source
+routes.templates.env.get_template(template)
+PY
+```
+
+En el navegador, edita un presupuesto, cambia una nota y la cantidad de una línea, y guarda con una fecha anterior a la emisión. Comprueba que aparece el aviso dentro del modal y que ambos cambios siguen en el formulario. Corrige la fecha, guarda y comprueba que se cierra el modal y se guardan los tres cambios.
+`````
+tokens used
+45.134
+**[P2] Una fecha de vencimiento inválida descarta los cambios del formulario de edición.** El handler devuelve el panel completo con un 422. HTMX lo renderiza y el código de modales cierra el formulario porque el destino está fuera de él. El presupuesto guardado queda intacto, pero se pierden las notas y los cambios de líneas introducidos antes de pulsar «Guardar cambios». T22 comprueba la respuesta y la persistencia en base de datos. La pérdida del formulario se produce en el navegador. [Handler](/home/liandy/PyCharmMiscProject/gestion_inventario/app/routers/ui_sales_documents.py:410) · [Formulario](/home/liandy/PyCharmMiscProject/gestion_inventario/app/templates/features/sales_documents/sales_document_edit_form.html:6) · [Cierre del modal](/home/liandy/PyCharmMiscProject/gestion_inventario/app/static/js/core/modals.js:57)
+
+La corrección reutiliza el fragmento de error de la vista previa y dirige el 422 a un aviso dentro del modal. El formulario conserva sus valores y permite corregir la fecha y volver a guardar. La revisión fue estática y en solo lectura. La verificación del bloque queda pendiente de aplicar la corrección.
+
+**Ficheros revisados en el diff**
+
+- `app/routers/ui_sales_documents.py`
+- `app/templates/features/sales_documents/_valid_until_error.html`
+- `app/templates/features/sales_documents/sales_document_edit_form.html`
+- `app/templates/features/sales_documents/sales_document_preview.html`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.diff.txt`
+- `specs/pdf-documentos-venta-oferta/verify/loteB.test.txt`
+
+**Ficheros consultados como contexto**
+
+- `specs/pdf-documentos-venta-oferta/tasks.md` (T15–T26)
+- `app/routers/ui_common.py`
+- `app/sales_documents_format.py`
+- `app/static/js/core/modals.js`
+- `app/static/js/core/swap.js`
+- `app/static/js/htmx.min.js`
+- `app/templates/components/sales_doc/issue_form.html`
+- `app/templates/components/sales_doc/recent_documents.html`
+- `app/templates/components/ui.html`
+- `app/templates/features/sales_documents/sales_document_panel.html`
+- `tests/snapshots/baseline/modal_sales_document.txt`
+- `tests/snapshots/ui_snapshot.py`
+- `/home/liandy/.local/share/harness-loop/pae-edit-format.md`
+
+`````tasks-md
+Lotes: **A** T1-T1
+
+### T1: Mantener abierto el formulario al rechazar el vencimiento
+**Apply:** script
+**Files:** `app/routers/ui_sales_documents.py`, `app/templates/features/sales_documents/sales_document_edit_form.html`
+
+#### Instructions
+
+````pae-edit
+file: app/routers/ui_sales_documents.py
+op: replace
+@@ before
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+@@ after
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return templates.TemplateResponse(
+                request=request,
+                name="features/sales_documents/_valid_until_error.html",
+                context={},
+                status_code=422,
+                headers={
+                    "HX-Retarget": "#sales-doc-edit-valid-until-error",
+                    "HX-Reswap": "innerHTML",
+                    "X-Modal-Keep": "1",
+                },
+            )
+````
+
+````pae-edit
+file: app/templates/features/sales_documents/sales_document_edit_form.html
+op: insert_after
+@@ anchor
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+@@ content
+    <div id="sales-doc-edit-valid-until-error" role="alert"></div>
+````
+
+#### Verification
+
+```bash
+.venv/bin/python - <<'PY'
+import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from app.routers import ui_sales_documents as routes
+
+request = MagicMock()
+request.form = AsyncMock(return_value={
+    "client_name": "Cliente",
+    "client_id": "C1",
+    "valid_until": "2026-11-17",
+})
+doc = SimpleNamespace(
+    business_id=1,
+    doc_type="P",
+    issue_date=datetime(2026, 11, 18, tzinfo=timezone.utc),
+    valid_until=None,
+)
+ctx = SimpleNamespace(
+    user=object(),
+    business_id=1,
+    config=SimpleNamespace(sales_documents=SimpleNamespace(quote_validity_days=15)),
+)
+
+with patch.object(routes, "ui_context", return_value=ctx), \
+     patch.object(routes, "SalesDocumentService") as service, \
+     patch.object(routes, "_upsert_customer") as upsert:
+    service.return_value.get.return_value = doc
+    response = asyncio.run(routes.sales_doc_update(request, 1, db=MagicMock()))
+    upsert.assert_not_called()
+
+assert response.status_code == 422
+assert response.headers["HX-Retarget"] == "#sales-doc-edit-valid-until-error"
+assert response.headers["HX-Reswap"] == "innerHTML"
+assert response.headers["X-Modal-Keep"] == "1"
+assert "Fecha de vencimiento inválida" in response.body.decode()
+template = "features/sales_documents/sales_document_edit_form.html"
+source, _, _ = routes.templates.env.loader.get_source(routes.templates.env, template)
+assert 'id="sales-doc-edit-valid-until-error" role="alert"' in source
+routes.templates.env.get_template(template)
+PY
+```
+
+En el navegador, edita un presupuesto, cambia una nota y la cantidad de una línea, y guarda con una fecha anterior a la emisión. Comprueba que aparece el aviso dentro del modal y que ambos cambios siguen en el formulario. Corrige la fecha, guarda y comprueba que se cierra el modal y se guardan los tres cambios.
+`````

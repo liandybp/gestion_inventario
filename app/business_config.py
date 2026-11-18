@@ -25,6 +25,11 @@ class IssuerConfig(BaseModel):
     country: str = ""
     email: str = ""
     phone: str = ""
+    # Datos bancarios del negocio (bloque "Forma de pago" del PDF).
+    bank_name: str = ""
+    bank_branch: str = ""
+    bank_account: str = ""
+    bank_account_currency: str = ""
 
 
 class CurrencyConfig(BaseModel):
@@ -37,6 +42,8 @@ class SalesDocumentsConfig(BaseModel):
     enabled_types: List[Literal["F", "P"]] = Field(default_factory=lambda: ["F", "P"])
     invoice_label: str = "Factura"
     quote_label: str = "Presupuesto"
+    # Plazo de validez por defecto de un presupuesto, en días.
+    quote_validity_days: int = 15
 
 
 class DividendsConfig(BaseModel):
@@ -108,6 +115,22 @@ _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
 
 
 _APP_DIR = Path(__file__).resolve().parent
+
+
+DEFAULT_QUOTE_VALIDITY_DAYS = 15
+
+
+def parse_validity_days(value: object, fallback: int = DEFAULT_QUOTE_VALIDITY_DAYS) -> int:
+    """Plazo de validez de un presupuesto en días: entero acotado a 0-365.
+
+    `None`, vacío o no numérico devuelve `fallback` (también acotado). Única regla del plazo: la usan el `.conf`,
+    el repositorio de negocios, los formularios de *Negocios* y la fecha por defecto del formulario de emisión.
+    """
+    try:
+        days = int(str(value).strip()) if value is not None and str(value).strip() else int(fallback)
+    except (TypeError, ValueError):
+        days = int(fallback)
+    return max(0, min(365, days))
 
 
 def parse_partners(raw: str) -> list[str]:
@@ -324,6 +347,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         # negocio sin POS: un default_pos sobrante del .conf no debe sobrevivir
         default_pos = ""
 
+    quote_validity_days = parse_validity_days(get("sales_documents", "quote_validity_days", ""))
     cfg = BusinessConfig(
         issuer=IssuerConfig(
             name=get("issuer", "name", "Mi Negocio"),
@@ -335,6 +359,10 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             country=get("issuer", "country", ""),
             email=get("issuer", "email", ""),
             phone=get("issuer", "phone", ""),
+            bank_name=get("issuer", "bank_name", ""),
+            bank_branch=get("issuer", "bank_branch", ""),
+            bank_account=get("issuer", "bank_account", ""),
+            bank_account_currency=get("issuer", "bank_account_currency", ""),
         ),
         currency=CurrencyConfig(
             code=get("currency", "code", "EUR"),
@@ -345,6 +373,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             enabled_types=parse_enabled_types(get("sales_documents", "enabled_types", "F,P")),
             invoice_label=get("sales_documents", "invoice_label", "Factura"),
             quote_label=get("sales_documents", "quote_label", "Presupuesto"),
+            quote_validity_days=quote_validity_days,
         ),
         dividends=DividendsConfig(
             business_label=get("dividends", "business_label", "Negocio"),
