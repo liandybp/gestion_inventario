@@ -374,3 +374,14 @@ para corregirla. El estado de la rama tras la ronda 5 ya cumple esto (suite comp
 Una ronda posterior que vuelva a esta zona sin violar esta regla se descarta.
 
 **Siguiente paso:** el lote B queda aceptado; se reanuda con `cc_pae_loop … --lots C,D`.
+
+## 2.12 Decisión tras el escalado de la pasada final (2026-11-18, Opus-1, ADR-026)
+
+Lotes C y D convergieron (C en 5 rondas, solo endureciendo tests; D en 1). La pasada final sobre `695ec4b...HEAD` escaló
+con exit 3 al tocar dos veces `build_sales_document_pdf`. Las correcciones aplicadas cumplen el contrato de §2.10 y se
+aceptan: identificación del documento (`Documento: <código>`) en las páginas de continuación, para que la hoja de pago y
+firma se pueda asociar; la cabecera de la tabla no queda sola al pie de una página; las cabeceras de columna ajustan el
+tamaño de letra a un código de moneda ancho; la etiqueta del campo de vencimiento al emitir queda asociada (`for`/`id`).
+Tests tras la ronda 2: 619 unit y el e2e del Lote 0 en verde; el lote D y la pasada final corrieron sin la suite e2e
+completa (decisión del usuario para el lote D), así que Opus-1 la ejecuta una vez antes de la 5b. Render revisado a ojo
+(presupuesto normal y 30 líneas en 2 páginas). La implementación queda cerrada; sigue la revisión 5b.
