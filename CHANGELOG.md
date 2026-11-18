@@ -2,7 +2,7 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
-## Sin publicar
+## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
 
 - feat(sales-docs): cabecera de facturas/presupuestos con titular **TCP** (campo nuevo `issuer_holder` en
   `businesses`, editable en *Negocios → Editar*) y **NIT** (antes "ID fiscal"). Se quita "(Precios sin IVA)"
