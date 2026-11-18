@@ -36,12 +36,21 @@ Nombre comercial → [issuer] name
 <div class="form-section-title">
 Datos del Emisor [issuer]
 </div>
+<div class="form-group">
+<label for="edit-issuer-holder">
+Titular (TCP)
+</label>
+<input autocomplete="off" id="edit-issuer-holder" name="issuer_holder" type="text" value="Randy Manuel Delgado">
+<small class="muted">
+Aparece como "TCP: …" en la cabecera de los documentos
+</small>
+</div>
 <div class="form-row">
 <div class="form-group">
 <label for="edit-issuer-tax-id">
-Tax ID / RIF
+NIT / Tax ID
 </label>
-<input autocomplete="off" id="edit-issuer-tax-id" name="issuer_tax_id" type="text" value="">
+<input autocomplete="off" id="edit-issuer-tax-id" name="issuer_tax_id" type="text" value="01030573448">
 <small class="muted">
 Ej: J-12345678-9
 </small>
