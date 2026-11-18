@@ -335,3 +335,27 @@ Rollback:
 | 10 | REQ-4 sin negativo de edición | Escenario "Fecha no válida al editar no toca nada" |
 | 11 | REQ-9 (`.conf`) no cubre instalación nueva | REQ-9 antiguo fuera de alcance; `_backfill_business_config` no se toca |
 | 12 | Cantidad 0,0001 sale como 0.00 | `format_quantity` con 4 decimales sin ceros finales (S8) |
+
+## 2.10 Decisión tras el escalado del Lote A (2026-11-18, Opus-1, ADR-026)
+
+`cc_pae_loop` escaló el lote A con exit 3: las rondas 1 y 2 de Codex corrigieron la misma zona
+(`app/sales_document_pdf.py::_draw_rows` y `build_sales_document_pdf`). Las dos rondas se aplicaron con la suite completa
+en verde (543 unit + 97 e2e; contrato del Lote 0 2/2). No era un fallo del camino feliz: Codex buscó entradas extremas
+(cuenta de 64 dígitos, 100 líneas de notas, etiqueta de 64 caracteres, descripción con saltos más alta que una página,
+dirección con saltos, `.conf` con plazo vacío) y cada ronda destapó el siguiente caso.
+
+**Contrato de robustez del PDF (cierra la zona):**
+- El PDF **nunca pierde texto ni lo saca de la página**: los textos largos se ajustan en varias líneas dentro de su
+  columna; los saltos de línea de los campos de cabecera, destinatario y pago se convierten en espacios.
+- Una fila que cabe en una página no se parte; una fila más alta que una página se pagina. La cabecera de la tabla se
+  repite en cada página nueva. Notas y pie se miden antes de dibujarse.
+- Un plazo de validez vacío o no numérico en el `.conf` vale 15 y se acota a 0-365, como en el formulario.
+- Se aceptan las correcciones de las rondas 1 y 2 tal cual están en la rama. Una ronda posterior de Codex que vuelva a
+  esta zona sin violar el contrato se descarta (estilo, no bug).
+
+**Verificación (Opus-1, sobre la rama tras la ronda 2):** 9 casos de estrés (normal, cuenta64, notas100, etiqueta64,
+desc_alta, lineas60, unidad_larga, direccion_saltos, factura_sin_banco): 0 excepciones, 0 caracteres fuera de la página,
+0 textos perdidos. Evidencia: `specs/pdf-documentos-venta-oferta/design/sondas/S11-estres-pdf.txt` y
+`design/sondas/render/stress-*.png`.
+
+**Siguiente paso:** el lote A queda aceptado; se reanuda con `cc_pae_loop … --lots B,C,D`.
