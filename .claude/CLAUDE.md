@@ -259,7 +259,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
-PDF OFERTA:   0.5.2 (rama feature/pdf-documentos-venta-oferta; revisión 5b 4.45 🟢, sin desplegar). `app/sales_document_pdf.py`
+PDF OFERTA:   0.5.2 (en producción desde 2026-11-19, tag v0.5.2; revisión 5b 4.45 🟢). `app/sales_document_pdf.py`
               reescrito con el diseño de la plantilla OFERTA (banda azul, iconos SVG de teléfono/email, tabla con precio
               unitario, Subtotal/TOTAL, pie FORMA DE PAGO + Recibido por). Funciones puras en `app/sales_documents_format.py`
               (`default_valid_until`, `resolve_valid_until`); regla del plazo única `parse_validity_days` en
@@ -304,7 +304,7 @@ Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/trans
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema v8: sync_state + device_tokens + paid_by_transfer)
-Versión:      0.5.2 (ver VERSION; 0.5.1 es la última en producción) — histórico: 0.4.11 a 0.4.14 desplegadas en dev y producción (main,
+Versión:      0.5.2 (ver VERSION; en producción desde 2026-11-19) — histórico: 0.4.11 a 0.4.14 desplegadas en dev y producción (main,
               laptop-server, gestion.legatumbp.com) el 2026-10-11.
               0.4.14: el coach ya no trata las extracciones a "Negocio" como retiros y la alerta
               "drena caja" (partner_overdrawn) usa el pendiente acumulado por socio de dividendos;

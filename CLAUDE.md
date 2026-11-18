@@ -4,7 +4,7 @@
 
 App web FastAPI + HTMX para gestión de inventario multi-negocio con soporte multi-ubicación (CENTRAL + POS), control FIFO de lotes, documentos de venta (facturas/presupuestos), clientes, compras, gastos, transferencias y reportes.
 
-- **Versión actual:** `0.5.0` (ver `VERSION`, tag `v0.5.0`) — **en producción desde el 2026-11-02** (`main`,
+- **Versión actual:** `0.5.2` (ver `VERSION`, tag `v0.5.2`) — **en producción desde el 2026-11-19** (0.5.0 desde el 2026-11-02) (`main`,
   `bca1835`): frontend modular (fases 0-5: JS en módulos ES, CSS sin inline, CSP `script-src`/`style-src 'self'`,
   plantillas por dominio, routers sin ORM, `UIContext`), tools del copiloto `sales_by_location_monthly` y
   `product_movements`, rangos de fecha del prompt y los quick wins de la auditoría de la release (4.70 🟢,
@@ -160,8 +160,13 @@ caducidad FEFO) → P1 → P2 → P3.
 
 ## Estado actual
 
-- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
-      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26) — EN
+      PRODUCCIÓN desde el 2026-11-19 00:29** (`main` `c4634a7`, tag `v0.5.2`; volcado previo en `laptop-server`:
+      `~/backups/pre-release-0.5.2-20261118-2324.sql.gz`). Revisión 5b: `/code-review` 7 hallazgos + auditoría 4.45 🟢
+      (`docs/auditorias/2026-11-19-pdf-documentos-venta-oferta.md`), todos corregidos. 635 unit, 97 e2e, 91 snapshots.
+      Tres escalados del miniloop (lote A, B y pasada final) resueltos por Opus: contrato de robustez del PDF y
+      vencimiento WYSIWYG en la vista previa (`specs/pdf-documentos-venta-oferta/design.md` §2.10-2.12). Primer PAE
+      con el reparto nuevo de la 4a (Sonnet-2 prepara la rama; Opus lanza y vigila `cc_pae_loop`). — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
       `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
       azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
       precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
@@ -171,9 +176,14 @@ caducidad FEFO) → P1 → P2 → P3.
       Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
       documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
       el mismo lote que las plantillas (lección de 0.5.1).
-      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+      - Pendiente del usuario: rellenar en *Negocios → Editar* de prod (`recambios` "DyB Autopartes (S)" y
+        `recambios_hyundai` "DyB Autopartes (H)") teléfono, email, banco y plazo de
         DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
         generarse (como el TCP), no del documento emitido.
+      - Pendientes para otra iteración (reportados por el usuario en staging, previos a 0.5.2): (1) el precio
+        editado en una fila del carrito de *Documentos* no se emite si no se pulsa "Actualizar" (el documento sale
+        con el precio 0 original); (2) al editar un documento emitido no se pueden añadir productos del catálogo
+        (solo una línea de texto libre por guardado). Detalle en Obsidian `05-Proyectos/gestion-inventario`.
       - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
         moneda nuevas en el selector del carrito.
 
