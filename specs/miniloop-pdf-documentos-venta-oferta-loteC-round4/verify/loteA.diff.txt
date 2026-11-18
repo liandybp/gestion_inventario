@@ -1,0 +1,3 @@
+specs/pdf-documentos-venta-oferta/tasks.md
+specs/pdf-documentos-venta-oferta/verify/loteC.test.txt
+tests/unit/test_sales_doc_valid_until.py
