@@ -2,8 +2,8 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "miniloop",
-  "lote_actual": "C",
+  "fase": "implementando",
+  "lote_actual": "D",
   "exit": null,
   "traspaso": null,
   "lotes": {
@@ -45,6 +45,14 @@
         "rondas": 5,
         "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteC/resumen.txt"
       }
+    },
+    "D": {
+      "estado": "implementando",
+      "intento": 1,
+      "base": "02c6d964aa7ce4a2148c17a44d2dd66130b4a3bd",
+      "head": null,
+      "parada": null,
+      "miniloop": null
     }
   }
 }
