@@ -2,7 +2,7 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "implementando",
+  "fase": "miniloop",
   "lote_actual": "C",
   "exit": null,
   "traspaso": null,
@@ -34,11 +34,11 @@
       }
     },
     "C": {
-      "estado": "implementando",
+      "estado": "parada",
       "intento": 1,
       "base": "4ddd0f3da8c4c91d8241443f8fb10f484b7ef801",
       "head": null,
-      "parada": null,
+      "parada": "verificación en rojo: tests: FAIL (exit 1)\n  última línea:   from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer\nalcance: 4 ficheros desde 1fa01e493a\n  tests/unit/test_business_bank_fields.py, tests/unit/test_sales_doc_valid_until.py, tests/unit/test_sales_document_pdf.py, tests/unit/test_sales_documents_format.py\npyflakes: PASS — 0 nombres indefinidos nuevos\nevidencia: /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/verify/loteC.{test,lint,diff}.txt",
       "miniloop": null
     }
   }
