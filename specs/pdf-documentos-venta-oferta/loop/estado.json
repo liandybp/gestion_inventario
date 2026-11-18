@@ -2,10 +2,10 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "final",
+  "fase": "escalado",
   "lote_actual": null,
-  "exit": null,
-  "traspaso": null,
+  "exit": 3,
+  "traspaso": "Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta. Todos los lotes convergieron, pero la pasada final del miniloop sobre 695ec4beaa...HEAD terminó con exit 3: dos rondas seguidas parchearon la misma zona: es una cuestión de diseño (ADR-026).\nparada por repetición en la ronda 2: app/sales_document_pdf.py::build_sales_document_pdf\nver /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/miniloop/final/resumen.txt\nHistorial en specs/pdf-documentos-venta-oferta/miniloop/final/resumen.txt.",
   "lotes": {
     "A": {
       "estado": "escalado",
