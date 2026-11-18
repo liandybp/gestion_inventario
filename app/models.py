@@ -33,6 +33,8 @@ class Business(Base):
     # ── Config de negocio (fuente única de verdad; el .conf es legacy) ──
     # issuer
     issuer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Titular del negocio (TCP) que figura en la cabecera de facturas/presupuestos.
+    issuer_holder: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     issuer_tax_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     issuer_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     issuer_city: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)

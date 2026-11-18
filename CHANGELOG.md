@@ -2,6 +2,12 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
+
+- feat(sales-docs): cabecera de facturas/presupuestos con titular **TCP** (campo nuevo `issuer_holder` en
+  `businesses`, editable en *Negocios → Editar*) y **NIT** (antes "ID fiscal"). Se quita "(Precios sin IVA)"
+  del PDF, de la vista previa y del panel de documentos. `.conf` por defecto y de recambios: emisor DyB Autopartes.
+
 ## 0.5.0 (2026-11-02 — release del frontend modular, fases 0-5)
 
 - fix(release): quick wins de la auditoría de la release (`docs/auditorias/2026-11-02-release-0.5.0.md`):

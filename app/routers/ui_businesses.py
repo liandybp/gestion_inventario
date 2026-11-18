@@ -124,6 +124,7 @@ def business_create(
     code: str = Form(...),
     name: str = Form(...),
     # ── issuer ──────────────────────────────────────────────────
+    issuer_holder: str = Form(""),
     issuer_tax_id: str = Form(""),
     issuer_address: str = Form(""),
     issuer_city: str = Form(""),
@@ -229,6 +230,7 @@ def business_create(
 
     # ── Config en BD (fuente única de verdad; el .conf es legacy) ──
     new_business.issuer_name = name
+    new_business.issuer_holder = _s(issuer_holder)
     new_business.issuer_tax_id = _s(issuer_tax_id)
     new_business.issuer_address = _s(issuer_address)
     new_business.issuer_city = _s(issuer_city)
@@ -330,6 +332,7 @@ def business_update(
     code: str = Form(...),
     name: str = Form(...),
     # ── issuer ──────────────────────────────────────────────────
+    issuer_holder: str = Form(""),
     issuer_tax_id: str = Form(""),
     issuer_address: str = Form(""),
     issuer_city: str = Form(""),
@@ -404,6 +407,7 @@ def business_update(
 
     # ── Config en BD (fuente única de verdad; el .conf es legacy) ──
     business.issuer_name = name
+    business.issuer_holder = _s(issuer_holder)
     business.issuer_tax_id = _s(issuer_tax_id)
     business.issuer_address = _s(issuer_address)
     business.issuer_city = _s(issuer_city)

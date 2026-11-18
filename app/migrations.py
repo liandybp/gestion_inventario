@@ -43,6 +43,7 @@ _LATEST_SCHEMA_VERSION = 8
 # Columnas de config de negocio en `businesses` (v4) y de ubicación en `locations`.
 _BUSINESS_CONFIG_COLS = [
     ("issuer_name", "VARCHAR(255)"),
+    ("issuer_holder", "VARCHAR(255)"),
     ("issuer_tax_id", "VARCHAR(64)"),
     ("issuer_address", "VARCHAR(255)"),
     ("issuer_city", "VARCHAR(128)"),
@@ -887,6 +888,7 @@ def _backfill_business_config() -> None:
                     db.flush()
 
                 business.issuer_name = config.issuer.name
+                business.issuer_holder = config.issuer.holder
                 business.issuer_tax_id = config.issuer.tax_id
                 business.issuer_address = config.issuer.address
                 business.issuer_city = config.issuer.city

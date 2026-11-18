@@ -92,6 +92,7 @@ def get_business_config(db: Session, business_id: Optional[int]) -> BusinessConf
     return BusinessConfig(
         issuer=IssuerConfig(
             name=business.issuer_name or business.name,
+            holder=business.issuer_holder or "",
             tax_id=business.issuer_tax_id or "",
             address=business.issuer_address or "",
             city=business.issuer_city or "",
