@@ -131,16 +131,20 @@ def test_issue_invoice_ignores_a_garbage_due_date(db_session) -> None:
 def test_issue_form_shows_the_default_due_date_and_keeps_the_typed_one(db_session, business_id) -> None:
     db_session.get(Business, business_id).sales_quote_validity_days = 15
     db_session.commit()
-    default = "2026-12-03"
+    now = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    past_due_date = "2026-11-17"
 
-    shown_default = _issue(db_session, _request([dict(CART_LINE)]), doc_type="P", valid_until="31/12/2026")
-    assert f'name="valid_until" value="{default}"' not in _body(shown_default)
-    assert 'name="valid_until" value="31/12/2026"' in _body(shown_default)
-
-    with patch("app.routers.ui_common.datetime", wraps=datetime) as clock:
-        clock.now.return_value = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    with patch("app.routers.ui_common.datetime", wraps=datetime) as default_clock, patch(
+        "app.routers.ui_sales_documents.datetime", wraps=datetime
+    ) as issue_clock:
+        default_clock.now.return_value = now
+        issue_clock.now.return_value = now
+        rejected = _issue(db_session, _request([dict(CART_LINE)]), valid_until=past_due_date)
         empty_draft = sales_doc_cart_clear(request=_request(), db=db_session, **_form(valid_until=""))
-    assert f'name="valid_until" value="{default}"' in _body(empty_draft)
+
+    assert rejected.status_code == 422
+    assert f'name="valid_until" value="{past_due_date}"' in _body(rejected)
+    assert 'name="valid_until" value="2026-12-03"' in _body(empty_draft)
 
 
 def test_cart_handlers_keep_the_due_date_in_the_draft(db_session) -> None:
@@ -288,8 +292,21 @@ def test_update_with_invalid_due_date_changes_nothing(db_session, business_id) -
 def test_update_invoice_forces_null_due_date(db_session, business_id) -> None:
     doc = _seed_quote(db_session, business_id, valid_until=date(2026, 12, 3), doc_type="F")
 
-    response = _update(db_session, doc.id, client_name="A", client_id="C-A", valid_until="2099-12-31")
+    items_query = (
+        select(SalesDocumentItem)
+        .where(SalesDocumentItem.document_id == doc.id)
+        .order_by(SalesDocumentItem.line_no)
+    )
+    fields = {"client_name": "A", "client_id": "C-A", "valid_until": "2099-12-31"}
+    for item in db_session.scalars(items_query):
+        fields[f"desc_{item.id}"] = item.description
+        fields[f"qty_{item.id}"] = str(item.quantity)
+        fields[f"price_{item.id}"] = str(item.unit_price)
+
+    response = _update(db_session, doc.id, **fields)
 
     assert response.status_code == 200
     db_session.refresh(doc)
     assert doc.valid_until is None
+    assert float(doc.total) == 10.0
+    assert [float(item.line_total) for item in db_session.scalars(items_query)] == [4.0, 6.0]

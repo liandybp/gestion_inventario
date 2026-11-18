@@ -1,27 +1,17 @@
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 OK: 91 snapshots equivalentes
 ........................................................................ [ 11%]
 ........................................................................ [ 23%]
 ........................................................................ [ 35%]
 ........................................................................ [ 46%]
 ........................................................................ [ 58%]
-............F........................................................... [ 70%]
+........................................................................ [ 70%]
 ........................................................................ [ 81%]
 ........................................................................ [ 93%]
 ........................................                                 [100%]
-=================================== FAILURES ===================================
-______ test_long_document_label_and_long_address_stay_inside_their_boxes _______
-
-    def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
-        long_label = "Presupuesto extraordinario de verano 2026"
-        long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
-        text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
-    
->       assert long_label.upper() in text
-E       AssertionError: assert 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' in 'DyB Autopartes Avenida de los Libertadores esquina a la calle sesenta y\ncuatro, edificio azul, apartamento 12, Miram..._________\nBanco Metropolitano, Sucursal 248 Fecha: ______________________________\nNo. Cuenta (CUP): 0598770024085419'
-E        +  where 'PRESUPUESTO EXTRAORDINARIO DE VERANO 2026' = <built-in method upper of str object at 0x7acac8c4b210>()
-E        +    where <built-in method upper of str object at 0x7acac8c4b210> = 'Presupuesto extraordinario de verano 2026'.upper
-
-tests/unit/test_sales_document_pdf.py:200: AssertionError
 =============================== warnings summary ===============================
 .venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464
   /home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
@@ -315,12 +305,4 @@ tests/unit/test_coach_rbac.py::test_coach_router_registered_in_main
     warnings.warn(message, stacklevel=1)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED tests/unit/test_sales_document_pdf.py::test_long_document_label_and_long_address_stay_inside_their_boxes
-1 failed, 615 passed, 246 warnings in 12.89s
-
---- stderr ---
-/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
-  from starlette.testclient import TestClient as TestClient  # noqa
-/home/liandy/PyCharmMiscProject/gestion_inventario/.venv/lib/python3.14/site-packages/langgraph/checkpoint/base/__init__.py:18: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
-  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+616 passed, 246 warnings in 12.98s
