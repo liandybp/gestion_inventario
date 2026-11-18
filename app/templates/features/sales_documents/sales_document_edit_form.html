@@ -11,7 +11,7 @@
     {{ field('Dirección (opcional)', 'client_address', value=doc.client_address or '') }}
     {{ field('Notas (opcional)', 'notes', value=doc.notes or '') }}
     {% if (doc.doc_type or '')|upper == 'P' %}
-    {{ field('Vencimiento (opcional)', 'valid_until', type='date', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
+    {{ field('Vencimiento (opcional)', 'valid_until', type='date', id='sales-doc-edit-valid-until', value=(doc.valid_until.isoformat() if doc.valid_until else '')) }}
     <div id="sales-doc-edit-valid-until-error" role="alert"></div>
     {% endif %}
 
