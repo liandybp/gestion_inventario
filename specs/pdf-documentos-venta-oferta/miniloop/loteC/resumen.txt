@@ -1,0 +1,6 @@
+ronda 1: aplicada
+ronda 2: aplicada
+ronda 3: aplicada
+ronda 4: aplicada
+ronda 5: limpio (suite omitida: aaff12289e)
+convergió en la ronda 5
