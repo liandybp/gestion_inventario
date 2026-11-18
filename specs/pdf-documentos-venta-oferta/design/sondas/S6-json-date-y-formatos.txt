@@ -1,0 +1,3 @@
+jsonable_encoder(date) -> {'valid_until': '2026-12-03', 'none': None}
+get_string_width("Fecha de vencimiento:") mm = 31.9
+f"{1.0:g}", f"{2.5:g}", f"{303875:,.2f}" -> 1 2.5 303,875.00

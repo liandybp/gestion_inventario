@@ -1,0 +1,27 @@
+SET
+                                                       version                                                        
+----------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 fila)
+
+   code    | currency_code | currency_symbol |  issuer_name   | issuer_phone | issuer_email 
+-----------+---------------+-----------------+----------------+--------------+--------------
+ bazar     | MN            | $               | Bazar Mariela  |              | 
+ ropa      | EUR           | €               | EuroPeques     |              | 
+ recambios | USD           | $               | DyB Autopartes |              | 
+(3 filas)
+
+ currency_code | count 
+---------------+-------
+ GEN           |     3
+ EUR           |     2
+ USD           |     2
+(3 filas)
+
+ unit_of_measure | count 
+-----------------+-------
+                 |     3
+ par             |     5
+ u               |    16
+(3 filas)
+

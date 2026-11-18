@@ -10,8 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import log_event
-from app.business_config import parse_opening_pending
+from app.business_config import parse_opening_pending, parse_validity_days
 from app.deps import session_dep
+from app.models import Business
 from app.repositories.business_repository import (
     count_other_businesses,
     count_related,
@@ -53,6 +54,12 @@ def _parse_optional_float(value) -> float | None:
         return float(s)
     except Exception:
         return None
+
+
+def _fit_column(value: str, column: str) -> str:
+    """Recorta `value` al tamaño de la columna `businesses.<column>` (SQLite no lo impone; PostgreSQL falla)."""
+    length = Business.__table__.c[column].type.length
+    return value[:length] if length else value
 
 
 def _parse_spec_of(raw, fb_code, fb_name) -> tuple[str, str]:
@@ -132,6 +139,10 @@ def business_create(
     issuer_country: str = Form(""),
     issuer_email: str = Form(""),
     issuer_phone: str = Form(""),
+    issuer_bank_name: str = Form(""),
+    issuer_bank_branch: str = Form(""),
+    issuer_bank_account: str = Form(""),
+    issuer_bank_account_currency: str = Form(""),
     # ── currency ────────────────────────────────────────────────
     currency_code: str = Form("USD"),
     currency_symbol: str = Form("$"),
@@ -144,6 +155,7 @@ def business_create(
     sales_enabled_types: str = Form("F,P"),
     sales_invoice_label: str = Form("Factura"),
     sales_quote_label: str = Form("Presupuesto"),
+    sales_quote_validity_days: str = Form(""),
     # ── dividends ───────────────────────────────────────────────
     dividends_business_label: str = Form("Negocio"),
     dividends_partners: str = Form(""),
@@ -238,6 +250,10 @@ def business_create(
     new_business.issuer_country = _s(issuer_country)
     new_business.issuer_email = _s(issuer_email)
     new_business.issuer_phone = _s(issuer_phone)
+    new_business.issuer_bank_name = _fit_column(_s(issuer_bank_name), "issuer_bank_name")
+    new_business.issuer_bank_branch = _fit_column(_s(issuer_bank_branch), "issuer_bank_branch")
+    new_business.issuer_bank_account = _fit_column(_s(issuer_bank_account), "issuer_bank_account")
+    new_business.issuer_bank_account_currency = _fit_column(_s(issuer_bank_account_currency), "issuer_bank_account_currency")
     new_business.currency_code = _s(currency_code, "USD")
     new_business.currency_symbol = _s(currency_symbol, "$")
     new_business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
@@ -247,6 +263,7 @@ def business_create(
     new_business.sales_enabled_types = _s(sales_enabled_types, "F,P")
     new_business.sales_invoice_label = _s(sales_invoice_label, "Factura")
     new_business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    new_business.sales_quote_validity_days = parse_validity_days(_s(sales_quote_validity_days))
     new_business.dividends_business_label = _s(dividends_business_label, "Negocio")
     new_business.dividends_partners = _s(dividends_partners)
     new_business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))
@@ -340,6 +357,10 @@ def business_update(
     issuer_country: str = Form(""),
     issuer_email: str = Form(""),
     issuer_phone: str = Form(""),
+    issuer_bank_name: str = Form(""),
+    issuer_bank_branch: str = Form(""),
+    issuer_bank_account: str = Form(""),
+    issuer_bank_account_currency: str = Form(""),
     # ── currency ────────────────────────────────────────────────
     currency_code: str = Form("USD"),
     currency_symbol: str = Form("$"),
@@ -352,6 +373,7 @@ def business_update(
     sales_enabled_types: str = Form("F,P"),
     sales_invoice_label: str = Form("Factura"),
     sales_quote_label: str = Form("Presupuesto"),
+    sales_quote_validity_days: str = Form(""),
     # ── dividends ───────────────────────────────────────────────
     dividends_business_label: str = Form("Negocio"),
     dividends_partners: str = Form(""),
@@ -415,6 +437,10 @@ def business_update(
     business.issuer_country = _s(issuer_country)
     business.issuer_email = _s(issuer_email)
     business.issuer_phone = _s(issuer_phone)
+    business.issuer_bank_name = _fit_column(_s(issuer_bank_name), "issuer_bank_name")
+    business.issuer_bank_branch = _fit_column(_s(issuer_bank_branch), "issuer_bank_branch")
+    business.issuer_bank_account = _fit_column(_s(issuer_bank_account), "issuer_bank_account")
+    business.issuer_bank_account_currency = _fit_column(_s(issuer_bank_account_currency), "issuer_bank_account_currency")
     business.currency_code = _s(currency_code, "USD")
     business.currency_symbol = _s(currency_symbol, "$")
     business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
@@ -424,6 +450,9 @@ def business_update(
     business.sales_enabled_types = _s(sales_enabled_types, "F,P")
     business.sales_invoice_label = _s(sales_invoice_label, "Factura")
     business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    business.sales_quote_validity_days = parse_validity_days(
+        _s(sales_quote_validity_days), parse_validity_days(business.sales_quote_validity_days)
+    )
     business.dividends_business_label = _s(dividends_business_label, "Negocio")
     business.dividends_partners = _s(dividends_partners)
     business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))

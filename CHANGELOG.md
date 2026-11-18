@@ -2,6 +2,24 @@
 
 Este archivo se genera a partir del historial de Git (`git log`).
 
+## 0.5.2 (2026-11-18 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA")
+
+- feat(sales-docs): el PDF de facturas y presupuestos sigue el diseño de la plantilla de referencia: banda de
+  cabecera azul clara con emisor (nombre, TCP, NIT) y contacto con iconos vectoriales de teléfono y email, barra
+  `DESTINATARIO:` con la etiqueta del documento, bloque cliente/documento (`No.`, fecha, fecha de vencimiento solo
+  en presupuestos), fila `Subtotal:` y caja `TOTAL:`, tabla `CONCEPTO | UNIDADES | CANTIDAD | PRECIO | IMPORTE` con
+  separador de miles y cabecera repetida en cada página, y pie con `FORMA DE PAGO` (datos bancarios) y
+  `Recibido por / Cargo / Firma / Fecha`. Las columnas de importe llevan la moneda elegida al construir el
+  documento (`GEN` se muestra como `CUP`). Fechas `dd/mm/aaaa`.
+- feat(businesses): *Negocios → Crear/Editar* guarda banco, sucursal, número de cuenta y moneda de la cuenta
+  (`issuer_bank_*`, con `maxlength` 128/64/64/8 y recorte en el servidor) y el plazo de validez de presupuestos
+  (`sales_quote_validity_days`, 0-365, por defecto 15). Columnas añadidas de forma idempotente al arrancar.
+- feat(sales-docs): campo `valid_until` (fecha de vencimiento) en `sales_documents`, solo para presupuestos. El
+  formulario de emisión la rellena con hoy + plazo de validez y se puede cambiar; sobrevive a los cambios del
+  carrito; se muestra en la vista previa y se edita en el modal de edición. Una fecha inválida devuelve un 422 HTML
+  ("Fecha de vencimiento inválida") sin crear ni modificar nada. Los documentos anteriores siguen generando PDF.
+- test: unit del formato, del PDF (leído con pdfplumber), de los handlers y de los datos del negocio; e2e del flujo
+  completo (negocio → presupuesto en `GEN` → PDF; factura sin vencimiento); baselines de snapshots regeneradas.
 ## 0.5.1 (2026-11-18 — cabecera TCP/NIT en documentos de venta)
 
 - feat(sales-docs): cabecera de facturas/presupuestos con titular **TCP** (campo nuevo `issuer_holder` en

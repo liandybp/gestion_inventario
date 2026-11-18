@@ -15,6 +15,7 @@ from jinja2.exceptions import TemplateRuntimeError
 
 from app.settings import DEV_ACTIONS_ENABLED, UPLOAD_MAX_MB
 from app.utils import month_range
+from app.sales_documents_format import default_valid_until as _default_valid_until_date
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -66,6 +67,17 @@ def _static_asset_version(static_dir: Path | None = None) -> str:
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
+
+
+def default_valid_until(days: object) -> str:
+    """Vencimiento por defecto de un presupuesto para el formulario: hoy (UTC) + plazo, en `aaaa-mm-dd`.
+
+    Misma regla que el servidor (`sales_documents_format.default_valid_until`).
+    """
+    return _default_valid_until_date(datetime.now(timezone.utc).date(), days).isoformat()
+
+
+templates.env.globals["default_valid_until"] = default_valid_until
 
 
 def _template_error(message: str) -> str:

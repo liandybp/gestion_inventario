@@ -1,0 +1,9 @@
+'Fecha de vencimiento:' B9 width 34.23 -> fit in 40mm at 9.0 pt; c_margin 1.0
+'Fecha de presupuesto:' B9 width 34.76 -> fit in 40mm at 9.0 pt; c_margin 1.0
+'Fecha de presupuesto extraordinario:' B9 width 56.99 -> fit in 40mm at 6.0 pt; c_margin 1.0
+'No. Presupuesto:' B9 width 26.29 -> fit in 40mm at 9.0 pt; c_margin 1.0
+1.0 -> 1
+2.5 -> 2.5
+0.0001 -> 0.0001
+1234567.0 -> 1,234,567
+3.1 -> 3.1

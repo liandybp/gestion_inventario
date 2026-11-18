@@ -1,0 +1,16 @@
+$ grep -l client_address|issuer_phone tests/snapshots/baseline/*
+tests/snapshots/baseline/empty_tab_businesses.txt
+tests/snapshots/baseline/frag_salesdoc_customer.txt
+tests/snapshots/baseline/modal_business.txt
+tests/snapshots/baseline/empty_tab_documents.txt
+tests/snapshots/baseline/modal_sales_document.txt
+tests/snapshots/baseline/operator_tab_documents.txt
+tests/snapshots/baseline/owner_tab_documents.txt
+tests/snapshots/baseline/tab_businesses.txt
+tests/snapshots/baseline/tab_documents.txt
+$ grep -n "write\|check" tests/snapshots/ui_snapshot.py (CLI)
+495:def main(argv: list[str]) -> int:
+496:    if len(argv) != 3 or argv[1] not in ("write", "check"):
+499:    target = Path(argv[2])
+501:    if argv[1] == "write":
+535:    sys.exit(main(sys.argv))

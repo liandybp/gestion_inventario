@@ -1,0 +1,4 @@
+.bumpversion.cfg
+CHANGELOG.md
+CLAUDE.md
+VERSION

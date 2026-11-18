@@ -82,3 +82,8 @@ OpenCode-authored PAE work, especially anything claiming a slice is "verde"/done
   (`/health` showed `agent_llm: degraded` for months because `/models` was called without the key).
 - `.claude/` is not editable by cc_local (permission denials): envelopes touching `.claude/CLAUDE.md` are applied by
   Claude Code.
+- CI runs `tests/snapshots/ui_snapshot.py check` + e2e besides `tests/unit`: any HTML change (even a new form
+  field) needs `ui_snapshot.py write tests/snapshots/baseline` in the same commit, or the deploy job never runs.
+- Business edit form: the single "Nombre" field writes both `Business.name` and `issuer_name` (the name printed
+  on PDFs). `issuer_holder` (TCP) is read from the current business when the PDF is rendered, not snapshotted on
+  the document.

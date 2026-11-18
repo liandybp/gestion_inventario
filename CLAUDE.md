@@ -160,6 +160,34 @@ caducidad FEFO) → P1 → P2 → P3.
 
 ## Estado actual
 
+- [x] **0.5.2 — PDF de facturas y presupuestos con el diseño de la plantilla "OFERTA" (2026-11-18, sesión 26, rama
+      `feature/pdf-documentos-venta-oferta`)** — PAE `specs/pdf-documentos-venta-oferta/` (26 envelopes, todos
+      `Apply: script`; Fases 1-2 en Opus, Fases 3-4 en Sonnet-2). `app/sales_document_pdf.py` reescrito (banda
+      azul, iconos SVG de teléfono y email, `DESTINATARIO:`, bloque documento, `Subtotal:`/`TOTAL:`, tabla con
+      precio unitario y cabecera repetida, pie `FORMA DE PAGO` + `Recibido por`); funciones puras en
+      `app/sales_documents_format.py`. Negocio: `issuer_bank_name/branch/account/account_currency` y
+      `sales_quote_validity_days` (0-365, defecto 15), editables en *Negocios*. Documento: `sales_documents.valid_until`
+      (solo `P`), por defecto emisión + plazo, editable al emitir y al editar, conservada en el borrador del carrito.
+      Fecha inválida → 422 HTML "Fecha de vencimiento inválida" sin tocar nada. Columnas de importe con la moneda del
+      documento (`GEN` → `CUP`). Migraciones idempotentes (SQLite y PostgreSQL). Baselines de snapshots regeneradas en
+      el mismo lote que las plantillas (lección de 0.5.1).
+      - Pendiente tras el despliegue: el usuario rellena en *Negocios → Editar* teléfono, email, banco y plazo de
+        DyB Autopartes (los `.conf` son legacy y no se releen); el PDF lee teléfono, email y banco del negocio al
+        generarse (como el TCP), no del documento emitido.
+      - Fuera de alcance: Marca/Matrícula, plazo de ejecución, lema, número `LOT.`, icono de dirección, opciones de
+        moneda nuevas en el selector del carrito.
+
+- [x] **0.5.1 — cabecera TCP/NIT en facturas y presupuestos (2026-11-18, sesión 25, directo en `develop`)** — campo
+      nuevo `businesses.issuer_holder` (`IssuerConfig.holder`, "Titular (TCP)" en *Negocios → Crear/Editar*; columna
+      añadida de forma idempotente por `_BUSINESS_CONFIG_COLS`). El PDF imprime `TCP: …` y `NIT: …` (antes "ID
+      fiscal") y ya no lleva "(Precios sin IVA)" (tampoco la vista previa ni el panel). `.conf` default/recambios:
+      emisor DyB Autopartes. Referencia de formato: plantilla "OFERTA" del cliente (COMERCIO GEELY). 543 unit, 95 e2e,
+      91 snapshots. Probado en staging y desplegado a prod (`main` `974f3f8`, tag `v0.5.1`).
+      - Ojo: en *Negocios → Editar* el campo "Nombre" escribe `name` **e** `issuer_name` (el nombre del PDF). En
+        prod el negocio se renombra a "DyB Autopartes" desde la web (lo hace el usuario).
+      - El TCP no se guarda en el documento emitido: el PDF lo lee del negocio actual al generarse.
+      - Diferencias con la plantilla de referencia no implementadas (decisión del usuario, no pedidas): título
+        OFERTA, marca/matrícula, fecha de vencimiento, columna unidades, separador de miles, forma de pago/firma.
 - [x] **Copiloto: tool `product_movements` + fechas de "este mes" (2026-11-02, sesión 24, rama
       `feature/copiloto-movimientos-articulo`, entra en 0.5.0)** — movimientos de un artículo (SKU, "SKU - nombre"
       o nombre) en un período (por defecto 3 meses), en todas las ubicaciones o en una: fila de saldo inicial, saldo

@@ -1,0 +1,3 @@
+omitida: suite en verde en 84a27c616ae00332e90298d254fc4106efb0dea4, sin cambios de código desde entonces
+specs/miniloop-pdf-documentos-venta-oferta-loteD-round1/verify/codex-fix.log
+specs/miniloop-pdf-documentos-venta-oferta-loteD-round1/verify/codex-fix.md

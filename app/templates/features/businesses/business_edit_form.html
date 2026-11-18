@@ -97,6 +97,34 @@
           <small class="muted">Ej: +58 212 555-1234</small>
         </div>
 
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-issuer-bank-name">Banco</label>
+            <input type="text" id="edit-issuer-bank-name" name="issuer_bank_name" maxlength="128" autocomplete="off"
+                   value="{{ config.issuer.bank_name }}" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-issuer-bank-branch">Sucursal</label>
+            <input type="text" id="edit-issuer-bank-branch" name="issuer_bank_branch" maxlength="64" autocomplete="off"
+                   value="{{ config.issuer.bank_branch }}" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-issuer-bank-account">Número de cuenta</label>
+            <input type="text" id="edit-issuer-bank-account" name="issuer_bank_account" maxlength="64" autocomplete="off"
+                   value="{{ config.issuer.bank_account }}" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-issuer-bank-account-currency">Moneda de la cuenta</label>
+            <input type="text" id="edit-issuer-bank-account-currency" name="issuer_bank_account_currency" maxlength="8"
+                   autocomplete="off" value="{{ config.issuer.bank_account_currency }}" />
+          </div>
+        </div>
+
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- 3. Moneda [currency]                                    -->
         <!-- ═══════════════════════════════════════════════════════ -->
@@ -182,6 +210,15 @@
             <input type="text" id="edit-sales-quote-label" name="sales_quote_label" autocomplete="off"
                    value="{{ config.sales_documents.quote_label }}" />
             <small class="muted">Ej: Presupuesto, Quote</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-sales-quote-validity-days">Validez de presupuesto (días)</label>
+            <input type="number" id="edit-sales-quote-validity-days" name="sales_quote_validity_days" min="0" max="365"
+                   step="1" value="{{ config.sales_documents.quote_validity_days }}" />
+            <small class="muted">Días entre la emisión y el vencimiento (0-365)</small>
           </div>
         </div>
 

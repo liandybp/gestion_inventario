@@ -1,0 +1,12 @@
+bytes 1394 b'%PDF-'
+DyB Autopartes
+TOTAL: 490,875.00
+Mátricula: B244742 · No. Oferta: P202611180001
+Banco Metropolitano, Sucursal 248 / No. Cuenta (CUP): 0598770024085419
+'DyB Autopartes' True
+'TOTAL:' True
+'490,875.00' True
+'No. Oferta: P202611180001' True
+'Sucursal 248' True
+'0598770024085419' True
+'Mátricula' True
