@@ -2284,7 +2284,7 @@ def test_long_document_label_and_long_address_stay_inside_their_boxes() -> None:
     long_address = "Avenida de los Libertadores esquina a la calle sesenta y cuatro, edificio azul, apartamento 12, Miramar"
     text, _ = _read(build_sales_document_pdf(**_kwargs(doc_label=long_label, issuer_address=long_address)))
 
-    assert long_label.upper() in text
+    assert long_label.upper() in " ".join(text.split())
     assert "Avenida de los Libertadores" in text
     assert "..." in text  # la etiqueta del bloque documento se corta con "..." al llegar a 6 pt
 
