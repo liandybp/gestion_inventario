@@ -359,3 +359,18 @@ desc_alta, lineas60, unidad_larga, direccion_saltos, factura_sin_banco): 0 excep
 `design/sondas/render/stress-*.png`.
 
 **Siguiente paso:** el lote A queda aceptado; se reanuda con `cc_pae_loop … --lots B,C,D`.
+
+## 2.11 Decisión tras el escalado del lote B (2026-11-18, Opus-1, ADR-026)
+
+El lote B escaló tras 5 rondas. Las rondas 1-2 cerraron fallos reales: un vencimiento inválido al editar cerraba el
+modal y descartaba cambios; un `valid_until` enviado como fichero se tomaba como vacío. La ronda 3 añadió la etiqueta
+accesible del campo. A partir de la ronda 3, Codex osciló sobre `sales_doc_preview`: enviar vacío o enviar la fecha
+calculada cuando el usuario deja el vencimiento vacío y la emisión cruza la medianoche UTC.
+
+**Decisión (la del diseño original, §2.1d):** la vista previa envía en el campo oculto **la misma fecha que muestra**
+(lo que se ve es lo que se emite). Si al emitir esa fecha ya no es válida (p. ej., plazo 0 y cambio de día UTC),
+`sales_doc_issue` responde 422 HTML con el panel, el mensaje "Fecha de vencimiento inválida" y el borrador intacto
+para corregirla. El estado de la rama tras la ronda 5 ya cumple esto (suite completa en verde: 543 unit + 97 e2e).
+Una ronda posterior que vuelva a esta zona sin violar esta regla se descarta.
+
+**Siguiente paso:** el lote B queda aceptado; se reanuda con `cc_pae_loop … --lots C,D`.
