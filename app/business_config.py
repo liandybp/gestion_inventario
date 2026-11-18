@@ -16,6 +16,8 @@ from app import settings
 
 class IssuerConfig(BaseModel):
     name: str = "Mi Negocio"
+    # Titular del negocio (TCP); se imprime en la cabecera del PDF.
+    holder: str = ""
     tax_id: str = ""
     address: str = ""
     city: str = ""
@@ -325,6 +327,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
     cfg = BusinessConfig(
         issuer=IssuerConfig(
             name=get("issuer", "name", "Mi Negocio"),
+            holder=get("issuer", "holder", ""),
             tax_id=get("issuer", "tax_id", ""),
             address=get("issuer", "address", ""),
             city=get("issuer", "city", ""),

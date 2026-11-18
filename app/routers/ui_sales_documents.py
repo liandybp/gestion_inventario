@@ -1027,6 +1027,7 @@ def sales_doc_pdf(
             currency_symbol=doc.currency_symbol,
             issuer_name=doc.issuer_name,
             issuer_tax_id=doc.issuer_tax_id,
+            issuer_holder=(config.issuer.holder or None),
             issuer_address=doc.issuer_address,
             client_name=doc.client_name,
             client_id=doc.client_id,

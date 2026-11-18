@@ -39,7 +39,7 @@ Limpiar
 Documento (Factura / Presupuesto)
 </h3>
 <p class="mt-n6 muted">
-Arma un carrito temporal y luego emite el documento. (Precios sin IVA)
+Arma un carrito temporal y luego emite el documento.
 </p>
 <div class="mt-12 sales-doc-grid">
 <div class="card h-full subcard">

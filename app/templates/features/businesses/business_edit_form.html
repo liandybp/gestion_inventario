@@ -35,9 +35,16 @@
         <!-- ═══════════════════════════════════════════════════════ -->
         <div class="form-section-title">Datos del Emisor [issuer]</div>
 
+        <div class="form-group">
+          <label for="edit-issuer-holder">Titular (TCP)</label>
+          <input type="text" id="edit-issuer-holder" name="issuer_holder" autocomplete="off"
+                 value="{{ config.issuer.holder }}" />
+          <small class="muted">Aparece como "TCP: …" en la cabecera de los documentos</small>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label for="edit-issuer-tax-id">Tax ID / RIF</label>
+            <label for="edit-issuer-tax-id">NIT / Tax ID</label>
             <input type="text" id="edit-issuer-tax-id" name="issuer_tax_id" autocomplete="off"
                    value="{{ config.issuer.tax_id }}" />
             <small class="muted">Ej: J-12345678-9</small>

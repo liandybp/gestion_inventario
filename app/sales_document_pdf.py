@@ -27,6 +27,7 @@ def build_sales_document_pdf(
     subtotal: float,
     total: float,
     notes: str | None,
+    issuer_holder: str | None = None,
 ) -> bytes:
     try:
         from fpdf import FPDF  # type: ignore
@@ -44,8 +45,10 @@ def build_sales_document_pdf(
     pdf.cell(0, 7, _safe_pdf_text(issuer_name), ln=1)
 
     pdf.set_font("Helvetica", "", 10)
+    if issuer_holder:
+        pdf.cell(0, 5, _safe_pdf_text(f"TCP: {issuer_holder}"), ln=1)
     if issuer_tax_id:
-        pdf.cell(0, 5, _safe_pdf_text(f"ID fiscal: {issuer_tax_id}"), ln=1)
+        pdf.cell(0, 5, _safe_pdf_text(f"NIT: {issuer_tax_id}"), ln=1)
     if issuer_address:
         pdf.multi_cell(0, 5, _safe_pdf_text(issuer_address))
 
@@ -115,9 +118,6 @@ def build_sales_document_pdf(
     pdf.set_font("Helvetica", "B", 12)
     total_prefix = f"{currency_symbol} " if currency_symbol == "USD" else currency_symbol
     pdf.cell(0, 7, _safe_pdf_text(f"Total: {total_prefix}{total:.2f}"), ln=1, align="R")
-
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 5, _safe_pdf_text("(Precios sin IVA)"), ln=1, align="R")
 
     if notes:
         pdf.ln(4)

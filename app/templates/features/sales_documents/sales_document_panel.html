@@ -1,7 +1,7 @@
 {% from 'components/ui.html' import card, flash %}
 
 {% call card('Documento (Factura / Presupuesto)', id='sales-doc-panel', extra_class='mt-16') %}
-  <p class="muted mt-n6">Arma un carrito temporal y luego emite el documento. (Precios sin IVA)</p>
+  <p class="muted mt-n6">Arma un carrito temporal y luego emite el documento.</p>
 
   {% set draft = draft if draft is defined and draft else {} %}
 
