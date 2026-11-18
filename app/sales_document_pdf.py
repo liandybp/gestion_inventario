@@ -345,7 +345,15 @@ def build_sales_document_pdf(
             "Instala dependencias (pip install -r requirements.txt)."
         ) from e
 
-    pdf = FPDF(format="A4", unit="mm")
+    class SalesDocumentPDF(FPDF):
+        def header(self) -> None:
+            if self.page_no() == 1:
+                return
+            self.set_font("Helvetica", "", 8)
+            self.set_xy(MARGIN, 5.0)
+            self.cell(CONTENT_W, 5.0, _safe_pdf_text(f"Documento: {code}"), align="R")
+
+    pdf = SalesDocumentPDF(format="A4", unit="mm")
     pdf.set_margins(MARGIN, 12.0, MARGIN)
     pdf.set_auto_page_break(False)
     pdf.add_page()

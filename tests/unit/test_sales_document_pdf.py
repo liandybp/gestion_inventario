@@ -232,3 +232,21 @@ def test_long_table_repeats_its_header_and_keeps_the_footer_whole() -> None:
         assert all(label not in text for text in page_texts[:-1]), label
     row_numbers = [int(number) for text in page_texts for number in re.findall(r"Artículo (\d+)\b", text)]
     assert row_numbers == list(range(1, 61))
+
+
+def test_detached_payment_and_signature_page_identifies_the_document() -> None:
+    items = [
+        {"description": f"Artículo {i}", "quantity": 1, "unit_price": 2, "line_total": 2}
+        for i in range(1, 31)
+    ]
+    pdf_bytes = build_sales_document_pdf(**_kwargs(items=items, subtotal=60, total=60))
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        assert len(pdf.pages) == 2
+        first_page, signature_page = (page.extract_text() for page in pdf.pages)
+
+    assert "Artículo 30" in first_page
+    assert "CONCEPTO" not in signature_page
+    assert "Documento: P202611180001" in signature_page
+    assert "FORMA DE PAGO" in signature_page
+    assert "Firma:" in signature_page

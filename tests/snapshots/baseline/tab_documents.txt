@@ -168,10 +168,10 @@ Notas (opcional)
 <input name="notes" value="">
 </div>
 <div class="row">
-<label>
+<label for="sales-doc-issue-valid-until">
 Vencimiento (solo presupuesto)
 </label>
-<input name="valid_until" type="date" value="<D>">
+<input id="sales-doc-issue-valid-until" name="valid_until" type="date" value="<D>">
 </div>
 <div class="flex flex-wrap gap-10 items-center">
 <button hx-include="closest form" hx-post="/ui/sales-doc/preview" hx-swap="innerHTML" hx-target="#sales-doc-preview" type="button">
