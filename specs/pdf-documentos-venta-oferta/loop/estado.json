@@ -2,18 +2,23 @@
   "slug": "pdf-documentos-venta-oferta",
   "tasks": "specs/pdf-documentos-venta-oferta/tasks.md",
   "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
-  "fase": "miniloop",
+  "fase": "escalado",
   "lote_actual": "A",
-  "exit": null,
-  "traspaso": null,
+  "exit": 3,
+  "traspaso": "Proyecto /home/liandy/PyCharmMiscProject/gestion_inventario, rama feature/pdf-documentos-venta-oferta. El miniloop del lote A terminó con exit 3: dos rondas seguidas parchearon la misma zona: es una cuestión de diseño (ADR-026). Es el Lote 0 (camino feliz): devuelve a cc_claude_code, decide si el fallo es de envelopes o de diseño.\nparada por repetición en la ronda 2: app/sales_document_pdf.py::_draw_rows, app/sales_document_pdf.py::build_sales_document_pdf\nver /home/liandy/PyCharmMiscProject/gestion_inventario/specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt\nHistorial en specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt. Al resolverlo, relanza con: cc_pae_loop /home/liandy/PyCharmMiscProject/gestion_inventario specs/pdf-documentos-venta-oferta/tasks.md --lots A,B,C,D",
   "lotes": {
     "A": {
-      "estado": "verde",
+      "estado": "escalado",
       "intento": 1,
       "base": "695ec4beaac988dcab42492321fcc2ad7de71c58",
       "head": null,
       "parada": null,
-      "miniloop": null
+      "miniloop": {
+        "tag": "loteA",
+        "exit": 3,
+        "rondas": 2,
+        "resumen": "specs/pdf-documentos-venta-oferta/miniloop/loteA/resumen.txt"
+      }
     }
   }
 }
