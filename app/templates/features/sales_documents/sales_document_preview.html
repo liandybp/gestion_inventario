@@ -8,6 +8,7 @@
   <div class="grid grid-2 mt-10">
     <div>
       <div><strong>Tipo:</strong> {{ doc_label }}</div>
+      {% if doc_type == 'P' %}<div><strong>Vencimiento:</strong> {{ valid_until_label }}</div>{% endif %}
       <div><strong>Cliente:</strong> {{ client_name }} ({{ client_id }})</div>
       {% if client_address %}<div><strong>Dirección:</strong> {{ client_address }}</div>{% endif %}
       {% if notes %}<div><strong>Notas:</strong> {{ notes }}</div>{% endif %}
@@ -49,6 +50,7 @@
     <input type="hidden" name="client_id" value="{{ client_id }}" />
     <input type="hidden" name="client_address" value="{{ client_address or '' }}" />
     <input type="hidden" name="notes" value="{{ notes or '' }}" />
+    <input type="hidden" name="valid_until" value="{{ valid_until_iso or '' }}" />
     <button type="submit">Emitir ahora</button>
   </form>
 </div>

@@ -252,6 +252,22 @@ def sales_doc_preview(
         valid_until=valid_until,
     )
 
+    try:
+        valid_until_date = resolve_valid_until(
+            valid_until,
+            doc_type=doc_type_norm,
+            issue_date=datetime.now(timezone.utc),
+            validity_days=int(config.sales_documents.quote_validity_days),
+        )
+    except ValueError:
+        _log.info("valid_until rechazado: %r", valid_until)
+        return templates.TemplateResponse(
+            request=request,
+            name="features/sales_documents/_valid_until_error.html",
+            context={},
+            status_code=422,
+        )
+
     cart = _get_cart(request)
     if not cart:
         raise HTTPException(status_code=422, detail="El carrito está vacío")
@@ -275,6 +291,8 @@ def sales_doc_preview(
             "subtotal": subtotal,
             "total": total,
             "currency_code": selected_currency_code,
+            "valid_until_label": format_doc_date(valid_until_date),
+            "valid_until_iso": valid_until_date.isoformat() if valid_until_date else "",
             "currency_symbol": selected_currency_symbol,
         },
     )
@@ -377,6 +395,22 @@ async def sales_doc_update(
     if not client_id:
         raise HTTPException(status_code=422, detail="client_id is required")
 
+    new_valid_until = None
+    if (doc.doc_type or "").strip().upper() == "P":
+        raw_valid_until = form.get("valid_until")
+        try:
+            new_valid_until = resolve_valid_until(
+                raw_valid_until if isinstance(raw_valid_until, str) else "",
+                doc_type="P",
+                issue_date=doc.issue_date,
+                validity_days=int(config.sales_documents.quote_validity_days),
+                on_empty="keep",
+                current=doc.valid_until,
+            )
+        except ValueError:
+            _log.info("valid_until rechazado: %r", raw_valid_until)
+            return _valid_until_error_response(request, db=db, bid=bid, config=config)
+
     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
     doc.customer_id = customer.id
 
@@ -443,6 +477,7 @@ async def sales_doc_update(
     doc.client_id = client_id
     doc.client_address = client_address
     doc.notes = notes
+    doc.valid_until = new_valid_until
     doc.currency_code = (doc.currency_code or config.currency.code)
     doc.currency_symbol = (doc.currency_symbol or config.currency.symbol)
     doc.subtotal = subtotal
