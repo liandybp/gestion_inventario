@@ -360,6 +360,8 @@ def build_sales_document_pdf(
             self.set_font("Helvetica", "", 8)
             self.set_xy(MARGIN, 5.0)
             self.cell(CONTENT_W, 5.0, _safe_pdf_text(f"Documento: {code}"), align="R")
+            # Todo salto de página (manual o automático) empieza el contenido bajo esta línea.
+            self.set_xy(MARGIN, MARGIN)
 
     pdf = SalesDocumentPDF(format="A4", unit="mm")
     pdf.set_margins(MARGIN, 12.0, MARGIN)

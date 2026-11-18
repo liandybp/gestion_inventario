@@ -4,7 +4,7 @@ import hashlib
 import math
 import shutil
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -15,6 +15,7 @@ from jinja2.exceptions import TemplateRuntimeError
 
 from app.settings import DEV_ACTIONS_ENABLED, UPLOAD_MAX_MB
 from app.utils import month_range
+from app.sales_documents_format import default_valid_until as _default_valid_until_date
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -69,12 +70,11 @@ templates.env.globals["static_version"] = _static_asset_version  # callable: se 
 
 
 def default_valid_until(days: object) -> str:
-    """Vencimiento por defecto de un presupuesto: hoy (UTC) + `days` días, en `aaaa-mm-dd`."""
-    try:
-        offset = int(days or 0)
-    except (TypeError, ValueError):
-        offset = 0
-    return (datetime.now(timezone.utc).date() + timedelta(days=offset)).isoformat()
+    """Vencimiento por defecto de un presupuesto para el formulario: hoy (UTC) + plazo, en `aaaa-mm-dd`.
+
+    Misma regla que el servidor (`sales_documents_format.default_valid_until`).
+    """
+    return _default_valid_until_date(datetime.now(timezone.utc).date(), days).isoformat()
 
 
 templates.env.globals["default_valid_until"] = default_valid_until

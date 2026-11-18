@@ -15,6 +15,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.business_config import (
+    parse_validity_days,
     BusinessConfig,
     CurrencyConfig,
     DividendsConfig,
@@ -123,13 +124,7 @@ def get_business_config(db: Session, business_id: Optional[int]) -> BusinessConf
             enabled_types=parse_enabled_types(business.sales_enabled_types or "F,P"),
             invoice_label=(business.sales_invoice_label or "Factura").strip() or "Factura",
             quote_label=(business.sales_quote_label or "Presupuesto").strip() or "Presupuesto",
-            quote_validity_days=max(
-                0,
-                min(
-                    365,
-                    int(business.sales_quote_validity_days if business.sales_quote_validity_days is not None else 15),
-                ),
-            ),
+            quote_validity_days=parse_validity_days(business.sales_quote_validity_days),
         ),
         dividends=DividendsConfig(
             business_label=(business.dividends_business_label or "Negocio").strip() or "Negocio",

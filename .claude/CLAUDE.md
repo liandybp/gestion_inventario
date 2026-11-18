@@ -259,6 +259,16 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 10000
 ## Estado actual del proyecto
 
 ```
+PDF OFERTA:   0.5.2 (rama feature/pdf-documentos-venta-oferta; revisión 5b 4.45 🟢, sin desplegar). `app/sales_document_pdf.py`
+              reescrito con el diseño de la plantilla OFERTA (banda azul, iconos SVG de teléfono/email, tabla con precio
+              unitario, Subtotal/TOTAL, pie FORMA DE PAGO + Recibido por). Funciones puras en `app/sales_documents_format.py`
+              (`default_valid_until`, `resolve_valid_until`); regla del plazo única `parse_validity_days` en
+              `app/business_config.py`. Negocio: `issuer_bank_*` y `sales_quote_validity_days`; documento:
+              `sales_documents.valid_until` (solo P), 422 HTML "Fecha de vencimiento inválida". El borrador del carrito
+              solo guarda un vencimiento elegido por el usuario (la fecha por defecto se recalcula). Contrato del PDF:
+              nunca pierde texto ni lo saca de la página (`design.md` §2.10). Los forms de Negocios y Documentos cambian:
+              regenerar baselines con `ui_snapshot.py write` en el mismo commit. El PDF lee teléfono, email y banco del
+              negocio al generarse (no del documento).
 Fase 5b:      los routers UI no usan el ORM ni resuelven el negocio: todo pasa por `ctx = ui_context(request, db)`
               (`ctx.user`, `ctx.active_business_id`, `ctx.business_id` (409), `ctx.business_code`, `ctx.config`) y
               por repositorios/servicios (`ProductService.resolve_sku/barcode_to_sku`, `InventoryRepository.get_movement`,
@@ -294,7 +304,7 @@ Endpoints:    API JSON: /health, /products CRUD, /movements (purchase/sale/trans
 Config:       BD como fuente única de verdad (Business +22 columnas + Location role/pos),
               .conf legacy (backfill schema v4) — ver CLAUDE.md raíz
 Migraciones:  inline en migrations.py (schema v8: sync_state + device_tokens + paid_by_transfer)
-Versión:      0.4.14 (ver VERSION) — 0.4.11 a 0.4.14 desplegadas en dev y producción (main,
+Versión:      0.5.2 (ver VERSION; 0.5.1 es la última en producción) — histórico: 0.4.11 a 0.4.14 desplegadas en dev y producción (main,
               laptop-server, gestion.legatumbp.com) el 2026-10-11.
               0.4.14: el coach ya no trata las extracciones a "Negocio" como retiros y la alerta
               "drena caja" (partner_overdrawn) usa el pendiente acumulado por socio de dividendos;

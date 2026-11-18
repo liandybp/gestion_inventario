@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
-from app.sales_documents_format import INVALID_VALID_UNTIL, format_doc_date, resolve_valid_until
+from app.sales_documents_format import (
+    INVALID_VALID_UNTIL,
+    default_valid_until,
+    format_doc_date,
+    resolve_valid_until,
+)
 from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
 
@@ -131,6 +136,20 @@ def _get_draft(request: Request) -> dict:
     }
 
 
+def _draft_valid_until(raw: Optional[str], *, doc_type: str, config) -> Optional[str]:
+    """Vencimiento que guarda el borrador: solo el que eligió el usuario en un presupuesto.
+
+    La fecha por defecto (hoy UTC + plazo) no se guarda: así el formulario la recalcula en cada render y no se queda
+    congelada si cambia el plazo del negocio o pasa el día. En una factura no se guarda nada.
+    """
+    text = (raw or "").strip()
+    if doc_type != "P" or not text:
+        return None
+    if text == default_valid_until(datetime.now(timezone.utc).date(), config.sales_documents.quote_validity_days).isoformat():
+        return None
+    return text
+
+
 def _set_draft(
     request: Request,
     *,
@@ -184,6 +203,17 @@ def _location_id_for_code(db: Session, *, location_code: str, business_id: int) 
         return repo.location_id_for_code(code, auto_create=True)
     except HTTPException:
         return None
+def _valid_until_error_fragment(request: Request, headers: Optional[dict[str, str]] = None) -> HTMLResponse:
+    """Fragmento 422 HTML con el error de vencimiento (vista previa y modal de edición)."""
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/_valid_until_error.html",
+        context={"message": INVALID_VALID_UNTIL},
+        status_code=422,
+        headers=headers,
+    )
+
+
 def _valid_until_error_response(request: Request, *, db: Session, bid: int, config) -> HTMLResponse:
     """Panel de documentos con el error de vencimiento (422 HTML: htmx solo hace swap de 4xx `text/html`)."""
     return templates.TemplateResponse(
@@ -249,7 +279,7 @@ def sales_doc_preview(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
-        valid_until=valid_until,
+        valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
     )
 
     try:
@@ -261,12 +291,7 @@ def sales_doc_preview(
         )
     except ValueError:
         _log.info("valid_until rechazado: %r", valid_until)
-        return templates.TemplateResponse(
-            request=request,
-            name="features/sales_documents/_valid_until_error.html",
-            context={},
-            status_code=422,
-        )
+        return _valid_until_error_fragment(request)
 
     cart = _get_cart(request)
     if not cart:
@@ -411,11 +436,8 @@ async def sales_doc_update(
             )
         except ValueError:
             _log.info("valid_until rechazado: %r", raw_valid_until)
-            return templates.TemplateResponse(
-                request=request,
-                name="features/sales_documents/_valid_until_error.html",
-                context={},
-                status_code=422,
+            return _valid_until_error_fragment(
+                request,
                 headers={
                     "HX-Retarget": "#sales-doc-edit-valid-until-error",
                     "HX-Reswap": "innerHTML",
@@ -624,7 +646,7 @@ def sales_doc_cart_add(
             client_id=client_id,
             client_address=client_address,
             notes=notes,
-            valid_until=valid_until,
+            valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
         )
 
         sku = extract_sku(product)
@@ -779,7 +801,7 @@ def sales_doc_cart_update(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
-        valid_until=valid_until,
+        valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
     )
 
     cart = _get_cart(request)
@@ -859,7 +881,7 @@ def sales_doc_cart_remove(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
-        valid_until=valid_until,
+        valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
     )
 
     cart = _get_cart(request)
@@ -923,7 +945,7 @@ def sales_doc_cart_clear(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
-        valid_until=valid_until,
+        valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
     )
 
     _clear_cart(request)
@@ -1005,7 +1027,7 @@ def sales_doc_issue(
             client_id=client_id,
             client_address=client_address,
             notes=notes,
-            valid_until=valid_until,
+            valid_until=_draft_valid_until(valid_until, doc_type=doc_type_norm, config=config),
         )
         return _valid_until_error_response(request, db=db, bid=bid, config=config)
 

@@ -915,6 +915,10 @@ def _backfill_business_config() -> None:
                 business.issuer_country = config.issuer.country
                 business.issuer_email = config.issuer.email
                 business.issuer_phone = config.issuer.phone
+                business.issuer_bank_name = config.issuer.bank_name
+                business.issuer_bank_branch = config.issuer.bank_branch
+                business.issuer_bank_account = config.issuer.bank_account
+                business.issuer_bank_account_currency = config.issuer.bank_account_currency
                 business.currency_code = config.currency.code
                 business.currency_symbol = config.currency.symbol
                 business.purchase_invoice_source_currency = config.purchase.invoice_source_currency
@@ -924,6 +928,7 @@ def _backfill_business_config() -> None:
                 business.sales_enabled_types = ",".join(config.sales_documents.enabled_types)
                 business.sales_invoice_label = config.sales_documents.invoice_label
                 business.sales_quote_label = config.sales_documents.quote_label
+                business.sales_quote_validity_days = config.sales_documents.quote_validity_days
                 business.dividends_business_label = config.dividends.business_label
                 business.dividends_partners = ",".join(config.dividends.partners)
                 business.dividends_opening_pending = json.dumps(config.dividends.opening_pending)

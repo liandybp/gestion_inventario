@@ -117,6 +117,22 @@ _cached_configs: Dict[str, Tuple[BusinessConfig, str, float]] = {}
 _APP_DIR = Path(__file__).resolve().parent
 
 
+DEFAULT_QUOTE_VALIDITY_DAYS = 15
+
+
+def parse_validity_days(value: object, fallback: int = DEFAULT_QUOTE_VALIDITY_DAYS) -> int:
+    """Plazo de validez de un presupuesto en días: entero acotado a 0-365.
+
+    `None`, vacío o no numérico devuelve `fallback` (también acotado). Única regla del plazo: la usan el `.conf`,
+    el repositorio de negocios, los formularios de *Negocios* y la fecha por defecto del formulario de emisión.
+    """
+    try:
+        days = int(str(value).strip()) if value is not None and str(value).strip() else int(fallback)
+    except (TypeError, ValueError):
+        days = int(fallback)
+    return max(0, min(365, days))
+
+
 def parse_partners(raw: str) -> list[str]:
     """Divide una lista de socios separada por comas en strings limpios."""
     parts = [p.strip() for p in (raw or "").split(",")]
@@ -331,11 +347,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
         # negocio sin POS: un default_pos sobrante del .conf no debe sobrevivir
         default_pos = ""
 
-    try:
-        quote_validity_days = int(get("sales_documents", "quote_validity_days", "15"))
-    except ValueError:
-        quote_validity_days = 15
-    quote_validity_days = max(0, min(365, quote_validity_days))
+    quote_validity_days = parse_validity_days(get("sales_documents", "quote_validity_days", ""))
     cfg = BusinessConfig(
         issuer=IssuerConfig(
             name=get("issuer", "name", "Mi Negocio"),

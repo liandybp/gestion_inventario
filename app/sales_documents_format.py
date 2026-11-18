@@ -10,6 +10,8 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Literal, Optional
 
+from app.business_config import parse_validity_days
+
 INVALID_VALID_UNTIL = "Fecha de vencimiento inválida"
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -41,6 +43,11 @@ def format_doc_date(value: Optional[date | datetime]) -> str:
     return value.strftime("%d/%m/%Y")
 
 
+def default_valid_until(issue_date: date, validity_days: object) -> date:
+    """Vencimiento por defecto: fecha de emisión + plazo de validez (acotado a 0-365 por `parse_validity_days`)."""
+    return issue_date + timedelta(days=parse_validity_days(validity_days))
+
+
 def resolve_valid_until(
     raw: Optional[str],
     *,
@@ -64,7 +71,7 @@ def resolve_valid_until(
     if not text:
         if on_empty == "keep":
             return current
-        return issued_on + timedelta(days=int(validity_days))
+        return default_valid_until(issued_on, validity_days)
     if not _ISO_DATE.match(text):
         raise ValueError(INVALID_VALID_UNTIL)
     try:
