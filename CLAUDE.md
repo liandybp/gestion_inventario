@@ -160,6 +160,17 @@ caducidad FEFO) → P1 → P2 → P3.
 
 ## Estado actual
 
+- [x] **0.5.1 — cabecera TCP/NIT en facturas y presupuestos (2026-11-18, sesión 25, directo en `develop`)** — campo
+      nuevo `businesses.issuer_holder` (`IssuerConfig.holder`, "Titular (TCP)" en *Negocios → Crear/Editar*; columna
+      añadida de forma idempotente por `_BUSINESS_CONFIG_COLS`). El PDF imprime `TCP: …` y `NIT: …` (antes "ID
+      fiscal") y ya no lleva "(Precios sin IVA)" (tampoco la vista previa ni el panel). `.conf` default/recambios:
+      emisor DyB Autopartes. Referencia de formato: plantilla "OFERTA" del cliente (COMERCIO GEELY). 543 unit, 95 e2e,
+      91 snapshots. Probado en staging y desplegado a prod (`main` `974f3f8`, tag `v0.5.1`).
+      - Ojo: en *Negocios → Editar* el campo "Nombre" escribe `name` **e** `issuer_name` (el nombre del PDF). En
+        prod el negocio se renombra a "DyB Autopartes" desde la web (lo hace el usuario).
+      - El TCP no se guarda en el documento emitido: el PDF lo lee del negocio actual al generarse.
+      - Diferencias con la plantilla de referencia no implementadas (decisión del usuario, no pedidas): título
+        OFERTA, marca/matrícula, fecha de vencimiento, columna unidades, separador de miles, forma de pago/firma.
 - [x] **Copiloto: tool `product_movements` + fechas de "este mes" (2026-11-02, sesión 24, rama
       `feature/copiloto-movimientos-articulo`, entra en 0.5.0)** — movimientos de un artículo (SKU, "SKU - nombre"
       o nombre) en un período (por defecto 3 meses), en todas las ubicaciones o en una: fila de saldo inicial, saldo
