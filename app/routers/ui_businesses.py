@@ -55,6 +55,14 @@ def _parse_optional_float(value) -> float | None:
         return None
 
 
+def _parse_validity_days(value, fallback: int = 15) -> int:
+    """Plazo de validez en días: entero acotado a 0-365. Un texto no numérico devuelve `fallback`."""
+    try:
+        days = int((value or "").strip())
+    except ValueError:
+        return fallback
+    return max(0, min(365, days))
+
 def _parse_spec_of(raw, fb_code, fb_name) -> tuple[str, str]:
     s = (raw or "").strip()
     if not s:
@@ -132,6 +140,10 @@ def business_create(
     issuer_country: str = Form(""),
     issuer_email: str = Form(""),
     issuer_phone: str = Form(""),
+    issuer_bank_name: str = Form(""),
+    issuer_bank_branch: str = Form(""),
+    issuer_bank_account: str = Form(""),
+    issuer_bank_account_currency: str = Form(""),
     # ── currency ────────────────────────────────────────────────
     currency_code: str = Form("USD"),
     currency_symbol: str = Form("$"),
@@ -144,6 +156,7 @@ def business_create(
     sales_enabled_types: str = Form("F,P"),
     sales_invoice_label: str = Form("Factura"),
     sales_quote_label: str = Form("Presupuesto"),
+    sales_quote_validity_days: str = Form(""),
     # ── dividends ───────────────────────────────────────────────
     dividends_business_label: str = Form("Negocio"),
     dividends_partners: str = Form(""),
@@ -238,6 +251,10 @@ def business_create(
     new_business.issuer_country = _s(issuer_country)
     new_business.issuer_email = _s(issuer_email)
     new_business.issuer_phone = _s(issuer_phone)
+    new_business.issuer_bank_name = _s(issuer_bank_name)[:128]
+    new_business.issuer_bank_branch = _s(issuer_bank_branch)[:64]
+    new_business.issuer_bank_account = _s(issuer_bank_account)[:64]
+    new_business.issuer_bank_account_currency = _s(issuer_bank_account_currency)[:8]
     new_business.currency_code = _s(currency_code, "USD")
     new_business.currency_symbol = _s(currency_symbol, "$")
     new_business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
@@ -247,6 +264,7 @@ def business_create(
     new_business.sales_enabled_types = _s(sales_enabled_types, "F,P")
     new_business.sales_invoice_label = _s(sales_invoice_label, "Factura")
     new_business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    new_business.sales_quote_validity_days = _parse_validity_days(_s(sales_quote_validity_days), 15)
     new_business.dividends_business_label = _s(dividends_business_label, "Negocio")
     new_business.dividends_partners = _s(dividends_partners)
     new_business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))
@@ -340,6 +358,10 @@ def business_update(
     issuer_country: str = Form(""),
     issuer_email: str = Form(""),
     issuer_phone: str = Form(""),
+    issuer_bank_name: str = Form(""),
+    issuer_bank_branch: str = Form(""),
+    issuer_bank_account: str = Form(""),
+    issuer_bank_account_currency: str = Form(""),
     # ── currency ────────────────────────────────────────────────
     currency_code: str = Form("USD"),
     currency_symbol: str = Form("$"),
@@ -352,6 +374,7 @@ def business_update(
     sales_enabled_types: str = Form("F,P"),
     sales_invoice_label: str = Form("Factura"),
     sales_quote_label: str = Form("Presupuesto"),
+    sales_quote_validity_days: str = Form(""),
     # ── dividends ───────────────────────────────────────────────
     dividends_business_label: str = Form("Negocio"),
     dividends_partners: str = Form(""),
@@ -415,6 +438,10 @@ def business_update(
     business.issuer_country = _s(issuer_country)
     business.issuer_email = _s(issuer_email)
     business.issuer_phone = _s(issuer_phone)
+    business.issuer_bank_name = _s(issuer_bank_name)[:128]
+    business.issuer_bank_branch = _s(issuer_bank_branch)[:64]
+    business.issuer_bank_account = _s(issuer_bank_account)[:64]
+    business.issuer_bank_account_currency = _s(issuer_bank_account_currency)[:8]
     business.currency_code = _s(currency_code, "USD")
     business.currency_symbol = _s(currency_symbol, "$")
     business.purchase_invoice_source_currency = _s(purchase_source_currency, "EUR")
@@ -424,6 +451,8 @@ def business_update(
     business.sales_enabled_types = _s(sales_enabled_types, "F,P")
     business.sales_invoice_label = _s(sales_invoice_label, "Factura")
     business.sales_quote_label = _s(sales_quote_label, "Presupuesto")
+    current_validity_days = business.sales_quote_validity_days if business.sales_quote_validity_days is not None else 15
+    business.sales_quote_validity_days = _parse_validity_days(_s(sales_quote_validity_days), int(current_validity_days))
     business.dividends_business_label = _s(dividends_business_label, "Negocio")
     business.dividends_partners = _s(dividends_partners)
     business.dividends_opening_pending = json.dumps(parse_opening_pending(_s(dividends_opening_pending)))

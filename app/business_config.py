@@ -25,6 +25,11 @@ class IssuerConfig(BaseModel):
     country: str = ""
     email: str = ""
     phone: str = ""
+    # Datos bancarios del negocio (bloque "Forma de pago" del PDF).
+    bank_name: str = ""
+    bank_branch: str = ""
+    bank_account: str = ""
+    bank_account_currency: str = ""
 
 
 class CurrencyConfig(BaseModel):
@@ -37,6 +42,8 @@ class SalesDocumentsConfig(BaseModel):
     enabled_types: List[Literal["F", "P"]] = Field(default_factory=lambda: ["F", "P"])
     invoice_label: str = "Factura"
     quote_label: str = "Presupuesto"
+    # Plazo de validez por defecto de un presupuesto, en días.
+    quote_validity_days: int = 15
 
 
 class DividendsConfig(BaseModel):
@@ -335,6 +342,10 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             country=get("issuer", "country", ""),
             email=get("issuer", "email", ""),
             phone=get("issuer", "phone", ""),
+            bank_name=get("issuer", "bank_name", ""),
+            bank_branch=get("issuer", "bank_branch", ""),
+            bank_account=get("issuer", "bank_account", ""),
+            bank_account_currency=get("issuer", "bank_account_currency", ""),
         ),
         currency=CurrencyConfig(
             code=get("currency", "code", "EUR"),
@@ -345,6 +356,7 @@ def load_business_config(business_code: Optional[str] = None) -> BusinessConfig:
             enabled_types=parse_enabled_types(get("sales_documents", "enabled_types", "F,P")),
             invoice_label=get("sales_documents", "invoice_label", "Factura"),
             quote_label=get("sales_documents", "quote_label", "Presupuesto"),
+            quote_validity_days=get("sales_documents", "quote_validity_days", "15"),
         ),
         dividends=DividendsConfig(
             business_label=get("dividends", "business_label", "Negocio"),

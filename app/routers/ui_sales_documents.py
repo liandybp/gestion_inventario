@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.deps import session_dep
 from app.models import Customer, SalesDocument, SalesDocumentItem
 from app.sales_document_pdf import build_sales_document_pdf
+from app.sales_documents_format import INVALID_VALID_UNTIL, format_doc_date, resolve_valid_until
 from app.services.product_service import ProductService, extract_sku
 from app.services.sales_document_service import SalesDocumentService
 
@@ -126,6 +127,7 @@ def _get_draft(request: Request) -> dict:
         "client_id": str(draft.get("client_id") or "").strip() or None,
         "client_address": str(draft.get("client_address") or "").strip() or None,
         "notes": str(draft.get("notes") or "").strip() or None,
+        "valid_until": str(draft.get("valid_until") or "").strip() or None,
     }
 
 
@@ -140,6 +142,7 @@ def _set_draft(
     client_id: Optional[str] = None,
     client_address: Optional[str] = None,
     notes: Optional[str] = None,
+    valid_until: Optional[str] = None,
 ) -> None:
     try:
         request.session["sales_doc_draft"] = {
@@ -151,6 +154,7 @@ def _set_draft(
             "client_id": (client_id or "").strip() or None,
             "client_address": (client_address or "").strip() or None,
             "notes": (notes or "").strip() or None,
+            "valid_until": (valid_until or "").strip() or None,
         }
     except Exception:
         _log.debug("set_draft fallback")
@@ -180,6 +184,27 @@ def _location_id_for_code(db: Session, *, location_code: str, business_id: int) 
         return repo.location_id_for_code(code, auto_create=True)
     except HTTPException:
         return None
+def _valid_until_error_response(request: Request, *, db: Session, bid: int, config) -> HTMLResponse:
+    """Panel de documentos con el error de vencimiento (422 HTML: htmx solo hace swap de 4xx `text/html`)."""
+    return templates.TemplateResponse(
+        request=request,
+        name="features/sales_documents/sales_document_panel.html",
+        context={
+            "sales_doc_config": config.sales_documents.model_dump(),
+            "currency": config.currency.model_dump(),
+            "issuer": config.issuer.model_dump(),
+            "pos_locations": config.locations.all_locations(),
+            "default_doc_location_code": config.locations.default_sale_code(),
+            "cart": _get_cart(request),
+            "recent_documents": _recent_documents(db, limit=10, business_id=bid),
+            "customers": _customers_list(db, business_id=bid, limit=200),
+            "draft": _get_draft(request),
+            "message": INVALID_VALID_UNTIL,
+            "message_class": "error",
+        },
+        status_code=422,
+    )
+
 @router.post("/sales-doc/preview", response_class=HTMLResponse)
 def sales_doc_preview(
     request: Request,
@@ -190,6 +215,7 @@ def sales_doc_preview(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -223,6 +249,7 @@ def sales_doc_preview(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
+        valid_until=valid_until,
     )
 
     cart = _get_cart(request)
@@ -523,6 +550,7 @@ def sales_doc_cart_add(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -549,6 +577,7 @@ def sales_doc_cart_add(
             client_id=client_id,
             client_address=client_address,
             notes=notes,
+            valid_until=valid_until,
         )
 
         sku = extract_sku(product)
@@ -679,6 +708,7 @@ def sales_doc_cart_update(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -702,6 +732,7 @@ def sales_doc_cart_update(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
+        valid_until=valid_until,
     )
 
     cart = _get_cart(request)
@@ -757,6 +788,7 @@ def sales_doc_cart_remove(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -780,6 +812,7 @@ def sales_doc_cart_remove(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
+        valid_until=valid_until,
     )
 
     cart = _get_cart(request)
@@ -819,6 +852,7 @@ def sales_doc_cart_clear(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -842,6 +876,7 @@ def sales_doc_cart_clear(
         client_id=client_id,
         client_address=client_address,
         notes=notes,
+        valid_until=valid_until,
     )
 
     _clear_cart(request)
@@ -877,6 +912,7 @@ def sales_doc_issue(
     client_address: str = Form(""),
     notes: str = Form(""),
     currency_code: str = Form(""),
+    valid_until: str = Form(""),
     db: Session = Depends(session_dep),
 ) -> HTMLResponse:
     ctx = ui_context(request, db)
@@ -902,13 +938,36 @@ def sales_doc_issue(
     if not client_id:
         raise HTTPException(status_code=422, detail="client_id is required")
 
+    now = datetime.now(timezone.utc)
+    try:
+        valid_until_date = resolve_valid_until(
+            valid_until,
+            doc_type=doc_type_norm,
+            issue_date=now,
+            validity_days=int(config.sales_documents.quote_validity_days),
+        )
+    except ValueError:
+        _log.info("valid_until rechazado: %r", valid_until)
+        _set_draft(
+            request,
+            doc_type=doc_type_norm,
+            location_code=selected_location_code,
+            currency_code=selected_currency_code,
+            currency_symbol=selected_currency_symbol,
+            client_name=client_name,
+            client_id=client_id,
+            client_address=client_address,
+            notes=notes,
+            valid_until=valid_until,
+        )
+        return _valid_until_error_response(request, db=db, bid=bid, config=config)
+
     customer = _upsert_customer(db, client_id=client_id, name=client_name, address=client_address, business_id=bid)
 
     cart = _get_cart(request)
     if not cart:
         raise HTTPException(status_code=422, detail="El carrito está vacío")
 
-    now = datetime.now(timezone.utc)
     year_month = now.strftime("%Y%m")
     yyyymmdd = now.strftime("%Y%m%d")
 
@@ -956,6 +1015,7 @@ def sales_doc_issue(
         seq=seq,
         code=code,
         issue_date=now,
+        valid_until=valid_until_date,
         issuer_name=config.issuer.name,
         issuer_tax_id=config.issuer.tax_id or None,
         issuer_address=issuer_address,
@@ -1021,20 +1081,29 @@ def sales_doc_pdf(
 
     try:
         pdf_bytes = build_sales_document_pdf(
+            doc_type=(doc.doc_type or "").upper(),
             doc_label=doc_label,
             code=doc.code,
             issue_date=doc.issue_date,
-            currency_symbol=doc.currency_symbol,
+            valid_until=doc.valid_until,
+            currency_code=doc.currency_code,
             issuer_name=doc.issuer_name,
-            issuer_tax_id=doc.issuer_tax_id,
             issuer_holder=(config.issuer.holder or None),
+            issuer_tax_id=doc.issuer_tax_id,
             issuer_address=doc.issuer_address,
+            issuer_phone=(config.issuer.phone or None),
+            issuer_email=(config.issuer.email or None),
+            bank_name=(config.issuer.bank_name or None),
+            bank_branch=(config.issuer.bank_branch or None),
+            bank_account=(config.issuer.bank_account or None),
+            bank_account_currency=(config.issuer.bank_account_currency or None),
             client_name=doc.client_name,
             client_id=doc.client_id,
             client_address=doc.client_address,
             items=[
                 {
                     "description": i.description,
+                    "unit_of_measure": i.unit_of_measure,
                     "quantity": i.quantity,
                     "unit_price": i.unit_price,
                     "line_total": i.line_total,

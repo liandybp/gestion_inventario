@@ -102,6 +102,33 @@
         <small class="muted">Ej: +58 212 555-1234</small>
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label for="new-issuer-bank-name">Banco</label>
+          <input type="text" id="new-issuer-bank-name" name="issuer_bank_name" maxlength="128" autocomplete="off"
+                 placeholder="Banco Metropolitano" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-issuer-bank-branch">Sucursal</label>
+          <input type="text" id="new-issuer-bank-branch" name="issuer_bank_branch" maxlength="64" autocomplete="off"
+                 placeholder="248" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="new-issuer-bank-account">Número de cuenta</label>
+          <input type="text" id="new-issuer-bank-account" name="issuer_bank_account" maxlength="64" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-issuer-bank-account-currency">Moneda de la cuenta</label>
+          <input type="text" id="new-issuer-bank-account-currency" name="issuer_bank_account_currency" maxlength="8"
+                 autocomplete="off" placeholder="CUP" />
+        </div>
+      </div>
+
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <!-- 3. Moneda [currency]                                             -->
       <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -187,6 +214,15 @@
           <input type="text" id="new-sales-quote-label" name="sales_quote_label" autocomplete="off"
                  value="Presupuesto" />
           <small class="muted">Ej: Presupuesto, Quote</small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="new-sales-quote-validity-days">Validez de presupuesto (días)</label>
+          <input type="number" id="new-sales-quote-validity-days" name="sales_quote_validity_days" min="0" max="365"
+                 step="1" value="15" />
+          <small class="muted">Días entre la emisión y el vencimiento (0-365)</small>
         </div>
       </div>
 

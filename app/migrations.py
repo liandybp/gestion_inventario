@@ -65,6 +65,11 @@ _BUSINESS_CONFIG_COLS = [
     ("dividends_opening_pending", "TEXT"),
     ("dividends_opening_pending_as_of", "VARCHAR(32)"),
     ("inventory_replenishment_lead_time_days", "NUMERIC(10,2) DEFAULT 25"),
+    ("issuer_bank_name", "VARCHAR(128)"),
+    ("issuer_bank_branch", "VARCHAR(64)"),
+    ("issuer_bank_account", "VARCHAR(64)"),
+    ("issuer_bank_account_currency", "VARCHAR(8)"),
+    ("sales_quote_validity_days", "INTEGER DEFAULT 15"),
 ]
 _LOCATION_COLS = [
     ("role", "VARCHAR(16)"),
@@ -244,6 +249,11 @@ def _run_sqlite_schema_migrations() -> int:
             )
             conn.exec_driver_sql(
                 "CREATE INDEX IF NOT EXISTS ix_sales_documents_location_id ON sales_documents(location_id)"
+            )
+
+        if "valid_until" not in sales_doc_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE sales_documents ADD COLUMN valid_until DATE"
             )
 
         mv_cols = {
@@ -474,6 +484,15 @@ def _run_postgresql_schema_migrations() -> int:
         except SQLAlchemyError as e:
             raise RuntimeError(
                 "No se pudo crear la columna location_id en sales_documents."
+            ) from e
+
+        try:
+            conn.exec_driver_sql(
+                "ALTER TABLE sales_documents ADD COLUMN IF NOT EXISTS valid_until DATE"
+            )
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                "No se pudo crear la columna valid_until en sales_documents."
             ) from e
 
         try:

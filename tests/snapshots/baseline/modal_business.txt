@@ -114,6 +114,34 @@ Teléfono
 Ej: +58 212 555-1234
 </small>
 </div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-issuer-bank-name">
+Banco
+</label>
+<input autocomplete="off" id="edit-issuer-bank-name" maxlength="128" name="issuer_bank_name" type="text" value="">
+</div>
+<div class="form-group">
+<label for="edit-issuer-bank-branch">
+Sucursal
+</label>
+<input autocomplete="off" id="edit-issuer-bank-branch" maxlength="64" name="issuer_bank_branch" type="text" value="">
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-issuer-bank-account">
+Número de cuenta
+</label>
+<input autocomplete="off" id="edit-issuer-bank-account" maxlength="64" name="issuer_bank_account" type="text" value="">
+</div>
+<div class="form-group">
+<label for="edit-issuer-bank-account-currency">
+Moneda de la cuenta
+</label>
+<input autocomplete="off" id="edit-issuer-bank-account-currency" maxlength="8" name="issuer_bank_account_currency" type="text" value="">
+</div>
+</div>
 <div class="form-section-title">
 Moneda [currency]
 </div>
@@ -216,6 +244,17 @@ Label Presupuesto
 <input autocomplete="off" id="edit-sales-quote-label" name="sales_quote_label" type="text" value="Presupuesto">
 <small class="muted">
 Ej: Presupuesto, Quote
+</small>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="edit-sales-quote-validity-days">
+Validez de presupuesto (días)
+</label>
+<input id="edit-sales-quote-validity-days" max="365" min="0" name="sales_quote_validity_days" step="1" type="number" value="15">
+<small class="muted">
+Días entre la emisión y el vencimiento (0-365)
 </small>
 </div>
 </div>

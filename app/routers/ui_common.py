@@ -4,7 +4,7 @@ import hashlib
 import math
 import shutil
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -66,6 +66,18 @@ def _static_asset_version(static_dir: Path | None = None) -> str:
 
 
 templates.env.globals["static_version"] = _static_asset_version  # callable: se invoca en cada render
+
+
+def default_valid_until(days: object) -> str:
+    """Vencimiento por defecto de un presupuesto: hoy (UTC) + `days` días, en `aaaa-mm-dd`."""
+    try:
+        offset = int(days or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    return (datetime.now(timezone.utc).date() + timedelta(days=offset)).isoformat()
+
+
+templates.env.globals["default_valid_until"] = default_valid_until
 
 
 def _template_error(message: str) -> str:

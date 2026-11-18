@@ -100,6 +100,10 @@ def get_business_config(db: Session, business_id: Optional[int]) -> BusinessConf
             country=business.issuer_country or "",
             email=business.issuer_email or "",
             phone=business.issuer_phone or "",
+            bank_name=business.issuer_bank_name or "",
+            bank_branch=business.issuer_bank_branch or "",
+            bank_account=business.issuer_bank_account or "",
+            bank_account_currency=business.issuer_bank_account_currency or "",
         ),
         currency=CurrencyConfig(
             code=(business.currency_code or "EUR").strip() or "EUR",
@@ -119,6 +123,13 @@ def get_business_config(db: Session, business_id: Optional[int]) -> BusinessConf
             enabled_types=parse_enabled_types(business.sales_enabled_types or "F,P"),
             invoice_label=(business.sales_invoice_label or "Factura").strip() or "Factura",
             quote_label=(business.sales_quote_label or "Presupuesto").strip() or "Presupuesto",
+            quote_validity_days=max(
+                0,
+                min(
+                    365,
+                    int(business.sales_quote_validity_days if business.sales_quote_validity_days is not None else 15),
+                ),
+            ),
         ),
         dividends=DividendsConfig(
             business_label=(business.dividends_business_label or "Negocio").strip() or "Negocio",
